@@ -31,7 +31,17 @@ const fixture = (outcome: Parameters<typeof startDeviceAuthServer>[0] = "pending
       Effect.sync(directory.cleanup),
     );
     writeUserDefaultRegistry(home.path, auth.url);
-    return { auth, env: { HOME: home.path, AXM_USER_HOME: home.path } };
+    return {
+      auth,
+      env: {
+        HOME: home.path,
+        AXM_USER_HOME: home.path,
+        // Select the restricted-file backend: a temporary home does not isolate
+        // OS keychain entries when a later fixture reuses a loopback port.
+        SSH_TTY: "/dev/axm-e2e",
+        AXM_TOKEN: undefined,
+      },
+    };
   });
 
 describe("axm login", () => {

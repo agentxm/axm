@@ -355,7 +355,11 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/adopt/declares-authored-package-in-place",
+        "cli/adopt/moves-package-into-workspace-authorship",
+        "cli/adopt/preview-is-pure"
+      ],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -1267,7 +1271,11 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/fork/refuses-ambiguous-or-conflicting-packages",
+        "cli/fork/creates-distinct-workspace-package",
+        "cli/fork/preview-is-pure"
+      ],
       "conditionalLinks": [
         {
           "requirement": "cli/relative-paths-start-in-selected-directory",
@@ -6001,7 +6009,11 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/packs/add/selects-members-without-ambiguity",
+        "cli/packs/add/records-member-as-pack-dependency",
+        "cli/packs/add/preview-is-pure"
+      ],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -6615,7 +6627,10 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/packs/remove/removes-only-selected-dependencies",
+        "cli/packs/remove/preview-is-pure"
+      ],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -8147,7 +8162,12 @@
         }
       ],
       "arguments": [],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/setup/initializes-selected-workspace",
+        "cli/setup/rerun-preserves-existing-configuration",
+        "cli/setup/reports-native-output-concerns",
+        "cli/setup/preview-is-pure"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope", "flag:agent"],
@@ -11105,7 +11125,10 @@
       ],
       "relatedRequirements": [
         "cli/version/machine-result-identifies-manifest-change",
-        "cli/version/accepts-rule-or-exact-version"
+        "cli/version/accepts-rule-or-exact-version",
+        "cli/version/refuses-invalid-or-unowned-targets",
+        "cli/version/changes-only-the-authored-manifest-version",
+        "cli/version/preview-is-pure"
       ],
       "parameterBindings": [
         {
@@ -11438,6 +11461,850 @@
           "parameters": ["flag:registry"],
           "requirements": ["cli/settings-select-default-registry"],
           "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
+        }
+      ]
+    },
+    "check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "type",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path", "flag:type"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "skills check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "subagents check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "mcps check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "rules check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "hooks check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "knowledge check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
+        }
+      ]
+    },
+    "packs check": {
+      "flags": [
+        {
+          "name": "path",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "checks",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "strict",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/invalid-workspace-state-gates-operations",
+        "cli/check/includes-required-contributors",
+        "cli/check/verdict-requires-complete-selected-evidence",
+        "cli/check/local-materialization-does-not-acquire",
+        "cli/check/is-local-and-read-only"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:all", "flag:path"],
+          "requirements": ["cli/check/selection-is-explicit"]
+        },
+        {
+          "parameters": ["flag:checks"],
+          "requirements": ["cli/check/selects-explicit-assessments"]
+        },
+        {
+          "parameters": ["flag:strict"],
+          "requirements": ["cli/check/verdict-requires-complete-selected-evidence"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     }

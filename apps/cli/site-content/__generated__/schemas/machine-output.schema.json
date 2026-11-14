@@ -27,6 +27,7 @@
     { "$ref": "#/$defs/family.mcp-inventory" },
     { "$ref": "#/$defs/family.local-inspection" },
     { "$ref": "#/$defs/family.subagent-show" },
+    { "$ref": "#/$defs/family.local-check" },
     { "$ref": "#/$defs/family.help-topic" },
     { "$ref": "#/$defs/family.knowledge-lint" },
     { "$ref": "#/$defs/family.knowledge-list" },
@@ -934,6 +935,1646 @@
       "title": "Installable Extension Type",
       "description": "Extension types supported by install-oriented CLI and registry flows."
     },
+    "LintFindingGroup": {
+      "anyOf": [{ "$ref": "#/$defs/ExtensionType" }, { "type": "string", "enum": ["workspace"] }],
+      "title": "Lint Finding Group",
+      "description": "Rule catalog the finding came from."
+    },
+    "LintJsonLocation": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "line": {
+          "anyOf": [
+            { "type": "number" },
+            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
+            { "type": "null" }
+          ]
+        },
+        "column": {
+          "anyOf": [
+            { "type": "number" },
+            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["file"],
+      "additionalProperties": false,
+      "title": "Lint Finding Location",
+      "description": "Document-relative location a finding points at."
+    },
+    "NativeLocationOutcome": {
+      "type": "object",
+      "properties": {
+        "scope": { "type": "string", "enum": ["project", "user"] },
+        "address": { "$ref": "#/$defs/OwnershipUnitAddress" },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "configuredConsumers": { "type": "array", "items": { "type": "string" } },
+        "potentialReaders": { "type": "array", "items": { "type": "string" } },
+        "policyReasons": { "type": "array", "items": { "type": "string" } },
+        "ownership": {
+          "type": "string",
+          "enum": ["owned", "unowned", "declared", "absent", "unverified"]
+        },
+        "proof": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "state": {
+          "type": "string",
+          "enum": [
+            "created",
+            "updated",
+            "removed",
+            "retained",
+            "unchanged",
+            "blocked",
+            "absent",
+            "unverified"
+          ]
+        },
+        "mechanism": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "symlink",
+                "copied-directory",
+                "structured-entry",
+                "managed-region",
+                "generated-file"
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "availability": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agentId": { "type": "string" },
+              "state": { "type": "string", "enum": ["verified", "unverified", "unavailable"] },
+              "reason": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["agentId", "state"],
+            "additionalProperties": false
+          }
+        },
+        "reason": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+      },
+      "required": [
+        "scope",
+        "address",
+        "aliases",
+        "configuredConsumers",
+        "potentialReaders",
+        "policyReasons",
+        "ownership",
+        "state",
+        "availability"
+      ],
+      "additionalProperties": false,
+      "description": "One resolved native unit with its aliases, consumers, ownership evidence, and observed or planned change."
+    },
+    "MaterializationTransition": {
+      "type": "object",
+      "properties": {
+        "type": { "$ref": "#/$defs/ExtensionType" },
+        "name": { "type": "string" },
+        "previous": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string" },
+                    "identity": { "type": "string" },
+                    "locator": { "type": "string" }
+                  },
+                  "required": ["kind", "identity", "locator"],
+                  "additionalProperties": false
+                },
+                "version": {
+                  "anyOf": [{ "type": "string" }, { "type": "null" }],
+                  "description": "Known package version, or null when this source has no observed package version."
+                }
+              },
+              "required": ["source", "version"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ],
+          "description": "Accepted source and version before this operation; null means no accepted resolution."
+        },
+        "proposed": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string" },
+                "identity": { "type": "string" },
+                "locator": { "type": "string" }
+              },
+              "required": ["kind", "identity", "locator"],
+              "additionalProperties": false
+            },
+            "version": {
+              "anyOf": [{ "type": "string" }, { "type": "null" }],
+              "description": "Known package version, or null when this source has no observed package version."
+            }
+          },
+          "required": ["source", "version"],
+          "additionalProperties": false
+        },
+        "observedReason": { "type": "string" },
+        "downgrade": {
+          "anyOf": [{ "type": "boolean" }, { "type": "null" }],
+          "description": "Whether the proposed version is below the accepted version; null when the versions are not comparable."
+        }
+      },
+      "required": ["type", "name", "previous", "proposed", "observedReason", "downgrade"],
+      "additionalProperties": false
+    },
+    "LocalCheckDocument": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["compatibility", "ownership", "lint", "convergence"]
+          }
+        },
+        "strict": { "type": "boolean" },
+        "selection": {
+          "type": "object",
+          "properties": {
+            "scope": { "type": "string", "enum": ["project", "user"] },
+            "requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "kind": { "type": "string", "enum": ["identity", "path", "all"] },
+                  "input": { "type": "string" },
+                  "resolution": { "type": "string", "enum": ["resolved", "not-found", "conflict"] },
+                  "code": { "type": "number", "enum": [0, 3, 6] },
+                  "subjectRefs": { "type": "array", "items": { "type": "string" } },
+                  "candidateRefs": { "type": "array", "items": { "type": "string" } },
+                  "reason": { "type": "string" },
+                  "navigation": { "type": "array", "items": { "type": "string" } },
+                  "path": {
+                    "type": "object",
+                    "properties": {
+                      "lexical": { "type": "string" },
+                      "entry": { "type": "string" },
+                      "referent": { "type": "string" },
+                      "unownedRemainder": { "type": "boolean" }
+                    },
+                    "required": ["lexical", "entry", "unownedRemainder"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "input",
+                  "resolution",
+                  "code",
+                  "subjectRefs",
+                  "candidateRefs"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["scope", "requests"],
+          "additionalProperties": false
+        },
+        "inspection": {
+          "type": "object",
+          "properties": {
+            "scope": { "type": "string", "enum": ["project", "user"] },
+            "requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "kind": { "type": "string", "enum": ["identity", "path", "all"] },
+                  "input": { "type": "string" },
+                  "resolution": { "type": "string", "enum": ["resolved", "not-found", "conflict"] },
+                  "code": { "type": "number", "enum": [0, 3, 6] },
+                  "subjectRefs": { "type": "array", "items": { "type": "string" } },
+                  "candidateRefs": { "type": "array", "items": { "type": "string" } },
+                  "reason": { "type": "string" },
+                  "navigation": { "type": "array", "items": { "type": "string" } },
+                  "path": {
+                    "type": "object",
+                    "properties": {
+                      "lexical": { "type": "string" },
+                      "entry": { "type": "string" },
+                      "referent": { "type": "string" },
+                      "unownedRemainder": { "type": "boolean" }
+                    },
+                    "required": ["lexical", "entry", "unownedRemainder"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "input",
+                  "resolution",
+                  "code",
+                  "subjectRefs",
+                  "candidateRefs"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "identity": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "$ref": "#/$defs/InstallableExtensionType" },
+                      "name": { "type": "string" },
+                      "fqn": { "type": "string" },
+                      "scope": { "type": "string", "enum": ["project", "user"] },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "authority": {
+                            "type": "string",
+                            "enum": [
+                              "workspace",
+                              "registry",
+                              "git",
+                              "http",
+                              "path",
+                              "bundled",
+                              "inline",
+                              "unmanaged",
+                              "unknown"
+                            ]
+                          },
+                          "locator": { "type": "string" },
+                          "sourceName": { "type": "string" },
+                          "endpoint": { "type": "string" }
+                        },
+                        "required": ["authority"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["name", "scope", "source"],
+                    "additionalProperties": false
+                  },
+                  "requestRefs": { "type": "array", "items": { "type": "string" } },
+                  "editing": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "authored-source",
+                          "inline-configuration",
+                          "authoring-transition-required",
+                          "bundled",
+                          "unmanaged",
+                          "unavailable",
+                          "unknown"
+                        ]
+                      },
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "keys": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["path"],
+                        "additionalProperties": false
+                      },
+                      "reason": { "type": "string" }
+                    },
+                    "required": ["kind", "reason"],
+                    "additionalProperties": false
+                  },
+                  "desired": {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["reached", "not-reached", "unknown"] },
+                      "direct": { "type": "boolean" },
+                      "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "packOrigins": { "type": "array", "items": { "type": "string" } },
+                      "declarations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["direct", "pack"] },
+                            "address": {
+                              "type": "object",
+                              "properties": {
+                                "path": { "type": "string" },
+                                "keys": { "type": "array", "items": { "type": "string" } }
+                              },
+                              "required": ["path"],
+                              "additionalProperties": false
+                            },
+                            "contributorRef": { "type": "string" },
+                            "source": { "type": "string" },
+                            "constraint": { "type": "string" },
+                            "enabled": { "type": "boolean" }
+                          },
+                          "required": ["kind", "address", "enabled"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "preference": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "path": { "type": "string" },
+                              "keys": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          },
+                          "enabled": { "type": "boolean" }
+                        },
+                        "required": ["address"],
+                        "additionalProperties": false
+                      },
+                      "coverage": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["complete", "partial", "unknown", "not-applicable"]
+                          },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "direct",
+                      "enabled",
+                      "packOrigins",
+                      "declarations",
+                      "coverage"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "accepted": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": ["present", "absent", "not-applicable", "unknown"]
+                      },
+                      "version": { "type": "string" },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "authority": {
+                            "type": "string",
+                            "enum": [
+                              "workspace",
+                              "registry",
+                              "git",
+                              "http",
+                              "path",
+                              "bundled",
+                              "inline",
+                              "unmanaged",
+                              "unknown"
+                            ]
+                          },
+                          "locator": { "type": "string" },
+                          "sourceName": { "type": "string" },
+                          "endpoint": { "type": "string" }
+                        },
+                        "required": ["authority"],
+                        "additionalProperties": false
+                      },
+                      "coverage": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["complete", "partial", "unknown", "not-applicable"]
+                          },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "coverage"],
+                    "additionalProperties": false
+                  },
+                  "observed": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": ["present", "absent", "unreadable", "unverified", "not-applicable"]
+                      },
+                      "path": { "type": "string" },
+                      "manifestVersion": { "type": "string" },
+                      "canonicalStatus": { "type": "string" },
+                      "drift": {
+                        "type": "string",
+                        "enum": ["detected", "not-detected", "not-checked", "not-applicable"]
+                      },
+                      "coverage": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["complete", "partial", "unknown", "not-applicable"]
+                          },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "drift", "coverage"],
+                    "additionalProperties": false
+                  },
+                  "retention": {
+                    "type": "object",
+                    "properties": {
+                      "reasons": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "direct-declaration",
+                                "pack-route",
+                                "shared-package-consumer",
+                                "authored-content",
+                                "native-reference",
+                                "possible-native-reference",
+                                "insufficient-evidence"
+                              ]
+                            },
+                            "contributorRef": { "type": "string" },
+                            "locationRef": { "type": "string" },
+                            "detail": { "type": "string" }
+                          },
+                          "required": ["kind", "detail"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "coverage": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["complete", "partial", "unknown", "not-applicable"]
+                          },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["reasons", "coverage"],
+                    "additionalProperties": false
+                  },
+                  "nativeLocationRefs": { "type": "array", "items": { "type": "string" } },
+                  "duplicateDiscoveries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "agentId": { "type": "string" },
+                        "nativeLocationRefs": { "type": "array", "items": { "type": "string" } }
+                      },
+                      "required": ["agentId", "nativeLocationRefs"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "nativeCoverage": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": ["complete", "partial", "unknown", "not-applicable"]
+                      },
+                      "reasons": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["state", "reasons"],
+                    "additionalProperties": false
+                  },
+                  "agents": {
+                    "type": "object",
+                    "properties": {
+                      "configured": { "type": "array", "items": { "type": "string" } },
+                      "observed": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["configured", "observed"],
+                    "additionalProperties": false
+                  },
+                  "agentOutcomes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "agentId": { "type": "string" },
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "projected",
+                            "current",
+                            "not-applicable",
+                            "unsupported",
+                            "blocked",
+                            "failed"
+                          ]
+                        },
+                        "reasonCode": { "$ref": "#/$defs/ConfiguredAgentReasonCode" },
+                        "reason": { "type": "string" },
+                        "mechanism": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                        "path": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                        "nativeUnits": {
+                          "anyOf": [
+                            { "type": "array", "items": { "$ref": "#/$defs/NativeUnitReference" } },
+                            { "type": "null" }
+                          ]
+                        },
+                        "hook": {
+                          "type": "object",
+                          "properties": {
+                            "implementationId": { "type": "string" },
+                            "protocol": { "type": "string" },
+                            "bindings": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": { "type": "string" },
+                                  "event": { "type": "string" },
+                                  "matcher": { "type": "string" },
+                                  "runtime": { "type": "string" },
+                                  "entrypoint": { "type": "string" },
+                                  "requiredOutcomes": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                  },
+                                  "requiredOperations": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "event",
+                                  "runtime",
+                                  "entrypoint",
+                                  "requiredOutcomes",
+                                  "requiredOperations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "conditions": { "type": "array", "items": { "type": "string" } },
+                            "configuration": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["valid", "invalid", "not-evaluated"]
+                                },
+                                "fields": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": { "type": "string" },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": ["consumer", "default", "unset"]
+                                      },
+                                      "value": {
+                                        "anyOf": [
+                                          { "type": "string" },
+                                          { "type": "number" },
+                                          {
+                                            "type": "string",
+                                            "enum": ["Infinity", "-Infinity", "NaN"]
+                                          },
+                                          { "type": "boolean" },
+                                          { "type": "null" }
+                                        ]
+                                      },
+                                      "redacted": { "type": "boolean" }
+                                    },
+                                    "required": ["key", "source", "value", "redacted"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "issues": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": { "type": "string" },
+                                      "message": { "type": "string" }
+                                    },
+                                    "required": ["key", "message"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": ["status", "fields", "issues"],
+                              "additionalProperties": false
+                            },
+                            "runtimeAvailability": { "type": "string", "enum": ["unverified"] },
+                            "nativeInvocation": { "type": "string", "enum": ["not-observed"] },
+                            "fixtureEvidence": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": ["absent", "invalid", "stale", "historical"]
+                                },
+                                "receipt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": { "type": "string", "enum": ["fixture-execution"] },
+                                    "package": { "type": "string" },
+                                    "version": { "type": "string" },
+                                    "contentHash": { "type": "string" },
+                                    "configurationHash": { "type": "string" },
+                                    "startedAt": {
+                                      "anyOf": [
+                                        { "type": "number" },
+                                        {
+                                          "type": "string",
+                                          "enum": ["Infinity", "-Infinity", "NaN"]
+                                        }
+                                      ]
+                                    },
+                                    "completedAt": {
+                                      "anyOf": [
+                                        { "type": "number" },
+                                        {
+                                          "type": "string",
+                                          "enum": ["Infinity", "-Infinity", "NaN"]
+                                        }
+                                      ]
+                                    },
+                                    "cwd": { "type": "string", "enum": ["package-root"] },
+                                    "scope": { "type": "string", "enum": ["project", "user"] },
+                                    "platform": {
+                                      "type": "object",
+                                      "properties": {
+                                        "os": { "type": "string" },
+                                        "architecture": { "type": "string" }
+                                      },
+                                      "required": ["os", "architecture"],
+                                      "additionalProperties": false
+                                    },
+                                    "environment": {
+                                      "type": "array",
+                                      "items": { "type": "string" }
+                                    },
+                                    "environmentFreshness": {
+                                      "type": "string",
+                                      "enum": ["historical-only"]
+                                    },
+                                    "nativeInvocation": {
+                                      "type": "string",
+                                      "enum": ["not-observed"]
+                                    },
+                                    "sandboxed": { "type": "boolean", "enum": [false] },
+                                    "fixtures": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "fixture": { "type": "string" },
+                                          "implementation": { "type": "string" },
+                                          "binding": { "type": "string" },
+                                          "protocol": { "type": "string" },
+                                          "runtime": { "type": "string" },
+                                          "runtimeVersion": {
+                                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                          },
+                                          "outcome": {
+                                            "type": "string",
+                                            "enum": ["passed", "failed"]
+                                          },
+                                          "expectedExitCode": {
+                                            "anyOf": [
+                                              { "type": "number" },
+                                              {
+                                                "type": "string",
+                                                "enum": ["Infinity", "-Infinity", "NaN"]
+                                              }
+                                            ]
+                                          },
+                                          "observedExitCode": {
+                                            "anyOf": [
+                                              { "type": "number" },
+                                              {
+                                                "type": "string",
+                                                "enum": ["Infinity", "-Infinity", "NaN"]
+                                              },
+                                              { "type": "null" }
+                                            ]
+                                          },
+                                          "stdoutMatches": {
+                                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                                          },
+                                          "stderrMatches": {
+                                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                                          },
+                                          "detail": { "type": "string" }
+                                        },
+                                        "required": [
+                                          "fixture",
+                                          "implementation",
+                                          "binding",
+                                          "protocol",
+                                          "runtime",
+                                          "runtimeVersion",
+                                          "outcome",
+                                          "expectedExitCode",
+                                          "observedExitCode",
+                                          "stdoutMatches",
+                                          "stderrMatches",
+                                          "detail"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "passed": { "type": "boolean" },
+                                    "receiptPath": { "type": "string" }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "package",
+                                    "version",
+                                    "contentHash",
+                                    "configurationHash",
+                                    "startedAt",
+                                    "completedAt",
+                                    "cwd",
+                                    "scope",
+                                    "platform",
+                                    "environment",
+                                    "environmentFreshness",
+                                    "nativeInvocation",
+                                    "sandboxed",
+                                    "fixtures",
+                                    "passed",
+                                    "receiptPath"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "reason": { "type": "string" }
+                              },
+                              "required": ["state", "reason"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "implementationId",
+                            "protocol",
+                            "bindings",
+                            "conditions",
+                            "configuration",
+                            "runtimeAvailability",
+                            "nativeInvocation",
+                            "fixtureEvidence"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "fields": { "type": "array", "items": { "type": "string" } },
+                        "warnings": { "type": "array", "items": { "type": "string" } },
+                        "configuration": {
+                          "type": "string",
+                          "enum": ["valid", "blocked", "unverified"]
+                        },
+                        "projection": { "type": "string" },
+                        "readiness": { "type": "string", "enum": ["blocked", "unverified"] },
+                        "runtime": { "type": "string", "enum": ["not-checked"] },
+                        "manualActions": { "type": "array", "items": { "type": "string" } }
+                      },
+                      "required": ["agentId", "outcome", "reasonCode", "reason"],
+                      "additionalProperties": false,
+                      "description": "Per-agent evidence for the enclosing subject identity; its extension type and name are supplied once by identity."
+                    }
+                  },
+                  "knowledge": {
+                    "type": "object",
+                    "properties": {
+                      "concepts": {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                        ]
+                      },
+                      "diagnostics": {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                        ]
+                      }
+                    },
+                    "required": ["concepts", "diagnostics"],
+                    "additionalProperties": false
+                  },
+                  "mcp": {
+                    "type": "object",
+                    "properties": {
+                      "sourceVersionLocked": { "type": "boolean" },
+                      "runtimeArtifactPinned": {
+                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                      },
+                      "cwd": {
+                        "type": "string",
+                        "enum": [
+                          "host-default",
+                          "directory",
+                          "missing",
+                          "unverified",
+                          "not-applicable"
+                        ]
+                      },
+                      "runtime": { "type": "string", "enum": ["not-checked"] },
+                      "distributions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "kind": { "type": "string" },
+                            "transport": { "type": "string" },
+                            "destination": { "type": "string" },
+                            "selected": { "type": "boolean" },
+                            "supported": { "type": "boolean" },
+                            "reason": { "type": "string" },
+                            "inputs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": { "type": "string" },
+                                  "required": { "type": "boolean" },
+                                  "secret": { "type": "boolean" },
+                                  "repeated": { "type": "boolean" },
+                                  "hasDefault": { "type": "boolean" }
+                                },
+                                "required": ["id", "required", "secret", "repeated", "hasDefault"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "kind",
+                            "transport",
+                            "destination",
+                            "selected",
+                            "supported",
+                            "inputs"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "sourceVersionLocked",
+                      "runtimeArtifactPinned",
+                      "cwd",
+                      "runtime",
+                      "distributions"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "pack": {
+                    "type": "object",
+                    "properties": {
+                      "membership": { "type": "string", "enum": ["known", "unknown"] },
+                      "routes": {
+                        "type": "string",
+                        "enum": ["active", "dormant", "unauthorized", "unknown"]
+                      },
+                      "members": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "fqn": { "type": "string" },
+                            "declaration": {
+                              "type": "object",
+                              "properties": {
+                                "constraint": { "type": "string" },
+                                "endpoint": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                              },
+                              "required": ["constraint", "endpoint"],
+                              "additionalProperties": false
+                            },
+                            "localNames": { "type": "array", "items": { "type": "string" } },
+                            "sourceIdentity": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "authority": {
+                                      "type": "string",
+                                      "enum": [
+                                        "workspace",
+                                        "registry",
+                                        "git",
+                                        "http",
+                                        "path",
+                                        "bundled",
+                                        "inline"
+                                      ]
+                                    },
+                                    "fqn": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                                    "endpoint": {
+                                      "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                    },
+                                    "locator": {
+                                      "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                    }
+                                  },
+                                  "required": ["authority", "fqn", "endpoint", "locator"],
+                                  "additionalProperties": false
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "resolution": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "status": { "type": "string", "enum": ["accepted"] }
+                                  },
+                                  "required": ["status"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "status": { "type": "string", "enum": ["authored"] }
+                                  },
+                                  "required": ["status"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "status": { "type": "string", "enum": ["unresolved"] },
+                                    "reason": {
+                                      "type": "string",
+                                      "enum": [
+                                        "not-desired",
+                                        "unbound-source",
+                                        "not-accepted",
+                                        "authority-mismatch",
+                                        "conflicted-source"
+                                      ]
+                                    }
+                                  },
+                                  "required": ["status", "reason"],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            },
+                            "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                            "reachability": {
+                              "anyOf": [
+                                { "type": "string", "enum": ["satisfying", "excluded", "missing"] },
+                                { "type": "null" }
+                              ]
+                            },
+                            "subjectRef": { "type": "string" }
+                          },
+                          "required": [
+                            "fqn",
+                            "declaration",
+                            "localNames",
+                            "sourceIdentity",
+                            "resolution",
+                            "version",
+                            "reachability",
+                            "subjectRef"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "reason": { "type": "string" }
+                    },
+                    "required": ["membership", "routes", "members"],
+                    "additionalProperties": false
+                  },
+                  "runtime": {
+                    "type": "object",
+                    "properties": { "state": { "type": "string", "enum": ["not-checked"] } },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "identity",
+                  "requestRefs",
+                  "editing",
+                  "desired",
+                  "accepted",
+                  "observed",
+                  "retention",
+                  "nativeLocationRefs",
+                  "duplicateDiscoveries",
+                  "nativeCoverage",
+                  "agents",
+                  "agentOutcomes",
+                  "runtime"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "supportingSubjects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "identity": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "$ref": "#/$defs/InstallableExtensionType" },
+                      "name": { "type": "string" },
+                      "fqn": { "type": "string" },
+                      "scope": { "type": "string", "enum": ["project", "user"] },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "authority": {
+                            "type": "string",
+                            "enum": [
+                              "workspace",
+                              "registry",
+                              "git",
+                              "http",
+                              "path",
+                              "bundled",
+                              "inline",
+                              "unmanaged",
+                              "unknown"
+                            ]
+                          },
+                          "locator": { "type": "string" },
+                          "sourceName": { "type": "string" },
+                          "endpoint": { "type": "string" }
+                        },
+                        "required": ["authority"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["name", "scope", "source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["id", "identity"],
+                "additionalProperties": false
+              }
+            },
+            "nativeLocations": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/NativeLocationRecord" }
+            },
+            "nativeReaderDeclarations": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/NativeReaderDeclaration" }
+            },
+            "observationDiagnostics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "message": { "type": "string" },
+                  "path": { "type": "string" },
+                  "code": { "type": "string" },
+                  "source": { "type": "string" }
+                },
+                "required": ["message"],
+                "additionalProperties": false
+              }
+            },
+            "coverage": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": ["complete", "partial", "unknown", "not-applicable"]
+                },
+                "reasons": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["state", "reasons"],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "scope",
+            "requests",
+            "items",
+            "supportingSubjects",
+            "nativeLocations",
+            "nativeReaderDeclarations",
+            "observationDiagnostics",
+            "coverage"
+          ],
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "$ref": "#/$defs/ExtensionType" },
+                  "name": { "type": "string" },
+                  "requested": { "type": "boolean" },
+                  "includedBy": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": ["pack-member", "shared-output", "shared-package"]
+                        },
+                        "source": { "type": "string" }
+                      },
+                      "required": ["kind", "source"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["type", "name", "requested", "includedBy"],
+                "additionalProperties": false
+              }
+            },
+            "units": { "type": "array", "items": { "type": "string" } },
+            "incomplete": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "source": { "type": "string" }, "reason": { "type": "string" } },
+                "required": ["source", "reason"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["subjects", "units", "incomplete"],
+          "additionalProperties": false
+        },
+        "assessments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["compatibility", "ownership", "lint", "convergence"]
+              },
+              "phase": { "type": "string" },
+              "subjectRefs": { "type": "array", "items": { "type": "string" } },
+              "coverage": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": { "state": { "type": "string", "enum": ["complete"] } },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["incomplete"] },
+                      "reasons": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["state", "reasons"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": { "state": { "type": "string", "enum": ["not-requested"] } },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["not-applicable"] },
+                      "reason": { "type": "string" }
+                    },
+                    "required": ["state", "reason"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "findingRefs": { "type": "array", "items": { "type": "string" } },
+              "conclusion": {
+                "type": "string",
+                "enum": ["satisfied", "attention-required", "unknown", "not-applicable"]
+              }
+            },
+            "required": ["kind", "phase", "subjectRefs", "coverage", "findingRefs", "conclusion"],
+            "additionalProperties": false
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "group": { "$ref": "#/$defs/LintFindingGroup" },
+              "kind": { "type": "string", "enum": ["advisory"] },
+              "ruleId": { "type": "string" },
+              "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+              "message": { "type": "string" },
+              "displayRoot": { "type": "string" },
+              "path": { "type": "string" },
+              "subject": { "type": "string" },
+              "authority": { "type": "string" },
+              "observed": { "type": "string" },
+              "expected": { "type": "string" },
+              "location": { "anyOf": [{ "$ref": "#/$defs/LintJsonLocation" }, { "type": "null" }] }
+            },
+            "required": [
+              "id",
+              "group",
+              "kind",
+              "ruleId",
+              "severity",
+              "message",
+              "displayRoot",
+              "path",
+              "subject",
+              "authority",
+              "observed",
+              "expected"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "verdict": {
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean" },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["compatibility", "ownership", "lint", "convergence"]
+                  },
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "unresolved-request",
+                      "missing-assessment",
+                      "duplicate-assessment",
+                      "incomplete-assessment",
+                      "attention-required",
+                      "error-finding",
+                      "strict-warning",
+                      "missing-finding"
+                    ]
+                  },
+                  "refs": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["code", "refs"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["ok", "reasons"],
+          "additionalProperties": false
+        },
+        "officialSkillCompatibility": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["compatible", "incompatible"] },
+            "cliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "skillVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "source": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "declaredCliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "declaredCliVersionRange": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "reasonCode": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "cli-version-unavailable",
+                    "axm-skill-missing",
+                    "axm-skill-manifest-invalid",
+                    "compatibility-metadata-missing",
+                    "compatibility-metadata-malformed",
+                    "skill-release-mismatch",
+                    "skill-release-range-mismatch",
+                    "cli-version-incompatible"
+                  ]
+                },
+                { "type": "null" }
+              ]
+            },
+            "detail": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "inspect-cli",
+                    "upgrade-cli",
+                    "update-registry-skill",
+                    "install-bundled-skill",
+                    "preserve-authored-skill"
+                  ]
+                },
+                "targetCliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "targetSkillVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "nextAction": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "boundary": {
+                        "type": "string",
+                        "enum": ["executable", "workspace", "verification"]
+                      },
+                      "command": { "type": "string" },
+                      "preview": { "type": "boolean" }
+                    },
+                    "required": ["boundary", "command", "preview"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "action",
+                "targetCliVersion",
+                "targetSkillVersion",
+                "nextAction",
+                "steps"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "status",
+            "cliVersion",
+            "skillVersion",
+            "source",
+            "declaredCliVersion",
+            "declaredCliVersionRange",
+            "reasonCode",
+            "detail",
+            "recovery"
+          ],
+          "additionalProperties": false
+        },
+        "compatibility": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "$ref": "#/$defs/ExtensionType" },
+              "name": { "type": "string" },
+              "constraint": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["compatible", "conflict"] },
+                  "range": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "contributors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "source": { "type": "string", "enum": ["settings", "pack"] },
+                        "range": { "type": "string" },
+                        "location": { "type": "string" },
+                        "dependingPack": { "type": "string" },
+                        "localName": { "type": "string" }
+                      },
+                      "required": ["source", "range", "location"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["status", "range", "contributors"],
+                "additionalProperties": false
+              },
+              "observation": {
+                "type": "object",
+                "properties": {
+                  "type": { "$ref": "#/$defs/ExtensionType" },
+                  "name": { "type": "string" },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "not-applicable",
+                      "missing",
+                      "missing-resolution",
+                      "constraint-mismatch",
+                      "wrong-origin",
+                      "corrupt",
+                      "incomplete",
+                      "materialization-mismatch",
+                      "usable"
+                    ]
+                  },
+                  "path": { "type": "string" },
+                  "contentIdentity": { "type": "string" },
+                  "authority": {
+                    "type": "object",
+                    "properties": {
+                      "source": { "type": "string", "enum": ["desired-state-graph"] },
+                      "identity": { "type": "string" },
+                      "locator": { "type": "string" },
+                      "constraints": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "source": { "type": "string", "enum": ["settings", "pack"] },
+                            "range": { "type": "string" },
+                            "location": { "type": "string" },
+                            "dependingPack": { "type": "string" },
+                            "localName": { "type": "string" }
+                          },
+                          "required": ["source", "range", "location"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["source", "identity", "locator", "constraints"],
+                    "additionalProperties": false
+                  },
+                  "acceptedVersion": { "type": "string" },
+                  "observedVersion": { "type": "string" }
+                },
+                "required": ["type", "name", "status"],
+                "additionalProperties": false
+              },
+              "failure": { "type": "string" }
+            },
+            "required": ["type", "name", "constraint"],
+            "additionalProperties": false
+          }
+        },
+        "projections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "predicate": { "type": "string", "enum": ["workspace/projection-current"] },
+              "subject": {
+                "type": "object",
+                "properties": {
+                  "unitId": { "type": "string" },
+                  "path": { "type": "string" },
+                  "scope": { "type": "string", "enum": ["project", "user"] },
+                  "owner": { "type": "string" },
+                  "lastWrite": { "type": "string", "enum": ["matches", "modified", "unrecorded"] }
+                },
+                "required": ["unitId", "path", "scope"],
+                "additionalProperties": false
+              },
+              "authority": {
+                "type": "object",
+                "properties": {
+                  "source": { "type": "string", "enum": ["desired-state-graph"] },
+                  "contributors": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["source", "contributors"],
+                "additionalProperties": false
+              },
+              "observation": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["current", "missing", "incomplete", "stale", "obsolete", "unavailable"]
+                  },
+                  "contributors": { "type": "array", "items": { "type": "string" } },
+                  "reasonCode": { "type": "string", "enum": ["invalid-ownership", "unavailable"] },
+                  "message": { "type": "string" },
+                  "failure": { "type": "string" },
+                  "nativeLocations": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                  },
+                  "exclusions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "contributor": { "type": "string" },
+                        "reason": {
+                          "type": "string",
+                          "enum": ["package-missing", "package-invalid"]
+                        },
+                        "detail": { "type": "string" }
+                      },
+                      "required": ["contributor", "reason"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["status"],
+                "additionalProperties": false
+              },
+              "expectation": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["current"] },
+                  "contributors": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["status", "contributors"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["predicate", "subject", "authority", "observation", "expectation"],
+            "additionalProperties": false
+          }
+        },
+        "reconciliation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+              "label": { "type": "string" },
+              "readiness": { "type": "string", "enum": ["ready", "warn", "error"] },
+              "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+              "transitions": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/MaterializationTransition" }
+              },
+              "nativeLocations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+              }
+            },
+            "required": ["label", "readiness", "transitions", "nativeLocations"],
+            "additionalProperties": false
+          }
+        },
+        "failedOwners": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": [
+        "checks",
+        "strict",
+        "selection",
+        "inspection",
+        "scope",
+        "assessments",
+        "findings",
+        "verdict",
+        "compatibility",
+        "projections",
+        "reconciliation",
+        "failedOwners"
+      ],
+      "additionalProperties": false,
+      "description": "Bounded local assessments, evidence coverage and verdict; no repair or acquisition is performed."
+    },
     "WorkspaceLockfileVersionUnsupportedProblem": {
       "type": "object",
       "properties": {
@@ -1622,36 +3263,6 @@
       "title": "Lint Input",
       "description": "Filesystem identity evaluated by the lint run."
     },
-    "LintFindingGroup": {
-      "type": "string",
-      "enum": ["skill", "pack", "subagent", "mcp-server", "hook", "rule", "knowledge", "workspace"],
-      "title": "Lint Finding Group",
-      "description": "Rule catalog the finding came from."
-    },
-    "LintJsonLocation": {
-      "type": "object",
-      "properties": {
-        "file": { "type": "string" },
-        "line": {
-          "anyOf": [
-            { "type": "number" },
-            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
-            { "type": "null" }
-          ]
-        },
-        "column": {
-          "anyOf": [
-            { "type": "number" },
-            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
-            { "type": "null" }
-          ]
-        }
-      },
-      "required": ["file"],
-      "additionalProperties": false,
-      "title": "Lint Finding Location",
-      "description": "Document-relative location a finding points at."
-    },
     "LintJsonFinding": {
       "type": "object",
       "properties": {
@@ -2257,68 +3868,6 @@
       "additionalProperties": false,
       "title": "Unit Counts",
       "description": "Reconciling unit-state counts: the state buckets partition the unit set and sum to total; warnings counts annotations."
-    },
-    "MaterializationTransition": {
-      "type": "object",
-      "properties": {
-        "type": { "$ref": "#/$defs/ExtensionType" },
-        "name": { "type": "string" },
-        "previous": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "source": {
-                  "type": "object",
-                  "properties": {
-                    "kind": { "type": "string" },
-                    "identity": { "type": "string" },
-                    "locator": { "type": "string" }
-                  },
-                  "required": ["kind", "identity", "locator"],
-                  "additionalProperties": false
-                },
-                "version": {
-                  "anyOf": [{ "type": "string" }, { "type": "null" }],
-                  "description": "Known package version, or null when this source has no observed package version."
-                }
-              },
-              "required": ["source", "version"],
-              "additionalProperties": false
-            },
-            { "type": "null" }
-          ],
-          "description": "Accepted source and version before this operation; null means no accepted resolution."
-        },
-        "proposed": {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "object",
-              "properties": {
-                "kind": { "type": "string" },
-                "identity": { "type": "string" },
-                "locator": { "type": "string" }
-              },
-              "required": ["kind", "identity", "locator"],
-              "additionalProperties": false
-            },
-            "version": {
-              "anyOf": [{ "type": "string" }, { "type": "null" }],
-              "description": "Known package version, or null when this source has no observed package version."
-            }
-          },
-          "required": ["source", "version"],
-          "additionalProperties": false
-        },
-        "observedReason": { "type": "string" },
-        "downgrade": {
-          "anyOf": [{ "type": "boolean" }, { "type": "null" }],
-          "description": "Whether the proposed version is below the accepted version; null when the versions are not comparable."
-        }
-      },
-      "required": ["type", "name", "previous", "proposed", "observedReason", "downgrade"],
-      "additionalProperties": false
     },
     "UnitState": {
       "type": "string",
@@ -7498,6 +9047,7 @@
       ],
       "additionalProperties": false
     },
+    "LocalCheckDocumentSchema": { "$ref": "#/$defs/LocalCheckDocument" },
     "SubagentRenderResultSchema": {
       "type": "object",
       "properties": {
@@ -16755,6 +18305,1592 @@
         { "$ref": "#/$defs/JsonVersionDocSchema" }
       ]
     },
+    "payload.local-check": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["compatibility", "ownership", "lint", "convergence"]
+              }
+            },
+            "strict": { "type": "boolean" },
+            "selection": {
+              "type": "object",
+              "properties": {
+                "scope": { "type": "string", "enum": ["project", "user"] },
+                "requests": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "kind": { "type": "string", "enum": ["identity", "path", "all"] },
+                      "input": { "type": "string" },
+                      "resolution": {
+                        "type": "string",
+                        "enum": ["resolved", "not-found", "conflict"]
+                      },
+                      "code": { "type": "number", "enum": [0, 3, 6] },
+                      "subjectRefs": { "type": "array", "items": { "type": "string" } },
+                      "candidateRefs": { "type": "array", "items": { "type": "string" } },
+                      "reason": { "type": "string" },
+                      "navigation": { "type": "array", "items": { "type": "string" } },
+                      "path": {
+                        "type": "object",
+                        "properties": {
+                          "lexical": { "type": "string" },
+                          "entry": { "type": "string" },
+                          "referent": { "type": "string" },
+                          "unownedRemainder": { "type": "boolean" }
+                        },
+                        "required": ["lexical", "entry", "unownedRemainder"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "input",
+                      "resolution",
+                      "code",
+                      "subjectRefs",
+                      "candidateRefs"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["scope", "requests"],
+              "additionalProperties": false
+            },
+            "inspection": {
+              "type": "object",
+              "properties": {
+                "scope": { "type": "string", "enum": ["project", "user"] },
+                "requests": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "kind": { "type": "string", "enum": ["identity", "path", "all"] },
+                      "input": { "type": "string" },
+                      "resolution": {
+                        "type": "string",
+                        "enum": ["resolved", "not-found", "conflict"]
+                      },
+                      "code": { "type": "number", "enum": [0, 3, 6] },
+                      "subjectRefs": { "type": "array", "items": { "type": "string" } },
+                      "candidateRefs": { "type": "array", "items": { "type": "string" } },
+                      "reason": { "type": "string" },
+                      "navigation": { "type": "array", "items": { "type": "string" } },
+                      "path": {
+                        "type": "object",
+                        "properties": {
+                          "lexical": { "type": "string" },
+                          "entry": { "type": "string" },
+                          "referent": { "type": "string" },
+                          "unownedRemainder": { "type": "boolean" }
+                        },
+                        "required": ["lexical", "entry", "unownedRemainder"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "input",
+                      "resolution",
+                      "code",
+                      "subjectRefs",
+                      "candidateRefs"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "$ref": "#/$defs/InstallableExtensionType" },
+                          "name": { "type": "string" },
+                          "fqn": { "type": "string" },
+                          "scope": { "type": "string", "enum": ["project", "user"] },
+                          "source": {
+                            "type": "object",
+                            "properties": {
+                              "authority": {
+                                "type": "string",
+                                "enum": [
+                                  "workspace",
+                                  "registry",
+                                  "git",
+                                  "http",
+                                  "path",
+                                  "bundled",
+                                  "inline",
+                                  "unmanaged",
+                                  "unknown"
+                                ]
+                              },
+                              "locator": { "type": "string" },
+                              "sourceName": { "type": "string" },
+                              "endpoint": { "type": "string" }
+                            },
+                            "required": ["authority"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["name", "scope", "source"],
+                        "additionalProperties": false
+                      },
+                      "requestRefs": { "type": "array", "items": { "type": "string" } },
+                      "editing": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "authored-source",
+                              "inline-configuration",
+                              "authoring-transition-required",
+                              "bundled",
+                              "unmanaged",
+                              "unavailable",
+                              "unknown"
+                            ]
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "path": { "type": "string" },
+                              "keys": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          },
+                          "reason": { "type": "string" }
+                        },
+                        "required": ["kind", "reason"],
+                        "additionalProperties": false
+                      },
+                      "desired": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["reached", "not-reached", "unknown"]
+                          },
+                          "direct": { "type": "boolean" },
+                          "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                          "packOrigins": { "type": "array", "items": { "type": "string" } },
+                          "declarations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["direct", "pack"] },
+                                "address": {
+                                  "type": "object",
+                                  "properties": {
+                                    "path": { "type": "string" },
+                                    "keys": { "type": "array", "items": { "type": "string" } }
+                                  },
+                                  "required": ["path"],
+                                  "additionalProperties": false
+                                },
+                                "contributorRef": { "type": "string" },
+                                "source": { "type": "string" },
+                                "constraint": { "type": "string" },
+                                "enabled": { "type": "boolean" }
+                              },
+                              "required": ["kind", "address", "enabled"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "preference": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "path": { "type": "string" },
+                                  "keys": { "type": "array", "items": { "type": "string" } }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              },
+                              "enabled": { "type": "boolean" }
+                            },
+                            "required": ["address"],
+                            "additionalProperties": false
+                          },
+                          "coverage": {
+                            "type": "object",
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unknown", "not-applicable"]
+                              },
+                              "reasons": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["state", "reasons"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "direct",
+                          "enabled",
+                          "packOrigins",
+                          "declarations",
+                          "coverage"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "accepted": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["present", "absent", "not-applicable", "unknown"]
+                          },
+                          "version": { "type": "string" },
+                          "source": {
+                            "type": "object",
+                            "properties": {
+                              "authority": {
+                                "type": "string",
+                                "enum": [
+                                  "workspace",
+                                  "registry",
+                                  "git",
+                                  "http",
+                                  "path",
+                                  "bundled",
+                                  "inline",
+                                  "unmanaged",
+                                  "unknown"
+                                ]
+                              },
+                              "locator": { "type": "string" },
+                              "sourceName": { "type": "string" },
+                              "endpoint": { "type": "string" }
+                            },
+                            "required": ["authority"],
+                            "additionalProperties": false
+                          },
+                          "coverage": {
+                            "type": "object",
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unknown", "not-applicable"]
+                              },
+                              "reasons": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["state", "reasons"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["state", "coverage"],
+                        "additionalProperties": false
+                      },
+                      "observed": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "present",
+                              "absent",
+                              "unreadable",
+                              "unverified",
+                              "not-applicable"
+                            ]
+                          },
+                          "path": { "type": "string" },
+                          "manifestVersion": { "type": "string" },
+                          "canonicalStatus": { "type": "string" },
+                          "drift": {
+                            "type": "string",
+                            "enum": ["detected", "not-detected", "not-checked", "not-applicable"]
+                          },
+                          "coverage": {
+                            "type": "object",
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unknown", "not-applicable"]
+                              },
+                              "reasons": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["state", "reasons"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["state", "drift", "coverage"],
+                        "additionalProperties": false
+                      },
+                      "retention": {
+                        "type": "object",
+                        "properties": {
+                          "reasons": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "direct-declaration",
+                                    "pack-route",
+                                    "shared-package-consumer",
+                                    "authored-content",
+                                    "native-reference",
+                                    "possible-native-reference",
+                                    "insufficient-evidence"
+                                  ]
+                                },
+                                "contributorRef": { "type": "string" },
+                                "locationRef": { "type": "string" },
+                                "detail": { "type": "string" }
+                              },
+                              "required": ["kind", "detail"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "coverage": {
+                            "type": "object",
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": ["complete", "partial", "unknown", "not-applicable"]
+                              },
+                              "reasons": { "type": "array", "items": { "type": "string" } }
+                            },
+                            "required": ["state", "reasons"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["reasons", "coverage"],
+                        "additionalProperties": false
+                      },
+                      "nativeLocationRefs": { "type": "array", "items": { "type": "string" } },
+                      "duplicateDiscoveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "nativeLocationRefs": { "type": "array", "items": { "type": "string" } }
+                          },
+                          "required": ["agentId", "nativeLocationRefs"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "nativeCoverage": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": ["complete", "partial", "unknown", "not-applicable"]
+                          },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      },
+                      "agents": {
+                        "type": "object",
+                        "properties": {
+                          "configured": { "type": "array", "items": { "type": "string" } },
+                          "observed": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["configured", "observed"],
+                        "additionalProperties": false
+                      },
+                      "agentOutcomes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "outcome": {
+                              "type": "string",
+                              "enum": [
+                                "projected",
+                                "current",
+                                "not-applicable",
+                                "unsupported",
+                                "blocked",
+                                "failed"
+                              ]
+                            },
+                            "reasonCode": { "$ref": "#/$defs/ConfiguredAgentReasonCode" },
+                            "reason": { "type": "string" },
+                            "mechanism": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                            "path": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                            "nativeUnits": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": { "$ref": "#/$defs/NativeUnitReference" }
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "hook": {
+                              "type": "object",
+                              "properties": {
+                                "implementationId": { "type": "string" },
+                                "protocol": { "type": "string" },
+                                "bindings": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": { "type": "string" },
+                                      "event": { "type": "string" },
+                                      "matcher": { "type": "string" },
+                                      "runtime": { "type": "string" },
+                                      "entrypoint": { "type": "string" },
+                                      "requiredOutcomes": {
+                                        "type": "array",
+                                        "items": { "type": "string" }
+                                      },
+                                      "requiredOperations": {
+                                        "type": "array",
+                                        "items": { "type": "string" }
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "event",
+                                      "runtime",
+                                      "entrypoint",
+                                      "requiredOutcomes",
+                                      "requiredOperations"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "conditions": { "type": "array", "items": { "type": "string" } },
+                                "configuration": {
+                                  "type": "object",
+                                  "properties": {
+                                    "status": {
+                                      "type": "string",
+                                      "enum": ["valid", "invalid", "not-evaluated"]
+                                    },
+                                    "fields": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "key": { "type": "string" },
+                                          "source": {
+                                            "type": "string",
+                                            "enum": ["consumer", "default", "unset"]
+                                          },
+                                          "value": {
+                                            "anyOf": [
+                                              { "type": "string" },
+                                              { "type": "number" },
+                                              {
+                                                "type": "string",
+                                                "enum": ["Infinity", "-Infinity", "NaN"]
+                                              },
+                                              { "type": "boolean" },
+                                              { "type": "null" }
+                                            ]
+                                          },
+                                          "redacted": { "type": "boolean" }
+                                        },
+                                        "required": ["key", "source", "value", "redacted"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "issues": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "key": { "type": "string" },
+                                          "message": { "type": "string" }
+                                        },
+                                        "required": ["key", "message"],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": ["status", "fields", "issues"],
+                                  "additionalProperties": false
+                                },
+                                "runtimeAvailability": { "type": "string", "enum": ["unverified"] },
+                                "nativeInvocation": { "type": "string", "enum": ["not-observed"] },
+                                "fixtureEvidence": {
+                                  "type": "object",
+                                  "properties": {
+                                    "state": {
+                                      "type": "string",
+                                      "enum": ["absent", "invalid", "stale", "historical"]
+                                    },
+                                    "receipt": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "enum": ["fixture-execution"] },
+                                        "package": { "type": "string" },
+                                        "version": { "type": "string" },
+                                        "contentHash": { "type": "string" },
+                                        "configurationHash": { "type": "string" },
+                                        "startedAt": {
+                                          "anyOf": [
+                                            { "type": "number" },
+                                            {
+                                              "type": "string",
+                                              "enum": ["Infinity", "-Infinity", "NaN"]
+                                            }
+                                          ]
+                                        },
+                                        "completedAt": {
+                                          "anyOf": [
+                                            { "type": "number" },
+                                            {
+                                              "type": "string",
+                                              "enum": ["Infinity", "-Infinity", "NaN"]
+                                            }
+                                          ]
+                                        },
+                                        "cwd": { "type": "string", "enum": ["package-root"] },
+                                        "scope": { "type": "string", "enum": ["project", "user"] },
+                                        "platform": {
+                                          "type": "object",
+                                          "properties": {
+                                            "os": { "type": "string" },
+                                            "architecture": { "type": "string" }
+                                          },
+                                          "required": ["os", "architecture"],
+                                          "additionalProperties": false
+                                        },
+                                        "environment": {
+                                          "type": "array",
+                                          "items": { "type": "string" }
+                                        },
+                                        "environmentFreshness": {
+                                          "type": "string",
+                                          "enum": ["historical-only"]
+                                        },
+                                        "nativeInvocation": {
+                                          "type": "string",
+                                          "enum": ["not-observed"]
+                                        },
+                                        "sandboxed": { "type": "boolean", "enum": [false] },
+                                        "fixtures": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "fixture": { "type": "string" },
+                                              "implementation": { "type": "string" },
+                                              "binding": { "type": "string" },
+                                              "protocol": { "type": "string" },
+                                              "runtime": { "type": "string" },
+                                              "runtimeVersion": {
+                                                "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                              },
+                                              "outcome": {
+                                                "type": "string",
+                                                "enum": ["passed", "failed"]
+                                              },
+                                              "expectedExitCode": {
+                                                "anyOf": [
+                                                  { "type": "number" },
+                                                  {
+                                                    "type": "string",
+                                                    "enum": ["Infinity", "-Infinity", "NaN"]
+                                                  }
+                                                ]
+                                              },
+                                              "observedExitCode": {
+                                                "anyOf": [
+                                                  { "type": "number" },
+                                                  {
+                                                    "type": "string",
+                                                    "enum": ["Infinity", "-Infinity", "NaN"]
+                                                  },
+                                                  { "type": "null" }
+                                                ]
+                                              },
+                                              "stdoutMatches": {
+                                                "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                                              },
+                                              "stderrMatches": {
+                                                "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                                              },
+                                              "detail": { "type": "string" }
+                                            },
+                                            "required": [
+                                              "fixture",
+                                              "implementation",
+                                              "binding",
+                                              "protocol",
+                                              "runtime",
+                                              "runtimeVersion",
+                                              "outcome",
+                                              "expectedExitCode",
+                                              "observedExitCode",
+                                              "stdoutMatches",
+                                              "stderrMatches",
+                                              "detail"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "passed": { "type": "boolean" },
+                                        "receiptPath": { "type": "string" }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "package",
+                                        "version",
+                                        "contentHash",
+                                        "configurationHash",
+                                        "startedAt",
+                                        "completedAt",
+                                        "cwd",
+                                        "scope",
+                                        "platform",
+                                        "environment",
+                                        "environmentFreshness",
+                                        "nativeInvocation",
+                                        "sandboxed",
+                                        "fixtures",
+                                        "passed",
+                                        "receiptPath"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "reason": { "type": "string" }
+                                  },
+                                  "required": ["state", "reason"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "implementationId",
+                                "protocol",
+                                "bindings",
+                                "conditions",
+                                "configuration",
+                                "runtimeAvailability",
+                                "nativeInvocation",
+                                "fixtureEvidence"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "fields": { "type": "array", "items": { "type": "string" } },
+                            "warnings": { "type": "array", "items": { "type": "string" } },
+                            "configuration": {
+                              "type": "string",
+                              "enum": ["valid", "blocked", "unverified"]
+                            },
+                            "projection": { "type": "string" },
+                            "readiness": { "type": "string", "enum": ["blocked", "unverified"] },
+                            "runtime": { "type": "string", "enum": ["not-checked"] },
+                            "manualActions": { "type": "array", "items": { "type": "string" } }
+                          },
+                          "required": ["agentId", "outcome", "reasonCode", "reason"],
+                          "additionalProperties": false,
+                          "description": "Per-agent evidence for the enclosing subject identity; its extension type and name are supplied once by identity."
+                        }
+                      },
+                      "knowledge": {
+                        "type": "object",
+                        "properties": {
+                          "concepts": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          },
+                          "diagnostics": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          }
+                        },
+                        "required": ["concepts", "diagnostics"],
+                        "additionalProperties": false
+                      },
+                      "mcp": {
+                        "type": "object",
+                        "properties": {
+                          "sourceVersionLocked": { "type": "boolean" },
+                          "runtimeArtifactPinned": {
+                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                          },
+                          "cwd": {
+                            "type": "string",
+                            "enum": [
+                              "host-default",
+                              "directory",
+                              "missing",
+                              "unverified",
+                              "not-applicable"
+                            ]
+                          },
+                          "runtime": { "type": "string", "enum": ["not-checked"] },
+                          "distributions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": { "type": "string" },
+                                "kind": { "type": "string" },
+                                "transport": { "type": "string" },
+                                "destination": { "type": "string" },
+                                "selected": { "type": "boolean" },
+                                "supported": { "type": "boolean" },
+                                "reason": { "type": "string" },
+                                "inputs": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": { "type": "string" },
+                                      "required": { "type": "boolean" },
+                                      "secret": { "type": "boolean" },
+                                      "repeated": { "type": "boolean" },
+                                      "hasDefault": { "type": "boolean" }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "required",
+                                      "secret",
+                                      "repeated",
+                                      "hasDefault"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "transport",
+                                "destination",
+                                "selected",
+                                "supported",
+                                "inputs"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "sourceVersionLocked",
+                          "runtimeArtifactPinned",
+                          "cwd",
+                          "runtime",
+                          "distributions"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "pack": {
+                        "type": "object",
+                        "properties": {
+                          "membership": { "type": "string", "enum": ["known", "unknown"] },
+                          "routes": {
+                            "type": "string",
+                            "enum": ["active", "dormant", "unauthorized", "unknown"]
+                          },
+                          "members": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "fqn": { "type": "string" },
+                                "declaration": {
+                                  "type": "object",
+                                  "properties": {
+                                    "constraint": { "type": "string" },
+                                    "endpoint": {
+                                      "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                    }
+                                  },
+                                  "required": ["constraint", "endpoint"],
+                                  "additionalProperties": false
+                                },
+                                "localNames": { "type": "array", "items": { "type": "string" } },
+                                "sourceIdentity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "authority": {
+                                          "type": "string",
+                                          "enum": [
+                                            "workspace",
+                                            "registry",
+                                            "git",
+                                            "http",
+                                            "path",
+                                            "bundled",
+                                            "inline"
+                                          ]
+                                        },
+                                        "fqn": {
+                                          "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                        },
+                                        "endpoint": {
+                                          "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                        },
+                                        "locator": {
+                                          "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                        }
+                                      },
+                                      "required": ["authority", "fqn", "endpoint", "locator"],
+                                      "additionalProperties": false
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "resolution": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "status": { "type": "string", "enum": ["accepted"] }
+                                      },
+                                      "required": ["status"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "status": { "type": "string", "enum": ["authored"] }
+                                      },
+                                      "required": ["status"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "status": { "type": "string", "enum": ["unresolved"] },
+                                        "reason": {
+                                          "type": "string",
+                                          "enum": [
+                                            "not-desired",
+                                            "unbound-source",
+                                            "not-accepted",
+                                            "authority-mismatch",
+                                            "conflicted-source"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["status", "reason"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                                "reachability": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["satisfying", "excluded", "missing"]
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "subjectRef": { "type": "string" }
+                              },
+                              "required": [
+                                "fqn",
+                                "declaration",
+                                "localNames",
+                                "sourceIdentity",
+                                "resolution",
+                                "version",
+                                "reachability",
+                                "subjectRef"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "reason": { "type": "string" }
+                        },
+                        "required": ["membership", "routes", "members"],
+                        "additionalProperties": false
+                      },
+                      "runtime": {
+                        "type": "object",
+                        "properties": { "state": { "type": "string", "enum": ["not-checked"] } },
+                        "required": ["state"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "identity",
+                      "requestRefs",
+                      "editing",
+                      "desired",
+                      "accepted",
+                      "observed",
+                      "retention",
+                      "nativeLocationRefs",
+                      "duplicateDiscoveries",
+                      "nativeCoverage",
+                      "agents",
+                      "agentOutcomes",
+                      "runtime"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "supportingSubjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "$ref": "#/$defs/InstallableExtensionType" },
+                          "name": { "type": "string" },
+                          "fqn": { "type": "string" },
+                          "scope": { "type": "string", "enum": ["project", "user"] },
+                          "source": {
+                            "type": "object",
+                            "properties": {
+                              "authority": {
+                                "type": "string",
+                                "enum": [
+                                  "workspace",
+                                  "registry",
+                                  "git",
+                                  "http",
+                                  "path",
+                                  "bundled",
+                                  "inline",
+                                  "unmanaged",
+                                  "unknown"
+                                ]
+                              },
+                              "locator": { "type": "string" },
+                              "sourceName": { "type": "string" },
+                              "endpoint": { "type": "string" }
+                            },
+                            "required": ["authority"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["name", "scope", "source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["id", "identity"],
+                    "additionalProperties": false
+                  }
+                },
+                "nativeLocations": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/NativeLocationRecord" }
+                },
+                "nativeReaderDeclarations": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/NativeReaderDeclaration" }
+                },
+                "observationDiagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "message": { "type": "string" },
+                      "path": { "type": "string" },
+                      "code": { "type": "string" },
+                      "source": { "type": "string" }
+                    },
+                    "required": ["message"],
+                    "additionalProperties": false
+                  }
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": ["complete", "partial", "unknown", "not-applicable"]
+                    },
+                    "reasons": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "required": ["state", "reasons"],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "scope",
+                "requests",
+                "items",
+                "supportingSubjects",
+                "nativeLocations",
+                "nativeReaderDeclarations",
+                "observationDiagnostics",
+                "coverage"
+              ],
+              "additionalProperties": false
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "subjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "$ref": "#/$defs/ExtensionType" },
+                      "name": { "type": "string" },
+                      "requested": { "type": "boolean" },
+                      "includedBy": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": ["pack-member", "shared-output", "shared-package"]
+                            },
+                            "source": { "type": "string" }
+                          },
+                          "required": ["kind", "source"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["type", "name", "requested", "includedBy"],
+                    "additionalProperties": false
+                  }
+                },
+                "units": { "type": "array", "items": { "type": "string" } },
+                "incomplete": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source": { "type": "string" },
+                      "reason": { "type": "string" }
+                    },
+                    "required": ["source", "reason"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["subjects", "units", "incomplete"],
+              "additionalProperties": false
+            },
+            "assessments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["compatibility", "ownership", "lint", "convergence"]
+                  },
+                  "phase": { "type": "string" },
+                  "subjectRefs": { "type": "array", "items": { "type": "string" } },
+                  "coverage": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": { "state": { "type": "string", "enum": ["complete"] } },
+                        "required": ["state"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": { "type": "string", "enum": ["incomplete"] },
+                          "reasons": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["state", "reasons"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "state": { "type": "string", "enum": ["not-requested"] } },
+                        "required": ["state"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": { "type": "string", "enum": ["not-applicable"] },
+                          "reason": { "type": "string" }
+                        },
+                        "required": ["state", "reason"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "findingRefs": { "type": "array", "items": { "type": "string" } },
+                  "conclusion": {
+                    "type": "string",
+                    "enum": ["satisfied", "attention-required", "unknown", "not-applicable"]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "phase",
+                  "subjectRefs",
+                  "coverage",
+                  "findingRefs",
+                  "conclusion"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "group": { "$ref": "#/$defs/LintFindingGroup" },
+                  "kind": { "type": "string", "enum": ["advisory"] },
+                  "ruleId": { "type": "string" },
+                  "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+                  "message": { "type": "string" },
+                  "displayRoot": { "type": "string" },
+                  "path": { "type": "string" },
+                  "subject": { "type": "string" },
+                  "authority": { "type": "string" },
+                  "observed": { "type": "string" },
+                  "expected": { "type": "string" },
+                  "location": {
+                    "anyOf": [{ "$ref": "#/$defs/LintJsonLocation" }, { "type": "null" }]
+                  }
+                },
+                "required": [
+                  "id",
+                  "group",
+                  "kind",
+                  "ruleId",
+                  "severity",
+                  "message",
+                  "displayRoot",
+                  "path",
+                  "subject",
+                  "authority",
+                  "observed",
+                  "expected"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "verdict": {
+              "type": "object",
+              "properties": {
+                "ok": { "type": "boolean" },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["compatibility", "ownership", "lint", "convergence"]
+                      },
+                      "code": {
+                        "type": "string",
+                        "enum": [
+                          "unresolved-request",
+                          "missing-assessment",
+                          "duplicate-assessment",
+                          "incomplete-assessment",
+                          "attention-required",
+                          "error-finding",
+                          "strict-warning",
+                          "missing-finding"
+                        ]
+                      },
+                      "refs": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["code", "refs"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["ok", "reasons"],
+              "additionalProperties": false
+            },
+            "officialSkillCompatibility": {
+              "type": "object",
+              "properties": {
+                "status": { "type": "string", "enum": ["compatible", "incompatible"] },
+                "cliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "skillVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "source": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "declaredCliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "declaredCliVersionRange": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "reasonCode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "cli-version-unavailable",
+                        "axm-skill-missing",
+                        "axm-skill-manifest-invalid",
+                        "compatibility-metadata-missing",
+                        "compatibility-metadata-malformed",
+                        "skill-release-mismatch",
+                        "skill-release-range-mismatch",
+                        "cli-version-incompatible"
+                      ]
+                    },
+                    { "type": "null" }
+                  ]
+                },
+                "detail": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                "recovery": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "inspect-cli",
+                        "upgrade-cli",
+                        "update-registry-skill",
+                        "install-bundled-skill",
+                        "preserve-authored-skill"
+                      ]
+                    },
+                    "targetCliVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "targetSkillVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "nextAction": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "boundary": {
+                            "type": "string",
+                            "enum": ["executable", "workspace", "verification"]
+                          },
+                          "command": { "type": "string" },
+                          "preview": { "type": "boolean" }
+                        },
+                        "required": ["boundary", "command", "preview"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "targetCliVersion",
+                    "targetSkillVersion",
+                    "nextAction",
+                    "steps"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "status",
+                "cliVersion",
+                "skillVersion",
+                "source",
+                "declaredCliVersion",
+                "declaredCliVersionRange",
+                "reasonCode",
+                "detail",
+                "recovery"
+              ],
+              "additionalProperties": false
+            },
+            "compatibility": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "$ref": "#/$defs/ExtensionType" },
+                  "name": { "type": "string" },
+                  "constraint": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "enum": ["compatible", "conflict"] },
+                      "range": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "contributors": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "source": { "type": "string", "enum": ["settings", "pack"] },
+                            "range": { "type": "string" },
+                            "location": { "type": "string" },
+                            "dependingPack": { "type": "string" },
+                            "localName": { "type": "string" }
+                          },
+                          "required": ["source", "range", "location"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["status", "range", "contributors"],
+                    "additionalProperties": false
+                  },
+                  "observation": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "$ref": "#/$defs/ExtensionType" },
+                      "name": { "type": "string" },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "not-applicable",
+                          "missing",
+                          "missing-resolution",
+                          "constraint-mismatch",
+                          "wrong-origin",
+                          "corrupt",
+                          "incomplete",
+                          "materialization-mismatch",
+                          "usable"
+                        ]
+                      },
+                      "path": { "type": "string" },
+                      "contentIdentity": { "type": "string" },
+                      "authority": {
+                        "type": "object",
+                        "properties": {
+                          "source": { "type": "string", "enum": ["desired-state-graph"] },
+                          "identity": { "type": "string" },
+                          "locator": { "type": "string" },
+                          "constraints": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "source": { "type": "string", "enum": ["settings", "pack"] },
+                                "range": { "type": "string" },
+                                "location": { "type": "string" },
+                                "dependingPack": { "type": "string" },
+                                "localName": { "type": "string" }
+                              },
+                              "required": ["source", "range", "location"],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": ["source", "identity", "locator", "constraints"],
+                        "additionalProperties": false
+                      },
+                      "acceptedVersion": { "type": "string" },
+                      "observedVersion": { "type": "string" }
+                    },
+                    "required": ["type", "name", "status"],
+                    "additionalProperties": false
+                  },
+                  "failure": { "type": "string" }
+                },
+                "required": ["type", "name", "constraint"],
+                "additionalProperties": false
+              }
+            },
+            "projections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "predicate": { "type": "string", "enum": ["workspace/projection-current"] },
+                  "subject": {
+                    "type": "object",
+                    "properties": {
+                      "unitId": { "type": "string" },
+                      "path": { "type": "string" },
+                      "scope": { "type": "string", "enum": ["project", "user"] },
+                      "owner": { "type": "string" },
+                      "lastWrite": {
+                        "type": "string",
+                        "enum": ["matches", "modified", "unrecorded"]
+                      }
+                    },
+                    "required": ["unitId", "path", "scope"],
+                    "additionalProperties": false
+                  },
+                  "authority": {
+                    "type": "object",
+                    "properties": {
+                      "source": { "type": "string", "enum": ["desired-state-graph"] },
+                      "contributors": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["source", "contributors"],
+                    "additionalProperties": false
+                  },
+                  "observation": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "current",
+                          "missing",
+                          "incomplete",
+                          "stale",
+                          "obsolete",
+                          "unavailable"
+                        ]
+                      },
+                      "contributors": { "type": "array", "items": { "type": "string" } },
+                      "reasonCode": {
+                        "type": "string",
+                        "enum": ["invalid-ownership", "unavailable"]
+                      },
+                      "message": { "type": "string" },
+                      "failure": { "type": "string" },
+                      "nativeLocations": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                      },
+                      "exclusions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "contributor": { "type": "string" },
+                            "reason": {
+                              "type": "string",
+                              "enum": ["package-missing", "package-invalid"]
+                            },
+                            "detail": { "type": "string" }
+                          },
+                          "required": ["contributor", "reason"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["status"],
+                    "additionalProperties": false
+                  },
+                  "expectation": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "enum": ["current"] },
+                      "contributors": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["status", "contributors"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["predicate", "subject", "authority", "observation", "expectation"],
+                "additionalProperties": false
+              }
+            },
+            "reconciliation": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "label": { "type": "string" },
+                  "readiness": { "type": "string", "enum": ["ready", "warn", "error"] },
+                  "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "transitions": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/MaterializationTransition" }
+                  },
+                  "nativeLocations": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                  }
+                },
+                "required": ["label", "readiness", "transitions", "nativeLocations"],
+                "additionalProperties": false
+              }
+            },
+            "failedOwners": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": [
+            "checks",
+            "strict",
+            "selection",
+            "inspection",
+            "scope",
+            "assessments",
+            "findings",
+            "verdict",
+            "compatibility",
+            "projections",
+            "reconciliation",
+            "failedOwners"
+          ],
+          "additionalProperties": false,
+          "description": "Bounded local assessments, evidence coverage and verdict; no repair or acquisition is performed."
+        }
+      ]
+    },
+    "family.local-check": {
+      "anyOf": [
+        {
+          "title": "JSON Success Envelope",
+          "description": "Structured JSON success envelope for machine-readable CLI output.",
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean", "enum": [true] },
+            "mode": { "enum": ["query"] },
+            "outcome": { "$ref": "#/$defs/SettledOutcome" },
+            "result": { "$ref": "#/$defs/payload.local-check" },
+            "summary": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "suggestions": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/$defs/SuggestedAction" } },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["ok", "mode", "outcome", "result"],
+          "additionalProperties": false
+        },
+        {
+          "title": "JSON Operation Failure Envelope",
+          "description": "Structured result for an operation that completed its plan but reported failed or partial work.",
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean", "enum": [false] },
+            "mode": { "enum": ["query"] },
+            "outcome": { "$ref": "#/$defs/SettledOutcome" },
+            "diagnosticId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "result": { "$ref": "#/$defs/payload.local-check" },
+            "summary": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "suggestions": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/$defs/SuggestedAction" } },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["ok", "mode", "outcome", "result"],
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/JsonErrorEnvelopeSchema" },
+        { "$ref": "#/$defs/JsonHelpDocSchema" },
+        { "$ref": "#/$defs/JsonVersionDocSchema" }
+      ]
+    },
     "payload.help-topic": {
       "anyOf": [
         {
@@ -21068,6 +24204,62 @@
       "meaning": "Local inspection answers ownership, editing authority, desired reachability, retention, and observation coverage.",
       "schemaCommand": "axm schema packs show"
     },
+    "axm check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema check"
+    },
+    "axm skills check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema skills check"
+    },
+    "axm mcps check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema mcps check"
+    },
+    "axm subagents check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema subagents check"
+    },
+    "axm rules check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema rules check"
+    },
+    "axm hooks check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema hooks check"
+    },
+    "axm knowledge check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema knowledge check"
+    },
+    "axm packs check": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
+      "schemaCommand": "axm schema packs check"
+    },
     "axm help": {
       "class": "structured-result",
       "modes": ["query"],
@@ -21313,6 +24505,14 @@
     "axm subagents show": { "$ref": "#/$defs/family.subagent-show" },
     "axm show": { "$ref": "#/$defs/family.local-inspection" },
     "axm packs show": { "$ref": "#/$defs/family.local-inspection" },
+    "axm check": { "$ref": "#/$defs/family.local-check" },
+    "axm skills check": { "$ref": "#/$defs/family.local-check" },
+    "axm mcps check": { "$ref": "#/$defs/family.local-check" },
+    "axm subagents check": { "$ref": "#/$defs/family.local-check" },
+    "axm rules check": { "$ref": "#/$defs/family.local-check" },
+    "axm hooks check": { "$ref": "#/$defs/family.local-check" },
+    "axm knowledge check": { "$ref": "#/$defs/family.local-check" },
+    "axm packs check": { "$ref": "#/$defs/family.local-check" },
     "axm help": { "$ref": "#/$defs/family.help-topic" },
     "axm knowledge lint": { "$ref": "#/$defs/family.knowledge-lint" },
     "axm knowledge list": { "$ref": "#/$defs/family.knowledge-list" },

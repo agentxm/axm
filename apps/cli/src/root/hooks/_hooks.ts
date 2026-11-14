@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
@@ -47,6 +48,7 @@ export const hooksCommand = Command.make("hooks").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("hook"),
         enableCommand,
         disableCommand,
         configureCommand,

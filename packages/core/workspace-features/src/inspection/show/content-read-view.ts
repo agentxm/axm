@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import { WorkspaceReadViews } from "@agentxm/workspace-kernel/workspace-state";
 import { withInspectionReadView } from "../read-view.js";
 
-interface ReadDiagnostic {
+export interface ReadDiagnostic {
   readonly code: "inspection-read-changed";
   readonly source: "inspection";
   readonly path: string;
@@ -35,7 +35,10 @@ const fingerprint = (info: FileSystem.File.Info) =>
   ]);
 
 /** One invocation shares physical content bytes; changed identities invalidate captured input. */
-export const withLocalInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+const withContentReadView = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  options?: { readonly verifyRepeatedReads: boolean },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const paths = new Map<string, string>();
@@ -79,7 +82,14 @@ export const withLocalInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E,
       });
     const captured = FileSystem.make({ ...fs, readFile });
     const factory = yield* Effect.serviceOption(WorkspaceReadViews);
-    const query = withInspectionReadView(effect);
+    // A composite assessment has owners that read after initial inspection.
+    // Keep those calls visible to the identity check; ordinary inspection
+    // retains its existing phase-scoped observation cache.
+    const query = withInspectionReadView(
+      options?.verifyRepeatedReads === true
+        ? effect.pipe(Effect.provideService(FileSystem.FileSystem, captured))
+        : effect,
+    );
     const capturing = Option.isNone(factory)
       ? query
       : query.pipe(
@@ -93,3 +103,9 @@ export const withLocalInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E,
       Effect.provideService(InspectionContentReads, { diagnostics }),
     );
   });
+
+export const withLocalInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  withContentReadView(effect);
+
+export const withLocalAssessmentReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  withContentReadView(effect, { verifyRepeatedReads: true });

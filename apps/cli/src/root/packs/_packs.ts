@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 
 import { addCommand } from "./add.js";
@@ -55,6 +56,7 @@ export const packsCommand = Command.make("packs").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("pack"),
         enableCommand,
         disableCommand,
         addCommand,

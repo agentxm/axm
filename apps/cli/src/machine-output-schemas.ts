@@ -56,6 +56,7 @@ import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace-features/sharin
 import {
   ExtensionListDocumentSchema,
   LocalInspectionDocumentSchema,
+  LocalCheckDocumentSchema,
   SubagentRenderResultSchema,
   KnowledgeListQueryResultSchema,
   McpServerListQueryResultSchema,
@@ -85,6 +86,7 @@ export const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> 
   DiagnosticExportDocumentSchema,
   ExtensionInventoryDocumentSchema,
   LocalInspectionDocumentSchema,
+  LocalCheckDocumentSchema,
   SubagentRenderResultSchema,
   HelpIndexResultSchema,
   HelpTopicResultSchema,

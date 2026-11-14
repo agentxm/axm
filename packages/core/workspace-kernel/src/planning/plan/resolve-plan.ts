@@ -1240,6 +1240,12 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
                 })
               : workspaceStateReadFailureToStepFailure(failure),
           ),
+          Effect.mapError((error): PlanApplyFailure<Output> => ({
+            error,
+            // Readback happens after independent closures settle. Preserve
+            // those commits even when no postflight observation is available.
+            attemptedExecution: result,
+          })),
         );
         const currentOutcomes = operations.flatMap((operation) => {
           if (operation.plannedState !== "enabled") {

@@ -84,3 +84,5 @@ export {
   orderedEnvelopeRules,
 } from "./catalog/shared/envelope-rules.js";
 export { schemaDecodeFindings } from "./catalog/shared/schema-rule.js";
+
+export { LintJsonFindingSchema, type LintJsonFinding } from "./json-finding.js";

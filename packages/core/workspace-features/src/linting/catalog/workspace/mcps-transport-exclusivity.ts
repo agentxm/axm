@@ -63,6 +63,7 @@ export const mcpServerTransportExclusivityRule: AdvisoryRule<WorkspaceRuleContex
       const mcpServers = settings["mcpServers"];
       if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([name, entry]) => {
+        if (context.selectsSubject?.("mcp-server", name) === false) return [];
         if (!Predicate.isObject(entry)) return [];
         const reason = transportError(entry);
         return reason === undefined

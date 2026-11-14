@@ -2,6 +2,7 @@
 // Catalog table — the exhaustive group -> rules / group -> contexts mapping
 // the runner drives off.
 export { type LintView } from "./catalog-contexts.js";
+export { lintSelectedSubjects } from "./run/lint-selected-subjects.js";
 
 // `--json` document schema + derived types
 export {

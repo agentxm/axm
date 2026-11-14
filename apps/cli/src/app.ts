@@ -69,6 +69,7 @@ import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { listCommand } from "./root/list/command.js";
 import { showCommand } from "./root/show/command.js";
+import { checkCommand } from "./root/check/command.js";
 import { schemaCommand } from "./root/schema/command.js";
 import { lockCommand } from "./root/lock/command.js";
 import { rootEnableCommand, rootDisableCommand } from "./root/activation-handler.js";
@@ -155,6 +156,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         migrateCommand,
         listCommand,
         showCommand,
+        checkCommand,
         schemaCommand,
         lockCommand,
         viewCommand,

@@ -148,7 +148,8 @@ export const ExitCodeDefinitions = [
   },
   {
     code: 130,
-    meaning: "Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.",
+    meaning:
+      "Interrupted by SIGINT. Unsettled local work follows its rollback contract; committed effects remain reported.",
   },
   {
     code: 141,
@@ -156,7 +157,8 @@ export const ExitCodeDefinitions = [
   },
   {
     code: 143,
-    meaning: "Terminated by SIGTERM. Local candidate-wide transactions roll back before AXM exits.",
+    meaning:
+      "Terminated by SIGTERM. Unsettled local work follows its rollback contract; committed effects remain reported.",
   },
 ] as const;
 

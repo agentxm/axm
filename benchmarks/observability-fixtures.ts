@@ -975,8 +975,10 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
     if (count === 1) {
       for (const item of [
         { command: "show", args: ["show", "@acme/skills/bench-001"] },
+        { command: "check", args: ["check", "@acme/skills/bench-001"] },
         { command: "skills list", args: ["skills", "list"] },
         { command: "skills show", args: ["skills", "show", "bench-001"] },
+        { command: "skills check", args: ["skills", "check", "bench-001"] },
         { command: "skills install", args: ["skills", "install", "@acme/skills/bench-001"] },
         { command: "skills update", args: ["skills", "update", "bench-001"] },
         { command: "skills uninstall", args: ["skills", "uninstall", "bench-001"] },

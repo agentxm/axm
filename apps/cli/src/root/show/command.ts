@@ -80,11 +80,12 @@ export const selectLocalInspection = (
     readonly all: boolean;
   },
   route: ReadonlyArray<string>,
+  operation: "show" | "check" = "show",
 ): Effect.Effect<InspectionSelection, AppError | CliError.ShowHelp> => {
   const modes = Number(args.name.length > 0) + Number(args.path.length > 0) + Number(args.all);
   if (modes === 0)
     return Effect.fail(
-      new CliError.ShowHelp({ commandPath: ["axm", ...route, "show"], errors: [] }),
+      new CliError.ShowHelp({ commandPath: ["axm", ...route, operation], errors: [] }),
     );
   if (modes !== 1)
     return Effect.fail(

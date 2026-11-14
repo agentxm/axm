@@ -47,6 +47,7 @@ export const mcpServerNoSecretLiteralRule: AdvisoryRule<WorkspaceRuleContext> = 
       const mcpServers = settings["mcpServers"];
       if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([serverName, entry]) => {
+        if (context.selectsSubject?.("mcp-server", serverName) === false) return [];
         if (!Predicate.isObject(entry)) return [];
         const decoded = Schema.decodeUnknownResult(McpConnectionSchema)(entry["connection"]);
         if (Result.isFailure(decoded)) return [];

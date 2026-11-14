@@ -60,6 +60,11 @@ export {
 export { ExportLock, exportAcceptedResolutions } from "./lock-export.js";
 export { LocalInspection } from "./show/local-inspection.js";
 export {
+  checkLocal,
+  LocalCheckDocumentSchema,
+  type LocalCheckDocument,
+} from "./check/check-document.js";
+export {
   LocalInspectionDocumentSchema,
   type LocalInspectionDocument,
 } from "./show/local-inspection-document.js";
@@ -68,3 +73,9 @@ export {
   type InspectionSelection,
   type LocalInspectionRequest,
 } from "./show/local-inspection-selection.js";
+export { parseCheckSelection, type LocalCheckRequest } from "./check/check-selection.js";
+export { decideCheckVerdict, type CheckAssessment } from "./check/check-assessment.js";
+export { expandCheckScope, type CheckSubject } from "./check/check-scope.js";
+export { assessCheckOwnership } from "./check/ownership-assessment.js";
+export { captureLocalCheck } from "./check/local-check.js";
+export { assessCapturedCheck } from "./check/check-result.js";

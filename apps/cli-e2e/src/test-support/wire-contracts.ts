@@ -143,6 +143,9 @@ const variantsOf = (
     Schema.is(ObjectSchema)(result["concept"]) &&
     typeof result["concept"]["raw"] === "string";
   return [
+    ...(family === "local-check" && output["result"] !== undefined
+      ? [output["ok"] === true ? "local-check:satisfied" : "local-check:attention-required"]
+      : []),
     ...(output["type"] === "help" ? ["formatter:help"] : []),
     ...(output["type"] === "version" ? ["formatter:version"] : []),
     ...(output["ok"] === false && output["result"] === undefined ? ["generic-error"] : []),

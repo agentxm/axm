@@ -386,6 +386,27 @@ registered warmup and balanced blocks, and review of recorded contention,
 noise, and drift. Output budgets belong to executable specifications; they are
 never runtime truncation limits.
 
+For local assessment, select `assessment-check-1`, `assessment-check-30`,
+`assessment-component-show`, `assessment-component-lint`,
+`assessment-component-sync-preview`, and
+`assessment-component-selected-sync-preview` through the comma-separated
+`AXM_OUTPUT_BENCHMARK_SCENARIOS` variable. The whole-workspace comparison uses
+three component invocations versus one check invocation over the same accepted
+thirty-package fixture. Keep each component's result and cost visible: their
+combined outputs do not provide check's unified coverage and verdict contract.
+The one-subject check has no equivalent old single-command baseline. These
+captures verify complete selected results and unchanged workspace bytes;
+independent I/O and decode accounting requires separate observations at those
+boundaries. A smaller output or fewer commands alone does not establish less
+physical work or a latency improvement.
+
+On Linux with `strace` installed, `AXM_OUTPUT_TRACE_READ_SYSCALLS=1` adds
+independent raw `read`/`pread64` syscall records to a capture-only run. It
+rejects timing mode. Records include process startup and child threads, omit
+buffer contents, and do not measure memory-mapped access, other read APIs, or
+decoding. Keep these diagnostic observations separate from untraced elapsed
+and RSS measurements.
+
 `pnpm exec nx run axm:eval:cli` is an opt-in, uncached Linux agent evaluation.
 It consumes frozen CLI binaries, skill directories, and an explicitly pinned
 Codex distribution; it does not compile them or establish their build

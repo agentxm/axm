@@ -854,6 +854,156 @@
             "subcommands": []
           },
           {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm skills check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm skills check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm skills check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
             "name": "enable",
             "aliases": [],
             "description": "Enable a previously disabled skill",
@@ -1864,6 +2014,156 @@
               {
                 "command": "axm mcps show --path AGENTS.md --json",
                 "description": "Explain known ownership units at a local path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm mcps check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm mcps check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm mcps check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
               }
             ],
             "subcommands": []
@@ -2975,6 +3275,156 @@
             "subcommands": []
           },
           {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm subagents check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm subagents check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm subagents check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
             "name": "enable",
             "aliases": [],
             "description": "Enable a previously disabled subagent",
@@ -3892,6 +4342,156 @@
             "subcommands": []
           },
           {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm rules check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm rules check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
             "name": "enable",
             "aliases": [],
             "description": "Enable a previously disabled rule",
@@ -4697,6 +5297,156 @@
               {
                 "command": "axm hooks show --path AGENTS.md --json",
                 "description": "Explain known ownership units at a local path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm hooks check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm hooks check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm hooks check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
               }
             ],
             "subcommands": []
@@ -5776,6 +6526,156 @@
               {
                 "command": "axm knowledge show --path AGENTS.md --json",
                 "description": "Explain known ownership units at a local path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm knowledge check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm knowledge check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm knowledge check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
               }
             ],
             "subcommands": []
@@ -6956,6 +7856,156 @@
             "subcommands": []
           },
           {
+            "name": "check",
+            "aliases": [],
+            "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
+              },
+              {
+                "name": "checks",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+              },
+              {
+                "name": "strict",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Fail the assessment on applicable warnings",
+                "default": false
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm packs check review --json",
+                "description": "Assess an exact local subject and required contributors"
+              },
+              {
+                "command": "axm packs check --all --checks lint --strict",
+                "description": "Assess local lint; warnings fail the verdict"
+              },
+              {
+                "command": "axm packs check --path AGENTS.md --json",
+                "description": "Assess known local owners of a path"
+              }
+            ],
+            "subcommands": []
+          },
+          {
             "name": "enable",
             "aliases": [],
             "description": "Enable a previously disabled pack",
@@ -8077,6 +9127,173 @@
           {
             "command": "axm show --path AGENTS.md --json",
             "description": "Explain known ownership units at a local path"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "check",
+        "aliases": [],
+        "description": "Assess selected local compatibility, ownership, lint, and convergence without repair or acquisition",
+        "arguments": [
+          {
+            "name": "name",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exact local name or identity; repeated operands retain their order",
+            "variadic": { "min": 0 }
+          }
+        ],
+        "options": [
+          {
+            "name": "path",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Inspect this exact local path; repeat to inspect several paths",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "all",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Inspect the complete local inventory",
+            "default": false
+          },
+          {
+            "name": "scope",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Workspace scope",
+            "choices": [{ "value": "project" }, { "value": "user" }],
+            "default": "project"
+          },
+          {
+            "name": "agent",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "adal" },
+              { "value": "fx" },
+              { "value": "muse-code" },
+              { "value": "mimo-code" },
+              { "value": "coder-agents" },
+              { "value": "aider-desk" },
+              { "value": "amp" },
+              { "value": "antigravity" },
+              { "value": "antigravity-cli" },
+              { "value": "augment" },
+              { "value": "claude-code" },
+              { "value": "cline" },
+              { "value": "codearts-agent" },
+              { "value": "codebuddy" },
+              { "value": "codemaker" },
+              { "value": "codestudio" },
+              { "value": "codex" },
+              { "value": "command-code" },
+              { "value": "continue" },
+              { "value": "cortex" },
+              { "value": "crush" },
+              { "value": "cursor" },
+              { "value": "deepagents" },
+              { "value": "devin" },
+              { "value": "dexto" },
+              { "value": "droid" },
+              { "value": "firebender" },
+              { "value": "forgecode" },
+              { "value": "gemini-cli" },
+              { "value": "github-copilot-cli" },
+              { "value": "goose" },
+              { "value": "grok-cli" },
+              { "value": "hermes" },
+              { "value": "ibm-bob" },
+              { "value": "iflow-cli" },
+              { "value": "junie" },
+              { "value": "lingma" },
+              { "value": "kilo" },
+              { "value": "kimi-cli" },
+              { "value": "kiro-cli" },
+              { "value": "kode" },
+              { "value": "mcpjam" },
+              { "value": "minimax-code" },
+              { "value": "mistral-vibe" },
+              { "value": "mux" },
+              { "value": "neovate" },
+              { "value": "openclaw" },
+              { "value": "opencode" },
+              { "value": "openhands" },
+              { "value": "ona" },
+              { "value": "pi" },
+              { "value": "vscode" },
+              { "value": "pochi" },
+              { "value": "qoder" },
+              { "value": "qoder-cn" },
+              { "value": "qwen-code" },
+              { "value": "replit" },
+              { "value": "roo" },
+              { "value": "rovodev" },
+              { "value": "tabnine-cli" },
+              { "value": "trae-cn" },
+              { "value": "trae" },
+              { "value": "warp" },
+              { "value": "windsurf" },
+              { "value": "zencoder" },
+              { "value": "zed" },
+              { "value": "zenflow" }
+            ]
+          },
+          {
+            "name": "checks",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Comma-separated assessments: compatibility,ownership,lint,convergence; default: all"
+          },
+          {
+            "name": "strict",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Fail the assessment on applicable warnings",
+            "default": false
+          },
+          {
+            "name": "type",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Restrict local candidates to this extension type",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "skill" },
+              { "value": "mcp-server" },
+              { "value": "subagent" },
+              { "value": "rule" },
+              { "value": "hook" },
+              { "value": "knowledge" },
+              { "value": "pack" }
+            ]
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm check review --json",
+            "description": "Assess an exact local subject and required contributors"
+          },
+          {
+            "command": "axm check --all --checks lint --strict",
+            "description": "Assess local lint; warnings fail the verdict"
+          },
+          {
+            "command": "axm check --path AGENTS.md --json",
+            "description": "Assess known local owners of a path"
           }
         ],
         "subcommands": []

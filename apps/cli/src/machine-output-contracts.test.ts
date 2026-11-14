@@ -108,6 +108,21 @@ describe("machine-output contract register", () => {
       expect(row.family.rationale).not.toBe("");
       expect(row.family.effects).not.toBe("");
       expect(row.family.completionOwner).not.toBe("");
+      const assessment = row.family.assessment;
+      if (row.family.modes.some((mode) => mode === "apply"))
+        expect(assessment.kind, row.path).toBe("operation");
+      if (assessment.kind === "operation") {
+        expect(assessment.preflight, row.path).not.toBe("");
+        expect(assessment.postcondition, row.path).not.toBe("");
+        expect(assessment.evidence, row.path).not.toBe("");
+        expect(assessment.modes, row.path).not.toBe("");
+      } else if (assessment.kind === "standalone") {
+        expect(assessment.evidence, row.path).not.toBe("");
+        expect(row.family.modes, row.path).toEqual(["query"]);
+      } else {
+        expect(assessment.reason, row.path).not.toBe("");
+        expect(row.family.modes, row.path).toEqual(["query"]);
+      }
       if (row.family.outputClass === "structured-result")
         expect(row.family.modes.length).toBeGreaterThan(0);
       expect(row.helpSchemaName).toBe("JsonHelpDocSchema");

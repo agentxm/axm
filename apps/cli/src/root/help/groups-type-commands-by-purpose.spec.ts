@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/help/groups-type-commands-by-purpose",
   title: "Extension command groups separate management from authoring",
   statement:
-    "Each extension type shall present management before authoring, order the shared management commands as install, update, uninstall, list, show, enable, and disable, then its additional management commands, and order authoring as new, import when supported, additional authoring commands, and publish. Human and machine help shall preserve these groups and order.",
+    "Each extension type shall present management before authoring, order the shared management commands as install, update, uninstall, list, show, check, enable, and disable, then its additional management commands, and order authoring as new, import when supported, additional authoring commands, and publish. Human and machine help shall preserve these groups and order.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "extension-adoption"],
@@ -47,6 +47,7 @@ for (const role of roles) {
             "uninstall",
             "list",
             "show",
+            "check",
             "enable",
             "disable",
             ...role.manage,

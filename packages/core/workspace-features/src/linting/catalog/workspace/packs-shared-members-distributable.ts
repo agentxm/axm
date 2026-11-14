@@ -82,6 +82,7 @@ export const packsSharedMembersDistributableRule: AdvisoryRule<WorkspaceRuleCont
           if (origin.type !== "pack") continue;
           const packName = parseExtensionFqnParts(origin.pack.fqn)?.name;
           if (packName === undefined || !sharedPacks.has(packName)) continue;
+          if (context.selectsSubject?.("pack", packName) === false) continue;
           findings.push({
             kind: "advisory",
             ruleId: RULE_ID,

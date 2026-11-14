@@ -19,13 +19,22 @@
 | 14   | auth_expired  | A pending authentication flow expired.                                                                                                                                                                  |
 | 15   | auth_denied   | A person denied or cancelled a pending authentication flow.                                                                                                                                             |
 | 16   | timeout       | A bounded operation did not complete before its deadline, including a caller-selected wait.                                                                                                             |
-| 130  |               | Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.                                                                                                                    |
+| 130  |               | Interrupted by SIGINT. Unsettled local work follows its rollback contract; committed effects remain reported.                                                                                           |
 | 141  |               | Output consumer closed the pipe. Output delivery was cancelled.                                                                                                                                         |
-| 143  |               | Terminated by SIGTERM. Local candidate-wide transactions roll back before AXM exits.                                                                                                                    |
+| 143  |               | Terminated by SIGTERM. Unsettled local work follows its rollback contract; committed effects remain reported.                                                                                           |
 
 `axm sync --preview --fail-on-change` uses code 1 only when planning succeeds
 and finds reconciliation work. Planning blockers and failures keep their normal
 exit meanings.
+
+`axm check` is a query. A negative or incomplete assessment completes with
+`outcome: "completed"`, `ok: false`, and exit 1. Missing or ambiguous explicit
+selections remain in that assessment. Workspace construction and unexpected
+execution failures keep their normal error codes; they are not negative
+assessment verdicts.
+
+A verification or output-delivery failure after a write does not imply that no
+change occurred. Inspect the reported effects and settlement before retrying.
 
 Plan JSON carries `candidateId`, which identifies the displayed candidate whose
 material inputs were revalidated immediately before execution.

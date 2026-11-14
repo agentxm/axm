@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -48,6 +49,7 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("knowledge"),
         enableCommand,
         disableCommand,
         conceptsCommand,

@@ -30,6 +30,7 @@ const REQUIRED_WIRE_RESULTS = [
   "knowledge-lint:query",
   "knowledge-list:query",
   "local-inspection:query",
+  "local-check:query",
   "login:apply",
   "logout:apply",
   "mcp-inventory:query",
@@ -69,6 +70,8 @@ const REQUIRED_WIRE_VARIANTS = [
   "lint-fix:preview",
   "lint-fix:apply",
   "publish:no-op",
+  "local-check:satisfied",
+  "local-check:attention-required",
   "credential-refusal",
 ] as const;
 

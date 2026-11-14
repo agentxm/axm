@@ -541,6 +541,12 @@ type MaterializeStepRequirements =
  * release-age evidence the plan carries.
  */
 export interface CollectedMaterializeSteps {
+  /** Selected subjects whose local evidence cannot support materialization assessment. */
+  readonly unassessed?: ReadonlyArray<{
+    readonly type: ExtensionType;
+    readonly name: string;
+    readonly reason: string;
+  }>;
   /** Whether the desired graph was complete enough for cleanup to run. */
   readonly cleanupSafe: boolean;
   readonly preparedHookProjection?: PreparedHookProjection;
@@ -574,6 +580,8 @@ export interface CollectedMaterializeSteps {
  * `any` under `skipLibCheck` and collapse the whole channel.
  */
 export const collectMaterializeSteps = (args: {
+  /** Assess present local sources only; never resolve or restore unavailable content. */
+  readonly localOnly?: boolean;
   readonly selection?: SyncSelection;
   readonly desiredState?: DesiredStateGraph;
   /** The settings document `desiredState` was derived from, when it is a proposal. */
@@ -620,7 +628,13 @@ export const collectMaterializeSteps = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const providers = yield* SourceHostProviders;
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
+    const unassessed: Array<{ type: ExtensionType; name: string; reason: string }> = [];
+    // Passive assessment cannot select Registry releases and has no mutation
+    // override flag. Keep the shared resolver's policy conservative without
+    // requiring the CLI's mutation-only posture service.
+    const releaseAgeEvaluation = yield* args.localOnly === true
+      ? makeConfiguredReleaseAgePolicy().pipe(Effect.provideService(ReleaseAgePosture, "enforce"))
+      : makeConfiguredReleaseAgePolicy();
     const configuredMcpServerEntries =
       args.settings === undefined
         ? yield* settings.entries("mcp-server")
@@ -802,6 +816,11 @@ export const collectMaterializeSteps = (args: {
             });
           }
           const forceCanonical = observation.status !== "usable";
+          if (args.localOnly === true && forceCanonical) {
+            const reason = canonicalObservationFactText(node, observation);
+            unassessed.push({ type: node.type, name: node.name, reason });
+            return yield* syncRefused({ category: "validation", detail: reason });
+          }
           const resolved = yield* Effect.gen(function* () {
             const usable = yield* usableAcceptedCanonicalFrom(canonical);
             if (Option.isSome(usable)) {
@@ -820,6 +839,16 @@ export const collectMaterializeSteps = (args: {
                   restoresAccepted: true,
                 };
               }
+            }
+            if (
+              args.localOnly === true &&
+              node.identity.authority !== "workspace" &&
+              node.identity.authority !== "bundled"
+            ) {
+              const reason =
+                "Local assessment cannot resolve an external source without accepted local authority";
+              unassessed.push({ type: node.type, name: node.name, reason });
+              return yield* syncRefused({ category: "validation", detail: reason });
             }
             return {
               ...(yield* resolveDesiredNodeRef(node, observation, releaseAgeEvaluation)),
@@ -987,7 +1016,7 @@ export const collectMaterializeSteps = (args: {
     );
     // With nothing reconcilable in the selection, the first blocker is the
     // operation's own refusal; beside reconcilable work it is a blocked step.
-    if (!reconciled.some((entry) => entry.materialize)) {
+    if (args.localOnly !== true && !reconciled.some((entry) => entry.materialize)) {
       const blocked = problemBlocked[0];
       if (blocked !== undefined) {
         return yield* syncRefused({
@@ -1534,6 +1563,7 @@ export const collectMaterializeSteps = (args: {
       ),
     )).flat();
     return {
+      ...(args.localOnly === true ? { unassessed } : {}),
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
       ...(preparedRulePlans === undefined ? {} : { preparedRulePlans }),
       ...(preparedKnowledgePlans === undefined ? {} : { preparedKnowledgePlans }),

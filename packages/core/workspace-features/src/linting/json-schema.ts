@@ -14,46 +14,9 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
+import { LintJsonFindingSchema } from "@agentxm/extension-content/lint";
+export { LintJsonFindingSchema } from "@agentxm/extension-content/lint";
 import { AxmSkillCompatibilityReportSchema } from "@agentxm/cli-maintenance/official-skill/domain";
-
-const LintJsonLocationSchema = Schema.Struct({
-  file: Schema.String,
-  line: Schema.optional(Schema.Number),
-  column: Schema.optional(Schema.Number),
-}).annotate({
-  identifier: "LintJsonLocation",
-  title: "Lint Finding Location",
-  description: "Document-relative location a finding points at.",
-});
-
-/**
- * One finding as emitted under `--json`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LintJsonFindingSchema = Schema.Struct({
-  group: Schema.Literals(CATALOG_GROUP_ORDER).annotate({
-    identifier: "LintFindingGroup",
-    title: "Lint Finding Group",
-    description: "Rule catalog the finding came from.",
-  }),
-  kind: Schema.Literal("advisory"),
-  ruleId: Schema.String,
-  severity: Schema.Literals(["error", "warning", "info"] as const),
-  message: Schema.String,
-  displayRoot: Schema.String,
-  path: Schema.String,
-  subject: Schema.String,
-  authority: Schema.String,
-  observed: Schema.String,
-  expected: Schema.String,
-  location: Schema.optional(LintJsonLocationSchema),
-}).annotate({
-  identifier: "LintJsonFinding",
-  title: "Lint Finding",
-  description: "A single lint finding with its rule, severity, and rendered path.",
-});
 
 const LintJsonSummarySchema = Schema.Struct({
   total: Schema.Number,

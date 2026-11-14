@@ -94,7 +94,14 @@ interface Scenario {
   readonly baselineArgs: ReadonlyArray<string> | null;
   readonly candidateArgs: ReadonlyArray<string>;
   readonly expectedCount?: number;
-  readonly kind: "inventory" | "inspection" | "restoration" | "publication" | "schema";
+  readonly kind:
+    | "inventory"
+    | "inspection"
+    | "restoration"
+    | "publication"
+    | "schema"
+    | "assessment"
+    | "assessment-component";
   readonly preserveWorkspace: boolean;
   readonly comparison: string;
   readonly nativeIdentity: ReturnType<typeof nativeIdentity>;
@@ -115,6 +122,32 @@ const inspectOutput = (
   const document = decodeObject(JSON.parse(stdout));
   if (document["ok"] !== true) throw failed(`${scenario.id} did not report a successful verdict.`);
   const result = decodeObject(document["result"]);
+  if (scenario.kind === "assessment-component")
+    return {
+      bytes: Buffer.byteLength(stdout),
+      assertions: [
+        "Completed component output retained for the explicit three-command assessment journey.",
+      ],
+    };
+  if (scenario.kind === "assessment") {
+    const inspection = decodeObject(result["inspection"]);
+    const items = objectArray(inspection["items"]);
+    const assessments = objectArray(result["assessments"]);
+    if (
+      items.length !== scenario.expectedCount ||
+      decodeObject(result["verdict"])["ok"] !== true ||
+      assessments.length !== 4 ||
+      assessments.some((assessment) => decodeObject(assessment["coverage"])["state"] !== "complete")
+    )
+      throw failed(`${scenario.id} did not completely assess the selected fixture.`);
+    return {
+      bytes: Buffer.byteLength(stdout),
+      subjectCount: items.length,
+      assertions: [
+        "All four assessments complete; every independently selected subject retained; verdict successful.",
+      ],
+    };
+  }
   if (scenario.kind === "inventory" || scenario.kind === "inspection") {
     const items = objectArray(result["items"]);
     if (items.length !== scenario.expectedCount)
@@ -198,6 +231,11 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
         return yield* failed("Use a fresh output directory; previous evidence is never replaced.");
       fs.mkdirSync(output, { recursive: true });
       const measure = process.env["AXM_OUTPUT_BENCHMARK_RUN"] === "measure";
+      const traceReadSyscalls = process.env["AXM_OUTPUT_TRACE_READ_SYSCALLS"] === "1";
+      if (traceReadSyscalls && (measure || process.platform !== "linux"))
+        return yield* failed(
+          "Read syscall capture requires Linux capture-only mode; traced elapsed time is not a timing measurement.",
+        );
       const requestedScenarios = process.env["AXM_OUTPUT_BENCHMARK_SCENARIOS"]?.split(",");
       const includes = (prefixes: ReadonlyArray<string>) =>
         requestedScenarios === undefined ||
@@ -264,11 +302,44 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
         });
         value.nativeIdentity = nativeIdentity(value.workspace);
       };
-      if (includes(["inventory-", "inspection-", "schema-"])) {
+      if (includes(["inventory-", "inspection-", "schema-", "assessment-"])) {
         const inventory = location("inventory");
         yield* prepareInventoryFixture(inventory.workspace);
         yield* invoke(inventory.workspace, inventory.home, ["sync", "--non-interactive", "--json"]);
         freeze(inventory);
+        for (const size of [1, 30]) {
+          scenarios.push({
+            ...inventory,
+            id: `assessment-check-${size}`,
+            kind: "assessment",
+            baselineArgs: null,
+            candidateArgs: size === 1 ? ["check", "extension-0"] : ["check", "--all"],
+            expectedCount: size,
+            preserveWorkspace: true,
+            comparison:
+              "New bounded four-assessment result. Compare whole-workspace totals with the three separately captured assessment journey components; the component outputs do not offer an equivalent unified coverage/verdict contract.",
+          });
+        }
+        for (const [name, args] of [
+          ["show", ["show", "--all"]],
+          ["lint", ["lint"]],
+          ["sync-preview", ["sync", "--preview", "--non-interactive"]],
+          [
+            "selected-sync-preview",
+            ["sync", "@fixture/skills/extension-0", "--preview", "--non-interactive"],
+          ],
+        ] satisfies ReadonlyArray<readonly [string, ReadonlyArray<string>]>) {
+          scenarios.push({
+            ...inventory,
+            id: `assessment-component-${name}`,
+            kind: "assessment-component",
+            baselineArgs: args,
+            candidateArgs: args,
+            preserveWorkspace: true,
+            comparison:
+              "Same command and accepted fixture before/after. Whole-workspace show, lint and sync-preview form the three-command journey; selected sync-preview separately checks bounded-operation overhead.",
+          });
+        }
         scenarios.push({
           ...inventory,
           id: "inventory-30",
@@ -448,6 +519,7 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
         baseline,
         candidate,
         measure,
+        traceReadSyscalls,
         selectedScenarios: selectedScenarios.map((scenario) => scenario.id),
         protocol: {
           warmups: 1,
@@ -512,9 +584,27 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
                 String(iteration),
                 subject,
               );
+              const binary = subject === "baseline" ? baseline.binaryPath : candidate.binaryPath;
+              const invocationArgs = [...selectedArgs, ...(machine ? ["--json"] : [])];
+              fs.mkdirSync(artifacts, { recursive: true });
+              const readTrace = path.join(artifacts, "read-syscalls.log");
               const observed = yield* runObservedProcess({
-                executable: subject === "baseline" ? baseline.binaryPath : candidate.binaryPath,
-                args: [...selectedArgs, ...(machine ? ["--json"] : [])],
+                executable: traceReadSyscalls ? "strace" : binary,
+                args: traceReadSyscalls
+                  ? [
+                      "-f",
+                      "-qq",
+                      "-e",
+                      "trace=read,pread64",
+                      "-e",
+                      "raw=read,pread64",
+                      "-o",
+                      readTrace,
+                      "--",
+                      binary,
+                      ...invocationArgs,
+                    ]
+                  : invocationArgs,
                 cwd: scenario.workspace,
                 environment: environment(scenario.home),
                 artifacts,
@@ -546,6 +636,12 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
                 exitCode: observed.exitCode,
                 durationMs: observed.durationMs,
                 peakRssBytes: observed.peakRssBytes,
+                ...(traceReadSyscalls
+                  ? {
+                      readSyscallTrace: readTrace,
+                      readSyscallTraceSha256: digest(fs.readFileSync(readTrace)),
+                    }
+                  : {}),
                 stdoutSha256: digest(observed.stdout),
                 stderrSha256: digest(observed.stderr),
                 stderrBytes: Buffer.byteLength(observed.stderr),
@@ -608,6 +704,11 @@ export const runOutputContractBenchmark = (repoRoot: string) =>
         tokenizer:
           "Measured independently against these complete raw captures; not estimated here.",
         limitations: [
+          ...(traceReadSyscalls
+            ? [
+                "Raw Linux read/pread64 syscall capture includes startup and all child threads; it excludes mmap access, decode work and other read APIs. Buffers are represented as addresses. Tracing changes elapsed time and RSS; these samples are not performance qualification.",
+              ]
+            : []),
           "File Registry removes remote transport variance; no network-performance claim.",
           "Schema export and arbitrary exact-content outputs are complete-volume exceptions.",
           "Provider token usage and local tokenizer counts are separate quantities.",

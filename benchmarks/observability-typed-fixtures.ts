@@ -382,6 +382,7 @@ export const prepareTypedObservabilityFixtures = Effect.fnUntraced(function* (op
     ]);
     for (const operation of ["uninstall", "show", "disable"])
       addInstalled(operation, [kind, operation, name]);
+    addInstalled("check", [kind, "check", name, "--checks", "lint"]);
     addInstalled("enable", [kind, "enable", name, "--accept-execution-changes"], disabled);
     addInstalled("list", [kind, "list"]);
 

@@ -133,6 +133,8 @@ interface LintWorkspaceView {
  * @experimental This API is unstable and may change without notice.
  */
 export interface BuildLintWorkspaceArgs {
+  /** Selected packages, including required contributors; omitted for workspace lint. */
+  readonly selectsPackage?: (type: ExtensionType, name: string) => boolean;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
@@ -188,6 +190,12 @@ export interface BuildLintWorkspaceArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export interface LintWorkspaceBuild {
+  readonly observedPackages: ReadonlyArray<{
+    readonly type: ExtensionType;
+    readonly name: string;
+    readonly manifestPath: string;
+    readonly observed: boolean;
+  }>;
   readonly rule: WorkspaceRuleContext;
   readonly view: LintWorkspaceView;
 }
@@ -245,6 +253,7 @@ export const buildLintWorkspace = (
       scope: args.scope,
       inspectKnowledge: args.inspectKnowledge ?? inspectKnowledgePackage,
       defersExtensionRules: args.defersExtensionRules ?? (() => false),
+      selectsPackage: args.selectsPackage ?? (() => true),
     });
     const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
@@ -271,7 +280,7 @@ export const buildLintWorkspace = (
       ...(args.officialAxmSkill === undefined ? {} : { officialAxmSkill: args.officialAxmSkill }),
       displayRoot: args.displayRoot ?? "",
     };
-    return { rule, view: projection.view };
+    return { rule, view: projection.view, observedPackages: projection.observedPackages };
   }).pipe(Effect.provide(env));
 };
 
@@ -438,6 +447,7 @@ const makeProjectionOutputAccessors = (args: {
 // -----------------------------------------------------------------------------
 
 interface BuildLintWorkspaceViewArgs {
+  readonly selectsPackage: (type: ExtensionType, name: string) => boolean;
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
@@ -484,6 +494,7 @@ interface NamedPack {
 
 /** Combined output of the workspace projection. */
 interface LintWorkspaceProjection {
+  readonly observedPackages: LintWorkspaceBuild["observedPackages"];
   readonly view: LintWorkspaceView;
   readonly installedManifests: ReadonlyArray<InstalledExtensionManifest>;
 }
@@ -527,6 +538,7 @@ const buildLintWorkspaceView = (
       { concurrency: "unbounded" },
     );
     const namedSkills = skills.flatMap((skill): ReadonlyArray<NamedSkill> => {
+      if (!args.selectsPackage("skill", skill.key.name)) return [];
       const built = installedSkillToInfo(args, skill);
       return built === undefined
         ? []
@@ -542,34 +554,40 @@ const buildLintWorkspaceView = (
           ];
     });
     const installedPacks = packs.flatMap((pack): ReadonlyArray<NamedPack> => {
+      if (!args.selectsPackage("pack", pack.key.name)) return [];
       const info = installedPackToInfo(args, pack);
       return info === undefined ? [] : [{ installed: pack, info }];
     });
     const namedSubagents = subagents.flatMap((subagent) => {
+      if (!args.selectsPackage("subagent", subagent.key.name)) return [];
       const context = installedSubagentToContext(args, subagent);
       return context === undefined
         ? []
         : [namedContext(subagent.key.name, context, manifestFilenameForType("subagent"))];
     });
     const namedMcpServers = mcpServers.flatMap((mcpServer) => {
+      if (!args.selectsPackage("mcp-server", mcpServer.key.name)) return [];
       const context = installedMcpServerToContext(args, mcpServer);
       return context === undefined
         ? []
         : [namedContext(mcpServer.key.name, context, manifestFilenameForType("mcp-server"))];
     });
     const namedHooks = hooks.flatMap((hook) => {
+      if (!args.selectsPackage("hook", hook.key.name)) return [];
       const context = installedHookToContext(args, hook);
       return context === undefined
         ? []
         : [namedContext(hook.key.name, context, manifestFilenameForType("hook"))];
     });
     const namedRules = rules.flatMap((rule) => {
+      if (!args.selectsPackage("rule", rule.key.name)) return [];
       const context = installedRuleToContext(args, rule);
       return context === undefined
         ? []
         : [namedContext(rule.key.name, context, manifestFilenameForType("rule"))];
     });
     const namedKnowledge = knowledge.flatMap((bundle) => {
+      if (!args.selectsPackage("knowledge", bundle.key.name)) return [];
       const context = installedKnowledgeToContext(args, bundle);
       return context === undefined
         ? []
@@ -611,7 +629,7 @@ const buildLintWorkspaceView = (
       ...toManifests("knowledge", knowledgeWithJson, (c) => c.subject.knowledgeJson),
     ];
     // Only per-extension rule contexts defer; the manifests above still
-    // cover every installed extension.
+    // cover every selected installed extension.
     const inspected =
       (type: ExtensionType) =>
       (entry: { readonly name: string }): boolean =>
@@ -635,6 +653,20 @@ const buildLintWorkspaceView = (
           .map((entry) => entry.context),
       },
       installedManifests,
+      observedPackages: [
+        ...installedManifests.map((entry) => ({
+          type: entry.extensionType,
+          name: entry.name,
+          manifestPath: entry.manifestPath,
+          observed: entry.manifestJson !== undefined,
+        })),
+        ...installedPacksWithJson.map((entry) => ({
+          type: entry.installed.key.type,
+          name: entry.installed.key.name,
+          manifestPath: joinManifestPath(entry.info.displayRoot, manifestFilenameForType("pack")),
+          observed: entry.info.packJson !== undefined,
+        })),
+      ],
     };
   });
 

@@ -53,6 +53,7 @@ const AGENT_SELECTION_COMMANDS = [
   "axm setup",
   "axm install",
   "axm show",
+  "axm check",
   "axm skills handoff",
   "axm skills install",
   "axm subagents install",
@@ -63,18 +64,25 @@ const AGENT_SELECTION_COMMANDS = [
   "axm packs install",
   "axm skills list",
   "axm skills show",
+  "axm skills check",
   "axm subagents list",
   "axm subagents show",
+  "axm subagents check",
   "axm mcps list",
   "axm mcps show",
+  "axm mcps check",
   "axm rules list",
   "axm rules show",
+  "axm rules check",
   "axm hooks list",
   "axm hooks show",
+  "axm hooks check",
   "axm knowledge list",
   "axm knowledge show",
+  "axm knowledge check",
   "axm packs list",
   "axm packs show",
+  "axm packs check",
 ] as const;
 
 const failureTag = (failure: unknown): string | undefined =>
@@ -130,9 +138,11 @@ describe("Unsupported agent identifiers", () => {
     },
     { command: "axm install", args: ["install", "./skills", "--agent", "bogus"] },
     { command: "axm show", args: ["show", "example", "--agent", "bogus"] },
+    { command: "axm check", args: ["check", "example", "--agent", "bogus"] },
     ...["skills", "subagents", "mcps", "rules", "hooks", "knowledge", "packs"].flatMap((group) => [
       { command: `axm ${group} list`, args: [group, "list", "--agent", "bogus"] },
       { command: `axm ${group} show`, args: [group, "show", "example", "--agent", "bogus"] },
+      { command: `axm ${group} check`, args: [group, "check", "example", "--agent", "bogus"] },
     ]),
   ] as const;
 

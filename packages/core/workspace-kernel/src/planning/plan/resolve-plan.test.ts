@@ -73,6 +73,7 @@ import {
   ConfiguredAgentOutcomesUnavailable,
   configuredAgentLifecycleOutcomes,
   DesiredStateReader,
+  SettingsIoError,
   UNCONSTRAINED_DESIRED_NODE,
   type DesiredStateGraph,
   WorkspaceRecords,
@@ -842,6 +843,58 @@ describe("previewOrApply", () => {
       expect(result.failure?.category).toBe("conflict");
       expect(result.failure?.detail).toContain("did not converge for claude-code");
       expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
+    }).pipe(Effect.provide(context.layer));
+  });
+
+  it.effect("retains committed effects when postflight cannot read workspace state", () => {
+    const context = makeTestContext();
+    let applied = false;
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Enable skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              key: "skill:review",
+              label: "review",
+              run: Effect.sync(() => {
+                applied = true;
+                return { result: "success", message: "enabled" };
+              }),
+            },
+          ],
+        },
+      ],
+    };
+    return Effect.gen(function* () {
+      const reader = yield* DesiredStateReader;
+      const result = yield* previewOrApply(plan, {
+        execution: preapprovedPlanExecution,
+        configuredAgentOperations: [
+          { extensionType: "skill", name: "review", plannedState: "enabled" },
+        ],
+      }).pipe(
+        Effect.provideService(DesiredStateReader, {
+          ...reader,
+          graph: (options) =>
+            applied
+              ? Effect.fail(
+                  new SettingsIoError({
+                    path: "/tmp/axm-preview/axm.json",
+                    cause: "read denied after commit",
+                  }),
+                )
+              : reader.graph(options),
+        }),
+      );
+      expect(applied).toBe(true);
+      expect(deriveOperationOutcome(result)).toBe("partial");
+      expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
+      expect(result.failure?.detail).toContain("axm.json");
     }).pipe(Effect.provide(context.layer));
   });
 

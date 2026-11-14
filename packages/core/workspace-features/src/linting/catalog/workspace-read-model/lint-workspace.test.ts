@@ -19,6 +19,7 @@ import { instructionsTargetCurrentRule } from "../workspace/instructions-target-
 import { instructionsTargetStaleRule } from "../workspace/instructions-target-stale.js";
 import { instructionsTargetUnownedRule } from "../workspace/instructions-target-unowned.js";
 import { buildLintWorkspace } from "./lint-workspace.js";
+import { lintSelectedSubjects } from "../../index.js";
 
 const WORKSPACE_ROOT = "/workspace";
 const USER_HOME = "/home/user";
@@ -213,6 +214,57 @@ const noNativeRemoval = Layer.succeed(NativeEntryRemoval, {
 });
 
 it.layer(noNativeRemoval)("buildLintWorkspace manifest JSON population", (it) => {
+  it.effect("evaluates selected package catalogs and reports the packages actually observed", () =>
+    Effect.gen(function* () {
+      const deps = yield* buildFixture(fixtureWithKnowledge());
+      const result = yield* lintSelectedSubjects({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        platform: { fs: deps.fs, path: deps.path },
+        workspaceRoot: deps.workspaceRoot,
+        userHome: deps.userHome,
+        scope: "project",
+        subjects: [
+          { type: "skill", name: "bad-skill" },
+          { type: "pack", name: "bad-pack" },
+        ],
+        inspectKnowledge: () => Effect.die("Unselected content was inspected"),
+      });
+      expect(result.findings.some(({ ruleId }) => ruleId === "skill/manifest-schema-valid")).toBe(
+        true,
+      );
+      expect(result.findings.every(({ group }) => group === "skill" || group === "pack")).toBe(
+        true,
+      );
+      expect(result.observedPackages.map(({ type, name }) => ({ type, name }))).toEqual([
+        { type: "skill", name: "bad-skill" },
+        { type: "pack", name: "bad-pack" },
+      ]);
+    }),
+  );
+  it.effect("does not inspect content of packages outside the selected closure", () =>
+    Effect.gen(function* () {
+      const deps = yield* buildFixture(fixtureWithKnowledge());
+      const selected = yield* buildLintWorkspace({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        platform: { fs: deps.fs, path: deps.path },
+        workspaceRoot: deps.workspaceRoot,
+        userHome: deps.userHome,
+        scope: "project",
+        selectsPackage: (type, name) => type === "skill" && name === "bad-skill",
+        inspectKnowledge: () => Effect.die("Unselected Knowledge content was inspected"),
+      });
+      expect(selected.view.installedSkills[0]?.skillJson).toEqual(manifestFixtures.skill);
+      expect(selected.view.installedPacks).toEqual([]);
+      expect(selected.view.subagentContexts).toEqual([]);
+      expect(selected.view.mcpServerContexts).toEqual([]);
+      expect(selected.view.knowledgeContexts).toEqual([]);
+      const manifests = yield* selected.rule.installedExtensions?.manifests ?? Effect.succeed([]);
+      expect(manifests.map(({ extensionType, name }) => ({ extensionType, name }))).toEqual([
+        { extensionType: "skill", name: "bad-skill" },
+      ]);
+    }),
+  );
+
   it.effect("validates acquired AXM manifests without imposing content conformance", () =>
     Effect.gen(function* () {
       const { view, rendered } = yield* buildAndEvaluate(fixture(manifestFixtures.pack));

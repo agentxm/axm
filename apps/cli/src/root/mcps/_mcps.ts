@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -51,6 +52,7 @@ export const mcpsCommand = Command.make("mcps").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("mcp-server"),
         enableCommand,
         disableCommand,
         addCommand,

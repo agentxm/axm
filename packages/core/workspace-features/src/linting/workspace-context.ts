@@ -56,6 +56,8 @@ import type { OfficialAxmSkillAssessment } from "@agentxm/workspace-kernel/resol
 export type WorkspaceHealthFailure = { readonly _tag: string };
 
 export interface WorkspaceRuleContext {
+  /** Explicit local assessment scope; absent for an ordinary workspace-wide lint. */
+  readonly selectsSubject?: (type: ExtensionType, name: string) => boolean;
   readonly subject: WorkspaceSubject;
   readonly workspace: WorkspaceReadModel;
   readonly axmDirExists: Effect.Effect<boolean>;

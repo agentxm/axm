@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 import { showCommand } from "./show.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -47,6 +48,7 @@ export const subagentsCommand = Command.make("subagents").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("subagent"),
         enableCommand,
         disableCommand,
       ],

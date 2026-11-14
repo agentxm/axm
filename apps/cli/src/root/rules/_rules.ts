@@ -1,3 +1,4 @@
+import { makeLocalCheckCommand } from "../check/command.js";
 import { Command } from "effect/cli";
 import { rulesPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -39,6 +40,7 @@ export const rulesCommand = Command.make("rules").pipe(
         uninstallCommand,
         listCommand,
         showCommand,
+        makeLocalCheckCommand("rule"),
         enableCommand,
         disableCommand,
       ],

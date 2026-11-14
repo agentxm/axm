@@ -1985,7 +1985,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/help/groups-type-commands-by-purpose`
 - Owner: `cli`
-- Statement: Each extension type shall present management before authoring, order the shared management commands as install, update, uninstall, list, show, enable, and disable, then its additional management commands, and order authoring as new, import when supported, additional authoring commands, and publish. Human and machine help shall preserve these groups and order.
+- Statement: Each extension type shall present management before authoring, order the shared management commands as install, update, uninstall, list, show, check, enable, and disable, then its additional management commands, and order authoring as new, import when supported, additional authoring commands, and publish. Human and machine help shall preserve these groups and order.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `extension-adoption`
@@ -2338,6 +2338,32 @@ People and agents can discover concepts, commands, and contracts from the surfac
 Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.
 
 #### Functional
+
+##### Local checks assess exactly the requested categories
+
+- Requirement: `cli/check/selects-explicit-assessments`
+- Owner: `workspace-features`
+- Statement: A local check shall request compatibility, ownership, lint and convergence by default, accept an explicit nonempty subset of those categories, reject unknown or empty categories, and share duplicate category work without adding unrequested assessments.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The assessment selector is evaluated directly; CLI parsing, workspace observations and actual assessment execution require separate boundary evidence.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/check/selects-explicit-assessments.spec.ts`](../packages/core/workspace-features/src/inspection/check/selects-explicit-assessments.spec.ts)
+
+##### Check success requires complete evidence for the selected assessments
+
+- Requirement: `cli/check/verdict-requires-complete-selected-evidence`
+- Owner: `workspace-features`
+- Statement: A local check shall succeed only when every explicit request resolves and every requested applicable assessment has complete evidence with no required attention or error finding, treating warnings as failure only under strict mode and excluding unrequested assessments from the verdict.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The command verdict is evaluated from explicit owner evidence; filesystem freshness, assessment correctness and process exit need separate execution bindings.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/check/verdict-requires-complete-selected-evidence.spec.ts`](../packages/core/workspace-features/src/inspection/check/verdict-requires-complete-selected-evidence.spec.ts)
 
 ##### Explicit token sources take precedence over saved sessions
 
@@ -4346,6 +4372,32 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Additional evidence: process via [`apps/cli-e2e/src/agent-membership.e2e.test.ts`](../apps/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Source: [`apps/cli/src/root/agents/preserves-unowned-agent-content.spec.ts`](../apps/cli/src/root/agents/preserves-unowned-agent-content.spec.ts)
+
+##### Selected checks include their required contributors
+
+- Requirement: `cli/check/includes-required-contributors`
+- Owner: `workspace-features`
+- Statement: A selected local check shall include declared pack members and contributors connected through shared semantic output or package units, preserve their inclusion reasons, retain incomplete membership evidence, and exclude unrelated subjects.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Scope expansion consumes authoritative graph and contributor observations; native ownership resolution and discovery completeness require separate platform evidence.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/check/includes-required-contributors.spec.ts`](../packages/core/workspace-features/src/inspection/check/includes-required-contributors.spec.ts)
+
+##### Local materialization assessment does not acquire missing content
+
+- Requirement: `cli/check/local-materialization-does-not-acquire`
+- Owner: `workspace-features`
+- Statement: Local materialization assessment shall retain unavailable selected source evidence as unassessed without fetching content or applying planned changes, and a subsequent invocation shall observe newly available local content.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production planning reads a native temporary workspace; independent file snapshots establish preservation and a source-provider guard refuses acquisition. This does not establish whole-process network silence.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/sync/local-materialization-does-not-acquire.spec.ts`](../packages/core/workspace-features/src/sync/local-materialization-does-not-acquire.spec.ts)
 
 ##### Commands use the selected working directory
 
@@ -7345,6 +7397,33 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 Workspace state always reflects explicitly expressed intent, authority, and ownership — never inference, accident, or unauthorized adoption.
 
 #### Functional
+
+##### Local checks observe selected state without acquisition, repair or runtime execution
+
+- Requirement: `cli/check/is-local-and-read-only`
+- Owner: `cli-e2e`
+- Statement: When a local check assesses explicit subjects or all local subjects, AXM shall preserve domain state, perform no Registry assessment or credential refresh, acquire no missing content and execute no extension runtime, while reporting unresolved or incomplete selected evidence without a passing verdict.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: Separate CLI processes observe a native workspace while an independent HTTP Registry records requests, protected-state snapshots detect domain writes, and an executable MCP fixture would leave a marker if run.
+- Methods: example
+- Derived from: `docs/architecture/commands/overview.md`
+- Assumptions: Startup update checks and telemetry are disabled in this isolated fixture; their separately owned delivery does not assess the Registry on behalf of check.
+- Source: [`apps/cli-e2e/src/check-is-local-and-read-only.spec.ts`](../apps/cli-e2e/src/check-is-local-and-read-only.spec.ts)
+
+##### Local check requires one explicit local selection
+
+- Requirement: `cli/check/selection-is-explicit`
+- Owner: `cli`
+- Statement: Root and all typed check routes shall accept exact local identities, repeated paths, or all selection, reject mixed or nonlocal selectors before workspace construction, and show contextual usage without domain work when no selection is supplied.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`apps/cli/src/root/check/selection-is-explicit.spec.ts`](../apps/cli/src/root/check/selection-is-explicit.spec.ts)
 
 ##### The selected application home contains user resources
 

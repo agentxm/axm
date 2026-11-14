@@ -124,6 +124,40 @@ for ownership at an exact path. Requests retain missing and ambiguous selections
 uncertain ownership remains explicit. `--verbose` expands human presentation and
 redacted diagnostics without changing machine result completeness.
 
+### Assess a local selection
+
+Use `axm check <name>` for compatibility, ownership, lint, and convergence in
+one local answer. Select identities, repeated `--path` arguments, or `--all`;
+do not mix selection modes. Typed forms such as `axm skills check review` use
+the same checks. Required pack members and shared-output contributors appear
+with their inclusion reasons.
+
+```sh
+axm check review --json
+axm check --path AGENTS.md
+axm check --all --checks compatibility,lint --strict
+```
+
+`--checks` selects a nonempty subset of `compatibility,ownership,lint,convergence`;
+omitting it requests all four. `--strict` makes applicable warnings fail the
+verdict without changing their severity. Each assessment reports its coverage
+separately from its conclusion. Valid content can pass lint while missing
+rendered output requires reconciliation. An unrequested check makes no claim.
+
+Check reads the live filesystem without changing domain state, acquiring
+packages, refreshing credentials, contacting the Registry for assessment, or
+executing extension code. It does not inspect staged Git content or establish
+runtime health. Unknown or unreadable required evidence remains incomplete.
+Exit 0 means every requested applicable assessment is complete and satisfied;
+exit 1 means a completed check needs attention, including an unresolved explicit
+selection. Usage and execution failures retain their normal exit meanings.
+
+After a direct canonical edit, check again for a fresh assessment. A previous
+check does not authorize a future write. Mutation commands already enforce
+their own preconditions and postconditions, so check is not a mandatory step
+before every AXM command. If convergence requires work, use `axm sync --preview`
+to inspect the proposed reconciliation.
+
 `axm schema <command-path>` explains an output contract offline without target
 arguments, credentials, or a workspace. For example,
 `axm schema publish --field 'result.execution.outcomes[].status'` explains a

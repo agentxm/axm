@@ -44,6 +44,7 @@ import {
   type DesiredStateGraph,
 } from "../workspace-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
@@ -217,6 +218,7 @@ export interface WorkspaceInvariantFactsService {
   /** Reuse the caller's current graph throughout one projection-observation phase. */
   readonly projectionFactsForGraph: (
     graph: DesiredStateGraph,
+    subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>,
   ) => Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
 }
 
@@ -245,7 +247,10 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const nativeEntryRemoval = yield* NativeEntryRemoval;
     // Participants keep their requirements explicit; the layer that evaluates
     // the facts is the boundary that composes them.
-    const evaluate = (observedGraph?: DesiredStateGraph) =>
+    const evaluate = (
+      observedGraph?: DesiredStateGraph,
+      subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>,
+    ) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
         const readers = phase?.readers ?? { desired: desiredState, settings, locks: lockfile };
@@ -283,7 +288,19 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               .pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
           );
         const layout = yield* Ref.get(location.layout);
-        const observed = yield* Effect.forEach(participants.aggregates, observeParticipant, {
+        // Aggregate owners need their complete contributor set. Singleton owners
+        // can be selected exactly, without reading other subjects' native files.
+        const aggregates =
+          subjects === undefined
+            ? participants.aggregates
+            : participants.aggregates.filter((participant) =>
+                participant.units.some((unit) =>
+                  subjects.some(
+                    (subject) => subject.type === aggregateUnitSubject(unit).contributorType,
+                  ),
+                ),
+              );
+        const observed = yield* Effect.forEach(aggregates, observeParticipant, {
           concurrency: 16,
         });
         const facts: Array<ProjectionInvariantFact> = observed.flatMap((result) =>
@@ -307,7 +324,15 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         if (Option.isSome(completeGraph) && Option.isSome(participants.subagents)) {
           const observer = participants.subagents.value;
           const subagentFacts = yield* Effect.forEach(
-            completeGraph.value.nodes.filter((node) => node.type === "subagent" && node.enabled),
+            completeGraph.value.nodes.filter(
+              (node) =>
+                node.type === "subagent" &&
+                node.enabled &&
+                (subjects === undefined ||
+                  subjects.some(
+                    (subject) => subject.type === node.type && subject.name === node.name,
+                  )),
+            ),
             (node) =>
               Effect.result(
                 (node.source === "workspace"
@@ -363,14 +388,15 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
             ),
           );
         }
-        if (Option.isNone(completeGraph)) return facts;
+        // Aggregate failures retain their own known contributors even when an
+        // unrelated type prevents singleton observation. The caller judges each
+        // contributor set's completeness separately from output availability.
+        if (Result.isFailure(graph)) return facts;
         const contributorsFor = (type: string): ReadonlyArray<string> =>
-          Option.isSome(completeGraph)
-            ? completeGraph.value.nodes
-                .filter((node) => node.type === type && node.enabled)
-                .map(({ identity }) => formatDesiredIdentity(identity))
-            : [];
-        for (const [index, participant] of participants.aggregates.entries()) {
+          graph.success.nodes
+            .filter((node) => node.type === type && node.enabled)
+            .map(({ identity }) => formatDesiredIdentity(identity));
+        for (const [index, participant] of aggregates.entries()) {
           const result = observed[index];
           if (result === undefined || Result.isSuccess(result)) continue;
           for (const unitId of participant.units) {
@@ -391,7 +417,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
       });
     return {
       projectionFacts: evaluate(),
-      projectionFactsForGraph: (graph) => evaluate(graph),
+      projectionFactsForGraph: (graph, subjects) => evaluate(graph, subjects),
     };
   }),
 );

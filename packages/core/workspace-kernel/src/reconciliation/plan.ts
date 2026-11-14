@@ -553,6 +553,8 @@ export const collectKnowledgeStep: (args: {
  */
 export const collectCleanupStep: (args: {
   readonly expectedNames: ExpectedProjectionNames;
+  /** Passive assessment needs proposed changes, not an apply-time retention verification step. */
+  readonly includeRetentionOnlyStep?: boolean;
   readonly desiredAgentIds?: ReadonlySet<string>;
   readonly adapter: StepFailureConversionService;
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
@@ -640,8 +642,8 @@ export const collectCleanupStep: (args: {
   if (
     previewPaths.length === 0 &&
     !withdrawsRows &&
-    args.desiredAgentIds === undefined &&
-    args.subjects === undefined
+    (args.includeRetentionOnlyStep === false ||
+      (args.desiredAgentIds === undefined && args.subjects === undefined))
   )
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   if (previewPaths.length === 0 && !withdrawsRows && previewNativeLocations.length === 0)

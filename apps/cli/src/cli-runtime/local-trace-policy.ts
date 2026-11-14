@@ -292,6 +292,7 @@ export const traceSpanNames = new Set([
   "Inspection.listPacks",
   "Inspection.listMcpServers",
   "axm.publish.prepare",
+  "axm.publish.prepareCandidate",
   "axm.publish.archive",
   "axm.publish.validate-source",
   "axm.publish.upload",

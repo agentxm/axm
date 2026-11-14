@@ -730,7 +730,7 @@ export const selectObservabilityScenarios = <Scenario extends { readonly id: str
 };
 
 /** Coverage obligations that the selection exercises; unselected and pending entries drop out. */
-export const restrictCoverageToSelection = (
+const restrictCoverageToSelection = (
   coverage: ReadonlyArray<OperationCoverage>,
   selection: ReadonlyArray<string>,
 ): ReadonlyArray<OperationCoverage> =>

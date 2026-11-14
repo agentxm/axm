@@ -6,26 +6,29 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
-import type { FilePublication } from "@agentxm/host-primitives";
 import { nativeInode } from "../locations/index.js";
 
 /** Flat entry observations allow one writer's delta to update only its own subtree. */
 export type PathState = ReadonlyMap<string, string>;
 
-/** Expected whole-file state, established before the write becomes visible. */
-export const publicationPathState = ({ info, content }: FilePublication): PathState => {
+/**
+ * Entry identity a publication carries from before its write became visible:
+ * the identity a `file:` observation of the published entry must show. None
+ * when the entry could never be observed as a file with that identity.
+ */
+export const publicationIdentity = (info: FileSystem.File.Info): Option.Option<string> => {
   const inode = nativeInode(info);
   if (info.type !== "File" || Option.isNone(inode) || Option.isNone(info.birthtime))
-    return new Map([["", "unreadable"]]);
-  const identity = `${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`;
-  return new Map([["", `file:${identity}:${createHash("sha256").update(content).digest("hex")}`]]);
+    return Option.none();
+  return Option.some(`${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`);
 };
 
-/** Existing directory routes only: later AXM-created ancestors are covered by their snapshots. */
-export const observeAncestorRoute = Effect.fnUntraced(function* (
+/** Ancestors of `target`, nearest first, stopping after `through` when the walk meets it. */
+const walkAncestors = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   target: string,
+  through: string | undefined,
 ) {
   const route = new Map<string, string>();
   let parent = path.dirname(target);
@@ -45,26 +48,72 @@ export const observeAncestorRoute = Effect.fnUntraced(function* (
       );
     }
     const next = path.dirname(parent);
-    if (next === parent) return route;
+    if (parent === through || next === parent) return route;
     parent = next;
   }
 });
 
-export const observePathState = Effect.fnUntraced(
+/** Existing directory routes only: later AXM-created ancestors are covered by their snapshots. */
+export const observeAncestorRoute = (fs: FileSystem.FileSystem, path: Path.Path, target: string) =>
+  walkAncestors(fs, path, target, undefined);
+
+/**
+ * The route baseline of `target` under `nativeRoot`: the target's ancestor
+ * walk merged with the root's, the root walk's values winning for shared
+ * ancestors. A target at or under the root walks only up to the root, so the
+ * ancestors above it are walked once, by the later root walk.
+ */
+export const observeNativeRoute = Effect.fnUntraced(function* (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  target: string,
+  nativeRoot: string,
+) {
+  const underRoot = target === nativeRoot || target.startsWith(`${nativeRoot}${path.sep}`);
+  const targetWalk =
+    target === nativeRoot
+      ? new Map<string, string>()
+      : yield* walkAncestors(fs, path, target, underRoot ? nativeRoot : undefined);
+  return new Map([...targetWalk, ...(yield* observeAncestorRoute(fs, path, nativeRoot))]);
+});
+
+/**
+ * One observation. `root` is the state's `""` value; `bytes` holds the
+ * content read for a non-directory root only.
+ */
+interface EntryObservation {
+  readonly root: string;
+  readonly state: PathState;
+  readonly bytes: Option.Option<Uint8Array>;
+}
+
+/** Selects, from a directory's own root value, which of its children are observed. */
+type Descent = (root: string) => (child: string) => boolean;
+
+const everyChild: Descent = () => () => true;
+
+const unobservable = (root: string): EntryObservation => ({
+  root,
+  state: new Map([["", root]]),
+  bytes: Option.none(),
+});
+
+const observeEntry = Effect.fnUntraced(
   function* (
     fs: FileSystem.FileSystem,
     path: Path.Path,
     target: string,
-  ): Effect.fn.Return<PathState, PlatformError> {
+    descent: Descent,
+  ): Effect.fn.Return<EntryObservation, PlatformError> {
     const link = yield* fs.readLink(target).pipe(Effect.option);
-    if (Option.isSome(link)) return new Map([["", `link:${link.value}`]]);
+    if (Option.isSome(link)) return unobservable(`link:${link.value}`);
     const info = yield* fs.stat(target).pipe(Effect.result);
     if (info._tag === "Failure") {
-      return new Map([["", info.failure.reason._tag === "NotFound" ? "absent" : "unreadable"]]);
+      return unobservable(info.failure.reason._tag === "NotFound" ? "absent" : "unreadable");
     }
     const inode = nativeInode(info.success);
     if (Option.isNone(inode) || Option.isNone(info.success.birthtime))
-      return new Map([["", "unreadable"]]);
+      return unobservable("unreadable");
     const identity = `${info.success.dev}:${inode.value}:${info.success.birthtime.value.getTime()}:${info.success.mode}`;
     if (info.success.type !== "Directory") {
       const bytes = yield* fs.readFile(target);
@@ -75,18 +124,65 @@ export const observePathState = Effect.fnUntraced(
           attributes: { "axm.work.count": 1, "axm.work.bytes": bytes.byteLength },
         }),
       );
-      return new Map([["", `file:${identity}:${digest}`]]);
+      const root = `file:${identity}:${digest}`;
+      return { root, state: new Map([["", root]]), bytes: Option.some(bytes) };
     }
     const entries = yield* fs.readDirectory(target);
-    const state = new Map([["", `directory:${identity}`]]);
+    const root = `directory:${identity}`;
+    const state = new Map([["", root]]);
+    const observed = descent(root);
     for (const entry of entries) {
+      if (!observed(entry)) continue;
       const child = yield* observePathState(fs, path, path.join(target, entry));
       for (const [name, value] of child) state.set(path.join(entry, name), value);
     }
-    return state;
+    return { root, state, bytes: Option.none() };
   },
-  Effect.catch(() => Effect.succeed(new Map([["", "unreadable"]]))),
+  Effect.catch(() => Effect.succeed(unobservable("unreadable"))),
 );
+
+export const observePathState = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  target: string,
+): Effect.Effect<PathState> =>
+  observeEntry(fs, path, target, everyChild).pipe(Effect.map(({ state }) => state));
+
+/**
+ * Readback of a just-published file: the same observation as
+ * `observePathState`, plus the bytes it read and digested, so verification
+ * can compare them with the intended content without a second digest.
+ */
+export const observePublishedFile = (fs: FileSystem.FileSystem, path: Path.Path, target: string) =>
+  observeEntry(fs, path, target, everyChild);
+
+/**
+ * The root value `observePathState` would report, observed the same way —
+ * a directory is still listed — without visiting any child.
+ */
+export const observePathEntry = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  target: string,
+): Effect.Effect<string> =>
+  observeEntry(fs, path, target, () => () => false).pipe(Effect.map(({ root }) => root));
+
+/**
+ * `observePathState`, except that a directory whose root value equals
+ * `whenRoot` (or any directory when `whenRoot` is omitted) does not observe
+ * its direct child `excludedChild`. For a caller that reads that subtree
+ * itself within the same boundary; every other child is observed in full.
+ */
+export const observePathStateExcept = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  target: string,
+  excludedChild: string,
+  whenRoot?: string,
+): Effect.Effect<PathState> =>
+  observeEntry(fs, path, target, (root) =>
+    whenRoot === undefined || root === whenRoot ? (child) => child !== excludedChild : () => true,
+  ).pipe(Effect.map(({ state }) => state));
 
 export const equalPathStates = (left: PathState, right: PathState): boolean =>
   left.size === right.size &&

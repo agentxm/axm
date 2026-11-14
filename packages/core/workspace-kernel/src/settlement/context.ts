@@ -1,4 +1,3 @@
-import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * The ambient transaction context and the write registration primitives
  * every workspace writer calls.
@@ -31,10 +30,12 @@ import { WorkspaceSnapshotError } from "./errors.js";
 import { isProtected, withSnapshot, type Snapshot, type TransactionLedger } from "./ledger.js";
 import {
   equalPathStates,
-  observeAncestorRoute,
+  observeNativeRoute,
   observePathState,
+  observePathStateExcept,
+  observePublishedFile,
+  publicationIdentity,
   replacePathState,
-  publicationPathState,
   type PathState,
 } from "./path-state.js";
 import { isRelativeWithin, type FilePublication } from "@agentxm/host-primitives";
@@ -211,10 +212,7 @@ export const protectInContext = (
         });
       }
       const route = yield* Effect.gen(function* () {
-        const parents = new Map([
-          ...(yield* observeAncestorRoute(fs, path, normalized)),
-          ...(yield* observeAncestorRoute(fs, path, nativeRoot)),
-        ]);
+        const parents = yield* observeNativeRoute(fs, path, normalized, nativeRoot);
         const physicalRoot = yield* resolveNativeReferent(nativeRoot);
         const rootLink = Option.getOrUndefined(yield* fs.readLink(nativeRoot).pipe(Effect.option));
         return { parents, nativeRoot, physicalRoot, rootLink };
@@ -362,10 +360,17 @@ export const protectInContext = (
     }),
   ).pipe(Effect.withSpan("axm.publish.snapshot"));
 
+/** The observed postimage; `bytes` is the content a file readback read, when it read one. */
+interface Readback {
+  readonly state: PathState;
+  readonly bytes: Option.Option<Uint8Array>;
+}
+
 /** Capture a completed AXM mutation, independently of whether output recording is enabled. */
 const recordPostimage = <E>(
   target: string,
-  validate: (actual: PathState | undefined) => Effect.Effect<void, E>,
+  observe: (fs: FileSystem.FileSystem, path: Path.Path, target: string) => Effect.Effect<Readback>,
+  validate: (actual: Readback | undefined) => Effect.Effect<void, E>,
 ): Effect.Effect<void, E> =>
   Effect.gen(function* () {
     const current = yield* CurrentWorkspaceTransaction;
@@ -385,8 +390,13 @@ const recordPostimage = <E>(
     }
     yield* updateTransactionLedger(context.ledger, (ledger) =>
       Effect.gen(function* () {
-        const actual = yield* observePathState(fs, path, address.value.entryPath);
-        yield* validate(actual);
+        // Validation consumes the readback bytes; only the observed state is kept.
+        const actual = yield* observe(fs, path, address.value.entryPath).pipe(
+          Effect.tap(validate),
+          Effect.map(({ state }) => state),
+        );
+        // Paths whose whole subtree this admission has already observed.
+        const observedSubtrees = new Set([address.value.entryPath]);
         const snapshots: Array<Snapshot> = [];
         for (const snapshot of ledger.snapshots) {
           const relative = path.relative(snapshot.target, address.value.entryPath);
@@ -395,18 +405,25 @@ const recordPostimage = <E>(
             // Recursive creation adds ancestor entries too. Observe only each
             // directory entry, never absorb unrecorded siblings into AXM's delta.
             if (relative !== "" && actual.get("") !== "absent") {
-              let parent = path.dirname(address.value.entryPath);
+              let child = address.value.entryPath;
+              let parent = path.dirname(child);
               while (
                 parent === snapshot.target ||
                 parent.startsWith(`${snapshot.target}${path.sep}`)
               ) {
                 const key = path.relative(snapshot.target, parent);
                 if (expected.get(key) === undefined || expected.get(key) === "absent") {
-                  const parentState = yield* observePathState(fs, path, parent);
+                  // The chain child's subtree was read just before; its
+                  // siblings are still observed in full.
+                  const parentState = yield* observedSubtrees.has(child)
+                    ? observePathStateExcept(fs, path, parent, path.basename(child))
+                    : observePathState(fs, path, parent);
+                  observedSubtrees.add(parent);
                   const entry = parentState.get("");
                   if (entry !== undefined) expected.set(key, entry);
                 }
                 if (parent === snapshot.target) break;
+                child = parent;
                 parent = path.dirname(parent);
               }
             }
@@ -420,24 +437,45 @@ const recordPostimage = <E>(
 
 /** Legacy directory/removal changes have no staged file identity. */
 export const recordWorkspacePostimage = (target: string): Effect.Effect<void> =>
-  recordPostimage(target, () => Effect.void);
+  recordPostimage(
+    target,
+    (fs, path, entry) =>
+      observePathState(fs, path, entry).pipe(
+        Effect.map((state) => ({ state, bytes: Option.none() })),
+      ),
+    () => Effect.void,
+  );
+
+/**
+ * Whether a readback shows the publication's own entry holding exactly its
+ * intended bytes: the identity captured before the write became visible and
+ * the whole content, compared byte for byte with what the readback digested.
+ */
+const matchesPublication = (
+  { info, content }: FilePublication,
+  { state, bytes }: Readback,
+): boolean => {
+  const identity = publicationIdentity(info);
+  const observed = state.get("");
+  if (Option.isNone(identity) || Option.isNone(bytes) || observed === undefined) return false;
+  const prefix = `file:${identity.value}:`;
+  if (
+    state.size !== 1 ||
+    !observed.startsWith(prefix) ||
+    observed.slice(prefix.length).includes(":")
+  )
+    return false;
+  const intended = typeof content === "string" ? Buffer.from(content, "utf8") : content;
+  return (
+    intended.byteLength === bytes.value.byteLength && Buffer.compare(intended, bytes.value) === 0
+  );
+};
 
 /** Verify the complete published file before it can become rollback authority. */
 export const recordWorkspaceFilePostimage = (target: string, publication: FilePublication) =>
-  recordPostimage(target, (actual) =>
+  recordPostimage(target, observePublishedFile, (actual) =>
     Effect.gen(function* () {
-      const expected = yield* Effect.sync(() => publicationPathState(publication)).pipe((effect) =>
-        withWork("axm.hash.preimage", effect, {
-          attributes: {
-            "axm.work.count": 1,
-            "axm.work.bytes":
-              typeof publication.content === "string"
-                ? Buffer.byteLength(publication.content)
-                : publication.content.byteLength,
-          },
-        }),
-      );
-      if (actual === undefined || !equalPathStates(actual, expected))
+      if (actual === undefined || !matchesPublication(publication, actual))
         return yield* new WorkspaceSnapshotError({
           target,
           step: "verify-publication",

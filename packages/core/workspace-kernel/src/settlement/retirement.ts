@@ -18,7 +18,7 @@ import {
 } from "./errors.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import type { Snapshot } from "./ledger.js";
-import { equalPathStates, observePathState } from "./path-state.js";
+import { equalPathStates, observePathState, observePathStateExcept } from "./path-state.js";
 
 /**
  * Removal capability for an owner that has just verified its unit's ownership.
@@ -174,7 +174,14 @@ export const cleanupRetirements = (
     (entry) =>
       Effect.gen(function* () {
         const store = path.dirname(entry.backup);
-        const storeState = yield* observePathState(fs, path, store);
+        // A matching store's entry is observed fresh, in full, just below.
+        const storeState = yield* observePathStateExcept(
+          fs,
+          path,
+          store,
+          path.basename(entry.backup),
+          entry.storeIdentity,
+        );
         if (
           storeState.get("") !== entry.storeIdentity ||
           [...storeState.keys()].some(

@@ -384,8 +384,8 @@ describe("Local work through the exporter and inspector", () => {
           expect(yield* native.readFileString(target)).toBe(after);
           const readBytes = reads.reduce((total, entry) => total + entry.bytes, 0);
           const writeBytes = writes.reduce((total, entry) => total + entry.bytes, 0);
-          // One prior-file hash and two publication hashes (actual and expected).
-          const hashBytes = beforeBytes + afterBytes * 2;
+          // One prior-file hash and one publication readback hash.
+          const hashBytes = beforeBytes + afterBytes;
           const receipt = yield* Schema.decodeUnknownEffect(
             Schema.fromJsonString(TraceReceiptSchema),
           )(yield* native.readFileString(receiptPath));
@@ -397,7 +397,7 @@ describe("Local work through the exporter and inspector", () => {
                 work: [
                   { kind: "axm.io.read-file", count: 4, executed: 4, ioBytes: readBytes },
                   { kind: "axm.io.write-file", count: 1, executed: 1, ioBytes: writeBytes },
-                  { kind: "axm.hash.preimage", count: 3, workCount: 3, bytes: hashBytes },
+                  { kind: "axm.hash.preimage", count: 2, workCount: 2, bytes: hashBytes },
                 ],
               },
             },
@@ -420,7 +420,7 @@ describe("Local work through the exporter and inspector", () => {
       expect(summarySeven.afterBytes - summarySix.afterBytes).toBe(2);
       expect(summarySeven.readBytes - summarySix.readBytes).toBe(6);
       expect(summarySeven.writeBytes - summarySix.writeBytes).toBe(2);
-      expect(summarySeven.hashBytes - summarySix.hashBytes).toBe(5);
+      expect(summarySeven.hashBytes - summarySix.hashBytes).toBe(3);
       // Exact accounting for this controlled owner does not retrospectively
       // attribute byte differences inside mixed assembled-operation aggregates.
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),

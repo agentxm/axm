@@ -5,7 +5,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import * as Result from "effect/Result";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -43,43 +45,59 @@ const withDefaultOwner = (raw: unknown, defaultOwner: Handle | undefined): unkno
     ? { ...raw, owner: defaultOwner }
     : raw;
 
-export const readExtensionManifest = <T extends ExtensionType>(
+/**
+ * Read the manifest text. Absence is judged from the read itself; only another
+ * failure probes the path, to tell an uninspectable location from an
+ * unreadable file exactly as an existence check before the read would.
+ */
+const readManifestText = (
+  fs: FileSystem.FileSystem,
   directory: string,
-  type: T,
-  options?: ReadManifestOptions,
-): Effect.Effect<ReadManifestResult<T>, ManifestError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const fileName = manifestFilenameForType(type);
-    const manifestPath = path.join(directory, fileName);
-    const exists = yield* fs.exists(manifestPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ManifestError({
-            code: "manifest_unreadable",
-            detail: `Manifest file "${manifestPath}" could not be inspected.`,
-            cause,
-          }),
-      ),
-    );
-    if (!exists) {
-      return yield* new ManifestError({
-        code: "manifest_missing",
-        detail: `Expected manifest file "${fileName}" not found in ${directory}.`,
-      });
-    }
+  fileName: string,
+  manifestPath: string,
+): Effect.Effect<string, ManifestError> => {
+  const missing = () =>
+    new ManifestError({
+      code: "manifest_missing",
+      detail: `Expected manifest file "${fileName}" not found in ${directory}.`,
+    });
+  return fs.readFileString(manifestPath).pipe(
+    Effect.catch((readError) =>
+      readError.reason._tag === "NotFound"
+        ? Effect.fail(missing())
+        : fs.exists(manifestPath).pipe(
+            Effect.mapError(
+              (cause) =>
+                new ManifestError({
+                  code: "manifest_unreadable",
+                  detail: `Manifest file "${manifestPath}" could not be inspected.`,
+                  cause,
+                }),
+            ),
+            Effect.flatMap((exists) =>
+              Effect.fail(
+                exists
+                  ? new ManifestError({
+                      code: "manifest_unreadable",
+                      detail: `Manifest file "${manifestPath}" could not be read.`,
+                      cause: readError,
+                    })
+                  : missing(),
+              ),
+            ),
+          ),
+    ),
+  );
+};
 
-    const content = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ManifestError({
-            code: "manifest_unreadable",
-            detail: `Manifest file "${manifestPath}" could not be read.`,
-            cause,
-          }),
-      ),
-    );
+const decodeManifestText = <T extends ExtensionType>(
+  content: string,
+  type: T,
+  fileName: string,
+  manifestPath: string,
+  options: ReadManifestOptions | undefined,
+): Effect.Effect<ReadManifestResult<T>, ManifestError> =>
+  Effect.gen(function* () {
     const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
       content,
     ).pipe(
@@ -124,3 +142,49 @@ export const readExtensionManifest = <T extends ExtensionType>(
     }
     return { path: manifestPath, fileName, raw, manifest: decoded, identity };
   });
+
+/**
+ * Read and validate a manifest, also returning the text it read: `Some`
+ * whenever the read succeeded, even when the text fails to decode.
+ */
+export const readExtensionManifestCapture = <T extends ExtensionType>(
+  directory: string,
+  type: T,
+  options?: ReadManifestOptions,
+): Effect.Effect<
+  {
+    readonly result: Result.Result<ReadManifestResult<T>, ManifestError>;
+    readonly text: Option.Option<string>;
+  },
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const fileName = manifestFilenameForType(type);
+    const manifestPath = path.join(directory, fileName);
+    const content = yield* readManifestText(fs, directory, fileName, manifestPath).pipe(
+      Effect.result,
+    );
+    if (Result.isFailure(content)) {
+      return { result: Result.fail(content.failure), text: Option.none() };
+    }
+    const result = yield* decodeManifestText(
+      content.success,
+      type,
+      fileName,
+      manifestPath,
+      options,
+    ).pipe(Effect.result);
+    return { result, text: Option.some(content.success) };
+  });
+
+export const readExtensionManifest = <T extends ExtensionType>(
+  directory: string,
+  type: T,
+  options?: ReadManifestOptions,
+): Effect.Effect<ReadManifestResult<T>, ManifestError, FileSystem.FileSystem | Path.Path> =>
+  readExtensionManifestCapture(directory, type, options).pipe(
+    Effect.flatMap((capture) => Effect.fromResult(capture.result)),
+  );

@@ -14,7 +14,12 @@ import { emitLockfileToml } from "../desired/lockfile/toml.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle, storedLockfileFixture } from "../testing.js";
-import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
+import {
+  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
+  prepareAcceptedCanonicalTransition,
+} from "./accepted-canonical-ref.js";
+import { UNCONSTRAINED_DESIRED_NODE, type DesiredExtensionNode } from "./desired-state-graph.js";
 import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
 import { WorkspaceStateTest } from "../testing.js";
 
@@ -112,6 +117,66 @@ describe("accepted canonical source transitions", () => {
 
       expect(nodeFs.existsSync(previousPath)).toBe(false);
       expect(nodeFs.existsSync(unrelatedPath)).toBe(true);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),
+    ),
+  );
+});
+
+describe("accepted canonical observation with manifest text", () => {
+  it.effect("observes exactly as the plain observation and hands back the text it read", () =>
+    Effect.gen(function* () {
+      const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-accepted-capture-"));
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+      );
+      nodeFs.writeFileSync(nodePath.join(root, "axm.json"), '{ "owner": "@acme" }\n');
+      const canonical = nodePath.join(root, "skills", "review");
+      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+      nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Authored\n");
+      const manifestPath = nodePath.join(canonical, "skill.json");
+      nodeFs.writeFileSync(
+        manifestPath,
+        `${JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" })}\n`,
+      );
+      const source = "workspace:@acme/skills/review";
+      const desired: DesiredExtensionNode = {
+        type: "skill",
+        name: "review",
+        identity: { authority: "workspace", fqn: "@acme/skills/review" },
+        source,
+        enabled: true,
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        origins: [{ type: "settings", source, enabled: true }],
+      };
+      const state = WorkspaceStateTest({
+        scope: "project",
+        projectRoot: decodeAbsolutePathSync(root),
+      });
+
+      const authored = { type: "skill", name: "review", desired } as const;
+      const capture = yield* acceptedCanonicalObservationCapturing(authored).pipe(
+        Effect.provide(state),
+      );
+      expect(Option.map(capture.observed, (observed) => observed.observation.status)).toEqual(
+        Option.some("usable"),
+      );
+      expect(capture.observed).toEqual(
+        yield* acceptedCanonicalObservation(authored).pipe(Effect.provide(state)),
+      );
+      expect(capture.manifest).toEqual(
+        Option.some({ path: manifestPath, text: nodeFs.readFileSync(manifestPath, "utf8") }),
+      );
+
+      const undeclared = { type: "skill", name: "absent" } as const;
+      const none = yield* acceptedCanonicalObservationCapturing(undeclared).pipe(
+        Effect.provide(state),
+      );
+      expect(none).toEqual({ observed: Option.none(), manifest: Option.none() });
+      expect(yield* acceptedCanonicalObservation(undeclared).pipe(Effect.provide(state))).toEqual(
+        Option.none(),
+      );
     }).pipe(
       Effect.scoped,
       Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),

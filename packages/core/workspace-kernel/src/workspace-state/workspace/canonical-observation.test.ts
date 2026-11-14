@@ -21,11 +21,21 @@ import {
   canonicalPathForAcceptedExtension,
   observeAcceptedResolution,
   observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
 } from "./canonical-observation.js";
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
 import type { LockEntry } from "./lock-entry.js";
 import * as Option from "effect/Option";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Layer from "effect/Layer";
+import type { WorkFact } from "@agentxm/host-primitives/work-observation";
+import { readExtensionManifest } from "@agentxm/extension-content";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { NativePlatformTest, workObservations } from "../../locations/testing.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
+import { WorkspaceStateTest } from "../testing.js";
+import { withWorkspaceObservationReadView } from "./read-view.js";
 
 const identityOf = (source: string): DesiredNodeIdentity =>
   source.startsWith("workspace:")
@@ -505,6 +515,126 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
+  const authoredSkill = { owner: "@acme", type: "skill", name: "review", version: "1.0.0" };
+  const authoredHook = {
+    owner: "@acme",
+    type: "hook",
+    name: "audit",
+    version: "1.0.0",
+    implementations: [
+      {
+        id: "claude",
+        protocol: "claude-code",
+        bindings: [
+          {
+            id: "audit",
+            event: "Stop",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+    ],
+  };
+  for (const scenario of [
+    {
+      label: "usable",
+      type: "skill",
+      name: "review",
+      manifest: `${JSON.stringify(authoredSkill, null, 2)}\n`,
+      payload: true,
+      status: "usable",
+    },
+    {
+      label: "invalid JSON",
+      type: "skill",
+      name: "review",
+      manifest: "{not json",
+      payload: true,
+      status: "corrupt",
+    },
+    {
+      label: "strict schema failure",
+      type: "hook",
+      name: "audit",
+      manifest: JSON.stringify({ ...authoredHook, fallback: "auto" }),
+      payload: true,
+      status: "corrupt",
+    },
+    {
+      label: "foreign owner",
+      type: "skill",
+      name: "review",
+      manifest: JSON.stringify({ ...authoredSkill, owner: "@other" }),
+      payload: true,
+      status: "wrong-origin",
+    },
+    {
+      label: "missing payload",
+      type: "skill",
+      name: "review",
+      manifest: JSON.stringify(authoredSkill),
+      payload: false,
+      status: "incomplete",
+    },
+    {
+      label: "missing manifest",
+      type: "skill",
+      name: "review",
+      manifest: undefined,
+      payload: true,
+      status: "incomplete",
+    },
+  ] as const) {
+    it.effect(`hands back the manifest text it judged: ${scenario.label}`, () =>
+      Effect.gen(function* () {
+        const layout = yield* projectLayout(root);
+        const source = `workspace:@acme/${scenario.type}s/${scenario.name}`;
+        const desired: DesiredExtensionNode = {
+          type: scenario.type,
+          name: scenario.name,
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        };
+        const canonical = nodePath.join(root, `${scenario.type}s`, scenario.name);
+        const manifestPath = nodePath.join(canonical, `${scenario.type}.json`);
+        nodeFs.mkdirSync(canonical, { recursive: true });
+        if (scenario.payload) {
+          nodeFs.mkdirSync(nodePath.join(canonical, "src"));
+          nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Authored\n");
+        }
+        if (scenario.manifest !== undefined) nodeFs.writeFileSync(manifestPath, scenario.manifest);
+
+        const args = { layout, desired, accepted: undefined };
+        const capture = yield* observeCanonicalExtensionCapturing(args);
+        expect(capture.observation.status).toBe(scenario.status);
+        expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
+        expect(capture.manifest).toEqual(
+          scenario.manifest === undefined
+            ? Option.none()
+            : Option.some({ path: manifestPath, text: nodeFs.readFileSync(manifestPath, "utf8") }),
+        );
+      }),
+    );
+  }
+
+  it.effect("hands back no manifest text when the content root is absent", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const args = {
+        layout,
+        desired: desiredSkill("workspace:@acme/skills/review"),
+        accepted: undefined,
+      };
+      const capture = yield* observeCanonicalExtensionCapturing(args);
+      expect(capture.observation.status).toBe("missing");
+      expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
+      expect(capture.manifest).toEqual(Option.none());
+    }),
+  );
+
   it.effect("evaluates pack constraints against an authored workspace manifest", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
@@ -553,3 +683,61 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 });
+
+/** Requested, executed and reused counts of shared observations, by operation. */
+const observationReuse = (facts: ReadonlyArray<WorkFact>) => {
+  const totals: Record<string, { requested: number; executed: number; reused: number }> = {};
+  for (const fact of facts) {
+    const operation = fact.attributes["axm.observation.operation"];
+    if (fact.kind !== "axm.observation.reuse" || operation === undefined) continue;
+    const total = (totals[operation] ??= { requested: 0, executed: 0, reused: 0 });
+    total.requested += fact.attributes["axm.work.requested"] ?? 0;
+    total.executed += fact.attributes["axm.work.executed"] ?? 0;
+    total.reused += fact.attributes["axm.work.reused-count"] ?? 0;
+  }
+  return totals;
+};
+
+layer(NativePlatformTest, { excludeTestServices: true })(
+  "manifest reads in a shared observation phase",
+  (it) => {
+    it.effect("share one read and one decode without a presence probe", () =>
+      Effect.gen(function* () {
+        const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-manifest-view-"));
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+        );
+        const canonical = nodePath.join(root, "skills", "review");
+        nodeFs.mkdirSync(canonical, { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(canonical, "skill.json"),
+          JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+        );
+        const state = WorkspaceStateTest({
+          projectRoot: decodeAbsolutePathSync(root),
+          scope: "project",
+          allowUninitialized: true,
+        }).pipe(
+          Layer.provide(WorkspaceFileWriteLocksLive),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({ env: { AXM_USER_HOME: `${root}/home` } }),
+            ),
+          ),
+        );
+        const observations = workObservations(false);
+        const [first, second] = yield* withWorkspaceObservationReadView(
+          Effect.all([
+            readExtensionManifest(canonical, "skill"),
+            readExtensionManifest(canonical, "skill"),
+          ]).pipe(observations.provide),
+        ).pipe(Effect.provide(state));
+        expect(second).toEqual(first);
+        expect(observationReuse(observations.facts)).toEqual({
+          "decode-text": { requested: 2, executed: 1, reused: 1 },
+          "read-file": { requested: 1, executed: 1, reused: 0 },
+        });
+      }).pipe(Effect.scoped),
+    );
+  },
+);

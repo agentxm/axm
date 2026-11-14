@@ -35,7 +35,11 @@ import {
   type LockEntry,
   type LockEntryToRefError,
 } from "./lock-entry.js";
-import { observeCanonicalExtension, type CanonicalObservation } from "./canonical-observation.js";
+import {
+  observeCanonicalExtensionCapturing,
+  type CanonicalObservation,
+  type CapturedManifest,
+} from "./canonical-observation.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
@@ -337,25 +341,18 @@ export const acceptedResolutionRef = (
     return yield* acceptedLockedResolutionRef(args);
   });
 
-/** Observe one desired node against the accepted resolution its type and name resolve to. */
-export const observeDesiredCanonical = (
-  desired: DesiredExtensionNode,
-): Effect.Effect<
-  AcceptedCanonicalObservation,
-  WorkspaceStateReadFailure,
-  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
-> =>
+const observeDesiredCanonicalCapturing = (desired: DesiredExtensionNode) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
     const reader = yield* LockfileReader;
     const accepted = yield* reader.acceptedEntry(desired.type, desired.name);
-    const observation = yield* observeCanonicalExtension({
+    const { observation, manifest } = yield* observeCanonicalExtensionCapturing({
       layout,
       desired,
       accepted: Option.getOrUndefined(accepted),
     });
-    return {
+    const observed: AcceptedCanonicalObservation = {
       desired,
       ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       observation,
@@ -372,14 +369,31 @@ export const observeDesiredCanonical = (
           },
         }),
     };
+    return { observed, manifest };
   });
 
-export const acceptedCanonicalObservation = ({
+/** Observe one desired node against the accepted resolution its type and name resolve to. */
+export const observeDesiredCanonical = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  AcceptedCanonicalObservation,
+  WorkspaceStateReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
+> => Effect.map(observeDesiredCanonicalCapturing(desired), (capture) => capture.observed);
+
+/**
+ * Observe like `acceptedCanonicalObservation`, also handing the caller the
+ * manifest text the observation read, for that caller's own decode.
+ */
+export const acceptedCanonicalObservationCapturing = ({
   type,
   name,
   desired: proposed,
 }: AcceptedCanonicalRefArgs): Effect.Effect<
-  Option.Option<AcceptedCanonicalObservation>,
+  {
+    readonly observed: Option.Option<AcceptedCanonicalObservation>;
+    readonly manifest: Option.Option<CapturedManifest>;
+  },
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > =>
@@ -388,9 +402,18 @@ export const acceptedCanonicalObservation = ({
     const desired =
       proposed ??
       (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
-    if (desired === undefined) return Option.none();
-    return Option.some(yield* observeDesiredCanonical(desired));
+    if (desired === undefined) return { observed: Option.none(), manifest: Option.none() };
+    const { observed, manifest } = yield* observeDesiredCanonicalCapturing(desired);
+    return { observed: Option.some(observed), manifest };
   });
+
+export const acceptedCanonicalObservation = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  Option.Option<AcceptedCanonicalObservation>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> => Effect.map(acceptedCanonicalObservationCapturing(args), (capture) => capture.observed);
 
 const asUsable = (
   value: AcceptedCanonicalObservation,

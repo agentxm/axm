@@ -10,7 +10,8 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { loadSubagentPackage, readExtensionManifest } from "@agentxm/extension-content";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { loadSubagentPackage, readExtensionManifestCapture } from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionPathSourceFromLockEntry,
@@ -383,12 +384,33 @@ export const observeAcceptedResolution = (
   return Option.none();
 };
 
-export const observeCanonicalExtension = ({
+/** The authored manifest text exactly as an observation read it. */
+export interface CapturedManifest {
+  readonly path: string;
+  readonly text: string;
+}
+
+interface CanonicalObservationCapture {
+  readonly observation: CanonicalObservation;
+  /** Present whenever the observation read the authored manifest's text. */
+  readonly manifest: Option.Option<CapturedManifest>;
+}
+
+const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
+  observation,
+  manifest: Option.none(),
+});
+
+/**
+ * Observe like `observeCanonicalExtension`, also handing the caller the
+ * manifest text the observation read. The text is never retained here.
+ */
+export const observeCanonicalExtensionCapturing = ({
   layout,
   desired,
   accepted,
 }: ObserveCanonicalArgs): Effect.Effect<
-  CanonicalObservation,
+  CanonicalObservationCapture,
   never,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -396,23 +418,25 @@ export const observeCanonicalExtension = ({
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     if (desired.source === undefined) {
-      return { type: desired.type, name: desired.name, status: "not-applicable" };
+      return uncaptured({ type: desired.type, name: desired.name, status: "not-applicable" });
     }
     const judged = observeAcceptedResolution(desired, accepted, path);
     const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
     if (Option.isSome(judged)) {
-      return judged.value.status === "constraint-mismatch" && root !== undefined
-        ? { ...judged.value, path: root }
-        : judged.value;
+      return uncaptured(
+        judged.value.status === "constraint-mismatch" && root !== undefined
+          ? { ...judged.value, path: root }
+          : judged.value,
+      );
     }
     const workspaceAuthored = desired.identity.authority === "workspace";
     const bundled = desired.identity.authority === "bundled";
     if (root === undefined) {
-      return { type: desired.type, name: desired.name, status: "wrong-origin" };
+      return uncaptured({ type: desired.type, name: desired.name, status: "wrong-origin" });
     }
     const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
-      return { type: desired.type, name: desired.name, status: "missing", path: root };
+      return uncaptured({ type: desired.type, name: desired.name, status: "missing", path: root });
     }
 
     if (
@@ -423,15 +447,20 @@ export const observeCanonicalExtension = ({
       accepted.source.distribution?.format === "agent-plugins"
     ) {
       if (!(yield* fs.exists(path.join(root, "mcp.json")).pipe(Effect.orElseSucceed(() => false))))
-        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+        return uncaptured({
+          type: desired.type,
+          name: desired.name,
+          status: "incomplete",
+          path: root,
+        });
       if (!(yield* observedTreeMatchesAccepted(root, accepted)))
-        return {
+        return uncaptured({
           type: desired.type,
           name: desired.name,
           status: "materialization-mismatch",
           path: root,
-        };
-      return { type: desired.type, name: desired.name, status: "usable", path: root };
+        });
+      return uncaptured({ type: desired.type, name: desired.name, status: "usable", path: root });
     }
 
     if (
@@ -446,42 +475,60 @@ export const observeCanonicalExtension = ({
       const skillMdPath = path.join(root, component, "SKILL.md");
       const skillMdExists = yield* fs.exists(skillMdPath).pipe(Effect.orElseSucceed(() => false));
       if (!skillMdExists) {
-        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+        return uncaptured({
+          type: desired.type,
+          name: desired.name,
+          status: "incomplete",
+          path: root,
+        });
       }
 
       const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
       if (Result.isFailure(raw)) {
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+        return uncaptured({
+          type: desired.type,
+          name: desired.name,
+          status: "corrupt",
+          path: root,
+        });
       }
       if (!(yield* observedTreeMatchesAccepted(root, accepted))) {
-        return {
+        return uncaptured({
           type: desired.type,
           name: desired.name,
           status: "materialization-mismatch",
           path: root,
-        };
+        });
       }
 
       if (isConstrained(desired) && !contentVersionSatisfiesDesiredConstraint(desired, undefined)) {
-        return constraintMismatchObservation({ desired, canonicalPath: root });
+        return uncaptured(constraintMismatchObservation({ desired, canonicalPath: root }));
       }
 
-      return {
+      return uncaptured({
         type: desired.type,
         name: desired.name,
         status: "usable",
         path: root,
-      };
+      });
     }
 
-    const read = yield* readExtensionManifest(root, desired.type).pipe(Effect.result);
+    const capture = yield* readExtensionManifestCapture(root, desired.type);
+    const captured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
+      observation,
+      manifest: Option.map(capture.text, (text) => ({
+        path: path.join(root, manifestFilenameForType(desired.type)),
+        text,
+      })),
+    });
+    const read = capture.result;
     if (Result.isFailure(read)) {
-      return {
+      return captured({
         type: desired.type,
         name: desired.name,
         status: read.failure.code === "manifest_missing" ? "incomplete" : "corrupt",
         path: root,
-      };
+      });
     }
     const parsed = read.success.raw;
     const expectedOwner = bundled
@@ -500,7 +547,12 @@ export const observeCanonicalExtension = ({
       !("type" in parsed) ||
       parsed.type !== desired.type
     ) {
-      return { type: desired.type, name: desired.name, status: "wrong-origin", path: root };
+      return captured({
+        type: desired.type,
+        name: desired.name,
+        status: "wrong-origin",
+        path: root,
+      });
     }
     const manifestVersion =
       "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
@@ -509,7 +561,7 @@ export const observeCanonicalExtension = ({
       Effect.orElseSucceed(() => false),
     );
     if (!payloadComplete) {
-      return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+      return captured({ type: desired.type, name: desired.name, status: "incomplete", path: root });
     }
 
     if (
@@ -517,12 +569,12 @@ export const observeCanonicalExtension = ({
       accepted !== undefined &&
       !(yield* observedTreeMatchesAccepted(root, accepted))
     ) {
-      return {
+      return captured({
         type: desired.type,
         name: desired.name,
         status: "materialization-mismatch",
         path: root,
-      };
+      });
     }
 
     // Authored and path/git content have no accepted Registry version:
@@ -532,17 +584,24 @@ export const observeCanonicalExtension = ({
       isConstrained(desired) &&
       !contentVersionSatisfiesDesiredConstraint(desired, manifestVersion)
     ) {
-      return constraintMismatchObservation({
-        desired,
-        canonicalPath: root,
-        ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
-      });
+      return captured(
+        constraintMismatchObservation({
+          desired,
+          canonicalPath: root,
+          ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
+        }),
+      );
     }
 
-    return {
+    return captured({
       type: desired.type,
       name: desired.name,
       status: "usable",
       path: root,
-    };
+    });
   });
+
+export const observeCanonicalExtension = (
+  args: ObserveCanonicalArgs,
+): Effect.Effect<CanonicalObservation, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(observeCanonicalExtensionCapturing(args), (capture) => capture.observation);

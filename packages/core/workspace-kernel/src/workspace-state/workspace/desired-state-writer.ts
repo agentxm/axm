@@ -39,7 +39,13 @@ import {
   stableCompare,
 } from "./accepted-resolution-writer.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
-import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
+import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
+import { workspaceReadPhaseFor } from "./read-phase.js";
+import {
+  SettingsReader,
+  makeSettingsReader,
+  type SettingsReaderService,
+} from "./settings-reader.js";
 import { lockEntries, settingsEntries, type EntriesAccessor } from "./entry-accessors.js";
 import { isRegistryLockEntry, lockEntryToSourceParams, type LockEntry } from "./lock-entry.js";
 import type {
@@ -50,6 +56,7 @@ import type {
   SetRuleArgs,
   SetSkillArgs,
   SetSubagentArgs,
+  WorkspaceSettingsReadFailure,
   WorkspaceStateMutationFailure,
 } from "./contracts.js";
 import { WorkspaceStateShared, withWorkspaceStateWrite } from "./shared.js";
@@ -68,6 +75,19 @@ interface DeclareArgsByType {
 }
 
 type Write = Effect.Effect<void, WorkspaceStateMutationFailure>;
+
+/**
+ * The settings one declaration consults before its first write: its intent
+ * document and the Registry source its resolution is declared under.
+ */
+interface DeclareInputs {
+  readonly settings: Effect.Effect<Settings, WorkspaceSettingsReadFailure>;
+  readonly sourceFor: (
+    type: InstallableExtensionType,
+    lockEntry: LockEntry,
+    versionRange: Option.Option<string>,
+  ) => Effect.Effect<string, WorkspaceSettingsReadFailure>;
+}
 
 export interface DesiredStateWriterService {
   /** Declare the extension in settings and record its accepted resolution. */
@@ -119,7 +139,20 @@ const declarationSource = (
       )
     : printSourceParams(lockEntryToSourceParams(lockEntry));
 
+/** Select the declaration's Registry source from one settings reader. */
+const sourceFrom =
+  (settingsReader: SettingsReaderService): DeclareInputs["sourceFor"] =>
+  (type, lockEntry, versionRange) =>
+    Effect.gen(function* () {
+      const [sources, defaultRegistry] = yield* Effect.all([
+        settingsReader.configuredSources,
+        settingsReader.defaultRegistry,
+      ]);
+      return declarationSource(sources, defaultRegistry, type, lockEntry, versionRange);
+    });
+
 const makeDesiredStateWriter = (
+  location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
   settingsReader: SettingsReaderService,
@@ -130,21 +163,31 @@ const makeDesiredStateWriter = (
   const writeSettings = documents.writeSettings;
   const commit = documents.commitAcceptedResolutions;
   const serialized = withWorkspaceStateWrite(mutex, "desired-state");
-  const sourceFor = (
-    type: InstallableExtensionType,
-    lockEntry: LockEntry,
-    versionRange: Option.Option<string>,
-  ) =>
-    Effect.gen(function* () {
-      const [sources, defaultRegistry] = yield* Effect.all([
-        settingsReader.configuredSources,
-        settingsReader.defaultRegistry,
-      ]);
-      return declarationSource(sources, defaultRegistry, type, lockEntry, versionRange);
-    });
+  const phaseInputs: DeclareInputs = { settings, sourceFor: sourceFrom(settingsReader) };
+
+  /**
+   * One declaration's settings inputs. An active read phase already shares its
+   * documents. Outside one, the call decodes each scope's document once and
+   * releases it on return: every use precedes the call's first write, and the
+   * settings owner still performs its own live read when it publishes.
+   */
+  const declareInputs: Effect.Effect<DeclareInputs> = Effect.gen(function* () {
+    if ((yield* workspaceReadPhaseFor(location)) !== undefined) return phaseInputs;
+    const project = yield* Effect.cached(documents.settings("project"));
+    const user = yield* Effect.cached(documents.settings("user"));
+    const callDocuments: WorkspaceDocumentsService = {
+      ...documents,
+      settings: (scope) => ((scope ?? location.scope) === "user" ? user : project),
+    };
+    return {
+      settings: callDocuments.settings(),
+      sourceFor: sourceFrom(makeSettingsReader(location, callDocuments)),
+    };
+  });
 
   /** Declare a sourced entry then record the resolution, always writing both. */
   const declareSourced = <SettingsEntry, LockEntry extends RuleLockEntry | HookLockEntry>(
+    { settings, sourceFor }: DeclareInputs,
     type: "rule" | "hook",
     configured: EntriesAccessor<Settings, SettingsEntry>,
     accepted: EntriesAccessor<Lockfile, LockEntry>,
@@ -172,7 +215,10 @@ const makeDesiredStateWriter = (
       );
     });
 
-  const declareSkill = ({ name, lockEntry, versionRange }: SetSkillArgs): Write =>
+  const declareSkill = (
+    { settings, sourceFor }: DeclareInputs,
+    { name, lockEntry, versionRange }: SetSkillArgs,
+  ): Write =>
     Effect.gen(function* () {
       const current = yield* settings;
       const source = yield* sourceFor("skill", lockEntry, versionRange);
@@ -193,7 +239,10 @@ const makeDesiredStateWriter = (
       );
     });
 
-  const declareSubagent = ({ name, lockEntry, versionRange }: SetSubagentArgs): Write =>
+  const declareSubagent = (
+    { settings, sourceFor }: DeclareInputs,
+    { name, lockEntry, versionRange }: SetSubagentArgs,
+  ): Write =>
     Effect.gen(function* () {
       const current = yield* settings;
       const source = yield* sourceFor("subagent", lockEntry, versionRange);
@@ -214,7 +263,10 @@ const makeDesiredStateWriter = (
       );
     });
 
-  const declareKnowledge = ({ name, lockEntry, versionRange }: SetKnowledgeArgs): Write =>
+  const declareKnowledge = (
+    { settings, sourceFor }: DeclareInputs,
+    { name, lockEntry, versionRange }: SetKnowledgeArgs,
+  ): Write =>
     Effect.gen(function* () {
       const current = yield* settings;
       const source = yield* sourceFor("knowledge", lockEntry, versionRange);
@@ -241,7 +293,10 @@ const makeDesiredStateWriter = (
       );
     });
 
-  const declarePack = ({ name, lockEntry, versionRange }: SetPackArgs): Write =>
+  const declarePack = (
+    { settings, sourceFor }: DeclareInputs,
+    { name, lockEntry, versionRange }: SetPackArgs,
+  ): Write =>
     Effect.gen(function* () {
       const current = yield* settings;
       const source = yield* sourceFor("pack", lockEntry, versionRange);
@@ -260,17 +315,20 @@ const makeDesiredStateWriter = (
       );
     });
 
-  const declareMcpServer = ({
-    name,
-    nativeComponent,
-    resolutionKey,
-    lockEntry,
-    versionRange,
-    distribution,
-    bindings,
-    auth,
-    enabled,
-  }: SetMcpServerArgs): Write =>
+  const declareMcpServer = (
+    { settings, sourceFor }: DeclareInputs,
+    {
+      name,
+      nativeComponent,
+      resolutionKey,
+      lockEntry,
+      versionRange,
+      distribution,
+      bindings,
+      auth,
+      enabled,
+    }: SetMcpServerArgs,
+  ): Write =>
     Effect.gen(function* () {
       const roundTrip =
         desiredReachability(yield* desiredState.graph(), { type: "mcp-server", name }).decision ===
@@ -306,14 +364,18 @@ const makeDesiredStateWriter = (
     });
 
   const declareByType: {
-    readonly [T in InstallableExtensionType]: (args: DeclareArgsByType[T]) => Write;
+    readonly [T in InstallableExtensionType]: (
+      inputs: DeclareInputs,
+      args: DeclareArgsByType[T],
+    ) => Write;
   } = {
     skill: declareSkill,
     pack: declarePack,
     "mcp-server": declareMcpServer,
     subagent: declareSubagent,
-    rule: ({ name, lockEntry, versionRange }) =>
+    rule: (inputs, { name, lockEntry, versionRange }) =>
       declareSourced(
+        inputs,
         "rule",
         settingsEntries.rule,
         lockEntries.rule,
@@ -322,8 +384,9 @@ const makeDesiredStateWriter = (
         lockEntry,
         versionRange,
       ),
-    hook: ({ name, lockEntry, versionRange }) =>
+    hook: (inputs, { name, lockEntry, versionRange }) =>
       declareSourced(
+        inputs,
         "hook",
         settingsEntries.hook,
         lockEntries.hook,
@@ -431,7 +494,9 @@ const makeDesiredStateWriter = (
 
   return {
     declare: (type, args) =>
-      serialized(declareByType[type](args)).pipe(Effect.withSpan("DesiredStateWriter.declare")),
+      serialized(Effect.flatMap(declareInputs, (inputs) => declareByType[type](inputs, args))).pipe(
+        Effect.withSpan("DesiredStateWriter.declare"),
+      ),
     undeclare: (type, name) =>
       serialized(undeclareByType[type](name)).pipe(Effect.withSpan("DesiredStateWriter.undeclare")),
   };
@@ -440,11 +505,16 @@ const makeDesiredStateWriter = (
 export const DesiredStateWriterLive: Layer.Layer<
   DesiredStateWriter,
   never,
-  WorkspaceDocuments | DesiredStateReader | SettingsReader | WorkspaceStateShared
+  | WorkspaceLocation
+  | WorkspaceDocuments
+  | DesiredStateReader
+  | SettingsReader
+  | WorkspaceStateShared
 > = Layer.effect(
   DesiredStateWriter,
   Effect.gen(function* () {
     return makeDesiredStateWriter(
+      yield* WorkspaceLocation,
       yield* WorkspaceDocuments,
       yield* DesiredStateReader,
       yield* SettingsReader,

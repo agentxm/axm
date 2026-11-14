@@ -1,4 +1,8 @@
-import { resolveNativeReferent } from "./native-address.js";
+import {
+  CanonicalNativePath,
+  NativeLocationError,
+  resolveNativeReferent,
+} from "./native-address.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -6,8 +10,20 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
+import { CanonicalNativePathLive } from "./live.js";
 import { captureNativeLocationSet } from "./native-location-set.js";
 import { observationViewLayer } from "./observation-view.js";
+
+// The live canonical-spelling port exists only on these hosts.
+const hostCanonicalPath = process.platform === "linux" || process.platform === "darwin";
+
+/** A deterministic canonical-spelling port recording each path it receives. */
+const recordingCanonicalPath = Effect.gen(function* () {
+  const calls = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
+  const record = (target: string) =>
+    Ref.update(calls, (previous) => new Map(previous).set(target, (previous.get(target) ?? 0) + 1));
+  return { calls, record };
+});
 
 describe("finite native location observations", () => {
   it.effect(
@@ -197,5 +213,99 @@ describe("finite native location observations", () => {
       expect((yield* index.entry(liveTarget).pipe(Effect.result))._tag).toBe("Failure");
       expect((yield* working.entry(liveTarget)).kind).toBe("file");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("shares canonical spelling only within one capture", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const directory = path.join(root, "directory");
+      yield* fs.makeDirectory(directory);
+      const targets = ["a1", "a2", "a3", "a4", "a5", "a6"].map((name) =>
+        path.join(directory, name),
+      );
+      const { calls, record } = yield* recordingCanonicalPath;
+      const capture = captureNativeLocationSet({ entries: targets }).pipe(
+        Effect.provideService(CanonicalNativePath, (target) =>
+          record(target).pipe(Effect.as(target)),
+        ),
+      );
+      const first = yield* capture;
+      expect(yield* Ref.get(calls)).toEqual(new Map([[directory, 1]]));
+      for (const target of targets) {
+        const address = yield* first.entry(target);
+        expect(address.kind).toBe("absent");
+        expect(address.entryPath).toBe(target);
+      }
+      // Reading the captured results never consults the port again.
+      expect(yield* Ref.get(calls)).toEqual(new Map([[directory, 1]]));
+      yield* capture;
+      expect(yield* Ref.get(calls)).toEqual(new Map([[directory, 2]]));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("shares a canonical spelling refusal only until the next capture", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const directory = path.join(root, "directory");
+      yield* fs.makeDirectory(directory);
+      const targets = ["a1", "a2", "a3", "a4", "a5", "a6"].map((name) =>
+        path.join(directory, name),
+      );
+      const { calls, record } = yield* recordingCanonicalPath;
+      const refusal = new NativeLocationError({
+        target: directory,
+        reason: "unreadable",
+        cause: "canonical-path-changed",
+      });
+      const capture = captureNativeLocationSet({ entries: targets }).pipe(
+        Effect.provideService(CanonicalNativePath, (target) =>
+          record(target).pipe(
+            Effect.andThen(target === directory ? Effect.fail(refusal) : Effect.succeed(target)),
+          ),
+        ),
+      );
+      const first = yield* capture;
+      for (const target of targets) {
+        const result = yield* first.entry(target).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") expect(result.failure).toBe(refusal);
+      }
+      expect(yield* Ref.get(calls)).toEqual(new Map([[directory, 1]]));
+      yield* capture;
+      expect(yield* Ref.get(calls)).toEqual(new Map([[directory, 2]]));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.skipIf(!hostCanonicalPath)(
+    "a new capture observes a directory recreated under the same canonical spelling",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs
+          .makeTempDirectoryScoped()
+          .pipe(Effect.flatMap(resolveNativeReferent));
+        const directory = path.join(root, "directory");
+        const target = path.join(directory, "config.json");
+        yield* fs.makeDirectory(directory);
+        const capture = captureNativeLocationSet({ entries: [directory, target] }).pipe(
+          Effect.provide(CanonicalNativePathLive),
+        );
+        const before = yield* capture;
+        yield* fs.rename(directory, path.join(root, "previous"));
+        yield* fs.makeDirectory(directory);
+        const after = yield* capture;
+        const previous = yield* before.entry(directory);
+        const current = yield* after.entry(directory);
+        expect(current.entryPath).toBe(directory);
+        expect(current.kind).toBe("directory");
+        expect(current.inode).toBeDefined();
+        expect(current.inode).not.toBe(previous.inode);
+        expect((yield* after.entry(target)).entryPath).toBe(target);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

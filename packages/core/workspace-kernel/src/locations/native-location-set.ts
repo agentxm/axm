@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type * as PlatformError from "effect/PlatformError";
 import {
+  CanonicalNativePath,
   NativeLocationError,
   resolveNativeEntry,
   resolveNativeReferent,
@@ -18,9 +19,10 @@ export interface NativeLocationSet {
 
 /**
  * Resolve a finite requested set and its direct link targets. Identical filesystem
- * reads are shared only while capturing this set, including failed observations.
- * Neither the filesystem adapter nor its cache escapes. A new read phase must
- * capture a new set; settlement and write admission keep using live resolution.
+ * reads and canonical spellings are shared only while capturing this set, including
+ * failed observations. Neither the adapters nor their caches escape. A new read
+ * phase must capture a new set; settlement and write admission keep using live
+ * resolution.
  */
 export const captureNativeLocationSet = (targets: {
   readonly entries?: ReadonlyArray<string>;
@@ -52,15 +54,31 @@ export const captureNativeLocationSet = (targets: {
       stat: shareRead((target) => fs.stat(target)),
       realPath: shareRead((target) => fs.realPath(target)),
     } satisfies FileSystem.FileSystem;
+    const canonical = yield* CanonicalNativePath;
+    const spellings = new Map<string, Effect.Effect<string | undefined, NativeLocationError>>();
+    // The port already receives a resolved path; key by it exactly.
+    const capturedCanonical =
+      canonical === undefined
+        ? undefined
+        : (target: string) =>
+            Effect.gen(function* () {
+              const previous = spellings.get(target);
+              if (previous !== undefined) return yield* previous;
+              const observed = yield* Effect.cached(canonical(target));
+              spellings.set(target, observed);
+              return yield* observed;
+            });
+    const captured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.provideService(FileSystem.FileSystem, capturedFileSystem),
+        Effect.provideService(CanonicalNativePath, capturedCanonical),
+      );
     const entries = new Map<string, Result.Result<NativeEntryAddress, NativeLocationError>>();
     const requestedEntries = [
       ...new Set((targets.entries ?? []).map((target) => path.resolve(target))),
     ];
     for (const target of requestedEntries) {
-      const result = yield* resolveNativeEntry(target).pipe(
-        Effect.provideService(FileSystem.FileSystem, capturedFileSystem),
-        Effect.result,
-      );
+      const result = yield* captured(resolveNativeEntry(target)).pipe(Effect.result);
       entries.set(target, result);
       if (Result.isSuccess(result) && !entries.has(result.success.entryPath))
         entries.set(result.success.entryPath, result);
@@ -73,23 +91,11 @@ export const captureNativeLocationSet = (targets: {
       if (address.kind !== "symlink" || address.linkTarget === undefined) continue;
       const immediate = path.resolve(path.dirname(address.entryPath), address.linkTarget);
       if (entries.has(immediate)) continue;
-      entries.set(
-        immediate,
-        yield* resolveNativeEntry(immediate).pipe(
-          Effect.provideService(FileSystem.FileSystem, capturedFileSystem),
-          Effect.result,
-        ),
-      );
+      entries.set(immediate, yield* captured(resolveNativeEntry(immediate)).pipe(Effect.result));
     }
     const referents = new Map<string, Result.Result<string, NativeLocationError>>();
     for (const target of new Set((targets.referents ?? []).map((target) => path.resolve(target)))) {
-      referents.set(
-        target,
-        yield* resolveNativeReferent(target).pipe(
-          Effect.provideService(FileSystem.FileSystem, capturedFileSystem),
-          Effect.result,
-        ),
-      );
+      referents.set(target, yield* captured(resolveNativeReferent(target)).pipe(Effect.result));
     }
     const missing = (target: string) =>
       Effect.fail(

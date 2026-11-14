@@ -157,8 +157,15 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
           });
         // Keep the quarantine outside the retired subtree on its own device.
         // Walking toward the authorized native root stops at a mount boundary.
-        const nativeRoot = yield* resolveNativeReferent(selected.nativeRoot);
-        const workspaceRoot = yield* resolveNativeReferent(context.nativeRoot);
+        // This admission's route assertion resolved an ordinary selected root
+        // live; other spellings resolve fresh.
+        const nativeRoot = selected.root.ordinary
+          ? selected.root.physicalRoot
+          : yield* resolveNativeReferent(selected.nativeRoot);
+        const workspaceRoot =
+          selected.root.ordinary && context.nativeRoot === selected.nativeRoot
+            ? nativeRoot
+            : yield* resolveNativeReferent(context.nativeRoot);
         const separateRoot = nativeRoot !== workspaceRoot;
         if (address.entryPath === nativeRoot && (!separateRoot || options?.emptyOnly !== true))
           return yield* new WorkspaceSnapshotError({

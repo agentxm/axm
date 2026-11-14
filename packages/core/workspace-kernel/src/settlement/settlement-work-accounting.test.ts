@@ -20,7 +20,7 @@ import { resolveNativeReferent } from "../locations/index.js";
 import { CanonicalNativePathLive } from "../locations/live.js";
 import { NativePlatformTest } from "../locations/testing.js";
 import { CurrentWorkspaceTransaction } from "./context.js";
-import { WorkspaceRestorationError } from "./errors.js";
+import { WorkspaceRestorationError, WorkspaceSnapshotError } from "./errors.js";
 import {
   protectCreatedAncestors,
   protectWorkspacePath,
@@ -41,9 +41,11 @@ const platform = Layer.merge(NativePlatformTest, CanonicalNativePathLive);
 const hashCounter = () => {
   let parents: Array<string> = [];
   let admissions = 0;
+  let canonicalPaths = 0;
   const observer: WorkObserver = {
     record: (fact, parent) => {
       if (fact.kind === "axm.admission.transaction-ledger") admissions += 1;
+      if (fact.kind === "axm.native.canonical-path") canonicalPaths += 1;
       if (fact.kind !== "axm.hash.preimage") return;
       parents.push(parent === undefined ? "" : parent._tag === "Span" ? parent.name : "external");
     },
@@ -54,23 +56,32 @@ const hashCounter = () => {
     total: () => parents.length,
     under: (name: string) => parents.filter((parent) => parent === name).length,
     admissions: () => admissions,
+    canonicalPaths: () => canonicalPaths,
     reset: () => {
       parents = [];
       admissions = 0;
+      canonicalPaths = 0;
     },
   };
 };
 
-/** A workspace whose transactions use the recording filesystem, optionally wrapped. */
-const workspaceWith = (
+/**
+ * A workspace whose transactions use the recording filesystem, optionally
+ * wrapped. `place` chooses the root's spelling inside a physical temporary
+ * directory; by default the root is that directory at its physical spelling.
+ */
+const workspaceWith = <E>(
   wrap: (recorded: FileSystem.FileSystem, native: FileSystem.FileSystem) => FileSystem.FileSystem,
+  place: (
+    temporary: string,
+  ) => Effect.Effect<string, E, FileSystem.FileSystem | Path.Path> = Effect.succeed,
 ) =>
   Effect.gen(function* () {
     const native = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const root = yield* native
       .makeTempDirectoryScoped({ prefix: "axm-settlement-work-" })
-      .pipe(Effect.flatMap(resolveNativeReferent));
+      .pipe(Effect.flatMap(resolveNativeReferent), Effect.flatMap(place));
     const workspaceDir = path.join(root, ".axm");
     yield* native.makeDirectory(workspaceDir);
     yield* native.writeFileString(path.join(root, "axm.json"), "{}\n");
@@ -547,6 +558,162 @@ describe("settlement work accounting", () => {
         // After the copy the target is stat-ed once by the fresh address
         // resolution and once by the fresh owner observation, not reused.
         expect(statsAfterCopy).toBe(2);
+      }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+  });
+  describe("native root resolution within one admission", () => {
+    const routeOf = (target: string) =>
+      Effect.gen(function* () {
+        const context = yield* CurrentWorkspaceTransaction;
+        if (Option.isNone(context)) return expect.fail("Expected an active transaction");
+        const ledger = yield* SynchronizedRef.get(context.value.ledger);
+        const snapshot = ledger.snapshots.find((entry) => entry.target === target);
+        if (snapshot === undefined) return expect.fail("Expected a snapshot of the target");
+        return { physicalRoot: snapshot.route.physicalRoot, rootLink: snapshot.route.rootLink };
+      });
+
+    it.effect("resolves an ordinary root once less per protection miss", () =>
+      Effect.gen(function* () {
+        const { native, path, root, recording, hashes, transact } = yield* workspace;
+        const file = path.join(root, "file.txt");
+        yield* native.writeFileString(file, "before\n");
+        let counted: unknown;
+        let route: unknown;
+        yield* transact({
+          transition: Effect.gen(function* () {
+            recording.reset();
+            hashes.reset();
+            yield* protectWorkspacePath(file);
+            const counts = recording.counts(root);
+            counted = {
+              realPath: counts.realPath,
+              readLink: counts.readLink,
+              canonicalPaths: hashes.canonicalPaths(),
+            };
+            route = yield* routeOf(file);
+          }),
+          validate: () => Effect.void,
+        });
+        // Both route assertions and the route walk resolve the root; the
+        // baseline reuses the second assertion's resolution.
+        expect(counted).toEqual({ realPath: 3, readLink: 2, canonicalPaths: 4 });
+        expect(route).toEqual({ physicalRoot: root, rootLink: undefined });
+      }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+
+    it.effect("resolves an ordinary root once less per retirement anchor", () =>
+      Effect.gen(function* () {
+        const { native, path, root, recording, hashes, transact } = yield* workspace;
+        const directory = path.join(root, "D");
+        yield* native.makeDirectory(directory);
+        yield* native.writeFileString(path.join(directory, "f1"), "f1");
+        let counted: unknown;
+        yield* transact({
+          transition: Effect.gen(function* () {
+            recording.reset();
+            hashes.reset();
+            yield* retireWorkspacePath(directory);
+            const counts = recording.counts(root);
+            counted = {
+              realPath: counts.realPath,
+              readLink: counts.readLink,
+              canonicalPaths: hashes.canonicalPaths(),
+            };
+          }),
+          validate: () => Effect.void,
+        });
+        expect(counted).toEqual({ realPath: 6, readLink: 4, canonicalPaths: 9 });
+        expect(yield* native.exists(directory)).toBe(false);
+      }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+
+    for (const spelling of ["symlinked root", "symlinked parent"] as const) {
+      it.effect(`still resolves a ${spelling} fresh for the route baseline and anchors`, () =>
+        Effect.gen(function* () {
+          let physical = "";
+          const { native, path, root, recording, hashes, transact } = yield* workspaceWith(
+            (recorded) => recorded,
+            (temporary) =>
+              Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const parent = path.join(temporary, "physical");
+                physical = path.join(parent, "workspace");
+                yield* fs.makeDirectory(physical, { recursive: true });
+                if (spelling === "symlinked root") {
+                  const link = path.join(temporary, "link");
+                  yield* fs.symlink(physical, link);
+                  return link;
+                }
+                yield* fs.symlink(parent, path.join(temporary, "alias"));
+                return path.join(temporary, "alias", "workspace");
+              }),
+          );
+          const file = path.join(root, "file.txt");
+          const directory = path.join(root, "D");
+          yield* native.writeFileString(file, "before\n");
+          yield* native.makeDirectory(directory);
+          let counted: unknown;
+          let route: unknown;
+          yield* transact({
+            transition: Effect.gen(function* () {
+              recording.reset();
+              hashes.reset();
+              yield* protectWorkspacePath(file);
+              const protecting = recording.counts(root);
+              const protectingPaths = hashes.canonicalPaths();
+              route = yield* routeOf(path.join(physical, "file.txt"));
+              recording.reset();
+              hashes.reset();
+              yield* retireWorkspacePath(directory);
+              const retiring = recording.counts(root);
+              counted = {
+                protect: [protecting.realPath, protecting.readLink, protectingPaths],
+                retire: [retiring.realPath, retiring.readLink, hashes.canonicalPaths()],
+              };
+            }),
+            validate: () => Effect.void,
+          });
+          // Today's fresh resolutions of the spelled root, unchanged.
+          expect(counted).toEqual(
+            spelling === "symlinked root"
+              ? { protect: [5, 5, 11], retire: [12, 9, 24] }
+              : { protect: [5, 3, 13], retire: [12, 5, 28] },
+          );
+          expect(route).toEqual({
+            physicalRoot: physical,
+            rootLink: spelling === "symlinked root" ? physical : undefined,
+          });
+          expect(yield* native.exists(path.join(physical, "D"))).toBe(false);
+        }).pipe(Effect.scoped, Effect.provide(platform)),
+      );
+    }
+
+    it.effect("refuses a protection after an ordinary root is replaced", () =>
+      Effect.gen(function* () {
+        const { native, path, root, transact } = yield* workspace;
+        const first = path.join(root, "first.txt");
+        const second = path.join(root, "second.txt");
+        const moved = `${root}.moved`;
+        yield* native.writeFileString(first, "first\n");
+        let refusal: unknown;
+        yield* transact({
+          transition: Effect.gen(function* () {
+            yield* protectWorkspacePath(first);
+            yield* native.rename(root, moved);
+            yield* native.makeDirectory(root);
+            refusal = yield* protectWorkspacePath(second).pipe(Effect.flip);
+            yield* native.remove(root, { recursive: true });
+            yield* native.rename(moved, root);
+          }),
+          validate: () => Effect.void,
+        });
+        expect(refusal).toBeInstanceOf(WorkspaceSnapshotError);
+        if (refusal instanceof WorkspaceSnapshotError) {
+          expect(refusal.step).toBe("inspect-target");
+          expect(refusal.cause).toMatchObject({ cause: "native-root-changed" });
+        }
+        expect(yield* native.readFileString(first)).toBe("first\n");
       }).pipe(Effect.scoped, Effect.provide(platform)),
     );
   });

@@ -244,6 +244,15 @@ export const protectTransition = (
     }
     const route = yield* Effect.gen(function* () {
       const parents = yield* observeNativeRoute(fs, path, normalized, nativeRoot);
+      // The admission's own route assertion has just resolved an ordinary
+      // root live: its referent is the root itself and it is not a link.
+      if (afterAdmission.nativeRoot === nativeRoot && afterAdmission.root.ordinary)
+        return {
+          parents,
+          nativeRoot,
+          physicalRoot: afterAdmission.root.physicalRoot,
+          rootLink: undefined,
+        };
       const physicalRoot = yield* resolveNativeReferent(nativeRoot);
       const rootLink = Option.getOrUndefined(yield* fs.readLink(nativeRoot).pipe(Effect.option));
       return { parents, nativeRoot, physicalRoot, rootLink };

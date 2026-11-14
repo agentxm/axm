@@ -140,7 +140,21 @@ export const assertNativeMutationWithinRoots = (
   ownerRoot: string,
   witnesses?: ReadonlyArray<NativeAuthorityRootWitness>,
 ): Effect.Effect<
-  { readonly nativeRoot: string; readonly address: NativeEntryAddress },
+  {
+    readonly nativeRoot: string;
+    readonly address: NativeEntryAddress;
+    /** The selected root as this assertion resolved it. */
+    readonly root: {
+      readonly physicalRoot: string;
+      readonly linkTarget: string | undefined;
+      /**
+       * An existing directory, not a link, at its own physical spelling: its
+       * `physicalRoot` is the root's live referent and it had no link target
+       * when this assertion observed it.
+       */
+      readonly ordinary: boolean;
+    };
+  },
   NativeLocationError,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -202,8 +216,17 @@ export const assertNativeMutationWithinRoots = (
       if (parent === ancestor) break;
       ancestor = parent;
     }
+    const rootAddress = selected.address;
     return {
       nativeRoot: selected.nativeRoot,
+      root: {
+        physicalRoot: selected.physicalRoot,
+        linkTarget: rootAddress.linkTarget,
+        ordinary:
+          rootAddress.kind === "directory" &&
+          rootAddress.linkTarget === undefined &&
+          rootAddress.referentPath === rootAddress.lexicalPath,
+      },
       address: yield* assertResolvedNativeMutationWithin({
         physicalRoot: selected.physicalRoot,
         physicalOwnerRoot: physicalOwner,

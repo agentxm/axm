@@ -15,22 +15,23 @@ const ExpectedAccessAbsence = Context.Reference<boolean>("axm/ExpectedAccessAbse
 const observe = <A, E, R>(
   name: Extract<WorkKind, `axm.io.${string}`>,
   operation: Effect.Effect<A, E, R>,
-) =>
-  operation.pipe(
-    Effect.tapError((error) =>
-      name === "axm.io.access" &&
-      PlatformError.isPlatformError(error) &&
-      error.reason._tag === "NotFound"
-        ? Effect.flatMap(ExpectedAccessAbsence, (expected) =>
-            expected ? annotateWork({ "axm.failure.kind": "expected-absence" }) : Effect.void,
-          )
-        : Effect.void,
-    ),
-    (effect) =>
-      withWork(name, effect, {
-        attributes: { "axm.work.executed": 1 },
-      }),
-  );
+) => {
+  const observed =
+    name === "axm.io.access"
+      ? operation.pipe(
+          Effect.tapError((error) =>
+            PlatformError.isPlatformError(error) && error.reason._tag === "NotFound"
+              ? Effect.flatMap(ExpectedAccessAbsence, (expected) =>
+                  expected ? annotateWork({ "axm.failure.kind": "expected-absence" }) : Effect.void,
+                )
+              : Effect.void,
+          ),
+        )
+      : operation;
+  return withWork(name, observed, {
+    attributes: { "axm.work.executed": 1 },
+  });
+};
 
 const bytes = (value: number) => annotateWork({ "axm.io.bytes": value });
 

@@ -100,7 +100,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
   const install =
     replacementFqn === undefined
       ? undefined
-      : yield* InstallExtensions.prepare({
+      : yield* InstallExtensions.prepareForComposite({
           type: Option.none(),
           subject: { kind: "source", source: replacementFqn },
           selectors: {},
@@ -113,7 +113,10 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
           planName: `Install ${replacementFqn}`,
           planDescription: Option.none(),
         });
-  const uninstall = yield* UninstallExtensions.prepare({ type: Option.none(), selector: fqn });
+  const uninstall = yield* UninstallExtensions.prepareForComposite({
+    type: Option.none(),
+    selector: fqn,
+  });
   const location = yield* WorkspaceLocation;
   const conversion = yield* StepFailureConversion;
   const steps = [

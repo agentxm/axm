@@ -45,8 +45,10 @@ import {
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
+  prepareCompositeChildPlan,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type CompositeChildPlanOptions,
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 
@@ -100,9 +102,13 @@ export interface UninstallExtensionsRequest {
 /**
  * A settled removal: every target is resolved and nothing is written. `type`
  * is the type the removal settled on, which the root form derived from the
- * FQN; `names` are the extensions it will withdraw.
+ * FQN; `names` are the extensions it will withdraw. A composite operation
+ * settles the removal as a child plan it seals itself, so its `execution` is
+ * that plan.
  */
-interface UninstallExtensionsCandidate {
+interface UninstallExtensionsCandidate<
+  Execution = ExecutionCandidate<PrepareUninstallRequirements>,
+> {
   readonly type: InstallableExtensionType;
   /**
    * The selector scoped to the settled type: a name or glob as given, or the
@@ -115,7 +121,7 @@ interface UninstallExtensionsCandidate {
   /** The selector matched nothing installed; the application renders a no-op. */
   readonly empty: boolean;
   readonly planName: string;
-  readonly execution: ExecutionCandidate<PrepareUninstallRequirements>;
+  readonly execution: Execution;
 }
 
 /** Every failure settling a removal can surface before anything is written. */
@@ -198,14 +204,24 @@ const planForType = (
 // prepare
 // -----------------------------------------------------------------------------
 
-/** Settle a removal without writing anything. */
-const prepareUninstallExtensions: (
+/** How a planned removal is settled: as its own candidate, or as a composite's child plan. */
+type SealUninstallPlan<Execution> = (
+  plan: Plan<PrepareUninstallRequirements>,
+  options: CompositeChildPlanOptions,
+) => Effect.Effect<Execution, UninstallExtensionsFailure, PrepareUninstallRequirements>;
+
+/** Settle a removal without writing anything, settling its plan with `seal`. */
+const settleUninstallExtensions: <Execution>(
   request: UninstallExtensionsRequest,
+  seal: SealUninstallPlan<Execution>,
 ) => Effect.Effect<
-  UninstallExtensionsCandidate,
+  UninstallExtensionsCandidate<Execution>,
   UninstallExtensionsFailure,
   PrepareUninstallRequirements
-> = Effect.fn("UninstallExtensions.prepare")(function* (request: UninstallExtensionsRequest) {
+> = Effect.fn("UninstallExtensions.prepare")(function* <Execution>(
+  request: UninstallExtensionsRequest,
+  seal: SealUninstallPlan<Execution>,
+) {
   const conversion = yield* StepFailureConversion;
   const acceptedWriter = yield* AcceptedResolutionWriter;
   const resolved = yield* Option.match(request.type, {
@@ -476,7 +492,7 @@ const prepareUninstallExtensions: (
       };
     },
   );
-  const execution = yield* prepareExecutionCandidate(plan, {
+  const execution = yield* seal(plan, {
     configuredAgentOperations,
     executionWithdrawals: projectionSubjects.filter(
       (subject) =>
@@ -492,8 +508,20 @@ const prepareUninstallExtensions: (
     empty: planned.names.length === 0,
     planName: plan.name,
     execution,
-  } satisfies UninstallExtensionsCandidate;
+  } satisfies UninstallExtensionsCandidate<Execution>;
 }, withWorkspaceReadView);
+
+/** Settle a removal without writing anything. */
+const prepareUninstallExtensions = (request: UninstallExtensionsRequest) =>
+  settleUninstallExtensions(request, prepareExecutionCandidate);
+
+/**
+ * Settle a removal as one child of a composite operation, which keeps the
+ * child's steps, risk conditions and configured-agent operations and seals
+ * them in its own candidate.
+ */
+const prepareCompositeUninstallExtensions = (request: UninstallExtensionsRequest) =>
+  settleUninstallExtensions(request, prepareCompositeChildPlan);
 
 // -----------------------------------------------------------------------------
 // previewOrApply
@@ -512,5 +540,6 @@ const previewOrApplyUninstallExtensions = (
 /** The removal use case: settle a request, then preview or apply it. */
 export const UninstallExtensions = {
   prepare: prepareUninstallExtensions,
+  prepareForComposite: prepareCompositeUninstallExtensions,
   previewOrApply: previewOrApplyUninstallExtensions,
 } as const;

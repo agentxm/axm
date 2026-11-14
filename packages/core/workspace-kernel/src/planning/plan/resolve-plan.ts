@@ -95,6 +95,7 @@ import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
+  observeCompositeChildMaterials,
   type ExecutionCandidate,
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
@@ -448,12 +449,12 @@ export interface PrepareExecutionCandidateOptions {
 }
 
 /**
- * Prepare the immutable execution candidate for a plan: augment with lockfile
- * reconciliation, project configured-agent outcomes, scan readiness, assemble
- * risk conditions, and fingerprint every material preimage. Preview,
- * confirmation, and apply all refer to the candidate this returns.
+ * Augment a plan for sealing: lockfile reconciliation, configured-agent
+ * outcomes, placement preflight, execution withdrawals, the external execution
+ * review with its preimage when the plan exposes hooks or MCP servers, and
+ * every readiness and precondition blocker as a risk condition.
  */
-const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+const augmentExecutionPlan = Effect.fnUntraced(function* <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options?: PrepareExecutionCandidateOptions,
 ) {
@@ -608,15 +609,47 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
+  return { candidatePlan, operations, materialBoundary, beforeReview };
+});
+
+type AugmentedExecutionPlan<Requirements, Output> = Effect.Success<
+  ReturnType<typeof augmentExecutionPlan<Requirements, Output>>
+>;
+
+/**
+ * Seal an augmented plan: fingerprint every material preimage and derive the
+ * candidate identity, refusing a plan whose inputs changed during its review.
+ */
+const sealExecutionCandidate = Effect.fnUntraced(function* <Requirements, Output>(
+  planName: string,
+  augmented: AugmentedExecutionPlan<Requirements, Output>,
+) {
   const candidate = yield* withLiveWorkspaceObservations(
-    makeExecutionCandidate(candidatePlan, materialBoundary, operations),
+    makeExecutionCandidate(
+      augmented.candidatePlan,
+      augmented.materialBoundary,
+      augmented.operations,
+    ),
   );
   if (
-    beforeReview !== undefined &&
-    beforeReview.materialFingerprint !== candidate.materialFingerprint
+    augmented.beforeReview !== undefined &&
+    augmented.beforeReview.materialFingerprint !== candidate.materialFingerprint
   )
-    return yield* new StaleExecutionCandidate({ candidate: plan.name });
+    return yield* new StaleExecutionCandidate({ candidate: planName });
   return candidate;
+});
+
+/**
+ * Prepare the immutable execution candidate for a plan: augment with lockfile
+ * reconciliation, project configured-agent outcomes, scan readiness, assemble
+ * risk conditions, and fingerprint every material preimage. Preview,
+ * confirmation, and apply all refer to the candidate this returns.
+ */
+const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: PrepareExecutionCandidateOptions,
+) {
+  return yield* sealExecutionCandidate(plan.name, yield* augmentExecutionPlan(plan, options));
 });
 
 export const prepareExecutionCandidate = <Requirements, Output>(
@@ -626,6 +659,61 @@ export const prepareExecutionCandidate = <Requirements, Output>(
   withPhaseSpan(
     "planning",
     withWorkspaceReadView(prepareExecutionCandidateInPlanning(plan, options)),
+  );
+
+/**
+ * A child plan augmented for a composite operation, which seals one candidate
+ * over its children's steps. It carries no identity or fingerprint, so only
+ * the composite's own candidate can be previewed, confirmed or applied.
+ */
+interface CompositeChildPlan<Requirements = never, Output = never> {
+  readonly plan: Plan<Requirements, Output>;
+  readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
+}
+
+/** A composite child derives no identity, so no observed input enters one. */
+export type CompositeChildPlanOptions = Omit<
+  PrepareExecutionCandidateOptions,
+  "observedInputFingerprint"
+>;
+
+const prepareCompositeChildPlanInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: CompositeChildPlanOptions,
+) {
+  const augmented = yield* augmentExecutionPlan(plan, options);
+  if (augmented.beforeReview !== undefined) {
+    // The reviewed preimage stays bracketed by this child's own seal: the
+    // review's text travels into the composite's risk conditions.
+    const candidate = yield* sealExecutionCandidate(plan.name, augmented);
+    return {
+      plan: candidate.plan,
+      configuredAgentOperations: candidate.configuredAgentOperations,
+    } satisfies CompositeChildPlan<Requirements, Output>;
+  }
+  // The child's own materials stay observed here; the composite's seal
+  // fingerprints the workspace settings and lockfile and derives the identity.
+  yield* withLiveWorkspaceObservations(
+    observeCompositeChildMaterials(augmented.candidatePlan, augmented.materialBoundary),
+  );
+  return {
+    plan: augmented.candidatePlan,
+    configuredAgentOperations: augmented.operations,
+  } satisfies CompositeChildPlan<Requirements, Output>;
+});
+
+/**
+ * Augment a child plan exactly as `prepareExecutionCandidate` does, for a
+ * composite operation that keeps only the child's steps, risk conditions and
+ * configured-agent operations and seals them in its own candidate.
+ */
+export const prepareCompositeChildPlan = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: CompositeChildPlanOptions,
+) =>
+  withPhaseSpan(
+    "planning",
+    withWorkspaceReadView(prepareCompositeChildPlanInPlanning(plan, options)),
   );
 
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {

@@ -59,6 +59,8 @@ import type {
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { CanonicalPackageProbeFailed } from "../../acquisition/index.js";
+import { LockfileIoError, WorkspaceReadViews } from "../../workspace-state/index.js";
+import { snapshotTree } from "../../workspace-state/testing.js";
 
 /**
  * The recipes open a real workspace transaction, so every step runs against a
@@ -891,6 +893,91 @@ describe("buildMaterializeOperation", () => {
       expect(calls).toEqual(["materialize", "resolution-facts"]);
     }),
   );
+
+  describe("post-write installation check", () => {
+    const name = extensionName("review");
+    const ref: RegistrySkillRef = {
+      type: "skill",
+      refType: "registry",
+      publisherBindingId: "hbnd_test",
+      source: {
+        type: "registry",
+        name: "agentxm",
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+        owner: Option.some(handle("@acme")),
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      integrity: Option.none(),
+      packages: [],
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+    const unreadable = new LockfileIoError({ path: "axm.lock", cause: "EIO" });
+    const managerWith = (
+      isInstalled: SynchronizeMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >["isInstalled"],
+    ) =>
+      ({
+        isInstalled,
+        materializeInstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        acceptedResolution: () => Effect.succeed(Option.none()),
+      }) satisfies SynchronizeMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >;
+    const runOperation = (manager: ReturnType<typeof managerWith>, capture?: "fails") =>
+      Effect.gen(function* () {
+        const operation = buildMaterializeOperation(manager, { ref, toStepFailure });
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const before = snapshotTree(transactionDir);
+        const views = yield* Effect.serviceOption(WorkspaceReadViews);
+        if (Option.isNone(views)) throw new Error("Expected production read views");
+        const failure = yield* operation.run.pipe(
+          capture === undefined
+            ? (effect) => effect
+            : Effect.provideService(WorkspaceReadViews, {
+                ...views.value,
+                capture: (options) =>
+                  options?.observations === true
+                    ? Effect.fail(unreadable)
+                    : views.value.capture(options),
+              }),
+          Effect.flip,
+        );
+        expect(snapshotTree(transactionDir)).toEqual(before);
+        return failure;
+      });
+
+    it.effect("reports a failed presence read as the step failure", () =>
+      Effect.gen(function* () {
+        const failure = yield* grounded(runOperation(managerWith(() => Effect.fail(unreadable))));
+        expect(failure).toEqual(
+          new StepFailure({ category: "internal", detail: String(unreadable) }),
+        );
+      }),
+    );
+
+    it.effect("reports an unavailable verification phase as the same step failure", () =>
+      Effect.gen(function* () {
+        const expected = yield* grounded(runOperation(managerWith(() => Effect.fail(unreadable))));
+        const failure = yield* grounded(
+          runOperation(
+            managerWith(() => Effect.succeed(true)),
+            "fails",
+          ),
+        );
+        expect(failure).toEqual(expected);
+      }),
+    );
+  });
 });
 
 describe("buildUninstallOperation", () => {

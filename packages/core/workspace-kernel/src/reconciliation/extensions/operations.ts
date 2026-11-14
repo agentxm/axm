@@ -47,6 +47,7 @@ import {
   desiredPackageKey,
   desiredReachability,
   acceptedCanonicalObservation,
+  withFreshWorkspaceObservationReadView,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import { observeSatisfiedInstall } from "./satisfied-install.js";
@@ -980,8 +981,9 @@ const runMaterializeOperation = Effect.fnUntraced(
         yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
         return observed;
       }),
+      // The presence check observes the result in one fresh read phase.
       validate: () =>
-        manager.isInstalled({ target }).pipe(
+        withFreshWorkspaceObservationReadView(manager.isInstalled({ target })).pipe(
           Effect.flatMap((installed) =>
             installed
               ? Effect.void

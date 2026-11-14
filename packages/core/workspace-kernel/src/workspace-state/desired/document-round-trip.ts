@@ -294,15 +294,16 @@ export const prepareDocumentRoundTrip = <E>(args: {
         const inserted = args.insertions[0];
         const baseline = batch === undefined ? (args.before ?? "") : batchBaseline;
         const absentBefore = batch === undefined ? args.before === undefined : batchAbsent;
-        const inverse =
-          baseline === undefined
-            ? Option.none()
-            : yield* deriveStructuralInverse(baseline, finalContent);
         const unit = batch === undefined ? inserted : batchUnit;
         const eligible =
           batch === undefined
             ? args.context.eligible && args.insertions.length === 1 && args.withdrawals.length === 0
             : batchProven;
+        // Only a publication that can record a receipt needs its inverse.
+        const inverse =
+          baseline === undefined || !eligible || unit === undefined
+            ? Option.none()
+            : yield* deriveStructuralInverse(baseline, finalContent);
         if (eligible && unit !== undefined && Option.isSome(inverse)) {
           receipts.push({
             unit,

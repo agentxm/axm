@@ -10,11 +10,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
-import { readContainerReceipts } from "../../locations/index.js";
-import { NativePlatformTest } from "../../locations/testing.js";
+import {
+  captureContainerIdentity,
+  deriveStructuralInverse,
+  readContainerReceipts,
+} from "../../locations/index.js";
+import { NativePlatformTest, workObservations } from "../../locations/testing.js";
 import {
   FootprintRecorder,
   WorkspaceFileWriteLocks,
@@ -230,6 +235,154 @@ describe("document round-trip receipt store writes", () => {
         ).pipe(Effect.provideService(FootprintRecorder, footprint));
         expect(yield* fs.readFileString(paths.store)).toBe(bytes);
         expect(yield* storeLabels(footprint, paths.store)).toEqual(["created"]);
+      }).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+const owned = (name: string) => `["doc",${JSON.stringify(name)}]`;
+
+/**
+ * Drive one document publication through prepare, revalidate, write, and
+ * finish, counting the receipt digests computed while finishing only.
+ */
+const roundTrip = (
+  args: { readonly root: string; readonly runtimeDir: string },
+  publication: {
+    readonly before: string | undefined;
+    readonly after: string;
+    readonly insertions: ReadonlyArray<string>;
+    readonly withdrawals?: ReadonlyArray<string>;
+    readonly restoredCandidates?: Array<string>;
+  },
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const locks = yield* WorkspaceFileWriteLocks;
+    const target = path.join(args.root, "doc.json");
+    const prepared = yield* prepareDocumentRoundTrip({
+      context: { nativeRoot: args.root, runtimeDir: args.runtimeDir, eligible: true, locks },
+      target,
+      before: publication.before,
+      after: publication.after,
+      unitPrefix: `["doc",`,
+      insertions: publication.insertions,
+      withdrawals: publication.withdrawals ?? [],
+      acceptRestored: (raw) =>
+        Effect.sync(() => {
+          publication.restoredCandidates?.push(raw);
+          return true;
+        }),
+      mapFailure: (failedTarget, cause) => ({ target: failedTarget, cause }),
+    });
+    yield* prepared.revalidate;
+    yield* fs.writeFileString(target, prepared.content);
+    const observations = workObservations(false);
+    yield* prepared.finish.pipe(observations.provide);
+    return {
+      content: prepared.content,
+      finishHashes: observations.facts.filter((fact) => fact.kind === "axm.hash.receipt").length,
+    };
+  });
+
+const documentReceipts = (runtimeDir: string, physicalPath: string) =>
+  Effect.map(readContainerReceipts(runtimeDir), (store) =>
+    store.entries.filter((receipt) => receipt.identity.physicalPath === physicalPath),
+  );
+
+describe("document round-trip structural inverse", () => {
+  const created = '{"a":1}\n';
+  const twoInserted = '{"a":1,"b":2,"c":3}\n';
+
+  it.effect("derives no inverse for a publication that cannot record a receipt", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const target = `${paths.root}/doc.json`;
+      yield* Effect.gen(function* () {
+        yield* transaction(
+          roundTrip(paths, { before: undefined, after: created, insertions: [owned("a")] }),
+        );
+        const prior = yield* documentReceipts(paths.runtimeDir, target);
+        // Two insertions in one write are structurally invertible but ineligible.
+        const ineligible = yield* transaction(
+          roundTrip(paths, {
+            before: created,
+            after: twoInserted,
+            insertions: [owned("b"), owned("c")],
+          }),
+        );
+        expect({
+          priorUnits: prior.map((receipt) => receipt.unit),
+          finishHashes: ineligible.finishHashes,
+          remaining: yield* documentReceipts(paths.runtimeDir, target),
+          written: yield* FileSystem.FileSystem.pipe(
+            Effect.flatMap((fs) => fs.readFileString(target)),
+          ),
+        }).toEqual({
+          priorUnits: [owned("a")],
+          finishHashes: 0,
+          // The ineligible publication still expires the earlier exact baseline.
+          remaining: [],
+          written: twoInserted,
+        });
+      }).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("records an eligible insertion's receipt and restores it on withdrawal", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const target = `${paths.root}/doc.json`;
+      const inserted = '{"a":1,"b":2}\n';
+      yield* Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(target, created);
+        const eligible = yield* transaction(
+          roundTrip(paths, { before: created, after: inserted, insertions: [owned("b")] }),
+        );
+        const identity = yield* captureContainerIdentity({
+          nativeRoot: paths.root,
+          ownerRoot: paths.root,
+          target,
+        });
+        const inverse = yield* deriveStructuralInverse(created, inserted);
+        expect({
+          finishHashes: eligible.finishHashes,
+          receipts: yield* documentReceipts(paths.runtimeDir, target),
+        }).toEqual({
+          finishHashes: 2,
+          receipts: [
+            {
+              unit: owned("b"),
+              kind: "inserted-key",
+              identity,
+              inverse: Option.getOrThrow(inverse),
+            },
+          ],
+        });
+
+        const restoredCandidates: Array<string> = [];
+        const withdrawn = yield* transaction(
+          roundTrip(paths, {
+            before: inserted,
+            after: '{"a":1}',
+            insertions: [],
+            withdrawals: [owned("b")],
+            restoredCandidates,
+          }),
+        );
+        expect({
+          content: withdrawn.content,
+          restoredCandidates,
+          written: yield* fs.readFileString(target),
+          remaining: yield* documentReceipts(paths.runtimeDir, target),
+        }).toEqual({
+          content: created,
+          restoredCandidates: [created],
+          written: created,
+          remaining: [],
+        });
       }).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );

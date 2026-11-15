@@ -886,6 +886,9 @@ export const SubagentManagerLive = Layer.effect(
           phase?.isActive() !== false ? prepared.planned : yield* plannedFiles(ref, targets);
         const allAgents = yield* agentRepo.all;
         const observations = [];
+        // Whether each planned file exists, by its physical path, as this call
+        // probed it.
+        const presence = new Map<string, boolean>();
         for (const target of targets) {
           if (target.directory._tag === "misconfigured") {
             observations.push({ present: false, current: false, nativeLocations: [] });
@@ -901,7 +904,8 @@ export const SubagentManagerLive = Layer.effect(
               "content",
               baseDir,
             );
-            const planFile = planned.get(address.referentPath ?? address.entryPath);
+            const destination = address.referentPath ?? address.entryPath;
+            const planFile = planned.get(destination);
             const present = yield* readFs.exists(file).pipe(
               Effect.mapError(
                 (cause) =>
@@ -911,6 +915,7 @@ export const SubagentManagerLive = Layer.effect(
                   }),
               ),
             );
+            presence.set(destination, present);
             // A declared Subagent owns its planned path; currency is the
             // recorded generation, never the file's bytes.
             const current =
@@ -968,20 +973,24 @@ export const SubagentManagerLive = Layer.effect(
         const writes: Array<JobStepArtifactTarget> = [];
         for (const [destination, file] of planned) {
           const recorded = Option.fromUndefinedOr(rows.get(file.unit));
+          // The probe above answers while its read phase holds; a file it did
+          // not reach, or a phase that has ended, is probed again.
+          const probed = phase?.isActive() !== false ? presence.get(destination) : undefined;
           if (
             Option.isSome(recorded) &&
             projectionIsCurrent(
               recorded,
               file.gen,
-              yield* readFs.exists(destination).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new SubagentDefinitionInvalid({
-                      detail: `Cannot inspect planned Subagent file ${destination}`,
-                      cause,
-                    }),
-                ),
-              ),
+              probed ??
+                (yield* readFs.exists(destination).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SubagentDefinitionInvalid({
+                        detail: `Cannot inspect planned Subagent file ${destination}`,
+                        cause,
+                      }),
+                  ),
+                )),
             )
           )
             continue;

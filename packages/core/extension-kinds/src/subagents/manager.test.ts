@@ -1125,6 +1125,104 @@ describe("SubagentManager", () => {
       );
     });
 
+    it.effect("probes a recorded planned file once per observation", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const probes = () => recording.calls({ path: native, method: "access" }).length;
+
+        // A planned file without a recorded row is probed once, as before.
+        recording.reset();
+        const unrecorded = yield* manager.projectionObservation(ref, { sourceRoot: sourceDir });
+        expect(probes()).toBe(1);
+        expect(unrecorded.current).toBe(false);
+
+        yield* manager.materializeInstall({ ref });
+        recording.reset();
+        const recorded = yield* manager.projectionObservation(ref);
+        expect(probes()).toBe(1);
+        expect(recorded).toMatchObject({ present: true, current: true });
+        expect(recorded.targets).toBeUndefined();
+
+        // A recorded file that is gone still reads as not current and as created.
+        nodeFs.rmSync(native);
+        recording.reset();
+        const missing = yield* manager.projectionObservation(ref);
+        expect(probes()).toBe(1);
+        expect(missing).toMatchObject({ present: false, current: false });
+        expect(missing.targets).toEqual([{ path: ".claude/agents/planner.md", change: "created" }]);
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] })));
+    });
+
+    it.effect(
+      "probes a recorded file through its alias entry only when the root is an alias",
+      () => {
+        const sourceDir = nodePath.join(tmpDir, "source", "planner");
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
+        const realDir = nodePath.join(tmpDir, "real-project");
+        const projectDir = nodePath.join(tmpDir, "project");
+        nodeFs.mkdirSync(nodePath.join(realDir, ".axm"), { recursive: true });
+        nodeFs.symlinkSync(realDir, projectDir, "dir");
+        const entry = nodePath.join(projectDir, ".claude/agents/planner.md");
+        const referent = nodePath.join(realDir, ".claude/agents/planner.md");
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          yield* manager.materializeInstall({ ref });
+          recording.reset();
+          expect((yield* manager.projectionObservation(ref)).current).toBe(true);
+          expect(recording.calls({ path: entry, method: "access" }).length).toBe(1);
+          expect(recording.calls({ path: referent, method: "access" }).length).toBe(0);
+        }).pipe(
+          Effect.provide(
+            makeTestLayer({
+              axmDir: nodePath.join(projectDir, ".axm"),
+              agents: [codingAgentForId("claude-code")],
+            }),
+          ),
+        );
+      },
+    );
+
+    it.effect("probes each spelling of a file shared by aliased readers once", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const physical = nodePath.join(projectDir, ".claude/agents");
+      const alias = nodePath.join(projectDir, ".cursor/agents");
+      nodeFs.mkdirSync(physical, { recursive: true });
+      nodeFs.mkdirSync(nodePath.dirname(alias), { recursive: true });
+      nodeFs.symlinkSync(physical, alias, "dir");
+      const physicalFile = nodePath.join(physical, "planner.md");
+      const aliasFile = nodePath.join(alias, "planner.md");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        yield* manager.materializeInstall({ ref });
+        recording.reset();
+        const observed = yield* manager.projectionObservation(ref);
+        expect(observed).toMatchObject({ present: true, current: true });
+        expect(recording.calls({ path: physicalFile, method: "access" }).length).toBe(1);
+        expect(recording.calls({ path: aliasFile, method: "access" }).length).toBe(1);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            axmDir: nodePath.join(projectDir, ".axm"),
+            agents: [codingAgentForId("claude-code"), codingAgentForId("cursor")],
+          }),
+        ),
+      );
+    });
+
     it.effect("prepares again once the read phase the preflight observed through ends", () => {
       const { sourceDir, resource, layer } = resourceFixture();
       const spans = makeSpanCounter();
@@ -1159,6 +1257,30 @@ describe("SubagentManager", () => {
         Effect.withTracer(spans.tracer),
         Effect.withTracerEnabled(true),
       );
+    });
+
+    it.effect("probes a recorded file again once the read phase it was probed in ends", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const probes = () => recording.calls({ path: native, method: "access" }).length;
+        yield* manager.materializeInstall({ ref });
+
+        recording.reset();
+        const held = yield* inEndingReadPhase(manager.projectionObservation(ref));
+        expect(probes()).toBe(1);
+        recording.reset();
+        expect(yield* inEndingReadPhase(manager.projectionObservation(ref), native)).toEqual(held);
+        expect(probes()).toBe(2);
+        expect(held).toMatchObject({ present: true, current: true });
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] })));
     });
   });
 });

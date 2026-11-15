@@ -381,6 +381,11 @@ export const SkillManagerLive = Layer.effect(
             kind: "skill",
             state: "unchanged",
             ...(canonicalSkillSrcPath === undefined ? {} : { sourcePath: canonicalSkillSrcPath }),
+            // The inventory just proved this copy from its receipt; only the
+            // presence crosses, and the removal still reads the receipt itself.
+            ...(output.proof === "copied-directory-receipt"
+              ? { copyReceipt: { directory: output.path, present: true } }
+              : {}),
           })),
         }).pipe(
           Effect.mapError(

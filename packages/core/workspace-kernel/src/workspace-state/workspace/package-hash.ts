@@ -14,6 +14,21 @@ import { PackageContentHashFailed } from "./errors.js";
 import { computeSourceHash } from "./rendered-files.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
+/** One entry frame of the package content hash: kind, path and byte length, then the bytes. */
+export const framePackageContentEntry = (
+  hash: crypto.Hash,
+  kind: string,
+  relative: string,
+  bytes: Uint8Array,
+): void => {
+  hash.update(kind);
+  hash.update("\0");
+  hash.update(relative);
+  hash.update("\0");
+  hash.update(`${bytes.byteLength}\0`);
+  hash.update(bytes);
+};
+
 /**
  * Compute an advisory SHA-256 change marker over package content recursively.
  *
@@ -57,12 +72,7 @@ export const computePackageContentHash = (
     const frame = (kind: string, relative: string, bytes: Uint8Array): void => {
       byteCount += bytes.byteLength;
       entryCount += 1;
-      hash.update(kind);
-      hash.update("\0");
-      hash.update(relative);
-      hash.update("\0");
-      hash.update(`${bytes.byteLength}\0`);
-      hash.update(bytes);
+      framePackageContentEntry(hash, kind, relative, bytes);
     };
     const walk = (directory: string, prefix: string): Effect.Effect<void, PlatformError> =>
       Effect.gen(function* () {

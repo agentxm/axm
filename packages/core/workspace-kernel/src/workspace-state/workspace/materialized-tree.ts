@@ -7,6 +7,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { framePackageContentEntry } from "./package-hash.js";
 import { computeSourceHash } from "./rendered-files.js";
 
 const TREE_INTEGRITY_PREFIX = "sha256-tree-v2:";
@@ -255,12 +256,7 @@ const packageContentHashOf = (entries: ReadonlyArray<PackageContentEntry>) =>
     let byteCount = 0;
     for (const entry of [...entries].sort(byPackagePathOrder)) {
       byteCount += entry.payload.byteLength;
-      hash.update(entry.kind);
-      hash.update("\0");
-      hash.update(entry.relativePath);
-      hash.update("\0");
-      hash.update(`${entry.payload.byteLength}\0`);
-      hash.update(entry.payload);
+      framePackageContentEntry(hash, entry.kind, entry.relativePath, entry.payload);
     }
     return annotateWork({ "axm.work.bytes": byteCount, "axm.work.count": entries.length }).pipe(
       Effect.andThen(computeSourceHash(hash.digest("hex"))),

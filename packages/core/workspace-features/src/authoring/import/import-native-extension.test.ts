@@ -178,14 +178,21 @@ describe("ImportNativeExtension prepared work", () => {
         prepare: { hashes: 2, rootReadDirectory: 3, manifestReads: 8, bodyReads: 6 },
         apply: { hashes: 4, rootReadDirectory: 7, manifestReads: 5, bodyReads: 4 },
       };
+      // In each preflight run the Subagent manager's observation reuses its
+      // destination validation's package load instead of loading it again.
+      const sharedLoad = { manifestReads: 1, bodyReads: 1 };
       expect(stagedCounts(prepare, staged, body)).toEqual({
         hashes: before.prepare.hashes - 1,
         rootReadDirectory: before.prepare.rootReadDirectory - 1,
-        manifestReads: before.prepare.manifestReads - 3,
-        bodyReads: before.prepare.bodyReads - 1,
+        manifestReads: before.prepare.manifestReads - 3 - sharedLoad.manifestReads,
+        bodyReads: before.prepare.bodyReads - 1 - sharedLoad.bodyReads,
       });
       // Under the lock the preflight reads and hashes the staged package fresh.
-      expect(stagedCounts(apply, staged, body)).toEqual(before.apply);
+      expect(stagedCounts(apply, staged, body)).toEqual({
+        ...before.apply,
+        manifestReads: before.apply.manifestReads - sharedLoad.manifestReads,
+        bodyReads: before.apply.bodyReads - sharedLoad.bodyReads,
+      });
     }),
   );
 

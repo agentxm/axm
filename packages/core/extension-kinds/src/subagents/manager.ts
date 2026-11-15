@@ -872,6 +872,10 @@ export const SubagentManagerLive = Layer.effect(
           options?.configuredAgents ??
           (yield* (phase?.readers.settings ?? settings).configuredAgents);
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
+        // A caller about to write refuses an unrecorded file first, from the
+        // package this call just loaded, as `configuredAgentOutcomesForRef`'s
+        // destination validation does.
+        if (options?.validateDestinations === true) yield* preflight(ref, pkg, configuredAgents);
         // Observation reports an unrecorded file as not current; only a write refuses it.
         const prepared = yield* preflight(ref, pkg, configuredAgents, "report");
         // The preflight's preparation and plan serve the rest of this call, but

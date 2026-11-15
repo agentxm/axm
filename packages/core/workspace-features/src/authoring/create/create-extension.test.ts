@@ -148,8 +148,10 @@ describe("CreateExtension prepared work", () => {
   } as const;
 
   // Each preflight run's Rule or Knowledge manager prepares from the manifest
-  // that run decoded, so its own read of the staged manifest goes per phase.
-  const sharedRunReads = { rule: [1, 0], knowledge: [1, 0], subagent: [0, 0] } as const;
+  // that run decoded, and the Subagent manager's observation reuses its own
+  // destination validation's package load, so one read of each named staged
+  // file goes per phase.
+  const sharedRunReads = { rule: [1, 0], knowledge: [1, 0], subagent: [1, 1] } as const;
 
   for (const type of ["rule", "knowledge", "subagent"] as const)
     it.effect(`stages the ${type} preview without hashing what it just wrote`, () => {

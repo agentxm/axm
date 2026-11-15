@@ -333,7 +333,15 @@ export interface SubagentManagerService
   >;
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
-    options?: { readonly sourceRoot?: string; readonly configuredAgents?: ReadonlyArray<string> },
+    options?: {
+      readonly sourceRoot?: string;
+      readonly configuredAgents?: ReadonlyArray<string>;
+      /**
+       * Refuse, before observing, a planned file AXM has no record of
+       * writing, from the package this call loads.
+       */
+      readonly validateDestinations?: boolean;
+    },
   ) => Effect.Effect<
     {
       readonly present: boolean;

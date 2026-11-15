@@ -128,16 +128,16 @@ describe("authored native preflight inputs", () => {
   // manager's reads. A Rule, Hook or Knowledge manager prepares from the
   // manifest the run decoded, or a full decode its caller supplied, and reads
   // it itself only when handed bare facts. The HookManager's tree walk reads
-  // the manifest once more. The Subagent manager's outcome call and its
-  // observation each load the package through its contained loader.
+  // the manifest once more. The Subagent manager loads its package once
+  // through its contained loader.
   const manifestReads: Record<keyof typeof plural, Record<Inputs, number>> = {
     rule: { neither: 2, hash: 1, facts: 2, factsAndHash: 1, decoded: 1, decodedAndHash: 0 },
     knowledge: { neither: 2, hash: 1, facts: 2, factsAndHash: 1, decoded: 1, decodedAndHash: 0 },
     hook: { neither: 3, hash: 2, facts: 3, factsAndHash: 2, decoded: 2, decodedAndHash: 1 },
-    subagent: { neither: 4, hash: 3, facts: 3, factsAndHash: 2, decoded: 3, decodedAndHash: 2 },
+    subagent: { neither: 3, hash: 2, facts: 2, factsAndHash: 1, decoded: 2, decodedAndHash: 1 },
   };
   // Content reads of the staged payload: the preflight's package hash unless
-  // one is supplied, plus the manager's reads: one, or two for a Subagent.
+  // one is supplied, plus the manager's one read.
   const payloadReads: Record<Inputs, number> = {
     neither: 2,
     hash: 1,
@@ -145,14 +145,6 @@ describe("authored native preflight inputs", () => {
     factsAndHash: 1,
     decoded: 2,
     decodedAndHash: 1,
-  };
-  const subagentPayloadReads: Record<Inputs, number> = {
-    neither: 3,
-    hash: 2,
-    facts: 3,
-    factsAndHash: 2,
-    decoded: 3,
-    decodedAndHash: 2,
   };
   // `axm.hash.package` executions: the preflight's hash unless one is
   // supplied, plus the HookManager's own content hash for a hook.
@@ -264,7 +256,7 @@ describe("authored native preflight inputs", () => {
           hashes: observed((run) => run.hashes),
         }).toEqual({
           manifestReads: manifestReads[type],
-          payloadReads: type === "subagent" ? subagentPayloadReads : payloadReads,
+          payloadReads: payloadReads,
           hashes: type === "hook" ? hookHashes : hashes,
         });
 

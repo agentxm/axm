@@ -201,12 +201,12 @@ const subagentProjection = (args: AuthoredPreflightArgs) =>
       subagent: { name: manifest.name, description: Option.fromUndefinedOr(manifest.description) },
     };
     // Enabling writes the projection, so a differing file AXM has no record of
-    // writing refuses here; the observation below only reports it.
-    yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+    // writing refuses first; the observation, from the same package load,
+    // only reports it.
+    const observation = yield* manager.projectionObservation(ref, {
       sourceRoot: args.packageRoot,
       validateDestinations: true,
     });
-    const observation = yield* manager.projectionObservation(ref, { sourceRoot: args.packageRoot });
     const outcomes = (observation.agentOutcomes ?? []).map((outcome) =>
       outcome.outcome === "current" ? { ...outcome, outcome: "projected" as const } : outcome,
     );

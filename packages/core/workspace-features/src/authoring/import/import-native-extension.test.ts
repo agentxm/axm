@@ -172,7 +172,8 @@ describe("ImportNativeExtension prepared work", () => {
       const body = "native/claude-code/reviewer.md";
       // Measured before the preflight reused the conversion's values: preparing
       // hashed the staged package twice (conversion and preflight) and read its
-      // manifest twice before the manager's own reads.
+      // manifest twice before the manager's own reads. The conversion now also
+      // decodes the staged manifest from its hash walk instead of reading it again.
       const before = {
         prepare: { hashes: 2, rootReadDirectory: 3, manifestReads: 8, bodyReads: 6 },
         apply: { hashes: 4, rootReadDirectory: 7, manifestReads: 5, bodyReads: 4 },
@@ -180,7 +181,7 @@ describe("ImportNativeExtension prepared work", () => {
       expect(stagedCounts(prepare, staged, body)).toEqual({
         hashes: before.prepare.hashes - 1,
         rootReadDirectory: before.prepare.rootReadDirectory - 1,
-        manifestReads: before.prepare.manifestReads - 2,
+        manifestReads: before.prepare.manifestReads - 3,
         bodyReads: before.prepare.bodyReads - 1,
       });
       // Under the lock the preflight reads and hashes the staged package fresh.
@@ -195,7 +196,7 @@ describe("ImportNativeExtension prepared work", () => {
       expect(stagedCounts(prepare, staged, body)).toEqual({
         hashes: 1,
         rootReadDirectory: 2,
-        manifestReads: 4,
+        manifestReads: 3,
         bodyReads: 3,
       });
       expect(stagedCounts(apply, staged, body)).toEqual({
@@ -258,6 +259,42 @@ describe("ImportNativeExtension prepared work", () => {
         resolve: probes(resolve, directory),
       };
     });
+
+  it.effect("decodes a converted skill manifest from the staged hash walk while preparing", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write(".claude/skills/native-review/SKILL.md", SKILL_DOCUMENT);
+      const { prepare, resolve } = yield* prepareThenResolve(created, {
+        type: "skill",
+        source: nodePath.join(created.root, ".claude/skills/native-review"),
+        target: "@acme/skills/native-review",
+        enable: false,
+      });
+      if (resolve === undefined) throw new Error("Expected the skill import to prepare");
+      const staged = stagedPackageOf(prepare.calls);
+      const reads = (
+        phase: { readonly calls: ReadonlyArray<RecordedFileSystemCall> },
+        relative: string,
+      ) =>
+        phase.calls.filter(
+          (call) => call.method === "readFile" && call.path === nodePath.join(staged, relative),
+        ).length;
+      expect(deriveOperationOutcome(resolve.value)).toBe("applied");
+      // Measured before the conversion decoded the manifest the hash walk read:
+      // preparing read the staged manifest three times (hash walk, manifest
+      // read, candidate seal). The seal still fingerprints the staged files.
+      expect({
+        hashes: prepare.hashes,
+        manifestReads: reads(prepare, "skill.json"),
+        bodyReads: reads(prepare, "src/SKILL.md"),
+      }).toEqual({ hashes: 1, manifestReads: 2, bodyReads: 2 });
+      expect({
+        hashes: resolve.hashes,
+        manifestReads: reads(resolve, "skill.json"),
+        bodyReads: reads(resolve, "src/SKILL.md"),
+      }).toEqual({ hashes: 2, manifestReads: 1, bodyReads: 1 });
+    }),
+  );
 
   it.effect("probes an absent skill import target once while preparing", () =>
     Effect.gen(function* () {

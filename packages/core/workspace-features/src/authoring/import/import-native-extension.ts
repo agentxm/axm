@@ -501,8 +501,24 @@ const nativeConversion = Effect.fnUntraced(function* (args: {
       ? {}
       : { existingPackagePath: args.existingPackagePath }),
   });
-  const stagedHash = yield* computePackageContentHash(stagedPackage);
-  const converted = yield* readExtensionManifest(stagedPackage, args.target.type).pipe(
+  // The hash walk reads the staged manifest; its text is decoded from those
+  // bytes rather than read again. A manifest the walk did not find as a
+  // regular file is read as before, so its failure is reported unchanged.
+  const manifestFile = manifestFilenameForType(args.target.type);
+  let manifestText: string | undefined;
+  const stagedHash = yield* computePackageContentHash(stagedPackage, {
+    decodeText: {
+      entries: [manifestFile],
+      receive: (_relative, text) => {
+        manifestText = text;
+      },
+    },
+  });
+  const converted = yield* readExtensionManifest(
+    stagedPackage,
+    args.target.type,
+    manifestText === undefined ? undefined : { text: manifestText },
+  ).pipe(
     Effect.mapError((cause) =>
       authoringRefused({
         category: "validation",

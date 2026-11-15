@@ -1369,6 +1369,25 @@ describe("SubagentManager", () => {
       };
     };
 
+    /** A native file AXM recorded writing, with the bytes it recorded. */
+    const recordNativeFile = (projectDir: string, unit: string, content: string) =>
+      Effect.gen(function* () {
+        const file = nodePath.join(projectDir, unit);
+        nodeFs.mkdirSync(nodePath.dirname(file), { recursive: true });
+        nodeFs.writeFileSync(file, content);
+        const accepted = yield* AcceptedResolutionWriter;
+        yield* accepted.withBatch(
+          accepted.stageProjections([
+            {
+              kind: "subagents",
+              path: ProjectionUnitPathSchema.make(unit),
+              row: { output: yield* projectionOutputDigest(content) },
+            },
+          ]),
+        );
+        return file;
+      });
+
     for (const removal of ["materializeUninstall", "materializeDeactivate"] as const)
       it.effect(`${removal} observes the accepted canonical tree once`, () => {
         const { canonicalDir, manifest, layer } = registryCanonicalFixture();
@@ -1439,12 +1458,23 @@ describe("SubagentManager", () => {
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const recording = yield* FileSystemRecorder;
+        const accepted = yield* AcceptedResolutionWriter;
+        const native = yield* recordNativeFile(
+          nodePath.join(tmpDir, "project"),
+          ".claude/agents/planner.md",
+          "Planner as AXM wrote it\n",
+        );
         recording.reset();
         const result = yield* manager.materializeUninstall({
           target: { type: "subagent", name: "planner" },
         });
         expect(recording.contentReads(manifest)).toBe(2);
-        expect(result.observation.targets).toEqual([]);
+        // Without a loadable package the Subagent's own name is withdrawn.
+        expect(nodeFs.existsSync(native)).toBe(false);
+        expect(result.observation.targets).toEqual([
+          { path: ".claude/agents/planner.md", agentIds: ["claude-code"] },
+        ]);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
         expect(nodeFs.existsSync(canonicalDir)).toBe(false);
       }).pipe(Effect.provide(layer));
     });
@@ -1457,12 +1487,26 @@ describe("SubagentManager", () => {
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const recording = yield* FileSystemRecorder;
+        const accepted = yield* AcceptedResolutionWriter;
+        const native = yield* recordNativeFile(
+          nodePath.join(tmpDir, "project"),
+          ".claude/agents/planner.md",
+          "Planner as AXM wrote it\n",
+        );
         recording.reset();
-        yield* manager.materializeDeactivate({ target: { type: "subagent", name: "planner" } });
+        const result = yield* manager.materializeDeactivate({
+          target: { type: "subagent", name: "planner" },
+        });
         // Only the observation's lexical read reaches the linked manifest; the
         // contained loader refuses it before reading.
         expect(recording.contentReads(manifest)).toBe(1);
         expect(recording.contentReads(outside)).toBe(0);
+        // The names fall back to the Subagent's own, which is withdrawn.
+        expect(nodeFs.existsSync(native)).toBe(false);
+        expect(result.observation.targets).toEqual([
+          { path: ".claude/agents/planner.md", agentIds: ["claude-code"] },
+        ]);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
         expect(nodeFs.existsSync(canonicalDir)).toBe(true);
       }).pipe(Effect.provide(layer));
     });

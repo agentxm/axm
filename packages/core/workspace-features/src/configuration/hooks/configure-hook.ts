@@ -22,6 +22,8 @@ import {
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  acceptedCanonicalObservationCapturing,
+  capturedManifestFor,
   usableAcceptedCanonicalObservation,
   computePackageContentHash,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -45,12 +47,27 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
   const settings = yield* SettingsReader;
   const writer = yield* SettingsWriter;
   const hooks = yield* HookManager;
-  const canonical = yield* usableAcceptedCanonicalObservation({ type: "hook", name: request.name });
+  const { observed, manifest: captured } = yield* acceptedCanonicalObservationCapturing({
+    type: "hook",
+    name: request.name,
+  });
+  // Usable exactly as `usableAcceptedCanonicalObservation` judges it.
+  const canonical = Option.flatMap(observed, ({ desired, observation }) =>
+    observation.status === "usable" && observation.path !== undefined
+      ? Option.some({ desired, packageRoot: observation.path })
+      : Option.none(),
+  );
   if (Option.isNone(canonical))
     return yield* fail(`Hook extension ${request.name} has no installed package to configure`);
-  const packageRoot = canonical.value.observation.path;
+  const packageRoot = canonical.value.packageRoot;
   const root = path.relative(location.baseDir, packageRoot);
-  const { manifest } = yield* readExtensionManifest(packageRoot, "hook");
+  // The decode the observation just made of this package's hook manifest;
+  // otherwise the manifest is read here.
+  const manifest = yield* Option.match(capturedManifestFor(path, captured, packageRoot, "hook"), {
+    onSome: Effect.succeed,
+    onNone: () =>
+      Effect.map(readExtensionManifest(packageRoot, "hook"), ({ manifest }) => manifest),
+  });
   const resolved = resolveHookConfiguration(manifest, request.configuration);
   if (Result.isFailure(resolved))
     return yield* fail(

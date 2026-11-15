@@ -30,8 +30,9 @@ import {
   contributorSetBlockers,
   contributorSetComplete,
   desiredStateProblemsText,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
   unresolvedPackRoutesText,
+  type CapturedManifest,
   type DesiredContributorBlockers,
   type LockEntry,
   type DesiredExtensionNode,
@@ -49,6 +50,11 @@ export interface AggregateContributor {
    * sources derive marker identity from the canonical manifest instead.
    */
   readonly identityOwner: Option.Option<Handle>;
+  /**
+   * The manifest this contributor's canonical observation read, handed only
+   * to a caller that asked for it, for that caller's own call.
+   */
+  readonly manifest?: Option.Option<CapturedManifest>;
 }
 
 /** Stable recovery-conformance identity for aggregate writes blocked by an incomplete contributor set. */
@@ -97,6 +103,7 @@ const contributorForNode = (args: {
   readonly layout: WorkspaceLayout;
   readonly node: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
+  readonly captureManifests: boolean;
 }): Effect.Effect<
   AggregateContributor,
   | AuthoredContributorUnsupported
@@ -124,7 +131,11 @@ const contributorForNode = (args: {
         identity: formatDesiredIdentity(node.identity),
       });
     }
-    const observation = yield* observeCanonicalExtension({ layout, desired: node, accepted });
+    const { observation, manifest } = yield* observeCanonicalExtensionCapturing({
+      layout,
+      desired: node,
+      accepted,
+    });
     if (observation.status === "missing-resolution") {
       return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }
@@ -138,6 +149,7 @@ const contributorForNode = (args: {
         authoredIdentity === undefined
           ? Option.fromUndefinedOr(accepted?.identity.owner)
           : Option.some(authoredIdentity.owner),
+      ...(args.captureManifests ? { manifest } : {}),
     };
   });
 
@@ -146,12 +158,15 @@ const contributorForNode = (args: {
  * node the desired-state graph reaches, whether declared directly or
  * contributed by a Pack, each resolved to its canonical package root. The
  * set is proven complete for that type before any contributor is resolved.
+ * A caller that decodes each contributor's manifest itself may ask for the
+ * manifest each observation read.
  */
 export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
   readonly type: ExtensionType;
   readonly graph: DesiredStateGraph;
   readonly accepted: Readonly<Record<string, LockEntry>>;
+  readonly captureManifests?: true;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
   | DesiredStateIncomplete
@@ -164,7 +179,12 @@ export const activeContributors = (args: {
   requireCompleteContributors(args.graph, args.type).pipe(
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
-        contributorForNode({ layout: args.layout, node, accepted: args.accepted[node.name] }),
+        contributorForNode({
+          layout: args.layout,
+          node,
+          accepted: args.accepted[node.name],
+          captureManifests: args.captureManifests === true,
+        }),
       ),
     ),
   );

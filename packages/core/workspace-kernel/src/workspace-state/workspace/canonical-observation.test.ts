@@ -26,6 +26,7 @@ import {
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
 import type { LockEntry } from "./lock-entry.js";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
@@ -611,11 +612,27 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const capture = yield* observeCanonicalExtensionCapturing(args);
         expect(capture.observation.status).toBe(scenario.status);
         expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
-        expect(capture.manifest).toEqual(
+        // The decode is the one the type's own manifest reader produces, and
+        // only a successful one is handed back.
+        const own = yield* readExtensionManifest(canonical, scenario.type).pipe(Effect.result);
+        expect(Option.map(capture.manifest, ({ path, text }) => ({ path, text }))).toEqual(
           scenario.manifest === undefined
             ? Option.none()
             : Option.some({ path: manifestPath, text: nodeFs.readFileSync(manifestPath, "utf8") }),
         );
+        const decoded = Option.flatMap(capture.manifest, ({ decode }) => decode());
+        expect(decoded).toEqual(Option.map(Result.getSuccess(own), ({ manifest }) => manifest));
+        // Frozen when handed out, and the same value on every request.
+        expect(Option.map(decoded, (manifest) => Object.isFrozen(manifest))).toEqual(
+          Result.isSuccess(own) ? Option.some(true) : Option.none(),
+        );
+        expect(
+          Option.flatMap(capture.manifest, ({ decode }) =>
+            Option.map(decode(), (manifest) =>
+              Option.exists(decoded, (first) => first === manifest),
+            ),
+          ),
+        ).toEqual(Result.isSuccess(own) ? Option.some(true) : Option.none());
       }),
     );
   }

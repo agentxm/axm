@@ -72,8 +72,8 @@ describe("Installed Knowledge corpus selection", () => {
       expect(counts.lockfileParses).toBe(1);
       expect(counts.lockfileReads).toBe(1);
       expect(counts.settingsParses).toBe(1);
-      // The canonical observation and the manifest read stay distinct reads.
-      expect(counts.manifestReads).toBe(2);
+      // The capture decodes the manifest its canonical observation read.
+      expect(counts.manifestReads).toBe(1);
     }),
   );
 

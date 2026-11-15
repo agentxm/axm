@@ -165,8 +165,11 @@ describe("accepted canonical observation with manifest text", () => {
       expect(capture.observed).toEqual(
         yield* acceptedCanonicalObservation(authored).pipe(Effect.provide(state)),
       );
-      expect(capture.manifest).toEqual(
+      expect(capture.manifest.pipe(Option.map(({ path, text }) => ({ path, text })))).toEqual(
         Option.some({ path: manifestPath, text: nodeFs.readFileSync(manifestPath, "utf8") }),
+      );
+      expect(capture.manifest.pipe(Option.flatMap(({ decode }) => decode()))).toEqual(
+        Option.some({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
       );
 
       const undeclared = { type: "skill", name: "absent" } as const;

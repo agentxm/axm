@@ -11,7 +11,11 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
-import { loadSubagentPackage, readExtensionManifestCapture } from "@agentxm/extension-content";
+import {
+  loadSubagentPackage,
+  readExtensionManifestCapture,
+  type ExtensionManifest,
+} from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionPathSourceFromLockEntry,
@@ -26,6 +30,7 @@ import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./ext
 import { McpSourceKey } from "./mcp-source-identity.js";
 import { desiredPackageKey, sameSourceIdentity, desiredMcpSourceKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../desired/lockfile/accepted-registry-version.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import {
   normalizeVersionRequest,
@@ -388,7 +393,36 @@ export const observeAcceptedResolution = (
 export interface CapturedManifest {
   readonly path: string;
   readonly text: string;
+  /**
+   * The observation's own decode of that text with the desired type's manifest
+   * grammar, present only when the decode succeeded. Its `type` is the type it
+   * was decoded as. The decode is deep-frozen when first requested, so a
+   * caller that only needs the text does no work for it; it belongs to the
+   * caller that observed.
+   */
+  readonly decode: () => Option.Option<ExtensionManifest>;
 }
+
+const isManifestOfType = <T extends ExtensionType>(
+  manifest: ExtensionManifest,
+  type: T,
+): manifest is Extract<ExtensionManifest, { readonly type: T }> => manifest.type === type;
+
+/**
+ * The captured decode exactly when it is the manifest of `type` that
+ * `directory` holds; otherwise `None`, and the caller reads it itself.
+ */
+export const capturedManifestFor = <T extends ExtensionType>(
+  path: Path.Path,
+  captured: Option.Option<CapturedManifest> | undefined,
+  directory: string,
+  type: T,
+): Option.Option<Extract<ExtensionManifest, { readonly type: T }>> =>
+  Option.flatMap(Option.flatten(Option.fromUndefinedOr(captured)), (manifest) =>
+    manifest.path === path.join(directory, manifestFilenameForType(type))
+      ? Option.filter(manifest.decode(), (value) => isManifestOfType(value, type))
+      : Option.none(),
+  );
 
 interface CanonicalObservationCapture {
   readonly observation: CanonicalObservation;
@@ -519,6 +553,10 @@ export const observeCanonicalExtensionCapturing = ({
       manifest: Option.map(capture.text, (text) => ({
         path: path.join(root, manifestFilenameForType(desired.type)),
         text,
+        decode: () =>
+          Option.map(Result.getSuccess(capture.result), ({ manifest }) =>
+            freezeWorkspaceValue(manifest),
+          ),
       })),
     });
     const read = capture.result;

@@ -39,6 +39,7 @@ import {
   type DesiredStateGraph,
   validatePathSafety,
   acceptedCanonicalObservation,
+  capturedManifestFor,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
   workspaceReadPhaseFor,
@@ -403,6 +404,7 @@ export const HookManagerLive = Layer.effect(
           type: "hook",
           graph: args.graph,
           accepted: args.locked,
+          captureManifests: true,
         }),
       ).pipe(
         Effect.flatMap((contributors) =>
@@ -410,7 +412,15 @@ export const HookManagerLive = Layer.effect(
             contributors,
             (contributor) =>
               Effect.gen(function* () {
-                const manifest = yield* readManifest(contributor.packageRoot);
+                // The decode this contributor's observation just made, when it
+                // is this package's hook manifest; otherwise the manifest is read.
+                const manifest = yield* Option.match(
+                  capturedManifestFor(path, contributor.manifest, contributor.packageRoot, "hook"),
+                  {
+                    onSome: Effect.succeed,
+                    onNone: () => readManifest(contributor.packageRoot),
+                  },
+                );
                 yield* validatePackageFiles(contributor.packageRoot, manifest);
                 const marker = Option.match(contributor.identityOwner, {
                   onSome: (owner) =>

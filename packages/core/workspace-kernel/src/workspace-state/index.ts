@@ -214,6 +214,8 @@ export {
 } from "./workspace/desired-state-problem-text.js";
 export {
   observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
+  capturedManifestFor,
   observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
   type RequestedCanonicalRef,
@@ -221,6 +223,7 @@ export {
   type CanonicalConstraintMismatchObservation,
   type CanonicalObservation,
   type CanonicalObservationStatus,
+  type CapturedManifest,
 } from "./workspace/canonical-observation.js";
 export {
   acceptedResolutionRef,

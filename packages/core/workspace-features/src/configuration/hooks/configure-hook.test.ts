@@ -86,6 +86,69 @@ const editsScriptAtRollbackSnapshot = (script: string) => {
   };
 };
 
+/**
+ * Platform services whose filesystem rewrites `manifestPath` once, right after
+ * the `reads`-th content read of `script` that follows the rollback snapshot
+ * directory of the apply armed with `arm`. Under the lock the locked observation's tree
+ * check reads the script first and the locked recheck's hash second, so the
+ * second read places the edit after the locked recheck and before the locked
+ * projection's contributor observation.
+ */
+const rewritesManifestAfterScriptRead = (args: {
+  readonly script: string;
+  readonly manifestPath: string;
+  readonly reads: number;
+  readonly text: string;
+}) => {
+  let pending = false;
+  let armed = false;
+  let seen = 0;
+  let rewritten = false;
+  const layer = Layer.provideMerge(
+    Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const base = yield* FileSystem.FileSystem;
+        return FileSystem.make({
+          ...base,
+          makeTempDirectory: (options) =>
+            base.makeTempDirectory(options).pipe(
+              Effect.tap((directory) =>
+                Effect.sync(() => {
+                  if (pending && nodePath.basename(directory).startsWith("axm-rollback-")) {
+                    pending = false;
+                    armed = true;
+                  }
+                }),
+              ),
+            ),
+          readFile: (file) =>
+            base.readFile(file).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  if (!armed || file !== args.script) return;
+                  seen += 1;
+                  if (seen < args.reads) return;
+                  armed = false;
+                  fs.writeFileSync(args.manifestPath, args.text);
+                  rewritten = true;
+                }),
+              ),
+            ),
+        });
+      }),
+    ).pipe(Layer.provide(NodeFileSystem.layer)),
+    NodeServices.layer,
+  );
+  return {
+    layer,
+    arm: Effect.sync(() => {
+      pending = true;
+    }),
+    rewritten: () => rewritten,
+  };
+};
+
 const manifest = JSON.stringify({
   owner: "@acme",
   type: "hook",
@@ -224,6 +287,47 @@ describe("Hook configuration hashes the configured package once per boundary", (
               prepared: { hashes: 3, scriptReads: 12 },
               applied: { hashes: 1, scriptReads: 4 },
             });
+          }),
+        )
+        .pipe(Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "decodes the hook manifest each canonical observation read instead of reading it again",
+    () => {
+      const { world, packageRoot, install } = installedHooks(["audit"]);
+      cleanups.push(world.cleanup);
+      const hookManifest = nodePath.join(packageRoot("audit"), "hook.json");
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* install;
+            const recording = yield* FileSystemRecorder;
+
+            recording.reset();
+            const candidate = yield* ConfigureHook.prepare({
+              name: "audit",
+              configuration: { label: "counted" },
+            });
+            const prepared = recording.contentReads(hookManifest);
+
+            recording.reset();
+            const resolution = yield* ConfigureHook.previewOrApply(
+              candidate,
+              acceptingExecutionChanges,
+            );
+            const applied = recording.contentReads(hookManifest);
+
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(world.workspace.readFile(SETTINGS)).toContain("counted");
+            // The feature read the manifest again after its observation, and
+            // the manager after the contributor observation of each of the
+            // three projections in preparation and the one under the lock:
+            // 22 reads in preparation and 7 in apply. Observations, hashes
+            // and tree checks still read it.
+            expect({ prepared, applied }).toEqual({ prepared: 18, applied: 6 });
           }),
         )
         .pipe(Effect.provide(recordedNodeServices));
@@ -443,4 +547,89 @@ describe("Hook configuration hashes the configured package once per boundary", (
     },
     { timeout: 60_000 },
   );
+  it.effect(
+    "fails through the locked contributor observation when the manifest is rewritten after the locked recheck",
+    () => {
+      const { world, packageRoot, install } = installedHooks(["audit"]);
+      cleanups.push(world.cleanup);
+      const manifestPath = nodePath.join(packageRoot("audit"), "hook.json");
+      const rewritten = manifest.replace('"original"', '"rewritten"');
+      const edit = rewritesManifestAfterScriptRead({
+        script: nodePath.join(packageRoot("audit"), "src/hook.sh"),
+        manifestPath,
+        reads: 2,
+        text: rewritten,
+      });
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* install;
+            const candidate = yield* ConfigureHook.prepare({
+              name: "audit",
+              configuration: { label: "replacement" },
+            });
+            const before = world.workspace.snapshot();
+            yield* edit.arm;
+            const resolution = yield* ConfigureHook.previewOrApply(
+              candidate,
+              acceptingExecutionChanges,
+            );
+            // The installed package no longer matches its locked tree, so the
+            // contributor's own live observation refuses the projection; the
+            // manifest it read is never decoded into native output.
+            expect(edit.rewritten()).toBe(true);
+            expect(deriveOperationOutcome(resolution)).toBe("failed");
+            expect(resolution.units).toMatchObject([{ state: "failed", disposition: "restored" }]);
+            expect(resolution.failure).toMatchObject({
+              cause: {
+                detail: "Hook extension configuration could not settle",
+                cause: { cause: { _tag: "ContributorTreeMismatch" } },
+              },
+            });
+            const entry = nodePath.relative(world.workspace.root, manifestPath);
+            const after = world.workspace.snapshot();
+            expect(fs.readFileSync(manifestPath, "utf8")).toBe(rewritten);
+            expect(after).toEqual({ ...before, [entry]: after[entry] });
+          }),
+        )
+        .pipe(Effect.provide(edit.layer));
+    },
+    { timeout: 60_000 },
+  );
+
+  for (const corrupt of [
+    { label: "an excess key", text: JSON.stringify({ ...JSON.parse(manifest), fallback: "auto" }) },
+    { label: "invalid JSON", text: "{not json" },
+  ]) {
+    it.effect(
+      `refuses a workspace hook whose manifest has ${corrupt.label} before reading it again`,
+      () => {
+        const world = makeConfigurationFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            hooks: { audit: { source: "workspace", enabled: true } },
+          },
+          files: { "hooks/audit/hook.json": corrupt.text, "hooks/audit/src/hook.sh": "exit 0\n" },
+        });
+        cleanups.push(world.cleanup);
+        return world
+          .provide(
+            Effect.gen(function* () {
+              const failure = yield* ConfigureHook.prepare({
+                name: "audit",
+                configuration: { label: "replacement" },
+              }).pipe(Effect.flip);
+              // The observation judges the manifest corrupt, so the package is
+              // not usable and nothing decodes it.
+              expect(failure).toMatchObject({
+                detail: "Hook extension audit has no installed package to configure",
+              });
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+      { timeout: 60_000 },
+    );
+  }
 });

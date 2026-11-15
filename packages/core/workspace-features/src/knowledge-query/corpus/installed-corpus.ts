@@ -11,6 +11,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
@@ -23,7 +25,10 @@ import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
 } from "@agentxm/workspace-kernel/projection";
-import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  capturedManifestFor,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import { KnowledgeCorpusUnavailable } from "../errors.js";
 import { captureKnowledgeIndexBundles } from "../knowledge-capture.js";
@@ -54,11 +59,13 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
   readonly bundle?: string;
 }) {
   const index = yield* KnowledgeIndex;
+  const path = yield* Path.Path;
   // The desired graph and the accepted resolutions read one document phase;
   // bundle content is captured after it ends, under its own double read.
-  const selected = yield* selectInstalledKnowledgeBundles(
-    options?.bundle === undefined ? undefined : { name: options.bundle },
-  ).pipe(
+  const selected = yield* selectInstalledKnowledgeBundles({
+    ...(options?.bundle === undefined ? {} : { name: options.bundle }),
+    captureManifests: true,
+  }).pipe(
     Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
       Effect.fail(
         new KnowledgeCorpusUnavailable({
@@ -73,8 +80,15 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
   const prepared = yield* Effect.forEach(
     selected,
     (entry) =>
-      readKnowledgePackageManifest(entry.packageRoot).pipe(
-        Effect.flatMap(({ manifest }) =>
+      Effect.flatMap(
+        // The decode the selection's observation made of this package's
+        // manifest; otherwise the manifest is read here.
+        Option.match(capturedManifestFor(path, entry.manifest, entry.packageRoot, "knowledge"), {
+          onSome: Effect.succeed,
+          onNone: () =>
+            Effect.map(readKnowledgePackageManifest(entry.packageRoot), ({ manifest }) => manifest),
+        }),
+        (manifest) =>
           Schema.decodeUnknownEffect(KnowledgeBundleFqnSchema)(
             `${manifest.owner}/knowledge/${manifest.name}`,
           ).pipe(
@@ -85,7 +99,7 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
               sourceRoot: entry.sourceRoot,
             })),
           ),
-        ),
+      ).pipe(
         Effect.mapError(
           (cause) =>
             new KnowledgeCorpusUnavailable({

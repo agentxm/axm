@@ -11,6 +11,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
@@ -20,9 +21,10 @@ import {
   contributorSetComplete,
   DesiredStateReader,
   LockfileReader,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
   WorkspaceLocation,
   type CanonicalObservationStatus,
+  type CapturedManifest,
 } from "../../workspace-state/index.js";
 import { contributorBlockersText } from "../contributors.js";
 
@@ -35,6 +37,11 @@ export interface InstalledKnowledgeBundle {
   readonly sourceRoot: string;
   /** What the canonical observation found at that root. */
   readonly status: CanonicalObservationStatus;
+  /**
+   * The manifest that observation read, handed only to a caller that asked
+   * for it, for that caller's own call.
+   */
+  readonly manifest?: Option.Option<CapturedManifest>;
 }
 
 /** The desired Knowledge state could not be read, or a named bundle is absent. */
@@ -50,10 +57,13 @@ export class InstalledKnowledgeUnavailable extends Data.TaggedError(
  * The enabled Knowledge bundles of the selected workspace, ordered by name.
  *
  * A named bundle that is not installed is a typed refusal, so callers do not
- * have to distinguish "no bundles" from "not that bundle".
+ * have to distinguish "no bundles" from "not that bundle". A caller that
+ * decodes each bundle's manifest itself may ask for the manifest each
+ * observation read.
  */
 export const selectInstalledKnowledgeBundles = Effect.fnUntraced(function* (options?: {
   readonly name?: string;
+  readonly captureManifests?: true;
 }) {
   const location = yield* WorkspaceLocation;
   const desiredState = yield* DesiredStateReader;
@@ -83,8 +93,8 @@ export const selectInstalledKnowledgeBundles = Effect.fnUntraced(function* (opti
       .sort((left, right) => left.name.localeCompare(right.name)),
     (node) =>
       Effect.map(
-        observeCanonicalExtension({ layout, desired: node, accepted: locked[node.name] }),
-        (observation): ReadonlyArray<InstalledKnowledgeBundle> =>
+        observeCanonicalExtensionCapturing({ layout, desired: node, accepted: locked[node.name] }),
+        ({ observation, manifest }): ReadonlyArray<InstalledKnowledgeBundle> =>
           observation.path === undefined
             ? []
             : [
@@ -93,6 +103,7 @@ export const selectInstalledKnowledgeBundles = Effect.fnUntraced(function* (opti
                   packageRoot: observation.path,
                   sourceRoot: path.join(observation.path, KNOWLEDGE_SOURCE_DIR),
                   status: observation.status,
+                  ...(options?.captureManifests === true ? { manifest } : {}),
                 },
               ],
       ),

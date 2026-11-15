@@ -56,6 +56,13 @@ export const nativeArtifactLocationOutcomes = (args: {
     readonly kind: "skill" | "subagent";
     readonly state: NativeLocationOutcome["state"];
     readonly sourcePath?: string;
+    /**
+     * Whether a copy receipt read of `directory`, made by the caller within its
+     * own read-only work just before this capture, found a valid receipt. It
+     * stands in for this capture's receipt read only when `directory` is the
+     * entry the capture resolves; otherwise the capture reads the receipt itself.
+     */
+    readonly copyReceipt?: { readonly directory: string; readonly present: boolean };
     readonly ownerObservation?: Pick<
       NativeLocationOutcome,
       "ownership" | "proof" | "mechanism" | "reason"
@@ -127,12 +134,14 @@ export const nativeArtifactLocationOutcomes = (args: {
               ),
             ]),
           ].sort();
-          const receipt =
+          const receiptPresent =
             target.ownerObservation === undefined &&
             target.kind === "skill" &&
             address.kind === "directory"
-              ? yield* readCopiedDirectory(physical)
-              : Option.none();
+              ? target.copyReceipt !== undefined && target.copyReceipt.directory === physical
+                ? target.copyReceipt.present
+                : Option.isSome(yield* readCopiedDirectory(physical))
+              : false;
           const source =
             target.sourcePath === undefined
               ? undefined
@@ -143,7 +152,7 @@ export const nativeArtifactLocationOutcomes = (args: {
               ? "generated-file"
               : address.kind === "symlink"
                 ? "symlink"
-                : Option.isSome(receipt)
+                : receiptPresent
                   ? "copied-directory"
                   : undefined;
           const ownership =

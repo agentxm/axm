@@ -365,8 +365,11 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         env:
           SOURCE_PARTITION: ${{ matrix.partition }}
+          # These suites run under node:test and write no Allure results, so
+          # selecting them alone must not make report generation expect any.
+          UNREPORTED_TEST_PROJECTS: architecture,workspace-conventions
         run: |
-          selected_test_projects="$(pnpm exec nx show projects --affected --withTarget=test --exclude="$SOURCE_EXCLUDE" --base="$NX_BASE" --head="$NX_HEAD" --json)"
+          selected_test_projects="$(pnpm exec nx show projects --affected --withTarget=test --exclude="$SOURCE_EXCLUDE,$UNREPORTED_TEST_PROJECTS" --base="$NX_BASE" --head="$NX_HEAD" --json)"
           selected_e2e_projects='[]'
           if [[ "$SOURCE_PARTITION" == 'remaining-projects' ]]; then
             selected_e2e_projects="$(pnpm exec nx show projects --affected --withTarget=e2e --exclude=cli-e2e --base="$NX_BASE" --head="$NX_HEAD" --json)"

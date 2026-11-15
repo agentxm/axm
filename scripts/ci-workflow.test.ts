@@ -15,6 +15,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { BaseSequencer, createVitest } from "vitest/node";
 import YAML from "yaml";
@@ -53,6 +54,44 @@ const readWorkflow = (): {
     on: triggers,
   };
 };
+
+const decodeProjectTestTarget = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      name: Schema.optional(Schema.String),
+      targets: Schema.optional(
+        Schema.Struct({
+          test: Schema.optional(
+            Schema.Struct({
+              options: Schema.optional(Schema.Struct({ command: Schema.optional(Schema.String) })),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+);
+
+/**
+ * Projects whose `test` target runs under `node:test`. Those suites write no
+ * Allure results; Vitest suites report through the shared reporting
+ * configuration.
+ */
+const projectsTestedByNodeTest = (): ReadonlyArray<string> =>
+  execFileSync("git", ["ls-files", "--", "*project.json"], {
+    cwd: repoRoot,
+    env: withoutLocalGitEnvironment(process.env),
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter((file) => file === "project.json" || file.endsWith("/project.json"))
+    .flatMap((file) => {
+      const project = decodeProjectTestTarget(fs.readFileSync(path.join(repoRoot, file), "utf8"));
+      return project.targets?.test?.options?.command?.startsWith("node --test") === true
+        ? [project.name ?? path.basename(path.dirname(file))]
+        : [];
+    })
+    .sort();
 
 describe("aggregate required verification", () => {
   it("continuous integration runs for every pull request", () => {
@@ -500,6 +539,11 @@ describe("aggregate required verification", () => {
       throw new Error("Reporting scope must execute its native selection script.");
     expect(scope).toHaveProperty("if", "always() && steps.verify.outcome != 'skipped'");
     expect(scope).toHaveProperty("env.SOURCE_PARTITION", "${{ matrix.partition }}");
+    // A suite that writes no Allure results cannot be what makes a report expected.
+    expect(scope).toHaveProperty(
+      "env.UNREPORTED_TEST_PROJECTS",
+      projectsTestedByNodeTest().join(","),
+    );
     const report: unknown = job.steps.find(
       (step: unknown) =>
         typeof step === "object" && step !== null && "id" in step && step.id === "report",
@@ -554,6 +598,7 @@ esac
             NX_BASE: "fixture-base",
             NX_HEAD: "fixture-head",
             SOURCE_EXCLUDE: "fixture-exclusion",
+            UNREPORTED_TEST_PROJECTS: "fixture-unreported",
             SOURCE_PARTITION: fixture.partition,
             SOURCE_SELECTION: fixture.source,
             E2E_SELECTION: fixture.e2e,
@@ -568,7 +613,7 @@ esac
         );
         const calls = fs.readFileSync(callsPath, "utf8");
         expect(calls).toContain(
-          "--withTarget=test --exclude=fixture-exclusion --base=fixture-base --head=fixture-head --json",
+          "--withTarget=test --exclude=fixture-exclusion,fixture-unreported --base=fixture-base --head=fixture-head --json",
         );
         expect(calls.includes("--withTarget=e2e --exclude=cli-e2e")).toBe(
           fixture.partition === "remaining-projects",

@@ -220,6 +220,8 @@ accepts Vitest's native `--shard` argument.
 
 Each proposed-change partition starts with empty test results. Native Nx
 selection identifies whether source tests or remaining E2E tests are expected.
+The `architecture` and `workspace-conventions` suites run under `node:test`,
+write no Allure results, and are left out of that selection.
 A partition with no selected tests skips report generation; a selected partition
 uses the fresh `axm:allure-report` target after execution, including a source
 failure. Missing results still fail reporting for selected tests. Artifact

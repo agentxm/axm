@@ -1,4 +1,8 @@
-import { removeMcpServerFromAgents, type HookNativeDeclaration } from "../agent-adapters/index.js";
+import {
+  removeMcpServerFromAgents,
+  withNativeConfigObservationView,
+  type HookNativeDeclaration,
+} from "../agent-adapters/index.js";
 import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Realizing an activation change, for every extension type through one
@@ -41,12 +45,10 @@ import {
 } from "../materialization/index.js";
 import {
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  observeObservedPlans,
   observeInstructionSurfacePlans,
-  applyInstructionSurfacePlans,
-  applyProjectionPlans,
-  projectionPlanExclusionWarnings,
-  type ProjectionPlan,
+  observeObservedInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
 } from "../projection/index.js";
 import type { JobStepArtifact, PlannedJobStep, OperationRefused } from "../operations/index.js";
 import { syncRefused } from "./errors.js";
@@ -60,6 +62,7 @@ import type { SyncStepRequirements } from "./plan.js";
 import { publishDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 import { collectUnreachableRetirement } from "./retirement.js";
 import { projectionExposureRefs } from "./projection-exposure.js";
+import { withAggregateObservedPlans } from "./aggregate-projection-step.js";
 
 /** The types whose projection is a shared aggregate unit rendered once per change. */
 const AGGREGATE_UNIT_TYPES: ReadonlySet<ExtensionType> = new Set<ExtensionType>([
@@ -126,24 +129,29 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
         ? [{ manager: yield* KnowledgeManager, prepared: materialization?.preparedKnowledgePlans }]
         : []),
     ];
-    const after = yield* Effect.forEach(managers, ({ manager, prepared }) =>
-      (prepared === undefined
-        ? manager.projectionPlans({
-            desiredGraph: args.proposal.after,
-            hookWithdrawals,
-          })
-        : Effect.succeed(prepared)
-      ).pipe(Effect.flatMap(observeInstructionSurfacePlans)),
-    ).pipe(Effect.map((values) => values.flat()));
-    const before = removing
-      ? yield* Effect.forEach(managers, ({ manager }) =>
-          manager
-            .projectionPlans({ desiredGraph: args.proposal.before })
-            .pipe(
-              Effect.flatMap((plans) => observeInstructionSurfacePlans(plans, { view: "current" })),
-            ),
-        ).pipe(Effect.map((values) => values.flat()))
-      : [];
+    // Both passes observe through one syntax view: a before-pass document whose
+    // text the after pass already parsed receives a copy of that parse.
+    const { after, before } = yield* withNativeConfigObservationView(
+      Effect.gen(function* () {
+        const after = yield* Effect.forEach(managers, ({ manager, prepared }) =>
+          // Retained prepared plans come from an earlier owner call and observe fresh.
+          prepared === undefined
+            ? manager.observedProjectionPlans(
+                { desiredGraph: args.proposal.after, hookWithdrawals },
+                observeObservedInstructionSurfacePlans,
+              )
+            : observeInstructionSurfacePlans(prepared),
+        ).pipe(Effect.map((values) => values.flat()));
+        const before = removing
+          ? yield* Effect.forEach(managers, ({ manager }) =>
+              manager.observedProjectionPlans({ desiredGraph: args.proposal.before }, (observed) =>
+                observeObservedInstructionSurfacePlans(observed, { view: "current" }),
+              ),
+            ).pipe(Effect.map((values) => values.flat()))
+          : [];
+        return { after, before };
+      }),
+    );
     const onlyRemoves =
       removing &&
       after.every((unit) => {
@@ -253,11 +261,10 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
     );
   }
   if (hookWithdrawals.length > 0) {
-    const plans = yield* (yield* HookManager).projectionPlans({
-      desiredGraph: args.proposal.after,
-      hookWithdrawals,
-    });
-    const observed = yield* observeProjectionPlans(plans);
+    const observed = yield* (yield* HookManager).observedProjectionPlans(
+      { desiredGraph: args.proposal.after, hookWithdrawals },
+      observeObservedPlans,
+    );
     nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
   }
   const retirement = args.retireUnreachable
@@ -321,14 +328,17 @@ const reconcileAggregateProjections = Effect.fnUntraced(function* (
   ExtensionManagerFailure,
   RuleManager | HookManager | KnowledgeManager | ManagerRequirements | AcceptedResolutionWriter
 > {
-  const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
-  if (types.has("rule")) plans.push(...(yield* (yield* RuleManager).projectionPlans()));
-  if (types.has("hook"))
-    plans.push(...(yield* (yield* HookManager).projectionPlans({ hookWithdrawals })));
-  if (types.has("knowledge")) plans.push(...(yield* (yield* KnowledgeManager).projectionPlans()));
-  return types.has("rule") || types.has("hook") || types.has("knowledge")
-    ? yield* applyInstructionSurfacePlans(plans)
-    : yield* applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans)));
+  if (!types.has("rule") && !types.has("hook") && !types.has("knowledge")) return [];
+  // Each owner's eager observation is handed to the aggregate render, which
+  // takes it before its first write.
+  return yield* withAggregateObservedPlans(
+    [
+      ...(types.has("rule") ? [{ manager: yield* RuleManager }] : []),
+      ...(types.has("hook") ? [{ manager: yield* HookManager, options: { hookWithdrawals } }] : []),
+      ...(types.has("knowledge") ? [{ manager: yield* KnowledgeManager }] : []),
+    ],
+    applyObservedInstructionSurfacePlans,
+  );
 });
 
 const runStep = <R>(step: PlannedJobStep<R>) =>

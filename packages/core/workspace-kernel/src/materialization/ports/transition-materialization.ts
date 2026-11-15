@@ -9,7 +9,7 @@ import type {
   LockEntryByType,
   DesiredStateGraph,
 } from "../../workspace-state/index.js";
-import type { ProjectionPlan, AgentOutputAuthority } from "../../projection/index.js";
+import type { ObservedProjectionPlans, AgentOutputAuthority } from "../../projection/index.js";
 
 import type { HookNativeDeclaration } from "../../agent-adapters/index.js";
 
@@ -39,11 +39,18 @@ export interface MaterializationConfiguration<E, R> {
   }) => Effect.Effect<boolean, E, R>;
 }
 
+/**
+ * One owner call over a manager's projection plans: the manager observes every
+ * plan as its pre-write refusal, then hands that observation to `use`.
+ */
+export type ObservedProjectionPlansCall<E, R> = <A, E2, R2>(
+  options: NativeProjectionOptions | undefined,
+  use: (observed: ObservedProjectionPlans<E, R>) => Effect.Effect<A, E2, R2>,
+) => Effect.Effect<A, E | E2, R | R2>;
+
 export interface MaterializationProjection<E, R> {
   /** Aggregate projection runs after desired state and canonical content commit. */
-  readonly projectionPlans?: (
-    options?: NativeProjectionOptions,
-  ) => Effect.Effect<ReadonlyArray<ProjectionPlan<void, E, R>>, E, R>;
+  readonly observedProjectionPlans?: ObservedProjectionPlansCall<E, R>;
 }
 
 interface MaterializationAcquisition<TRef extends ExtensionRef, TFacts, E, R> {

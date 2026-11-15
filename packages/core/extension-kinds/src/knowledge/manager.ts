@@ -79,7 +79,7 @@ import {
   canonicalObservationFactText,
   resolveKnowledgeInstructionEntry,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  withObservedProjectionPlans,
   type NativeRegionSource,
 } from "@agentxm/workspace-kernel/projection";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -630,7 +630,6 @@ export const KnowledgeManagerLive = Layer.effect(
               }).pipe(Effect.asVoid),
           },
         });
-        yield* observeProjectionPlans([plan]);
         return plan;
       });
 
@@ -654,9 +653,21 @@ export const KnowledgeManagerLive = Layer.effect(
       });
     });
 
+    // Every plan is observed as the pre-write refusal before its consumer runs.
+    const observedProjectionPlans: KnowledgeManagerService["observedProjectionPlans"] = (
+      options,
+      use,
+    ) =>
+      makeKnowledgeProjectionPlan([], options).pipe(
+        Effect.flatMap((plan) => withObservedProjectionPlans([plan], use)),
+      );
     const projectionPlans: KnowledgeManagerService["projectionPlans"] = (options) =>
-      makeKnowledgeProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
-    const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
+      observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
+    const observedPrepareProjection: KnowledgeManagerService["observedPrepareProjection"] = (
+      refs,
+      options,
+      use,
+    ) =>
       Effect.gen(function* () {
         const { graph, configured, config, instructionsTarget } =
           yield* resolveKnowledgeProjection(options);
@@ -705,14 +716,19 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        return [
-          yield* makeKnowledgeProjectionPlan(
-            prospective.flat(),
-            options,
-            new Set(refs.map((ref) => ref.knowledge.name)),
-          ),
-        ];
+        return yield* withObservedProjectionPlans(
+          [
+            yield* makeKnowledgeProjectionPlan(
+              prospective.flat(),
+              options,
+              new Set(refs.map((ref) => ref.knowledge.name)),
+            ),
+          ],
+          use,
+        );
       });
+    const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
+      observedPrepareProjection(refs, options, (observed) => Effect.succeed(observed.plans));
 
     const applyKnowledgeProjection = projectionPlans().pipe(
       Effect.flatMap(applyInstructionSurfacePlans),
@@ -929,7 +945,9 @@ export const KnowledgeManagerLive = Layer.effect(
 
     return {
       projectionPlans,
+      observedProjectionPlans,
       prepareProjection,
+      observedPrepareProjection,
       regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       refreshCatalog: () =>

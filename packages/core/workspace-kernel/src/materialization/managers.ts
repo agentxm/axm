@@ -33,7 +33,11 @@ import type {
   MaterializationObservation,
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
-import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
+import type {
+  CodingAgentRepository,
+  ObservedProjectionPlans,
+  ProjectionPlan,
+} from "../projection/index.js";
 import type {
   ConfiguredAgentOutcome,
   JobStepArtifactTarget,
@@ -58,6 +62,7 @@ import type {
   SynchronizeMaterialization,
   UninstallMaterialization,
   NativeProjectionOptions,
+  ObservedProjectionPlansCall,
 } from "./ports/transition-materialization.js";
 
 // -----------------------------------------------------------------------------
@@ -347,6 +352,22 @@ export class SubagentManager extends ServiceMap.Service<SubagentManager, Subagen
   "@agentxm/workspace-kernel/materialization/managers/SubagentManager",
 ) {}
 
+type ManagerObservedProjectionPlans = ObservedProjectionPlans<
+  ExtensionManagerFailure,
+  ManagerRequirements
+>;
+
+/**
+ * Prepare prospective contributors' plans in one owner call: the manager
+ * observes every plan as its pre-write refusal, then hands that observation to
+ * `use` with what the preparation verified.
+ */
+type ObservedPrepareProjectionCall<TRef, Prepared> = <A, E, R>(
+  refs: ReadonlyArray<TRef>,
+  options: NativeProjectionOptions | undefined,
+  use: (prepared: Prepared) => Effect.Effect<A, E, R>,
+) => Effect.Effect<A, ExtensionManagerFailure | E, ManagerRequirements | R>;
+
 export interface RuleManagerService
   extends
     InstallMaterialization<
@@ -398,10 +419,19 @@ export interface RuleManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    RuleExtensionRef,
+    ManagerObservedProjectionPlans
+  >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -454,15 +484,24 @@ export interface HookManagerService
     refs: ReadonlyArray<HookExtensionRef>,
     options?: NativeProjectionOptions,
   ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    HookExtensionRef,
+    Omit<PreparedHookProjection, "plans"> & { readonly observed: ManagerObservedProjectionPlans }
+  >;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -550,10 +589,19 @@ export interface KnowledgeManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    KnowledgeExtensionRef,
+    ManagerObservedProjectionPlans
+  >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;

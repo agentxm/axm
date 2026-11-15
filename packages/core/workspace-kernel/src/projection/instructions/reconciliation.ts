@@ -30,8 +30,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   applyProjectionPlans,
+  observeObservedPlans,
   observeProjectionPlans,
   projectionPlanExclusionWarnings,
+  unobservedProjectionPlans,
+  type ObservedProjectionPlans,
   type ProjectionPlan,
 } from "../planning.js";
 
@@ -389,17 +392,22 @@ export const recordInstructionCopiesBeforeSourceWrite = Effect.fn(
   yield* stageInstructionRows(yield* recordIdenticalInstructionCopies(snapshot));
 });
 
+/** How instruction-surface observation reports routes, and for which agents. */
+interface InstructionSurfaceObservationOptions {
+  readonly view?: "current" | "proposed";
+  readonly configuredAgents?: ReadonlyArray<string>;
+}
+
 /**
  * Observe shared instruction content with the routes owned by instruction
  * management. The current view reports actual alias entries; only the proposed
  * view includes future alias readers after a declared shared-surface write.
+ * The plans' producer observation is consumed when handed over; the routes are
+ * always observed.
  */
-export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
-  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
-  options?: {
-    readonly view?: "current" | "proposed";
-    readonly configuredAgents?: ReadonlyArray<string>;
-  },
+export const observeObservedInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
+  observed: ObservedProjectionPlans<E, R>,
+  options?: InstructionSurfaceObservationOptions,
 ): Effect.fn.Return<
   ReadonlyArray<ProjectionUnitObservation>,
   E | WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure | InstructionMaintenanceFailure,
@@ -411,7 +419,7 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
   | WorkspaceLocation
   | LockfileReader
 > {
-  const observations = yield* observeProjectionPlans(plans);
+  const observations = yield* observeObservedPlans(observed);
   const proposedLocations = observations
     .filter(
       (observation) =>
@@ -647,6 +655,12 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
   });
 });
 
+/** {@link observeObservedInstructionSurfacePlans} over plans observed fresh. */
+export const observeInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  options?: InstructionSurfaceObservationOptions,
+) => observeObservedInstructionSurfacePlans(unobservedProjectionPlans(plans), options);
+
 /** Link one selected contributor to the instruction owner's proposed physical units. */
 export const plannedInstructionContributorObservation = (args: {
   readonly type: "rule" | "knowledge";
@@ -701,19 +715,23 @@ export const plannedInstructionContributorObservation = (args: {
  * defers the aliases to that final reconciliation, so no alias is judged against
  * an intermediate canonical file.
  */
-export const applyInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
-  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+export const applyObservedInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
+  observed: ObservedProjectionPlans<E, R>,
   aliases: "reconcile" | "deferred" = "reconcile",
 ): Effect.fn.Return<
   ReadonlyArray<string>,
   E | WorkspaceSettingsReadFailure | ReconcileFailure,
   R | ReconcileRequirements | SettingsReader | WorkspaceLocation
 > {
-  const instructionPlans = plans.filter(
-    ({ unitId }) =>
-      unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region",
-  );
-  const instructionChanges = yield* observeProjectionPlans(instructionPlans);
+  const plans = observed.plans;
+  const isInstructionUnit = (unitId: string | undefined) =>
+    unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region";
+  // Only instruction regions decide alias reconciliation. A handed-over
+  // observation covers every plan in order; other units' entries are dropped.
+  const handed = yield* observed.take;
+  const instructionChanges = Option.isSome(handed)
+    ? handed.value.filter((_, index) => isInstructionUnit(plans[index]?.unitId))
+    : yield* observeProjectionPlans(plans.filter(({ unitId }) => isInstructionUnit(unitId)));
   const reconcilesAliases = instructionChanges.some((observation) => !observation.current);
   const accepted = yield* AcceptedResolutionWriter;
   // Rows join the enclosing accepted-resolution batch, or one opened here,
@@ -742,6 +760,12 @@ export const applyInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
   );
   return projectionPlanExclusionWarnings(plans);
 });
+
+/** {@link applyObservedInstructionSurfacePlans} over plans observed fresh. */
+export const applyInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  aliases?: "reconcile" | "deferred",
+) => applyObservedInstructionSurfacePlans(unobservedProjectionPlans(plans), aliases);
 
 /** What disabling instruction management removed. */
 export interface DisabledInstructionManagement {

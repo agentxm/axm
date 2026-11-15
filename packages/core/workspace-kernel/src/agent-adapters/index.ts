@@ -18,6 +18,7 @@
 export {
   invalidNativeConfig,
   parseNativeConfigRoot,
+  withNativeConfigObservationView,
   withNativeConfigReadView,
 } from "./native-config-syntax.js";
 export {

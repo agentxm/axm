@@ -22,7 +22,11 @@ import {
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import * as FileSystem from "effect/FileSystem";
+import type * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -39,10 +43,12 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager } from "@agentxm/workspace-kernel/materialization";
+import { HookManager, type ManagerRequirements } from "@agentxm/workspace-kernel/materialization";
 import {
   applyPlannedProjections,
   applyProjectionPlans,
+  observeObservedPlans,
+  observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -127,6 +133,8 @@ const makeHookManagerLayer = (
     readonly configuredAgents?: NonNullable<Settings["agents"]>;
     /** Hook names exposed as desired local-source hooks with accepted lock rows. */
     readonly hooks?: ReadonlyArray<string>;
+    /** Native platform services; a recording filesystem replaces the platform one. */
+    readonly platform?: typeof NativePlatformTest;
   },
 ) => {
   const hookNames = options?.hooks ?? [];
@@ -183,7 +191,10 @@ const makeHookManagerLayer = (
     Layer.provide(makeSourceHostProviders()),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(
-      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+      Layer.provideMerge(
+        RegistryTransportTest(FetchHttpClient.layer),
+        options?.platform ?? NativePlatformTest,
+      ),
     ),
   );
 };
@@ -639,4 +650,83 @@ describe("HookManager", () => {
         }
       }),
   );
+
+  describe("eager projection observation", () => {
+    /** Register `audit`, then count the settings reads and native parses of `observe`. */
+    const countObservation = <A, E>(
+      observe: (
+        manager: ServiceMap.Service.Shape<typeof HookManager>,
+      ) => Effect.Effect<A, E, ManagerRequirements>,
+    ) =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-observation-"),
+        );
+        try {
+          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+          writeHookPackage(packageRoot, "audit");
+          const { fileSystem, recording } = makeRecordingFileSystem(
+            yield* Effect.gen(function* () {
+              return yield* FileSystem.FileSystem;
+            }).pipe(Effect.provide(NodeFileSystem.layer)),
+          );
+          // The recording filesystem replaces the platform one; the rest of the platform stays.
+          const platform = Layer.provideMerge(
+            Layer.succeed(FileSystem.FileSystem, fileSystem),
+            NativePlatformTest,
+          );
+          return yield* Effect.gen(function* () {
+            const manager = yield* HookManager;
+            yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+            yield* manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+            recording.reset();
+            const work = workObservations(false);
+            const observed = yield* observe(manager).pipe(work.provide);
+            return {
+              observed,
+              settingsReads: recording.contentReads(
+                nodePath.join(workspaceRoot, ".claude/settings.json"),
+              ),
+              nativeParses: work.facts.filter((fact) => fact.kind === "axm.parse.native").length,
+            };
+          }).pipe(
+            Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"], platform })),
+          );
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      });
+
+    it.effect("observes again when a caller observes plain projection plans", () =>
+      Effect.gen(function* () {
+        const counted = yield* countObservation((manager) =>
+          manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans)),
+        );
+        expect(counted.observed).toMatchObject([
+          { unitId: "hook:agent-hook-entries", current: true },
+        ]);
+        // The manager's eager refusal and the caller's observation each run once.
+        expect({
+          settingsReads: counted.settingsReads,
+          nativeParses: counted.nativeParses,
+        }).toEqual({ settingsReads: 2, nativeParses: 4 });
+      }),
+    );
+
+    it.effect("hands the eager observation to the consumer of observed projection plans", () =>
+      Effect.gen(function* () {
+        const counted = yield* countObservation((manager) =>
+          manager.observedProjectionPlans(undefined, observeObservedPlans),
+        );
+        expect(counted.observed).toMatchObject([
+          { unitId: "hook:agent-hook-entries", current: true },
+        ]);
+        // Only the manager's eager refusal observes; the consumer receives its result.
+        expect({
+          settingsReads: counted.settingsReads,
+          nativeParses: counted.nativeParses,
+        }).toEqual({ settingsReads: 1, nativeParses: 2 });
+      }),
+    );
+  });
 });

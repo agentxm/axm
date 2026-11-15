@@ -15,6 +15,8 @@ import {
   captureManagerServices,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
+  type ExtensionManagerFailure,
+  type ManagerRequirements,
   type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 
@@ -59,7 +61,8 @@ import {
   type ProjectionUnitObservation,
   captureAgentOutputAuthority,
   nativePackageReferences,
-  observeProjectionPlans,
+  withObservedProjectionPlans,
+  type ObservedProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
   reconcileNativeHookConfig,
@@ -660,9 +663,13 @@ export const HookManagerLive = Layer.effect(
         } satisfies ProjectionUnitObservation;
       });
 
-    const makeHookProjectionPlans = (
-      prospective: ReadonlyArray<RenderedHookContributor> = [],
-      options?: NativeProjectionOptions,
+    /** Build the hook plans, observe them as the pre-write refusal, and hand that to `use`. */
+    const observedHookProjectionPlans = <A, E, R>(
+      prospective: ReadonlyArray<RenderedHookContributor>,
+      options: NativeProjectionOptions | undefined,
+      use: (
+        observed: ObservedProjectionPlans<ExtensionManagerFailure, ManagerRequirements>,
+      ) => Effect.Effect<A, E, R>,
     ) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
@@ -815,8 +822,7 @@ export const HookManagerLive = Layer.effect(
             return plan;
           }),
         );
-        yield* observeProjectionPlans(nativePlans);
-        return nativePlans;
+        return yield* withObservedProjectionPlans(nativePlans, use);
       });
 
     const configuredAgentOutcomes = (
@@ -870,9 +876,10 @@ export const HookManagerLive = Layer.effect(
         });
       });
 
-    const prepareProjection = (
-      refs: ReadonlyArray<HookExtensionRef>,
-      options?: NativeProjectionOptions,
+    const observedPrepareProjection: HookManagerService["observedPrepareProjection"] = (
+      refs,
+      options,
+      use,
     ) =>
       Effect.gen(function* () {
         const prepared = yield* Effect.forEach(
@@ -917,33 +924,43 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
-        const plans = yield* makeHookProjectionPlans(prepared, options);
-        for (const contributor of prepared)
-          for (const plan of plans) {
-            yield* assertNoPhysicalOverlap(contributor.inputRoot, plan.targetFile).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new HookDefinitionInvalid({
-                    detail: "Hook native target overlaps its input source",
-                    cause,
-                  }),
-              ),
-            );
-          }
-        return {
-          plans,
-          agentOutcomes: yield* evaluateConfiguredOutcomes({
-            configuredAgents,
-            targets,
-            contributors: prepared,
-            state: "projected",
+        return yield* observedHookProjectionPlans(prepared, options, (observed) =>
+          Effect.gen(function* () {
+            for (const contributor of prepared)
+              for (const plan of observed.plans) {
+                yield* assertNoPhysicalOverlap(contributor.inputRoot, plan.targetFile).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new HookDefinitionInvalid({
+                        detail: "Hook native target overlaps its input source",
+                        cause,
+                      }),
+                  ),
+                );
+              }
+            const agentOutcomes = yield* evaluateConfiguredOutcomes({
+              configuredAgents,
+              targets,
+              contributors: prepared,
+              state: "projected",
+            });
+            return yield* use({
+              observed,
+              agentOutcomes,
+              acquisitions: prepared.map(({ name, treeIntegrity }) => ({ name, treeIntegrity })),
+            });
           }),
-          acquisitions: prepared.map(({ name, treeIntegrity }) => ({ name, treeIntegrity })),
-        };
+        );
       });
+    const prepareProjection: HookManagerService["prepareProjection"] = (refs, options) =>
+      observedPrepareProjection(refs, options, ({ observed, agentOutcomes, acquisitions }) =>
+        Effect.succeed({ plans: observed.plans, agentOutcomes, acquisitions }),
+      );
 
+    const observedProjectionPlans: HookManagerService["observedProjectionPlans"] = (options, use) =>
+      observedHookProjectionPlans([], options, use);
     const projectionPlans: HookManagerService["projectionPlans"] = (options) =>
-      makeHookProjectionPlans([], options);
+      observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
 
     const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
@@ -1023,7 +1040,9 @@ export const HookManagerLive = Layer.effect(
 
     return {
       projectionPlans,
+      observedProjectionPlans,
       prepareProjection,
+      observedPrepareProjection,
       aggregateProjectionObservation: Ref.get(lastProjection),
       configuredAgentOutcomes,
       configuredAgentOutcomesForRef,

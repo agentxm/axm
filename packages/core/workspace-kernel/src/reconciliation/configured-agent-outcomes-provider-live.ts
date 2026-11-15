@@ -22,7 +22,7 @@ import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   CodingAgentRepository,
   observeConfiguredSkillLocations,
-  observeInstructionSurfacePlans,
+  observeObservedInstructionSurfacePlans,
   inspectDesiredMcpServer,
 } from "../projection/index.js";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
@@ -135,22 +135,20 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       }),
     });
     const aggregate =
-      (manager: Pick<typeof hookManager, "projectionPlans">) =>
+      (manager: Pick<typeof hookManager, "observedProjectionPlans">) =>
       (request: ConfiguredAgentOutcomesRequest) =>
         Effect.gen(function* () {
-          const observed = yield* manager
-            .projectionPlans({
+          const observed = yield* manager.observedProjectionPlans(
+            {
               configuredAgents: request.agentIds,
               ...(request.desiredGraph === undefined ? {} : { desiredGraph: request.desiredGraph }),
-            })
-            .pipe(
-              Effect.flatMap((plans) =>
-                observeInstructionSurfacePlans(plans, {
-                  view: "current",
-                  configuredAgents: request.agentIds,
-                }),
-              ),
-            );
+            },
+            (plans) =>
+              observeObservedInstructionSurfacePlans(plans, {
+                view: "current",
+                configuredAgents: request.agentIds,
+              }),
+          );
           const graph = request.desiredGraph ?? (yield* (yield* DesiredStateReader).graph());
           const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(

@@ -9,7 +9,7 @@ import {
   type HookConfigurationValues,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { HookManager } from "@agentxm/workspace-kernel/materialization";
-import { applyProjectionPlans, observeProjectionPlans } from "@agentxm/workspace-kernel/projection";
+import { applyProjectionPlans, observeObservedPlans } from "@agentxm/workspace-kernel/projection";
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -64,8 +64,10 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
     configuration: request.configuration,
   };
   const options = { hookConfigurations: new Map([[request.name, request.configuration]]) };
-  const projections = canonical.value.desired.enabled ? yield* hooks.projectionPlans(options) : [];
-  const observations = yield* observeProjectionPlans(projections);
+  // A disabled hook has no native plans to observe.
+  const observations = canonical.value.desired.enabled
+    ? yield* hooks.observedProjectionPlans(options, observeObservedPlans)
+    : [];
   const exposureRefs = yield* projectionExposureRefs({
     observations,
     graph: yield* (yield* DesiredStateReader).graph(),
@@ -99,13 +101,18 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
           "Hook extension content or configuration changed after preview; prepare the change again",
         );
       }
-      // Validate every active target before the first write. Native plans retain aggregate ownership.
-      const currentProjections = currentCanonical.value.desired.enabled
-        ? yield* hooks.projectionPlans(options)
-        : [];
-      yield* observeProjectionPlans(currentProjections);
-      yield* writer.setEntry("hook", request.name, next);
-      yield* applyProjectionPlans(currentProjections);
+      // Validate every active target before the first write: the manager's eager
+      // observation is that validation, taken before the settings write. Native
+      // plans retain aggregate ownership. A disabled hook has no native plans.
+      if (currentCanonical.value.desired.enabled)
+        yield* hooks.observedProjectionPlans(options, (observed) =>
+          Effect.gen(function* () {
+            yield* observeObservedPlans(observed);
+            yield* writer.setEntry("hook", request.name, next);
+            yield* applyProjectionPlans(observed.plans);
+          }),
+        );
+      else yield* writer.setEntry("hook", request.name, next);
     }),
     validate: () => Effect.void,
   }).pipe(

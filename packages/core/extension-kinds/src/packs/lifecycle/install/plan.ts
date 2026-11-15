@@ -111,8 +111,8 @@ import {
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
-  observeInstructionSurfacePlans,
+  observeObservedInstructionSurfacePlans,
+  observeObservedPlans,
 } from "@agentxm/workspace-kernel/projection";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
@@ -885,7 +885,7 @@ export const planPackInstall: (
       hookRefs.length === 0
         ? []
         : yield* hookManager
-            .prepareProjection(
+            .observedPrepareProjection(
               (intent.projectionRefs ?? refs)
                 .filter((ref) => ref.type === "hook")
                 .filter(
@@ -895,18 +895,18 @@ export const planPackInstall: (
                     )?.enabled !== false,
                 ),
               { ...hookProjection, desiredGraph: proposedGraph },
+              ({ observed }) =>
+                observeObservedPlans(observed).pipe(
+                  Effect.flatMap((observations) =>
+                    projectionExposureRefs({
+                      observations,
+                      graph: proposedGraph,
+                      proposedRefs: intent.projectionRefs ?? refs,
+                    }),
+                  ),
+                ),
             )
-            .pipe(
-              Effect.flatMap((prepared) => observeProjectionPlans(prepared.plans)),
-              Effect.flatMap((observations) =>
-                projectionExposureRefs({
-                  observations,
-                  graph: proposedGraph,
-                  proposedRefs: intent.projectionRefs ?? refs,
-                }),
-              ),
-              Effect.mapError(projectionRefusal),
-            );
+            .pipe(Effect.mapError(projectionRefusal));
     const ruleRefs = refs.filter((ref) => ref.type === "rule");
     const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
     const ruleProjection = {
@@ -937,7 +937,7 @@ export const planPackInstall: (
       ruleRefs.length === 0
         ? []
         : yield* ruleManager
-            .prepareProjection(
+            .observedPrepareProjection(
               (intent.projectionRefs ?? refs)
                 .filter((ref) => ref.type === "rule")
                 .filter(
@@ -947,23 +947,23 @@ export const planPackInstall: (
                     )?.enabled !== false,
                 ),
               { ...ruleProjection, desiredGraph: proposedGraph },
+              (observed) =>
+                observeObservedInstructionSurfacePlans(observed).pipe(
+                  Effect.flatMap((observations) =>
+                    projectionExposureRefs({
+                      observations,
+                      graph: proposedGraph,
+                      proposedRefs: intent.projectionRefs ?? refs,
+                    }),
+                  ),
+                ),
             )
-            .pipe(
-              Effect.flatMap(observeInstructionSurfacePlans),
-              Effect.flatMap((observations) =>
-                projectionExposureRefs({
-                  observations,
-                  graph: proposedGraph,
-                  proposedRefs: intent.projectionRefs ?? refs,
-                }),
-              ),
-              Effect.mapError(projectionRefusal),
-            );
+            .pipe(Effect.mapError(projectionRefusal));
     const knowledgeExposures =
       knowledgeRefs.length === 0
         ? []
         : yield* knowledgeManager
-            .prepareProjection(
+            .observedPrepareProjection(
               (intent.projectionRefs ?? refs)
                 .filter((ref) => ref.type === "knowledge")
                 .filter(
@@ -973,18 +973,18 @@ export const planPackInstall: (
                     )?.enabled !== false,
                 ),
               { ...knowledgeProjection, desiredGraph: proposedGraph },
+              (observed) =>
+                observeObservedInstructionSurfacePlans(observed).pipe(
+                  Effect.flatMap((observations) =>
+                    projectionExposureRefs({
+                      observations,
+                      graph: proposedGraph,
+                      proposedRefs: intent.projectionRefs ?? refs,
+                    }),
+                  ),
+                ),
             )
-            .pipe(
-              Effect.flatMap(observeInstructionSurfacePlans),
-              Effect.flatMap((observations) =>
-                projectionExposureRefs({
-                  observations,
-                  graph: proposedGraph,
-                  proposedRefs: intent.projectionRefs ?? refs,
-                }),
-              ),
-              Effect.mapError(projectionRefusal),
-            );
+            .pipe(Effect.mapError(projectionRefusal));
     const currentPackNode = graph.nodes.find(
       (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
     );

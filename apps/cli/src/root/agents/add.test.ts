@@ -33,6 +33,7 @@ import {
   SubagentManager,
 } from "@agentxm/workspace-kernel/materialization";
 import { SkillDefinitionInvalid } from "@agentxm/extension-kinds/skills";
+import { unobservedProjectionPlans } from "@agentxm/workspace-kernel/projection";
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",
@@ -59,18 +60,23 @@ const emptyMcpServerManager = {
 const emptyHookManager = {
   ...managerLifecycleStubs,
   prepareProjection: () => Effect.succeed({ plans: [], agentOutcomes: [], acquisitions: [] }),
+  observedPrepareProjection: (_refs, _options, use) =>
+    use({ observed: unobservedProjectionPlans([]), agentOutcomes: [], acquisitions: [] }),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   projectionPlans: () => Effect.succeed([]),
+  observedProjectionPlans: (_options, use) => use(unobservedProjectionPlans([])),
 } satisfies ServiceMap.Service.Shape<typeof HookManager>;
 
 const emptyRuleManager = {
   ...managerLifecycleStubs,
   prepareProjection: () => Effect.succeed([]),
+  observedPrepareProjection: (_refs, _options, use) => use(unobservedProjectionPlans([])),
   regionGeneration: Effect.die(new Error("not adopted in this test")),
   projectionPlans: () => Effect.succeed([]),
+  observedProjectionPlans: (_options, use) => use(unobservedProjectionPlans([])),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
@@ -91,10 +97,12 @@ const emptySubagentManager = {
 const emptyKnowledgeManager = {
   ...managerLifecycleStubs,
   prepareProjection: () => Effect.succeed([]),
+  observedPrepareProjection: (_refs, _options, use) => use(unobservedProjectionPlans([])),
   regionGeneration: Effect.die(new Error("not adopted in this test")),
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   projectionPlans: () => Effect.succeed([]),
+  observedProjectionPlans: (_options, use) => use(unobservedProjectionPlans([])),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),

@@ -57,7 +57,7 @@ import * as Option from "effect/Option";
 
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
 import {
-  applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   type InstructionMaintenanceFailure,
   captureAgentOutputAuthority,
 } from "../../projection/index.js";
@@ -294,9 +294,9 @@ const applyManagerProjectionPlans = <F, R>(
   | LockfileReader
   | AcceptedResolutionWriter
 > =>
-  manager.projectionPlans === undefined
+  manager.observedProjectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
-    : manager.projectionPlans(options).pipe(Effect.flatMap(applyInstructionSurfacePlans));
+    : manager.observedProjectionPlans(options, applyObservedInstructionSurfacePlans);
 
 // -----------------------------------------------------------------------------
 // Install change classification
@@ -1193,7 +1193,7 @@ const runUninstallOperation = Effect.fnUntraced(
     const transition = Effect.gen(function* () {
       if (
         priorAuthority !== undefined &&
-        manager.projectionPlans !== undefined &&
+        manager.observedProjectionPlans !== undefined &&
         args.enclosingClosure?.projections.includes(args.target.type) !== true
       ) {
         const desired = yield* DesiredStateReader;
@@ -1202,7 +1202,11 @@ const runUninstallOperation = Effect.fnUntraced(
           base,
           settingsEntries[args.target.type].remove(base.inputs.settings, args.target.name),
         );
-        yield* manager.projectionPlans({ priorAuthority, desiredGraph: proposed.graph });
+        // The manager's eager observation is the refusal; nothing consumes it.
+        yield* manager.observedProjectionPlans(
+          { priorAuthority, desiredGraph: proposed.graph },
+          () => Effect.void,
+        );
       }
       const applyProjections = () =>
         args.enclosingClosure?.projections.includes(args.target.type) !== true

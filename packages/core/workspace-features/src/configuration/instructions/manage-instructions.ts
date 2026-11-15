@@ -68,7 +68,7 @@ import {
   instructionStateIsCurrent,
   InstructionMaintenanceFailed,
   observeInstructions,
-  observeProjectionPlans,
+  observeObservedPlans,
   reconcileInstructions,
   removeInstructionTargetsFor,
   resolveInstructionsConfig,
@@ -371,16 +371,17 @@ const prepareManageInstructions = (
       ? yield* observeInstructions({ config: superseded.value, ...overrides })
       : observed;
     const ruleManager = yield* RuleManager;
-    const ruleEffects = (yield* ruleManager.projectionPlans().pipe(
-      Effect.flatMap(observeProjectionPlans),
-      Effect.mapError((cause) =>
-        configurationRefused({
-          category: "internal",
-          detail: "Rule projections could not be observed before reconciling instructions",
-          cause,
-        }),
-      ),
-    ))
+    const ruleEffects = (yield* ruleManager
+      .observedProjectionPlans(undefined, observeObservedPlans)
+      .pipe(
+        Effect.mapError((cause) =>
+          configurationRefused({
+            category: "internal",
+            detail: "Rule projections could not be observed before reconciling instructions",
+            cause,
+          }),
+        ),
+      ))
       .filter((observation) => !observation.current)
       .map((observation) => ({
         path: path.resolve(location.baseDir, observation.path.split("#", 1)[0] ?? observation.path),

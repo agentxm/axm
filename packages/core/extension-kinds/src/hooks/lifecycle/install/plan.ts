@@ -56,7 +56,7 @@ import {
 import {
   applyInstructionSurfacePlans,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  observeObservedPlans,
 } from "@agentxm/workspace-kernel/projection";
 
 /** Hooks packages the request selected. */
@@ -157,13 +157,30 @@ export const planHookInstall: (
   );
   // Physical routes, whole-file grammar, and shared renderings must refuse
   // before the install recipe publishes settings or accepted resolution.
-  const prepared = yield* hookManager
-    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), {
-      priorAuthority,
-      nativeInsertionEligibleNames,
-      ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
-      ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
-    })
+  // The exposure derivation consumes the preparation's eager observation; its
+  // own failure is settled after the preparation's refusal, as a conflict.
+  const exposure = yield* hookManager
+    .observedPrepareProjection(
+      intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+      {
+        priorAuthority,
+        nativeInsertionEligibleNames,
+        ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
+        ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
+      },
+      ({ observed }) =>
+        Effect.result(
+          observeObservedPlans(observed).pipe(
+            Effect.flatMap((observations) =>
+              projectionExposureRefs({
+                observations,
+                graph: intent.desiredGraph ?? priorGraph,
+                proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+              }),
+            ),
+          ),
+        ),
+    )
     .pipe(
       Effect.mapError((cause) =>
         installRefused({
@@ -173,14 +190,7 @@ export const planHookInstall: (
         }),
       ),
     );
-  const exposureRefs = yield* observeProjectionPlans(prepared.plans).pipe(
-    Effect.flatMap((observations) =>
-      projectionExposureRefs({
-        observations,
-        graph: intent.desiredGraph ?? priorGraph,
-        proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
-      }),
-    ),
+  const exposureRefs = yield* Effect.fromResult(exposure).pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "conflict",

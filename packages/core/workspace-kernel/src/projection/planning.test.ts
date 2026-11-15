@@ -1,16 +1,24 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
+import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import type { DesiredStateGraph } from "../workspace-state/index.js";
 import {
   applyProjectionPlans,
+  combineObservedProjectionPlans,
+  observeObservedPlans,
   observeProjectionPlans,
   planAggregateProjection,
   planSingletonProjection,
   PROJECTION_IO_CONCURRENCY,
   projectionPlanExclusionWarnings,
+  unobservedProjectionPlans,
+  withObservedProjectionPlans,
+  type ObservedProjectionPlans,
 } from "./planning.js";
+import type { ProjectionUnitObservation } from "./units.js";
 
 const completeGraph: DesiredStateGraph = {
   nodes: [],
@@ -267,4 +275,149 @@ describe("shared projection planning", () => {
       expect(active).toBe(0);
     });
   });
+});
+
+describe("observed projection plans", () => {
+  /** A singleton plan that counts its observations and writes; `failing` observations refuse. */
+  const countedPlan = (targetFile: string, options: { readonly failing?: boolean } = {}) => {
+    const counts = { observed: 0, applied: 0 };
+    const plan = planSingletonProjection({
+      unitId: "skill:agent-skill-directory",
+      targetFile,
+      contributor: targetFile,
+      adapter: {
+        apply: () =>
+          Effect.sync(() => {
+            counts.applied++;
+          }),
+        observe: () =>
+          Effect.suspend(() => {
+            counts.observed++;
+            return options.failing === true
+              ? Effect.fail(`${targetFile} cannot be realized`)
+              : Effect.succeed<ProjectionUnitObservation>({
+                  unitId: "skill:agent-skill-directory",
+                  path: targetFile,
+                  present: true,
+                  current: counts.observed === 1,
+                  expectedContributors: [targetFile],
+                  observedContributors: [targetFile],
+                });
+          }),
+      },
+    });
+    return { plan, counts };
+  };
+
+  it.effect(
+    "hands the producer's observation to the first consumer instead of observing again",
+    () =>
+      Effect.gen(function* () {
+        const replanned = countedPlan(".claude/skills/a");
+        // The plain pattern: the producer's refusal observes, then the consumer observes again.
+        yield* observeProjectionPlans([replanned.plan]);
+        yield* observeProjectionPlans([replanned.plan]);
+        expect(replanned.counts.observed).toBe(2);
+
+        const handed = countedPlan(".claude/skills/a");
+        const observations = yield* withObservedProjectionPlans(
+          [handed.plan],
+          observeObservedPlans,
+        );
+        expect(handed.counts.observed).toBe(1);
+        expect(observations).toMatchObject([{ path: ".claude/skills/a", current: true }]);
+      }),
+  );
+
+  it.effect("observes fresh on a second take inside the owner call", () =>
+    Effect.gen(function* () {
+      const { plan, counts } = countedPlan(".claude/skills/a");
+      const [first, second] = yield* withObservedProjectionPlans([plan], (observed) =>
+        Effect.all([observeObservedPlans(observed), observeObservedPlans(observed)]),
+      );
+      expect(counts.observed).toBe(2);
+      // The second consumer sees the fresh observation, not the handed one.
+      expect(first).toMatchObject([{ current: true }]);
+      expect(second).toMatchObject([{ current: false }]);
+    }),
+  );
+
+  it.effect("observes fresh through a handle retained after the owner call returns", () =>
+    Effect.gen(function* () {
+      const { plan, counts } = countedPlan(".claude/skills/a");
+      const retained = yield* withObservedProjectionPlans([plan], (observed) =>
+        Effect.succeed(observed),
+      );
+      expect(yield* retained.take).toEqual(Option.none());
+      expect(yield* observeObservedPlans(retained)).toMatchObject([{ current: false }]);
+      expect(counts.observed).toBe(2);
+    }),
+  );
+
+  it.effect("refuses an invalid later plan before the consumer runs or anything is written", () =>
+    Effect.gen(function* () {
+      const valid = countedPlan(".claude/skills/a");
+      const invalid = countedPlan(".claude/skills/b", { failing: true });
+      let used = false;
+      const failure = yield* withObservedProjectionPlans([valid.plan, invalid.plan], (observed) =>
+        Effect.suspend(() => {
+          used = true;
+          return applyProjectionPlans(observed.plans);
+        }),
+      ).pipe(Effect.flip);
+      expect(failure).toBe(".claude/skills/b cannot be realized");
+      expect(used).toBe(false);
+      expect(valid.counts.applied + invalid.counts.applied).toBe(0);
+    }),
+  );
+
+  it.effect("closes the handle when the consumer is interrupted", () =>
+    Effect.gen(function* () {
+      const { plan, counts } = countedPlan(".claude/skills/a");
+      let handle: ObservedProjectionPlans<string, never> | undefined;
+      const exit = yield* withObservedProjectionPlans([plan], (observed) =>
+        Effect.suspend(() => {
+          handle = observed;
+          return Effect.interrupt;
+        }).pipe(Effect.andThen(applyProjectionPlans(observed.plans))),
+      ).pipe(Effect.exit);
+      expect(Exit.hasInterrupts(exit)).toBe(true);
+      expect(handle === undefined ? "absent" : yield* handle.take).toEqual(Option.none());
+      expect(counts).toEqual({ observed: 1, applied: 0 });
+    }),
+  );
+
+  it.effect(
+    "combines owners' observations in plan order, observing fresh only a part with none",
+    () =>
+      Effect.gen(function* () {
+        const first = countedPlan(".claude/skills/a");
+        const retained = countedPlan(".claude/skills/b");
+        const last = countedPlan(".claude/skills/c");
+        const observations = yield* withObservedProjectionPlans([first.plan], (firstObserved) =>
+          withObservedProjectionPlans([last.plan], (lastObserved) =>
+            observeObservedPlans(
+              combineObservedProjectionPlans([
+                firstObserved,
+                unobservedProjectionPlans([retained.plan]),
+                lastObserved,
+              ]),
+            ),
+          ),
+        );
+        expect(observations.map(({ path }) => path)).toEqual([
+          ".claude/skills/a",
+          ".claude/skills/b",
+          ".claude/skills/c",
+        ]);
+        expect([first.counts.observed, retained.counts.observed, last.counts.observed]).toEqual([
+          1, 1, 1,
+        ]);
+        const unobserved = combineObservedProjectionPlans([
+          unobservedProjectionPlans([first.plan]),
+        ]);
+        expect(yield* unobserved.take).toEqual(Option.none());
+        expect(first.counts.observed).toBe(1);
+      }),
+  );
 });

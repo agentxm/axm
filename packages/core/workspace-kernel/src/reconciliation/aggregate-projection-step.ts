@@ -10,12 +10,49 @@ import {
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type NativeProjectionOptions,
+  type RuleManagerService,
 } from "../materialization/index.js";
-import { applyInstructionSurfacePlans, type ProjectionPlan } from "../projection/index.js";
+import {
+  applyObservedInstructionSurfacePlans,
+  combineObservedProjectionPlans,
+  type ObservedProjectionPlans,
+} from "../projection/index.js";
 import { WorkspaceLocation } from "../workspace-state/index.js";
 import { combineNativeLocationOutcomes } from "../locations/index.js";
 import { kernelFailureToStepFailure } from "./failure-rendering.js";
 import type { InstallStepRequirements } from "./install-vocabulary.js";
+
+type ManagerObservedPlans = ObservedProjectionPlans<ExtensionManagerFailure, ManagerRequirements>;
+
+/** A shared aggregate unit's owner, and the options its plans are built with. */
+interface AggregateUnitOwner {
+  readonly manager: Pick<RuleManagerService, "observedProjectionPlans">;
+  readonly options?: NativeProjectionOptions | undefined;
+}
+
+/**
+ * Build every owner's plans in order, each owner observing its own plans as
+ * its pre-write refusal, and hand the combined observations to `use`. Every
+ * owner's call stays open until `use` ends, so `use` takes the observations
+ * before it writes.
+ */
+export const withAggregateObservedPlans = <A, E, R>(
+  owners: ReadonlyArray<AggregateUnitOwner>,
+  use: (observed: ManagerObservedPlans) => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | ExtensionManagerFailure, R | ManagerRequirements> => {
+  const from = (
+    index: number,
+    parts: ReadonlyArray<ManagerObservedPlans>,
+  ): Effect.Effect<A, E | ExtensionManagerFailure, R | ManagerRequirements> => {
+    const owner = owners[index];
+    return owner === undefined
+      ? use(combineObservedProjectionPlans(parts))
+      : owner.manager.observedProjectionPlans(owner.options, (observed) =>
+          from(index + 1, [...parts, observed]),
+        );
+  };
+  return from(0, []);
+};
 
 /**
  * One trailing projection write per semantic closure. Member steps commit
@@ -51,19 +88,29 @@ export const buildAggregateProjectionStep = (args: {
       label: "instruction files",
       readiness: "ready",
       run: Effect.gen(function* () {
-        const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
-        if (Option.isSome(ruleManager)) {
-          plans.push(...(yield* ruleManager.value.projectionPlans(args.nativeProjections?.rule)));
-        }
-        if (Option.isSome(hookManager)) {
-          plans.push(...(yield* hookManager.value.projectionPlans(args.nativeProjections?.hook)));
-        }
-        if (Option.isSome(knowledgeManager)) {
-          plans.push(
-            ...(yield* knowledgeManager.value.projectionPlans(args.nativeProjections?.knowledge)),
-          );
-        }
-        const warnings = yield* applyInstructionSurfacePlans(plans);
+        const warnings = yield* withAggregateObservedPlans(
+          [
+            ...Option.toArray(
+              Option.map(ruleManager, (manager) => ({
+                manager,
+                options: args.nativeProjections?.rule,
+              })),
+            ),
+            ...Option.toArray(
+              Option.map(hookManager, (manager) => ({
+                manager,
+                options: args.nativeProjections?.hook,
+              })),
+            ),
+            ...Option.toArray(
+              Option.map(knowledgeManager, (manager) => ({
+                manager,
+                options: args.nativeProjections?.knowledge,
+              })),
+            ),
+          ],
+          applyObservedInstructionSurfacePlans,
+        );
         const location = yield* WorkspaceLocation;
         const observations = [
           ...(Option.isSome(ruleManager)

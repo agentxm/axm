@@ -50,7 +50,7 @@ import {
   type ProjectionRenderInput,
   reconcileNativeManagedRegion,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  withObservedProjectionPlans,
   type NativeRegionSource,
   projectionGeneration,
   projectionUnitPath,
@@ -472,7 +472,6 @@ export const RuleManagerLive = Layer.effect(
               ),
           },
         });
-        yield* observeProjectionPlans([plan]);
         return plan;
       });
 
@@ -489,9 +488,18 @@ export const RuleManagerLive = Layer.effect(
       );
     });
 
+    // Every plan is observed as the pre-write refusal before its consumer runs.
+    const observedProjectionPlans: RuleManagerService["observedProjectionPlans"] = (options, use) =>
+      makeRulesProjectionPlan([], options).pipe(
+        Effect.flatMap((plan) => withObservedProjectionPlans([plan], use)),
+      );
     const projectionPlans: RuleManagerService["projectionPlans"] = (options) =>
-      makeRulesProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
-    const prepareProjection: RuleManagerService["prepareProjection"] = (refs, options) =>
+      observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
+    const observedPrepareProjection: RuleManagerService["observedPrepareProjection"] = (
+      refs,
+      options,
+      use,
+    ) =>
       Effect.gen(function* () {
         const prospective = yield* Effect.forEach(
           refs,
@@ -532,8 +540,13 @@ export const RuleManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        return [yield* makeRulesProjectionPlan(prospective, options)];
+        return yield* withObservedProjectionPlans(
+          [yield* makeRulesProjectionPlan(prospective, options)],
+          use,
+        );
       });
+    const prepareProjection: RuleManagerService["prepareProjection"] = (refs, options) =>
+      observedPrepareProjection(refs, options, (observed) => Effect.succeed(observed.plans));
 
     const applyRulesProjection = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
@@ -596,7 +609,9 @@ export const RuleManagerLive = Layer.effect(
 
     return {
       projectionPlans,
+      observedProjectionPlans,
       prepareProjection,
+      observedPrepareProjection,
       regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       ...makeBaseManagerMembers({

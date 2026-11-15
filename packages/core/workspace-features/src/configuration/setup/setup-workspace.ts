@@ -618,7 +618,6 @@ const reportSetupWorkspace = (
 
     const physicalBaseDir = yield* resolveNativeReferent(location.baseDir);
     const planBaseDir = scope === "user" ? request.candidate.nativeRoot : physicalBaseDir;
-    const gitManaged = scope === "project" && (yield* isGitManaged(location.baseDir));
     const changeForPath = (filePath: string): typeof ArtifactChangeSchema.Type => {
       if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
         return "unchanged";
@@ -689,7 +688,10 @@ const reportSetupWorkspace = (
         : [
             request.candidate.settingsPath,
             location.lockPath,
-            ...(gitManaged ? [path.join(location.baseDir, ".gitignore")] : []),
+            // Only this view lists the ignore file from Git management.
+            ...(scope === "project" && (yield* isGitManaged(location.baseDir))
+              ? [path.join(location.baseDir, ".gitignore")]
+              : []),
           ],
     );
     const instructionTargets = yield* targetsFor(

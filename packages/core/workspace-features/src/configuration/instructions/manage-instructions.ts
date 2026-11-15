@@ -146,11 +146,12 @@ const DISABLED_STATUS: InstructionsStatus = {
 /**
  * Report instruction-file management without changing it. A workspace that
  * does not manage instruction files reports that, rather than an empty
- * observation of a configuration it does not have.
+ * observation of a configuration it does not have. One read phase spans the
+ * report, so the settings and lockfile are read once.
  */
 const instructionsStatus = (): Effect.Effect<
   InstructionsStatus,
-  Effect.Error<ReturnType<typeof observeInstructions>>,
+  Effect.Error<ReturnType<typeof observeInstructions>> | WorkspaceStateReadFailure,
   | SettingsReader
   | WorkspaceLocation
   | FileSystem.FileSystem
@@ -166,7 +167,7 @@ const instructionsStatus = (): Effect.Effect<
       config: resolveInstructionsConfig(configured.value),
     });
     return snapshot.status;
-  });
+  }).pipe(withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // Requests and candidates
@@ -284,6 +285,11 @@ const reconciliationGate = (
  * A request the workspace already satisfies is reported as unchanged rather
  * than planned: enabling the configuration that is already recorded, and
  * whose targets are already current, changes nothing.
+ *
+ * One read phase spans the whole settlement, so every settings and lockfile
+ * query reads the documents captured at its start. The plan's execution
+ * candidate still fingerprints them live, and applying it re-checks that
+ * fingerprint under the transition lock.
  */
 const prepareManageInstructions = (
   request: ManageInstructionsRequest,
@@ -365,9 +371,15 @@ const prepareManageInstructions = (
 
     // A changed configuration is preflighted against the aliases the previous
     // configuration owns, because those are the files the transition removes.
+    // Nothing writes between the two observations, so the preflight reuses the
+    // symlink capability the desired observation just probed.
     const superseded = configChanged ? previous : Option.none<ResolvedInstructionsConfig>();
     const preflight = Option.isSome(superseded)
-      ? yield* observeInstructions({ config: superseded.value, ...overrides })
+      ? yield* observeInstructions({
+          config: superseded.value,
+          symlinkSupported: observed.symlinkSupported,
+          ...overrides,
+        })
       : observed;
     const ruleManager = yield* RuleManager;
     const ruleEffects = (yield* ruleManager
@@ -404,7 +416,7 @@ const prepareManageInstructions = (
       overrides,
     };
     return yield* planTransition(enableTransition);
-  });
+  }).pipe(withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

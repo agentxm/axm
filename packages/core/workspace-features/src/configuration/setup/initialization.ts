@@ -68,6 +68,7 @@ import {
   recordedProjectionRows,
   stageProjectionChanges,
   commitLockfileSnapshotUpdateAtPath,
+  type Projections,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -391,17 +392,33 @@ const instructionPlanAction = (mechanism: InstructionMechanism): SetupPlanAction
   }
 };
 
+/** The instruction-projection state the project lockfile records, decoded. */
+type RecordedInstructions = Projections["instructions"];
+
+const instructionRowsOf = (recorded: RecordedInstructions) =>
+  recordedProjectionRows(
+    recorded === undefined ? undefined : { instructions: recorded },
+    "instructions",
+  );
+
 /**
- * The instruction rows the project lockfile records. Reading decodes the
- * lockfile, so a version this CLI does not read refuses setup before it
- * plans or writes anything.
+ * The instruction-projection state the project lockfile records. Reading
+ * decodes the lockfile, so a version this CLI does not read refuses setup
+ * before it plans or writes anything.
  */
-const setupInstructionRows = (workspaceRoot: string) =>
+const readRecordedInstructions = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const lockfile = yield* readLockfileAtPath(path.join(workspaceRoot, LOCK_FILENAME));
-    return recordedProjectionRows(lockfile?.projections, "instructions");
+    return lockfile?.projections?.instructions;
   });
+
+/**
+ * The rows a plan read, for its own apply: an independent copy, so the apply
+ * shares no map or row with the plan's observation.
+ */
+export const transferredInstructionRows = (recorded: RecordedInstructions) =>
+  instructionRowsOf(recorded === undefined ? undefined : structuredClone(recorded));
 
 const instructionPlanRows = (args: {
   readonly workspaceRoot: string;
@@ -413,13 +430,14 @@ const instructionPlanRows = (args: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const recordedInstructions = yield* readRecordedInstructions(args.workspaceRoot);
     const snapshot = yield* observeInstructionProjection({
       workspaceRoot: args.workspaceRoot,
       scope: "project",
       configuredAgents: args.selectedAgents.map((agent) => agent.id),
       config: { fileName: args.sourceFileName, gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE },
       prospectiveRoots: args.sourceWillBeCreated ? [args.workspaceRoot] : [],
-      rows: yield* setupInstructionRows(args.workspaceRoot),
+      rows: instructionRowsOf(recordedInstructions),
       replaceUnrecorded: args.replaceUnrecorded,
     });
     const deferred =
@@ -493,7 +511,7 @@ const instructionPlanRows = (args: {
         action: "remove",
         detail: { _tag: "instructionTarget", agentName: item.agentName },
       });
-    return rows;
+    return { rows, recordedInstructions };
   });
 
 const selectSetupAgents = (args: {
@@ -704,6 +722,11 @@ const applyProjectSetup = (args: {
   readonly syncInstructions: boolean;
   readonly replaceUnrecorded: boolean;
   readonly dryRun: boolean;
+  /**
+   * Rows this transaction's plan read with nothing prompted or written since;
+   * none when an approval prompt separated the plan from this apply.
+   */
+  readonly preparedInstructionRows: Option.Option<ReturnType<typeof transferredInstructionRows>>;
 }) =>
   Effect.gen(function* () {
     if (args.dryRun) return;
@@ -711,9 +734,11 @@ const applyProjectSetup = (args: {
     const settingsPath = path.join(args.workspaceRoot, SETTINGS_FILENAME);
     const lockfilePath = path.join(args.workspaceRoot, LOCK_FILENAME);
     // Rows are read before any write, so a newer lockfile refuses here.
-    const rows = args.syncInstructions
-      ? yield* setupInstructionRows(args.workspaceRoot)
-      : recordedProjectionRows(undefined, "instructions");
+    const rows = !args.syncInstructions
+      ? recordedProjectionRows(undefined, "instructions")
+      : Option.isSome(args.preparedInstructionRows)
+        ? args.preparedInstructionRows.value
+        : instructionRowsOf(yield* readRecordedInstructions(args.workspaceRoot));
     yield* writeSettingsAtPath(settingsPath, args.settings);
     const lockfileExists = yield* fileExists(lockfilePath);
     if (!lockfileExists) {
@@ -924,16 +949,22 @@ const configureProjectWorkspace = (args: {
     const gitManaged = yield* isGitManaged(workspaceRoot);
     // Declining instruction sync leaves every instruction file alone, so the
     // plan has nothing to say about them.
-    const planRows = instructionSetup.enabled
-      ? yield* instructionPlanRows({
-          workspaceRoot,
-          selectedAgents,
-          sourceFileName: instructionSetup.fileName,
-          sourceWillBeCreated,
-          sourceSeed,
-          replaceUnrecorded,
-        })
-      : [];
+    const instructionPlan = instructionSetup.enabled
+      ? Option.some(
+          yield* instructionPlanRows({
+            workspaceRoot,
+            selectedAgents,
+            sourceFileName: instructionSetup.fileName,
+            sourceWillBeCreated,
+            sourceSeed,
+            replaceUnrecorded,
+          }),
+        )
+      : Option.none<Effect.Success<ReturnType<typeof instructionPlanRows>>>();
+    const planRows = Option.match(instructionPlan, {
+      onNone: () => [],
+      onSome: ({ rows }) => rows,
+    });
     const skillTargets = yield* setupSkillTargets(workspaceRoot, "project", agentIds);
     const skillPlanRows = completing
       ? []
@@ -989,11 +1020,11 @@ const configureProjectWorkspace = (args: {
     ];
     if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true))
       yield* interaction.value.presentSetupPlan(plan);
+    // Unattended approval asks nothing, so nothing can change the lockfile
+    // between this transaction's plan and its apply.
+    const unattended = args.options.yes === true || nonInteractive || Option.isNone(interaction);
     const confirmed =
-      args.options.preview === true ||
-      args.options.yes === true ||
-      nonInteractive ||
-      Option.isNone(interaction)
+      args.options.preview === true || unattended
         ? true
         : yield* interaction.value.confirmSetupPlan();
     if (!confirmed) {
@@ -1015,6 +1046,12 @@ const configureProjectWorkspace = (args: {
       syncInstructions: instructionSetup.enabled,
       replaceUnrecorded,
       dryRun: args.options.preview ?? false,
+      preparedInstructionRows:
+        unattended && args.options.preview !== true
+          ? Option.map(instructionPlan, ({ recordedInstructions }) =>
+              transferredInstructionRows(recordedInstructions),
+            )
+          : Option.none(),
     });
     return {
       settings,

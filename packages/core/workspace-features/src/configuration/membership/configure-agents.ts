@@ -659,7 +659,8 @@ export interface ListConfiguredAgentsRequest {
  *
  * The default view answers "what is in play here": the agents this workspace
  * configures and the ones present on the machine. Shared location policy
- * does not manufacture a coding-agent membership choice.
+ * does not manufacture a coding-agent membership choice. One read phase spans
+ * the report, so the settings and lockfile are read once.
  */
 export const listConfiguredAgents = (
   request: ListConfiguredAgentsRequest = {},
@@ -728,7 +729,7 @@ export const listConfiguredAgents = (
       available: [...AGENT_IDS],
       count: items.length,
     } satisfies ConfiguredAgentInventory;
-  });
+  }).pipe(withWorkspaceReadView);
 
 /** The configured-agent membership use case. */
 export const ConfigureAgents = {

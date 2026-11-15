@@ -1129,7 +1129,7 @@ export const HookManagerLive = Layer.effect(
 
     const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
-    )(function* ({ ref, force, nativeInsertionEligible }) {
+    )(function* ({ ref, force, nativeInsertionEligible, preparedSourceHash }) {
       const materialized = yield* materializePackage(ref, force === true, nativeInsertionEligible);
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
@@ -1143,7 +1143,14 @@ export const HookManagerLive = Layer.effect(
             )
           : Option.none<string>();
 
-      const sourceHash = yield* computePackageContentHash(packageRoot);
+      // A caller's hash of this exact workspace package root stands for the
+      // hash here: nothing in this install writes the package tree.
+      const sourceHash =
+        ref.refType === "workspace" &&
+        preparedSourceHash !== undefined &&
+        path.resolve(preparedSourceHash.root) === path.resolve(packageRoot)
+          ? preparedSourceHash.hash
+          : yield* computePackageContentHash(packageRoot);
       return {
         observation: NO_MATERIALIZATION_OBSERVATION,
         treeIntegrity: Option.some(materialized.treeIntegrity),

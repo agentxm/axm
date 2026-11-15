@@ -177,12 +177,14 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
         // post-write resolution remain.
         // The materializable listing resolves from its observation's decode,
         // and the rule region's contributor selection decodes the manifest its
-        // own observation captured.
+        // own observation captured. The install records the hash the
+        // transaction's own listing computed, so that hash's walk and its read
+        // of the manifest happen once.
         expect(measured.apply).toEqual({
           installRootListings: 22,
-          manifestReads: 8,
-          packageRootListings: 4,
-          packageHashes: 3,
+          manifestReads: 7,
+          packageRootListings: 3,
+          packageHashes: 2,
         });
       }),
     TIMEOUT,
@@ -207,13 +209,14 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
           packageHashes: 1,
         });
         // Under the lock the preflight, its rule manager and the resolution
-        // share one read and one hash of the acquired copy; the move's own
-        // hashes are unchanged.
+        // share one read and one hash of the acquired copy; the install of the
+        // moved package records the hash the transaction's own listing
+        // computed for it.
         expect({ ...measured.apply, installRootListings: undefined }).toEqual({
           installRootListings: undefined,
           manifestReads: 4,
           packageRootListings: 3,
-          packageHashes: 3,
+          packageHashes: 2,
         });
       }),
     TIMEOUT,

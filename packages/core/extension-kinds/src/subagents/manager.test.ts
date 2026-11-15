@@ -18,6 +18,7 @@ import {
   type DesiredNodeIdentity,
   type Lockfile,
   computeMaterializedTreeIntegrity,
+  computePackageContentHash,
   type SubagentLockEntry,
   type Settings,
   type TreeIntegrity,
@@ -43,7 +44,11 @@ import {
 } from "@agentxm/test-support";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type {
+  LocalSubagentRef,
+  WorkspaceSubagentRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
@@ -1224,6 +1229,54 @@ describe("SubagentManager", () => {
         );
       },
     );
+
+    it.effect("hashes an authored package itself once its install writes inside it", () => {
+      const projectDir = nodePath.join(tmpDir, "project");
+      const packageRoot = nodePath.join(projectDir, "subagents", "planner");
+      writeSubagentPackage(packageRoot, "planner", "Plans work");
+      // An agent whose Subagent directory lies inside the authored package.
+      const inside = makeMockCodingAgent("claude-code", {
+        resolveEffectiveSubagentsDir: () =>
+          Effect.succeed({
+            _tag: "supported",
+            dir: nodePath.join(packageRoot, "agents"),
+            warnings: [],
+          }),
+      });
+      const name = extensionName("planner");
+      const ref: WorkspaceSubagentRef = {
+        type: "subagent",
+        refType: "workspace",
+        source: { type: "workspace", owner: handle("@acme"), extensionType: "subagent", name },
+        owner: handle("@acme"),
+        name,
+        version: exactVersion("1.0.0"),
+        scope: "project",
+        location: packageRoot,
+        sourceHash: SourceHashSchema.make("0".repeat(64)),
+        subagent: { name, description: Option.none() },
+      };
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const work = workObservations(false);
+        const facts = yield* manager
+          .materializeInstall({
+            ref,
+            preparedSourceHash: { root: packageRoot, hash: ref.sourceHash },
+          })
+          .pipe(work.provide);
+        expect(nodeFs.existsSync(nodePath.join(packageRoot, "agents", "planner.md"))).toBe(true);
+        expect(work.facts.filter((fact) => fact.kind === "axm.hash.package").length).toBe(1);
+        // The recorded hash covers the native file this install wrote there.
+        expect(facts.sourceHash).toEqual(
+          Option.some(yield* computePackageContentHash(packageRoot)),
+        );
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({ axmDir: nodePath.join(projectDir, ".axm"), agents: [inside] }),
+        ),
+      );
+    });
 
     it.effect(
       "refuses an unrecorded differing file when an observation validates destinations",

@@ -747,6 +747,10 @@ export const buildInstallOperation = <
       } satisfies PlannedJobStep<R | RecipeRequirements>);
 };
 
+/** The package content hash a workspace ref's own resolution computed, with its root. */
+const listedSourceHash = (ref: ExtensionRef) =>
+  ref.refType === "workspace" ? { root: ref.location, hash: ref.sourceHash } : undefined;
+
 /**
  * Build a PlannedJobStep for `new` commands.
  *
@@ -804,6 +808,10 @@ export const buildAuthoredExtensionStep = <
             }
             let materialization = Option.none<TMaterialization>();
             if (args.enabled !== false || args.materializeWhenDisabled === true) {
+              // This listing hashed a workspace ref's package after the
+              // scaffold and authored marking wrote it; nothing writes that
+              // tree before the install records the hash.
+              const preparedSourceHash = listedSourceHash(ref);
               materialization =
                 args.materializeInstall === undefined
                   ? Option.some(
@@ -812,6 +820,7 @@ export const buildAuthoredExtensionStep = <
                         nativeInsertionEligible:
                           args.nativeInsertionEligible === true &&
                           desiredReachability(priorGraph, target).decision === "not-reached",
+                        ...(preparedSourceHash === undefined ? {} : { preparedSourceHash }),
                       }),
                     )
                   : yield* args.materializeInstall(ref, {

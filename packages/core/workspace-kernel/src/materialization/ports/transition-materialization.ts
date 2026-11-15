@@ -4,6 +4,7 @@ import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type {
   ExtensionTarget,
   ExtensionTargetFor,
@@ -80,6 +81,13 @@ interface MaterializationAcquisition<TRef extends ExtensionRef, TFacts, E, R> {
     readonly force?: boolean;
     readonly nativeInsertionEligible?: boolean;
     readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
+    /**
+     * The package content hash that the calling closure's own listing computed
+     * for a workspace ref's package root, with no write to that tree since; a
+     * manager records it in place of hashing only when its package root is
+     * exactly this root.
+     */
+    readonly preparedSourceHash?: { readonly root: string; readonly hash: SourceHash };
   }) => Effect.Effect<TFacts, E, R>;
   /** The transition records accepted content identity with its desired-state changes. */
   readonly acceptedResolution: (args: {

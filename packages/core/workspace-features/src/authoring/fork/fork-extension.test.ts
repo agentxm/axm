@@ -139,9 +139,11 @@ describe("ForkExtension prepared work", () => {
             (count, index) => count - 1 - shared - (decoded[index] ?? 0),
           ),
         });
-        // Under the lock the preflight reads and hashes the staged package fresh.
+        // Under the lock the preflight reads and hashes the staged package
+        // fresh; the install records the hash the transaction's own listing
+        // computed for the forked package instead of hashing it again.
         expect(stagedCounts(apply, staged, measured.files)).toEqual({
-          hashes: measured.apply.hashes - hashed,
+          hashes: measured.apply.hashes - hashed - 1,
           rootReadDirectory: measured.apply.rootReadDirectory - shared,
           readFile: measured.apply.readFile.map(
             (count, index) => count - shared - (decoded[index] ?? 0),

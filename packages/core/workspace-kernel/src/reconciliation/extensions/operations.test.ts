@@ -798,6 +798,59 @@ describe("buildAuthoredExtensionStep", () => {
     }),
   );
 
+  it.effect("hands the install the hash its own transaction listing computed", () =>
+    Effect.gen(function* () {
+      // The read-only preflight lists the package before it is scaffolded; the
+      // transaction lists it again after scaffolding with a different hash.
+      const preflightRef = authoredSkillRef();
+      const listedRef: WorkspaceSkillRef = {
+        ...preflightRef,
+        sourceHash: SourceHashSchema.make("1".repeat(64)),
+      };
+      let listCalls = 0;
+      const installs: Array<unknown> = [];
+      const manager = {
+        isInstalled: () => Effect.succeed(false),
+        listMaterializable: () => {
+          listCalls += 1;
+          return Effect.succeed([listCalls === 1 ? preflightRef : listedRef]);
+        },
+        materializeInstall: (args) =>
+          Effect.sync(() => installs.push(args)).pipe(Effect.as(NO_FACTS)),
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+      } satisfies AuthorMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >;
+      const step = buildAuthoredExtensionStep(manager, {
+        target: { type: "skill", name: extensionName("review") },
+        location: listedRef.location,
+        versionRange: Option.none(),
+        toStepFailure,
+        scaffold: Effect.void,
+        markAuthored: Effect.void,
+        enabled: false,
+        materializeWhenDisabled: true,
+        message: "Forked review",
+      });
+      if (step.readiness === "error") throw new Error(step.errorMessage);
+
+      yield* grounded(step.run);
+
+      expect(listCalls).toBe(2);
+      expect(installs).toEqual([
+        {
+          ref: listedRef,
+          nativeInsertionEligible: false,
+          preparedSourceHash: { root: listedRef.location, hash: listedRef.sourceHash },
+        },
+      ]);
+    }),
+  );
+
   describe("preflight read failure", () => {
     const unreadable = new LockfileIoError({ path: "axm.lock", cause: "EIO" });
     const managerWith = (

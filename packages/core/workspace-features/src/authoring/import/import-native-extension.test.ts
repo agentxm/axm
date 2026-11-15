@@ -187,9 +187,12 @@ describe("ImportNativeExtension prepared work", () => {
         manifestReads: before.prepare.manifestReads - 3 - sharedLoad.manifestReads,
         bodyReads: before.prepare.bodyReads - 1 - sharedLoad.bodyReads,
       });
-      // Under the lock the preflight reads and hashes the staged package fresh.
+      // Under the lock the preflight reads and hashes the staged package
+      // fresh; the install records the hash the transaction's own listing
+      // computed for the imported package instead of hashing it again.
       expect(stagedCounts(apply, staged, body)).toEqual({
         ...before.apply,
+        hashes: before.apply.hashes - 1,
         manifestReads: before.apply.manifestReads - sharedLoad.manifestReads,
         bodyReads: before.apply.bodyReads - sharedLoad.bodyReads,
       });

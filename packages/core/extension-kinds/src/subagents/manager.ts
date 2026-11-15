@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { fromFileLocation } from "@agentxm/host-primitives";
+import { fromFileLocation, isLexicallyWithin } from "@agentxm/host-primitives";
 import {
   loadSubagentPackage,
   selectSubagentImplementation,
@@ -769,7 +769,13 @@ export const SubagentManagerLive = Layer.effect(
       });
     const materializeInstall: SubagentManagerService["materializeInstall"] = Effect.fn(
       "SubagentManager.materializeInstall",
-    )(function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
+    )(function* ({
+      ref,
+      force,
+      nativeInsertionEligible,
+      nativeInsertionEligiblePaths,
+      preparedSourceHash,
+    }) {
       const { canonicalPath } = getCanonicalPaths(ref);
       const posture = yield* ProjectionOutputPosture;
       const authority = yield* captureAgentOutputAuthority();
@@ -870,8 +876,25 @@ export const SubagentManagerLive = Layer.effect(
             new SubagentIoFailed({ detail: "Cannot observe native Subagent locations", cause }),
         ),
       );
+      // A caller's hash of this exact workspace package root stands for the
+      // hash here when no file this install wrote or withdrew lies in that tree.
+      const touchedPackage = () =>
+        [
+          ...results.flatMap(({ destination, file }) => [
+            destination,
+            ...file.bindings.map((binding) => binding.path),
+          ]),
+          ...retired.outputs.map((output) => output.path),
+        ].some((file) => isLexicallyWithin(path, canonicalPath, file));
+      const sourceHash =
+        ref.refType === "workspace" &&
+        preparedSourceHash !== undefined &&
+        path.resolve(preparedSourceHash.root) === path.resolve(canonicalPath) &&
+        !touchedPackage()
+          ? preparedSourceHash.hash
+          : yield* computePackageContentHash(canonicalPath);
       return {
-        sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
+        sourceHash: Option.some(sourceHash),
         treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),
         observation: {
           nativeLocations: combineNativeLocationOutcomes([

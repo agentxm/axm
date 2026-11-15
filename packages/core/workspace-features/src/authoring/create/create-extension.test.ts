@@ -152,6 +152,9 @@ describe("CreateExtension prepared work", () => {
   // destination validation's package load, so one read of each named staged
   // file goes per phase.
   const sharedRunReads = { rule: [1, 0], knowledge: [1, 0], subagent: [1, 1] } as const;
+  // Under the lock the Rule and Subagent install records the hash the
+  // transaction's own listing computed for the authored package.
+  const sharedListingHash = { rule: 1, knowledge: 0, subagent: 1 } as const;
 
   for (const type of ["rule", "knowledge", "subagent"] as const)
     it.effect(`stages the ${type} preview without hashing what it just wrote`, () => {
@@ -167,7 +170,7 @@ describe("CreateExtension prepared work", () => {
         };
         expect(prepare.hashes).toBe(measured.prepareHashes - 1);
         expect(stagingCounts(prepare.calls, measured.files)).toMatchObject(expected);
-        expect(apply.hashes).toBe(measured.applyHashes - 1);
+        expect(apply.hashes).toBe(measured.applyHashes - 1 - sharedListingHash[type]);
         expect(stagingCounts(apply.calls, measured.files)).toMatchObject(expected);
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
     });

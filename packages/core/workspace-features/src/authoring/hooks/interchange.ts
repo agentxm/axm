@@ -182,14 +182,18 @@ export interface NativeHookBundle {
   readonly files: ReadonlyArray<{ readonly path: string; readonly bytes: Uint8Array }>;
 }
 
-/** Read an explicit resource closure, refusing links that escape the bundle root. */
-export const readHookResources = Effect.fn("Hook.readBundleResources")(function* (
-  root: string,
+const RESOURCES_SPAN = "Hook.readBundleResources";
+
+/**
+ * Read an explicit resource closure under `realRoot`, which the caller has
+ * already resolved to its real path, refusing links that escape it.
+ */
+const readResourcesWithinRealRoot = Effect.fnUntraced(function* (
+  realRoot: string,
   resources: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const realRoot = yield* fs.realPath(root);
   const files: Array<{ path: string; bytes: Uint8Array }> = [];
   let bytes = 0;
   if (resources.length > MAX_RESOURCE_FILES)
@@ -220,6 +224,15 @@ export const readHookResources = Effect.fn("Hook.readBundleResources")(function*
     files.push({ path: relative, bytes: yield* fs.readFile(absolute) });
   }
   return files;
+});
+
+/** Read an explicit resource closure, refusing links that escape the bundle root. */
+export const readHookResources = Effect.fn(RESOURCES_SPAN)(function* (
+  root: string,
+  resources: ReadonlyArray<string>,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* readResourcesWithinRealRoot(yield* fs.realPath(root), resources);
 });
 
 /**
@@ -286,10 +299,11 @@ export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(fun
     resources.push(...metadata.resources);
     source = metadata.source;
   }
-  const files = yield* readHookResources(root, [
+  // `root` is already the bundle's real path, so the closure is read against it directly.
+  const files = yield* readResourcesWithinRealRoot(root, [
     ...resources,
     ...implementation.bindings.map((binding) => binding.handler.entrypoint),
-  ]);
+  ]).pipe(Effect.withSpan(RESOURCES_SPAN));
   const manifest = yield* decode(
     HookManifestSchema,
     {

@@ -186,6 +186,87 @@ describe("native Hook import metadata", () => {
       }),
   );
 
+  it.effect("resolves a symlinked bundle directory once and each resource once", () =>
+    Effect.gen(function* () {
+      const { root } = bundle((target) => nodeFs.writeFileSync(target, metadata()));
+      const parent = nodeFs.realpathSync(
+        nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "hook-import-alias-")),
+      );
+      cleanups.push(() => nodeFs.rmSync(parent, { recursive: true, force: true }));
+      const alias = nodePath.join(parent, "bundle");
+      nodeFs.symlinkSync(root, alias);
+
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+      const result = yield* prepareNativeHookImport({
+        source: alias,
+        protocol: "claude-code",
+        target: {
+          owner: decodeHandleSync("@acme"),
+          type: "hook",
+          name: decodeExtensionNameSync("audit"),
+        },
+      });
+      const realPaths = recording.calls({ method: "realPath" }).map((call) => call.path);
+
+      expect(realPaths.filter((path) => path === alias || path === root)).toHaveLength(1);
+      expect(realPaths.filter((path) => path === nodePath.join(root, "hooks.json"))).toHaveLength(
+        1,
+      );
+      for (const resource of ["data/shared.txt", "src/audit.sh"]) {
+        const absolute = nodePath.join(root, resource);
+        expect(recording.counts(absolute)).toMatchObject({ realPath: 1, stat: 1, readFile: 1 });
+      }
+      expect(result.files.map((file) => file.path)).toEqual(["data/shared.txt", "src/audit.sh"]);
+    }).pipe(Effect.provide(services)),
+  );
+
+  it.effect("refuses a resource that escapes a symlinked bundle directory", () =>
+    Effect.gen(function* () {
+      const { root } = bundle((target) => nodeFs.writeFileSync(target, metadata()));
+      const outside = nodeFs.realpathSync(
+        nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "hook-import-outside-")),
+      );
+      cleanups.push(() => nodeFs.rmSync(outside, { recursive: true, force: true }));
+      nodeFs.writeFileSync(nodePath.join(outside, "shared.txt"), "outside\n");
+      nodeFs.rmSync(nodePath.join(root, "data/shared.txt"));
+      nodeFs.symlinkSync(
+        nodePath.join(outside, "shared.txt"),
+        nodePath.join(root, "data/shared.txt"),
+      );
+      const alias = nodePath.join(outside, "bundle");
+      nodeFs.symlinkSync(root, alias);
+
+      const failure = yield* prepareNativeHookImport({
+        source: alias,
+        protocol: "claude-code",
+        target: {
+          owner: decodeHandleSync("@acme"),
+          type: "hook",
+          name: decodeExtensionNameSync("audit"),
+        },
+      }).pipe(Effect.flip);
+
+      expect(failure).toMatchObject({
+        detail: "Hook resource escapes its source package: data/shared.txt.",
+      });
+    }).pipe(Effect.provide(services)),
+  );
+
+  it.effect("reports the resolution failure of a missing declared resource", () =>
+    Effect.gen(function* () {
+      const { root, metadataPath } = bundle((target) => nodeFs.writeFileSync(target, metadata()));
+      nodeFs.rmSync(nodePath.join(root, "data/shared.txt"));
+
+      expect(failureOf(yield* importBundle(root, metadataPath))).toEqual({
+        reason: "NotFound",
+        method: "realPath",
+        syscall: "lstat",
+        pathOrDescriptor: nodePath.join(root, "data/shared.txt"),
+      });
+    }),
+  );
+
   it.effect("reports the access failure of a symlink loop at the metadata path", () =>
     Effect.gen(function* () {
       const { root, metadataPath } = bundle((target) => nodeFs.symlinkSync(target, target));

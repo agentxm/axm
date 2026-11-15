@@ -26,7 +26,19 @@ import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-supp
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
-import { WorkspaceReadViews, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  collectMaterializeSteps,
+  proposeDesiredState,
+  StepFailureConversion,
+} from "@agentxm/workspace-kernel/reconciliation";
+import {
+  DesiredStateReader,
+  observeDesiredCanonical,
+  withWorkspaceReadView,
+  WorkspaceReadViews,
+  WorkspaceRecords,
+  type AcceptedCanonicalObservation,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import {
   applyInstallAcceptingExecutionChanges,
@@ -319,6 +331,100 @@ describe("Activation planning observes canonical content only where a decision r
     },
     { timeout: 60_000 },
   );
+
+  /** Install `pack` from the Registry. */
+  const installPack = (pack: string) =>
+    Effect.gen(function* () {
+      const installed = yield* applyInstallAcceptingExecutionChanges(
+        installRequest({
+          type: "pack",
+          subject: { kind: "source", source: `test:@acme/packs/${pack}` },
+        }),
+      );
+      expect(deriveOperationOutcome(installed)).toBe("applied");
+    });
+
+  it.effect(
+    "prepares a Pack disable that observes a member kept for its native references",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          installPack("reviews"),
+          DisableExtension.prepare({ type: "pack", name: "reviews" }),
+        );
+        const root = acquiredRoot(created, "hooks", "review");
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        // Native hook registrations still reference the member's code, so
+        // nothing is retired and its usable content is reported as retained.
+        expect(counted.result.artifact.targets).toEqual([{ path: "axm.json", change: "updated" }]);
+        expect(counted.result.artifact.references).toEqual([
+          {
+            path: nodePath.relative(created.workspace.root, root),
+            state: "retained",
+            reason: "canonical content retained",
+          },
+        ]);
+        // Unchanged: the kept member is still observed in full.
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootDirectoryReads: counted.recording.counts(root).readDirectory,
+          rootProbes: counted.recording.counts(root).access,
+        }).toEqual({ treeHashes: 4, rootDirectoryReads: 6, rootProbes: 4 });
+      });
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "prepares a Pack disable that observes a member whose canonical root is gone",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/skills/review": "^1.0.0" } },
+      ]);
+      let root = "";
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          installPack("reviews").pipe(
+            Effect.tap(() =>
+              Effect.sync(() => {
+                root = acquiredRoot(created, "skills", "review");
+                fs.rmSync(root, { recursive: true });
+              }),
+            ),
+          ),
+          DisableExtension.prepare({ type: "pack", name: "reviews" }),
+        );
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        const relative = nodePath.relative(created.workspace.root, root);
+        // Nothing is left to remove, so the root is no retirement target: the
+        // member's observation reports it unknown and the retirement absent.
+        expect(counted.result.artifact.targets).toEqual([{ path: "axm.json", change: "updated" }]);
+        expect(counted.result.artifact.references).toEqual([
+          { path: relative, state: "unknown", reason: "canonical content retained" },
+          { path: relative, state: "absent", reason: "canonical content is already absent" },
+        ]);
+        // Unchanged: the kept member is still observed in full.
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootProbes: counted.recording.counts(root).access,
+        }).toEqual({ treeHashes: 0, rootProbes: 2 });
+      });
+    },
+    { timeout: 60_000 },
+  );
 });
 
 /**
@@ -462,6 +568,88 @@ describe("Activation planning still judges a handed Hook's tree later in the pha
         // The Hook's projected outcomes judge its tree again in this phase and
         // refuse to prepare the change.
         expect(prepared).toMatchObject({ _tag: "ContributorTreeMismatch", packageRoot: root });
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "observes the Hook itself unless the handed observation read this phase's accepted row",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      return Effect.gen(function* () {
+        const installed = yield* applyInstallAcceptingExecutionChanges(
+          installRequest({
+            type: "hook",
+            subject: { kind: "source", source: "test:@acme/hooks/review" },
+          }),
+        );
+        expect(deriveOperationOutcome(installed)).toBe("applied");
+        yield* applyActivationAcceptingExecutionChanges({
+          type: "hook",
+          name: "review",
+          enabled: false,
+        });
+        const adapter = yield* StepFailureConversion;
+        // Settlement's observation of the disabled Hook in the current graph.
+        const settle = Effect.gen(function* () {
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const node = graph.nodes.find((item) => item.type === "hook" && item.name === "review");
+          if (node === undefined) throw new Error("Expected the declared hook");
+          return yield* observeDesiredCanonical(node);
+        });
+        const earlierPhase = yield* settle.pipe(withWorkspaceReadView);
+        const counts = yield* Effect.gen(function* () {
+          const proposal = yield* proposeDesiredState([
+            { kind: "activation", type: "hook", name: "review", enabled: true },
+          ]);
+          // Collect the enable's steps as activation does, counting tree hashes.
+          const collect = (settledSubject?: AcceptedCanonicalObservation) =>
+            Effect.gen(function* () {
+              const work = workObservations(false);
+              const collected = yield* collectMaterializeSteps({
+                desiredState: proposal.after,
+                settings: proposal.settings,
+                selection: {
+                  target: Option.none(),
+                  types: [],
+                  subjects: [{ type: "hook", name: "review" }],
+                },
+                requireSubagentSupport: true,
+                inventories: "presence",
+                ...(settledSubject === undefined ? {} : { settledSubject }),
+                adapter,
+              }).pipe(work.provide);
+              expect(collected.steps).toEqual([]);
+              return work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length;
+            });
+          const settled = yield* settle;
+          expect(settled.observation.status).toBe("usable");
+          const accepted = settled.accepted;
+          if (accepted === undefined) throw new Error("Expected an accepted row");
+          return {
+            observed: yield* collect(),
+            handed: yield* collect(settled),
+            copiedRow: yield* collect({ ...settled, accepted: { ...accepted } }),
+            otherName: yield* collect({
+              ...settled,
+              desired: { ...settled.desired, name: "other" },
+            }),
+            earlierPhase: yield* collect(earlierPhase),
+          };
+        }).pipe(withWorkspaceReadView);
+        // Only an observation of this Hook against this phase's accepted row
+        // stands in; a structurally equal row, another name, or an earlier
+        // read phase leaves step collection to hash the tree itself.
+        expect(counts).toEqual({
+          observed: 1,
+          handed: 0,
+          copiedRow: 1,
+          otherName: 1,
+          earlierPhase: 1,
+        });
       }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
     },
     { timeout: 60_000 },

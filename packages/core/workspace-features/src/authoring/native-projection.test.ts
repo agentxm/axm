@@ -16,6 +16,7 @@ import {
   KnowledgeManager,
   RuleManager,
 } from "@agentxm/workspace-kernel/materialization";
+import { observeProjectionPlans } from "@agentxm/workspace-kernel/projection";
 import {
   WorkspaceLocation,
   computeSourceHash,
@@ -173,6 +174,31 @@ describe("authored native preflight inputs", () => {
     return { workspace, packageRoot };
   };
 
+  /** `calls` with the `nth` (from zero) successful content read of `file` removed. */
+  const withoutOneRead = <
+    Call extends { readonly method: string; readonly outcome: string; readonly path: string },
+  >(
+    calls: ReadonlyArray<Call>,
+    file: string,
+    nth = 0,
+  ) => {
+    const index = calls
+      .flatMap((call, position) =>
+        call.method === "readFile" && call.outcome === "success" && call.path === file
+          ? [position]
+          : [],
+      )
+      .at(nth);
+    expect(index).toBeDefined();
+    return index === undefined ? calls : [...calls.slice(0, index), ...calls.slice(index + 1)];
+  };
+
+  /** Every object reachable from `value`, itself included. */
+  const objectsWithin = (value: unknown): ReadonlyArray<object> =>
+    typeof value !== "object" || value === null
+      ? []
+      : [value, ...Object.values(value).flatMap(objectsWithin)];
+
   /** Run one preflight, counting only the work that call performs. */
   const measured = <A, E, R>(packageRoot: string, preflight: Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
@@ -230,6 +256,8 @@ describe("authored native preflight inputs", () => {
             }),
           );
 
+        // The read decode starts mutable, so only the run can freeze it.
+        expect(Object.isFrozen(manifest)).toBe(false);
         const runs = {
           neither: yield* run({}),
           hash: yield* run({ sourceHash: first }),
@@ -255,6 +283,25 @@ describe("authored native preflight inputs", () => {
         expect(otherHashDecoded.result).toEqual(runs.decodedAndHash.result);
         expect(otherHashDecoded.calls).toEqual(runs.decodedAndHash.calls);
         for (const input of inputs) expect(runs[input].result).toEqual(runs.neither.result);
+
+        // A supplied decode stands only for the manager's own manifest read:
+        // every other call, containment and type checks included, still runs
+        // in the same order. The manager's read follows the package hash's
+        // read unless the hash is supplied. The Subagent manager loads its
+        // package itself.
+        const lessManagerRead = (calls: (typeof runs)["facts"]["calls"], hashed: boolean) =>
+          type === "subagent"
+            ? calls
+            : withoutOneRead(calls, nodePath.join(packageRoot, manifestFile), hashed ? 1 : 0);
+        expect(runs.decoded.calls).toEqual(lessManagerRead(runs.facts.calls, true));
+        expect(runs.decodedAndHash.calls).toEqual(lessManagerRead(runs.factsAndHash.calls, false));
+
+        // The decode the run hands its manager is frozen all the way down.
+        if (type !== "subagent") {
+          const objects = objectsWithin(manifest);
+          if (type !== "rule") expect(objects.length).toBeGreaterThan(1);
+          expect(objects.filter((value) => !Object.isFrozen(value))).toEqual([]);
+        }
 
         const renamedIdentity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/renamed`));
         const renamedDetail =
@@ -361,19 +408,55 @@ describe("authored native preflight inputs", () => {
             }
           }).pipe(withWorkspaceReadView);
         };
-        const reads = (entry?: PreparedManifestEntry) =>
+        const prepared = (entry?: PreparedManifestEntry) =>
           measured(
             packageRoot,
             prepare(new Map(entry === undefined ? [] : [[manifest.name, entry]])),
-          ).pipe(Effect.map((run) => run.readFile(manifestFile)));
+          );
+        const runs = {
+          none: yield* prepared(),
+          otherRoot: yield* prepared({ packageRoot: other, manifest }),
+          otherType: yield* prepared({ packageRoot, manifest: foreign }),
+          matching: yield* prepared({ packageRoot, manifest }),
+        };
         // The HookManager's tree walk reads the manifest besides any decode.
         const walk = type === "hook" ? 1 : 0;
         expect({
-          none: yield* reads(),
-          otherRoot: yield* reads({ packageRoot: other, manifest }),
-          otherType: yield* reads({ packageRoot, manifest: foreign }),
-          matching: yield* reads({ packageRoot, manifest }),
+          none: runs.none.readFile(manifestFile),
+          otherRoot: runs.otherRoot.readFile(manifestFile),
+          otherType: runs.otherType.readFile(manifestFile),
+          matching: runs.matching.readFile(manifestFile),
         }).toEqual({ none: 1 + walk, otherRoot: 1 + walk, otherType: 1 + walk, matching: walk });
+        // What a prepared projection would write: each plan's unit, target and
+        // exclusions with its observation, and a Hook's agent outcomes and
+        // tree acquisitions.
+        const projectionOf = (result: (typeof runs)["none"]["result"]) => {
+          const { plans, ...rest } = "plans" in result ? result : { plans: result };
+          return observeProjectionPlans(plans).pipe(
+            withWorkspaceReadView,
+            Effect.map((observations) => ({
+              ...rest,
+              plans: plans.map(({ unitId, targetFile, exclusions }, index) => ({
+                unitId,
+                targetFile,
+                exclusions,
+                observation: observations[index],
+              })),
+            })),
+          );
+        };
+        const projection = yield* projectionOf(runs.none.result);
+        expect(projection.plans.length).toBeGreaterThan(0);
+        // A matching decode skips only the manager's manifest read and yields
+        // the same projection; an entry that does not match changes nothing.
+        expect(yield* projectionOf(runs.matching.result)).toEqual(projection);
+        expect(runs.matching.calls).toEqual(
+          withoutOneRead(runs.none.calls, nodePath.join(packageRoot, manifestFile)),
+        );
+        for (const ignored of [runs.otherRoot, runs.otherType]) {
+          expect(yield* projectionOf(ignored.result)).toEqual(projection);
+          expect(ignored.calls).toEqual(runs.none.calls);
+        }
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
 

@@ -100,6 +100,7 @@ import {
   captureAgentOutputAuthority,
   expectedProjectionNames,
   inspectDesiredMcpServer,
+  installedInventoryItem,
   observeMaterializationCurrency,
   makeExtensionConstraintInvariantFact,
   type ExpectedProjectionNames,
@@ -607,9 +608,13 @@ export const collectMaterializeSteps = (args: {
    */
   readonly inventories?: "observed" | "presence";
   /**
-   * A selected Hook's usable observation, made earlier in this read phase by
-   * a caller that selects the Hook's projected outcomes later in the phase,
-   * which judges its tree again. It stands in for observing that Hook here.
+   * The selected subject's usable observation, made earlier in this read
+   * phase by a caller that judges the subject's tree again later in the
+   * phase: a Hook whose projected outcomes it then selects, or a Rule or
+   * Knowledge subject whose contributors the shared projection exposure
+   * selects again. It stands in for observing a Hook here, and a Rule or
+   * Knowledge subject only while its inventory lists it as installed, so
+   * that no prepared projection takes the subject out of that selection.
    */
   readonly settledSubject?: AcceptedCanonicalObservation;
   /**
@@ -810,16 +815,29 @@ export const collectMaterializeSteps = (args: {
         const settled = args.settledSubject;
         if (
           settled === undefined ||
-          node.type !== "hook" ||
+          (node.type !== "hook" && node.type !== "rule" && node.type !== "knowledge") ||
           settled.observation.status !== "usable" ||
           settled.desired.type !== node.type ||
           settled.desired.name !== node.name
         )
           return Option.none<AcceptedCanonicalObservation>();
         const accepted = yield* lockfileReader.acceptedEntry(node.type, node.name);
-        return Option.getOrUndefined(accepted) === settled.accepted
-          ? Option.some<AcceptedCanonicalObservation>({ ...settled, desired: node })
-          : Option.none<AcceptedCanonicalObservation>();
+        if (Option.getOrUndefined(accepted) !== settled.accepted)
+          return Option.none<AcceptedCanonicalObservation>();
+        if (node.type !== "hook") {
+          // A Rule or Knowledge subject the inventory does not list as
+          // installed rematerializes, and nothing judges its tree again. A
+          // failed inventory read is replayed where currency reads it.
+          const read = inventories.get(node.type);
+          const inventory = read === undefined ? undefined : yield* Effect.result(read);
+          if (
+            inventory === undefined ||
+            Result.isFailure(inventory) ||
+            installedInventoryItem(inventory.success, node) === undefined
+          )
+            return Option.none<AcceptedCanonicalObservation>();
+        }
+        return Option.some<AcceptedCanonicalObservation>({ ...settled, desired: node });
       });
     const phaseReader = {
       ...desiredStateReader,

@@ -223,7 +223,7 @@ const publishedMcpEntries = (proposal: DesiredStateProposal): ReadonlyArray<stri
 export const prepareEnabledRealization = Effect.fnUntraced(function* (
   args: ActivationRealizationInput & {
     readonly selection: SyncSelection;
-    /** A Hook subject's usable observation from settling this change, in this read phase. */
+    /** The subject's usable observation from settling this change, in this read phase. */
     readonly settledSubject?: AcceptedCanonicalObservation;
   },
 ) {

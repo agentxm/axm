@@ -138,7 +138,10 @@ export {
   deriveAgentOutputAuthority,
   type AgentOutputAuthority,
 } from "./output-authority.js";
-export { observeMaterializationCurrency } from "./materialization-currency.js";
+export {
+  installedInventoryItem,
+  observeMaterializationCurrency,
+} from "./materialization-currency.js";
 export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
 export {
   observeProjectionOutput,

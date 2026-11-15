@@ -17,6 +17,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
@@ -37,7 +38,9 @@ import {
   withWorkspaceReadView,
   WorkspaceReadViews,
   WorkspaceRecords,
+  WorkspaceRootEscape,
   type AcceptedCanonicalObservation,
+  type ExtensionInventory,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import {
@@ -54,10 +57,17 @@ const recordedNodeServices = Layer.provideMerge(
   NodeServices.layer,
 );
 
-/** Count the inventory reads that ask for native detail, by type, through every read phase. */
+/** What an inventory read returns, as a test arranges it. */
+type InventoryView = (inventory: ExtensionInventory) => ExtensionInventory;
+
+/**
+ * Count the inventory reads that ask for native detail, by type, through
+ * every read phase, presenting each inventory through `view`.
+ */
 const countingDetailedInventories = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   counts: Map<ExtensionType, number>,
+  view: InventoryView = (inventory) => inventory,
 ) =>
   Effect.gen(function* () {
     const views = yield* WorkspaceReadViews;
@@ -69,7 +79,7 @@ const countingDetailedInventories = <A, E, R>(
       ) =>
         Effect.sync(() => {
           if (options.details === true) counts.set(type, (counts.get(type) ?? 0) + 1);
-        }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
+        }).pipe(Effect.andThen(records.getExtensionInventory(type, options)), Effect.map(view)),
     });
     const records = yield* WorkspaceRecords;
     return yield* effect.pipe(
@@ -97,6 +107,7 @@ const measure = <A, E, R>(
   world: InstallWorld,
   setup: Effect.Effect<unknown, unknown, R>,
   measured: Effect.Effect<A, E, R>,
+  view?: InventoryView,
 ) =>
   Effect.gen(function* () {
     const recording = yield* FileSystemRecorder;
@@ -104,7 +115,7 @@ const measure = <A, E, R>(
     recording.reset();
     const detailed = new Map<ExtensionType, number>();
     const work = workObservations(false);
-    const result = yield* countingDetailedInventories(measured, detailed).pipe(work.provide);
+    const result = yield* countingDetailedInventories(measured, detailed, view).pipe(work.provide);
     return {
       result,
       detailedMcpInventories: detailed.get("mcp-server") ?? 0,
@@ -431,7 +442,9 @@ describe("Activation planning observes canonical content only where a decision r
  * Enabling an installed, disabled Registry subject whose native outputs are
  * current. Settlement observes the subject's tree; step collection takes that
  * observation for a Hook, whose projected outcomes judge its tree again in the
- * phase. Every other type keeps step collection's own observation.
+ * phase, and for an installed Rule or Knowledge subject, whose contributors the
+ * shared projection exposure selects again. A Skill has no later judgement, so
+ * step collection still observes it.
  * `repeated` is the count with step collection's own observation.
  */
 describe("Activation planning hands settlement's observation to step collection", () => {
@@ -455,7 +468,7 @@ describe("Activation planning hands settlement's observation to step collection"
         r.writeRule("review", [{ version: "1.0.0", body: "Review." }]),
       steps: [],
       repeated: { treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 },
-      observed: { treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 },
+      observed: { treeHashes: 2, rootDirectoryReads: 4, rootProbes: 2 },
     },
     {
       type: "knowledge",
@@ -464,7 +477,7 @@ describe("Activation planning hands settlement's observation to step collection"
         r.writeKnowledge("review", [{ version: "1.0.0", body: "# Review\n" }]),
       steps: [],
       repeated: { treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 },
-      observed: { treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 },
+      observed: { treeHashes: 2, rootDirectoryReads: 3, rootProbes: 2 },
     },
     {
       type: "skill",
@@ -650,6 +663,270 @@ describe("Activation planning still judges a handed Hook's tree later in the pha
           otherName: 1,
           earlierPhase: 1,
         });
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+});
+
+/** The inventory with `type` `name` no longer listed as installed. */
+const notInstalled =
+  (type: ExtensionType, name: string): InventoryView =>
+  (inventory) => ({
+    ...inventory,
+    items: inventory.items.map((item) =>
+      item.type === type && item.name === name ? { ...item, installed: false } : item,
+    ),
+  });
+
+/** Install the Registry `type` `review`, then disable it. */
+const installDisabled = (type: ExtensionType, plural: string) =>
+  Effect.gen(function* () {
+    const installed = yield* applyInstallAcceptingExecutionChanges(
+      installRequest({
+        type,
+        subject: { kind: "source", source: `test:@acme/${plural}/review` },
+      }),
+    );
+    expect(deriveOperationOutcome(installed)).toBe("applied");
+    const disabled = yield* applyActivationAcceptingExecutionChanges({
+      type,
+      name: "review",
+      enabled: false,
+    });
+    expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe("applied");
+  });
+
+describe("Activation planning keeps step collection's judgement of a subject nothing selects again", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  const rows = [
+    {
+      type: "rule",
+      plural: "rules",
+      publish: (r: InstallWorld["registry"]) =>
+        r.writeRule("review", [{ version: "1.0.0", body: "Review." }]),
+    },
+    {
+      type: "knowledge",
+      plural: "knowledge",
+      publish: (r: InstallWorld["registry"]) =>
+        r.writeKnowledge("review", [{ version: "1.0.0", body: "# Review\n" }]),
+    },
+  ] as const;
+  for (const row of rows)
+    it.effect(
+      `observes a ${row.type} the inventory does not list as installed`,
+      () => {
+        const created = makeInstallWorld();
+        cleanups.push(created.cleanup);
+        row.publish(created.registry);
+        return Effect.gen(function* () {
+          const counted = yield* measure(
+            created,
+            installDisabled(row.type, row.plural),
+            EnableExtension.prepare({ type: row.type, name: "review" }),
+            // Step collection then rematerializes the subject from its source,
+            // and its prepared projection leaves the subject's tree unjudged.
+            notInstalled(row.type, "review"),
+          );
+          const root = acquiredRoot(created, row.plural, "review");
+          if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+          expect(stepsOf(counted.result)).toEqual([
+            { key: `${row.type}:review`, readiness: "ready" },
+          ]);
+          // Unchanged: settlement's and step collection's own observations,
+          // the last judgement of the tree in this phase.
+          expect({
+            treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+              .length,
+            rootProbes: counted.recording.counts(root).access,
+          }).toEqual({ treeHashes: 2, rootProbes: 2 });
+        });
+      },
+      { timeout: 60_000 },
+    );
+});
+
+describe("Activation planning still judges a handed Rule or Knowledge tree later in the phase", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  /**
+   * Prepare enabling `type` `review` with a foreign edit right after
+   * settlement's tree hash, counting every tree hash of the preparation.
+   */
+  const prepareEditedAfterSettlement = (
+    created: InstallWorld,
+    type: ExtensionType,
+    plural: string,
+    file: string,
+  ) =>
+    Effect.gen(function* () {
+      yield* installDisabled(type, plural);
+      const root = acquiredRoot(created, plural, "review");
+      let treeHashes = 0;
+      const prepared = yield* EnableExtension.prepare({ type, name: "review" }).pipe(
+        Effect.provideService(CurrentWorkObserver, {
+          record: (fact) => {
+            if (fact.kind !== "axm.hash.materialized-tree") return;
+            treeHashes += 1;
+            if (treeHashes === 1) fs.appendFileSync(nodePath.join(root, file), "Edited.\n");
+          },
+          detailSelected: () => false,
+        }),
+      );
+      expect(treeHashes).toBeGreaterThan(0);
+      if (prepared._tag !== "SetActivation") throw new Error("Expected a change");
+      return { prepared, treeHashes };
+    });
+
+  it.effect(
+    "blocks a rule enable whose tree changes after settlement observed it",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeRule("review", [{ version: "1.0.0", body: "Review." }]);
+      return Effect.gen(function* () {
+        const { prepared } = yield* prepareEditedAfterSettlement(
+          created,
+          "rule",
+          "rules",
+          nodePath.join("src", "RULE.md"),
+        );
+        // The shared projection selects the Rule again and blocks the change.
+        expect(Option.isNone(prepared.refusal)).toBe(true);
+        expect(Option.getOrUndefined(prepared.blocked)?.detail).toBe(
+          "Cannot establish the sources exposed by the transition's shared projections",
+        );
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "leaves a knowledge bundle whose tree changes after settlement observed it to its later selection",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeKnowledge("review", [{ version: "1.0.0", body: "# Review\n" }]);
+      return Effect.gen(function* () {
+        const { prepared, treeHashes } = yield* prepareEditedAfterSettlement(
+          created,
+          "knowledge",
+          "knowledge",
+          nodePath.join("src", "index.md"),
+        );
+        // The shared projection selects the bundle again and judges its tree,
+        // which excludes a bundle that is no longer usable from the region
+        // rather than refusing the change.
+        expect(treeHashes).toBe(2);
+        expect(Option.isNone(prepared.refusal)).toBe(true);
+        expect(Option.isNone(prepared.blocked)).toBe(true);
+        expect(stepsOf(prepared)).toEqual([]);
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "observes the rule itself unless its inventory lists it as installed",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeRule("review", [{ version: "1.0.0", body: "Review." }]);
+      return Effect.gen(function* () {
+        yield* installDisabled("rule", "rules");
+        const adapter = yield* StepFailureConversion;
+        const records = yield* WorkspaceRecords;
+        /** Records whose Rule inventory is `read`. */
+        const presenting = (
+          read: (
+            inventory: ExtensionInventory,
+          ) => Effect.Effect<ExtensionInventory, WorkspaceRootEscape>,
+        ) => ({
+          ...records,
+          getExtensionInventory: (
+            type: Parameters<typeof records.getExtensionInventory>[0],
+            options: Parameters<typeof records.getExtensionInventory>[1],
+          ) =>
+            type === "rule"
+              ? records.getExtensionInventory(type, options).pipe(Effect.flatMap(read))
+              : records.getExtensionInventory(type, options),
+        });
+        const failing = presenting(() =>
+          Effect.fail(new WorkspaceRootEscape({ workspaceRoot: "here", allowedRoot: "there" })),
+        );
+        const results = yield* Effect.gen(function* () {
+          const proposal = yield* proposeDesiredState([
+            { kind: "activation", type: "rule", name: "review", enabled: true },
+          ]);
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const current = graph.nodes.find(
+            (node) => node.type === "rule" && node.name === "review",
+          );
+          if (current === undefined) throw new Error("Expected the declared rule");
+          const settled = yield* observeDesiredCanonical(current);
+          expect(settled.observation.status).toBe("usable");
+          // Collect the enable's steps as activation does, counting tree hashes.
+          const collect = (
+            presented: typeof records,
+            settledSubject?: AcceptedCanonicalObservation,
+          ) =>
+            Effect.gen(function* () {
+              const work = workObservations(false);
+              const collected = yield* collectMaterializeSteps({
+                desiredState: proposal.after,
+                settings: proposal.settings,
+                selection: {
+                  target: Option.none(),
+                  types: [],
+                  subjects: [{ type: "rule", name: "review" }],
+                },
+                requireSubagentSupport: true,
+                inventories: "presence",
+                ...(settledSubject === undefined ? {} : { settledSubject }),
+                adapter,
+              }).pipe(
+                Effect.provideService(WorkspaceRecords, presented),
+                work.provide,
+                Effect.result,
+              );
+              return {
+                steps: Result.isSuccess(collected)
+                  ? collected.success.steps.map((step) => step.key)
+                  : collected.failure,
+                treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+                  .length,
+              };
+            });
+          const unlisted = presenting((inventory) =>
+            Effect.succeed(notInstalled("rule", "review")(inventory)),
+          );
+          return {
+            observed: yield* collect(records),
+            handed: yield* collect(records, settled),
+            unlisted: yield* collect(unlisted),
+            unlistedHanded: yield* collect(unlisted, settled),
+            failing: yield* collect(failing),
+            failingHanded: yield* collect(failing, settled),
+          };
+        }).pipe(withWorkspaceReadView);
+        // An installed Rule takes the handed observation. One the inventory
+        // does not list, or whose inventory read fails, is observed again, and
+        // the failure surfaces as it does without the handed observation.
+        expect(results.observed).toEqual({ steps: [], treeHashes: 1 });
+        expect(results.handed).toEqual({ steps: [], treeHashes: 0 });
+        expect(results.unlisted.treeHashes).toBe(1);
+        expect(results.unlistedHanded).toEqual(results.unlisted);
+        expect(results.unlisted.steps).toEqual(["rule:review"]);
+        expect(results.failing.treeHashes).toBe(1);
+        expect(results.failingHanded).toEqual(results.failing);
+        expect(results.failing.steps).toMatchObject({ _tag: "WorkspaceRootEscape" });
       }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
     },
     { timeout: 60_000 },

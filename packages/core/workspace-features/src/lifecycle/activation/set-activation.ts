@@ -498,7 +498,7 @@ type RealizationPreparer<R> = (args: {
   readonly selection: SyncSelection;
   readonly adapter: StepFailureConversionService;
   readonly retireUnreachable: boolean;
-  /** A Hook's usable observation from settling, whose tree this phase judges again. */
+  /** The subject's usable observation from settling, for a tree this phase judges again. */
   readonly settledSubject?: AcceptedCanonicalObservation;
 }) => Effect.Effect<ActivationRealization, SyncPolicyFailure, R>;
 
@@ -568,11 +568,15 @@ const settleLeaf = <R>(
       request.type === "rule" || request.type === "knowledge"
         ? yield* instructionGate()
         : Option.none<OperationRefused>();
-    // Step collection may take settlement's observation of a Hook: its
-    // projected outcomes below select the Hook, judging its tree again in
-    // this phase. Every other type keeps step collection's own observation.
+    // Step collection may take settlement's observation of a subject whose
+    // tree this phase judges again: a Hook's projected outcomes below select
+    // it, and the shared projection exposure selects an installed Rule or
+    // Knowledge subject again. Every other type keeps step collection's own
+    // observation.
     const rejudged =
-      request.type === "hook" && (yield* HookManager).configuredAgentOutcomes !== undefined;
+      request.type === "rule" ||
+      request.type === "knowledge" ||
+      (request.type === "hook" && (yield* HookManager).configuredAgentOutcomes !== undefined);
     const settledSubject =
       canonical?.observation.status === "usable" && rejudged ? canonical : undefined;
     const realization: ActivationRealization =

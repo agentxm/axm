@@ -158,6 +158,8 @@ export const WorkspaceReadViewsLive = Layer.effect(
           let active = true;
           let endReason: WorkspaceReadPhaseEnd | undefined;
           const packDocuments: WorkspaceReadPhaseState["packDocuments"] = new Map();
+          const knowledgeInspections: NonNullable<WorkspaceReadPhaseState["knowledgeInspections"]> =
+            new Map();
           const candidates = new Map<
             NonNullable<Parameters<DesiredStateReaderService["evaluate"]>[0]>,
             ReturnType<DesiredStateReaderService["evaluate"]>
@@ -167,6 +169,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
             active = false;
             candidates.clear();
             packDocuments.clear();
+            knowledgeInspections.clear();
           };
           const readFileSystem = options?.fileSystem ?? fs;
           const observation =
@@ -423,6 +426,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
                 readers: { desired, settings, locks },
                 records,
                 packDocuments,
+                knowledgeInspections,
                 isActive: () => active,
                 endedBy: () => endReason,
                 close,

@@ -29,6 +29,7 @@ import {
   type DesiredStateGraph,
   type ResolvedKnowledgeDiscoveryConfig,
   workspaceReadPhaseFor,
+  inspectKnowledgePackageInPhase,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -171,16 +172,18 @@ export const KnowledgeManagerLive = Layer.effect(
         .canonicalPath;
 
     /**
-     * Inspect a package, decoding its manifest unless the caller supplies the
-     * decode it already made of this package's manifest.
+     * Judge a package inspection: a failure is the package's definition
+     * problem, and so is any error diagnostic it reports.
      */
-    const inspectPackage = (packageRoot: string, decoded?: KnowledgeManifest) =>
+    const judgeInspection = <R>(
+      inspected: Effect.Effect<
+        Effect.Success<ReturnType<typeof inspectKnowledgePackage>>,
+        Effect.Error<ReturnType<typeof inspectKnowledgePackage>>,
+        R
+      >,
+    ) =>
       Effect.gen(function* () {
-        const { manifest, inspection } = yield* (
-          decoded === undefined
-            ? inspectKnowledgePackage(packageRoot)
-            : inspectKnowledgePackageWithManifest(packageRoot, decoded)
-        ).pipe(
+        const { manifest, inspection } = yield* inspected.pipe(
           Effect.mapError(
             (cause) =>
               new KnowledgeDefinitionInvalid({
@@ -206,6 +209,17 @@ export const KnowledgeManagerLive = Layer.effect(
         }
         return { manifest, inspection };
       });
+
+    /**
+     * Inspect a package, decoding its manifest unless the caller supplies the
+     * decode it already made of this package's manifest.
+     */
+    const inspectPackage = (packageRoot: string, decoded?: KnowledgeManifest) =>
+      judgeInspection(
+        decoded === undefined
+          ? inspectKnowledgePackage(packageRoot)
+          : inspectKnowledgePackageWithManifest(packageRoot, decoded),
+      );
 
     const preparePackage = (
       ref: KnowledgeExtensionRef,
@@ -488,12 +502,17 @@ export const KnowledgeManagerLive = Layer.effect(
               });
             }
             // The decode the observation just made of this package's manifest,
-            // when it is that manifest; otherwise the inspection reads it.
+            // when it is that manifest; otherwise the inspection reads it. A
+            // later inspection of this root through the same observation
+            // phase receives this outcome.
+            const decoded = capturedManifestFor(path, capturedManifest, root, "knowledge");
             const inspection = yield* Effect.result(
-              inspectPackage(
-                root,
-                Option.getOrUndefined(
-                  capturedManifestFor(path, capturedManifest, root, "knowledge"),
+              judgeInspection(
+                inspectKnowledgePackageInPhase(
+                  root,
+                  Option.isSome(decoded)
+                    ? inspectKnowledgePackageWithManifest(root, decoded.value)
+                    : inspectKnowledgePackage(root),
                 ),
               ),
             );

@@ -429,7 +429,11 @@ export {
   withFreshWorkspaceObservationReadView,
   withLiveWorkspaceObservations,
 } from "./workspace/read-view.js";
-export { CurrentWorkspaceReadPhase, workspaceReadPhaseFor } from "./workspace/read-phase.js";
+export {
+  CurrentWorkspaceReadPhase,
+  inspectKnowledgePackageInPhase,
+  workspaceReadPhaseFor,
+} from "./workspace/read-phase.js";
 export { observeConfiguredTargets } from "./workspace/selected-configured-observations.js";
 
 export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";

@@ -31,6 +31,7 @@ import {
   ExtensionInventoryLifecycleSchema,
   desiredIdentityFqn,
   formatDesiredIdentity,
+  inspectKnowledgePackageInPhase,
   lockEntryToSourceParams,
   lockEntryVersion,
   type DesiredExtensionNode,
@@ -278,7 +279,10 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
                   Effect.map((value) => ({ ...value, inspection: undefined })),
                   Effect.result,
                 )
-              : yield* inspectKnowledgePackage(packageRoot).pipe(Effect.result);
+              : yield* inspectKnowledgePackageInPhase(
+                  packageRoot,
+                  inspectKnowledgePackage(packageRoot),
+                ).pipe(Effect.result);
         const bundle = read?._tag === "Success" ? read.success : undefined;
         if (inspection.state === "complete" || inspection.state === "partial") {
           inspection =

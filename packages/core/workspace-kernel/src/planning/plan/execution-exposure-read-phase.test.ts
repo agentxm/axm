@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 import * as Tracer from "effect/Tracer";
 import {
@@ -25,9 +26,13 @@ import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import { WorkspaceStateLive } from "../../workspace-state/live.js";
 import {
+  ConfiguredAgentOutcomesProvider,
   SettingsReader,
+  WorkspaceLocation,
   withLiveWorkspaceObservations,
   withWorkspaceReadView,
+  workspaceReadPhaseFor,
+  type ConfiguredAgentOutcomesRequest,
 } from "../../workspace-state/index.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../../workspace-state/testing.js";
 import { StepFailure, type Plan, type PlannedJobStep } from "../../operations/index.js";
@@ -131,11 +136,51 @@ interface ReviewOptions {
     root: string,
     fs: FileSystem.FileSystem,
   ) => Effect.Effect<void, PlatformError.PlatformError>;
+  /** Each native observation reads through the active read phase, as production observers do. */
+  readonly phaseReadingObserver?: boolean;
 }
+
+/**
+ * A native observer that, like the production provider and its extension
+ * managers, reads documents and workspace records through the active read
+ * phase. It records which phase each observation saw; it cannot establish
+ * what the production managers inspect natively.
+ */
+const phaseReadingObserver = (observed: Array<string>) =>
+  Layer.effect(
+    ConfiguredAgentOutcomesProvider,
+    Effect.gen(function* () {
+      const location = yield* WorkspaceLocation;
+      const path = yield* Path.Path;
+      const observe = (request: ConfiguredAgentOutcomesRequest) =>
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          if (phase === undefined) {
+            observed.push(`${request.type}: live`);
+            return new Map();
+          }
+          observed.push(
+            `${request.type}: ${phase.observations ? "observation" : "document"} phase`,
+          );
+          yield* phase.readers.settings.configuredAgents;
+          yield* phase.readers.locks.lockfile;
+          yield* phase.readers.desired.graph();
+          yield* phase.records
+            .rows(request.type)
+            .pipe(
+              Effect.provideService(FileSystem.FileSystem, phase.fileSystem),
+              Effect.provideService(Path.Path, path),
+            );
+          return new Map();
+        }).pipe(Effect.orDie);
+      return { byExtensionType: { hook: observe, "mcp-server": observe } };
+    }),
+  );
 
 /** A real workspace whose plan exposes one Registry ref per step. */
 const workspace = (refs: ReadonlyArray<ReadonlyArray<ExtensionRef>>, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
+    const observed: string[] = [];
     const live = yield* FileSystem.FileSystem;
     const root = yield* live.makeTempDirectoryScoped({ prefix: "axm-exposure-phase-" });
     yield* live.writeFileString(
@@ -172,8 +217,9 @@ const workspace = (refs: ReadonlyArray<ReadonlyArray<ExtensionRef>>, options: Re
       ),
     );
     const layer = Layer.mergeAll(
-      state,
-      ConfiguredAgentOutcomesProviderTest,
+      options.phaseReadingObserver === true
+        ? Layer.provideMerge(phaseReadingObserver(observed), state)
+        : Layer.merge(state, ConfiguredAgentOutcomesProviderTest),
       SourceHostProvidersTest({
         fetch: (ref) =>
           Effect.gen(function* () {
@@ -182,7 +228,7 @@ const workspace = (refs: ReadonlyArray<ReadonlyArray<ExtensionRef>>, options: Re
           }).pipe(Effect.orDie),
       }),
     );
-    return { root, plan, layer, live };
+    return { root, plan, layer, live, observed };
   });
 
 /**
@@ -194,7 +240,7 @@ const reviewWorkspace = (
   options: ReviewOptions = {},
 ) =>
   Effect.gen(function* () {
-    const { root, plan, layer, live } = yield* workspace(refs, options);
+    const { root, plan, layer, live, observed } = yield* workspace(refs, options);
     const spans: Tracer.NativeSpan[] = [];
     const tracer = Tracer.make({
       span(options) {
@@ -226,6 +272,8 @@ const reviewWorkspace = (
       settingsParses: named("axm.parse.settings"),
       lockfileParses: named("axm.parse.lockfile"),
       evaluations: named("axm.resolve.desired-state"),
+      treeHashes: named("axm.hash.materialized-tree"),
+      observed,
       spanNames: [...new Set(spans.map((span) => span.name))].sort(),
     };
   }).pipe(
@@ -242,6 +290,23 @@ describe("Workspace documents read by one execution review", () => {
         lockfileParses: result.lockfileParses,
         evaluations: result.evaluations,
       }).toEqual({ settingsParses: 1, lockfileParses: 1, evaluations: 1 });
+      expect(result.changes).toEqual(["audit", "context"]);
+      // Physical observations stay live: each fetched tree is hashed, none is reused.
+      expect(result.treeHashes).toBe(2);
+      expect(result.spanNames).not.toContain("axm.observation.reuse");
+    }),
+  );
+
+  it.effect("native observations read documents and records through the review's phase", () =>
+    Effect.gen(function* () {
+      const result = yield* reviewWorkspace([[hookRef], [mcpRef]], { phaseReadingObserver: true });
+      expect(result.observed).toEqual(["hook: document phase", "mcp-server: document phase"]);
+      expect({
+        settingsParses: result.settingsParses,
+        lockfileParses: result.lockfileParses,
+        evaluations: result.evaluations,
+        treeHashes: result.treeHashes,
+      }).toEqual({ settingsParses: 1, lockfileParses: 1, evaluations: 1, treeHashes: 2 });
       expect(result.changes).toEqual(["audit", "context"]);
     }),
   );

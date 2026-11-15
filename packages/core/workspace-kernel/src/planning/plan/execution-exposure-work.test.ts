@@ -53,6 +53,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../operations/index.js";
+import { AcquiredContent, sourceRefContentKey } from "../../acquisition/index.js";
 import { SourceNotResolvable } from "../../sources/index.js";
 import { SourceHostProvidersTest } from "../../sources/testing.js";
 import { executionExposureRisks } from "./execution-exposure.js";
@@ -259,6 +260,8 @@ interface ReviewFixture {
   readonly fetchFails?: boolean;
   /** Review a local package directory instead of the Registry package. */
   readonly local?: boolean;
+  /** The transition holds an acquired on-disk tree, with other bytes, for the Registry package. */
+  readonly acquired?: boolean;
 }
 
 /** Review one plan and report the work it performed after fixture setup. */
@@ -269,6 +272,10 @@ const review = (fixture: ReviewFixture) =>
     const directory = yield* native.makeTempDirectoryScoped({ prefix: "axm-exposure-work-" });
     const fetched = path.join(directory, "fetched");
     yield* writePackage(fixture.type, fetched);
+    const acquiredRoot = path.join(directory, "acquired");
+    yield* writePackage(fixture.type, acquiredRoot);
+    yield* native.writeFileString(`${acquiredRoot}/src/hook.sh`, "echo acquired\n");
+    const acquiredTree = yield* computeMaterializedTreeIntegrity(acquiredRoot);
     const names = [...new Set(fixture.steps.flatMap((step) => step.names))];
     const accepted = fixture.accepted === undefined ? [] : (fixture.acceptedNames ?? names);
     // The accepted layout places the package by its accepted identity, whichever name reaches it.
@@ -357,12 +364,15 @@ const review = (fixture: ReviewFixture) =>
       if (entry.logLevel === "Warn") warnings.push(String(entry.message));
     });
     const fetches: ExtensionRef[] = [];
+    // Native observations, fetches and the release of each fetched tree, in order.
+    const lifecycle: string[] = [];
     const observations: Array<{ readonly name: string; readonly agentIds: string }> = [];
     const observer = (request: ConfiguredAgentOutcomesRequest) =>
       Effect.gen(function* () {
         observations.push(
           ...request.rows.map((row) => ({ name: row.name, agentIds: request.agentIds.join(",") })),
         );
+        lifecycle.push(...request.rows.map((row) => `observe ${row.name}`));
         if (fixture.observer === "fails")
           return yield* new ConfiguredAgentOutcomesUnavailable({
             category: "internal",
@@ -403,6 +413,8 @@ const review = (fixture: ReviewFixture) =>
             fetch: (ref) =>
               Effect.gen(function* () {
                 fetches.push(ref);
+                lifecycle.push("fetch");
+                yield* Effect.addFinalizer(() => Effect.sync(() => lifecycle.push("released")));
                 if (ref.refType === "registry")
                   yield* Effect.forEach(ref.lifecycleWarnings ?? [], (warning) =>
                     Effect.logWarning(warning),
@@ -416,6 +428,18 @@ const review = (fixture: ReviewFixture) =>
               }),
           }),
           Logger.layer([logger]),
+          fixture.acquired === true
+            ? Layer.succeed(AcquiredContent, {
+                requestedKeys: new Set([sourceRefContentKey(registryRef(fixture.type, probe))]),
+                filesByKey: new Map([
+                  [
+                    sourceRefContentKey(registryRef(fixture.type, probe)),
+                    { directory: acquiredRoot },
+                  ],
+                ]),
+                failuresByKey: new Map(),
+              })
+            : Layer.empty,
           fixture.observer === undefined
             ? Layer.empty
             : Layer.succeed(ConfiguredAgentOutcomesProvider, {
@@ -442,13 +466,16 @@ const review = (fixture: ReviewFixture) =>
       fetches: fetches.length,
       warnings,
       observations,
+      lifecycle,
       treeHashes: named("axm.hash.materialized-tree"),
       configurationHashes: named("axm.hash.execution-configuration"),
       canonicalHashes: hashesOf(canonicalRoot),
       fetchedHashes: hashesOf(fetched),
       canonicalManifestReads: manifestReadsOf(canonicalRoot),
       fetchedManifestReads: manifestReadsOf(fetched),
+      acquiredHashes: hashesOf(acquiredRoot),
       canonicalTree,
+      acquiredTree,
     };
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
@@ -514,6 +541,41 @@ describe("Reviewing an accepted canonical Registry tree", () => {
         configurationHashes: 1,
       });
       expect(result.changes[0]?.contentIdentity).toContain(result.canonicalTree);
+    }),
+  );
+
+  it.effect("an acquired tree for the ref is hashed as reviewed content instead", () =>
+    Effect.gen(function* () {
+      const result = yield* review({
+        type: "hook",
+        steps: [{ names: ["audit"] }],
+        accepted: "matching",
+        observer: "current",
+        acquired: true,
+      });
+      // Canonical for the accepted integrity and again for previous inputs; the acquired tree once.
+      expect({ ...reviewed(result), acquiredHashes: result.acquiredHashes }).toEqual({
+        fetches: 0,
+        treeHashes: 3,
+        canonicalHashes: 2,
+        fetchedHashes: 0,
+        canonicalManifestReads: 2,
+        fetchedManifestReads: 0,
+        configurationHashes: 1,
+        acquiredHashes: 1,
+      });
+      expect(result.acquiredTree).not.toBe(result.canonicalTree);
+      expect(result.changes[0]?.contentIdentity).toBe(
+        `${result.acquiredTree}; configuration-sha256:8fa066aa9d8402caca6b9c80cfb85e17e93c15475e746fcf76f9d9c484523b78`,
+      );
+      expect(result.changes[0]?.registrations).toEqual([
+        { target: "claude-code", change: "changed" },
+      ]);
+      expect(knownInputs(result.changes[0])).toEqual({
+        previous: "known",
+        added: ["NEW_TOKEN"],
+        removed: ["OLD_TOKEN"],
+      });
     }),
   );
 
@@ -693,6 +755,31 @@ describe("Several local names of one exact Registry MCP package in one step", ()
     }),
   );
 
+  it.effect("accepted names hash and decode the canonical tree once", () =>
+    Effect.gen(function* () {
+      const result = yield* review({
+        type: "mcp-server",
+        steps: [{ names: ["a", "b"] }],
+        accepted: "matching",
+      });
+      expect(reviewed(result)).toEqual({
+        fetches: 0,
+        treeHashes: 1,
+        canonicalHashes: 1,
+        fetchedHashes: 0,
+        canonicalManifestReads: 1,
+        fetchedManifestReads: 0,
+        configurationHashes: 2,
+      });
+      expect(result.changes.map((change) => [change.name, change.registrations])).toEqual([
+        ["a", [{ target: "claude-code", change: "unknown" }]],
+        ["b", [{ target: "claude-code", change: "unknown" }]],
+      ]);
+      expect(result.changes[0]?.contentIdentity).toBe(result.changes[1]?.contentIdentity);
+      expect(result.changes[0]?.contentIdentity).toContain(result.canonicalTree);
+    }),
+  );
+
   it.effect("a fetch failure fails the review at the first name", () =>
     Effect.gen(function* () {
       const result = yield* review({
@@ -711,17 +798,27 @@ describe("Several local names of one exact Registry MCP package in one step", ()
     }),
   );
 
-  it.effect("a later step fetches the package again", () =>
+  it.effect("a step releases its fetched tree before a later step fetches again", () =>
     Effect.gen(function* () {
       const result = yield* review({
         type: "mcp-server",
         steps: [{ names: ["a", "b"] }, { names: ["a", "b"] }],
+        observer: "current",
       });
       expect(reviewed(result)).toMatchObject({
         fetches: 2,
         fetchedHashes: 2,
         fetchedManifestReads: 2,
       });
+      // Both names of a step read one fetched tree, released when that step's refs are reviewed.
+      expect(result.lifecycle).toEqual([
+        "observe a",
+        "fetch",
+        "observe b",
+        "released",
+        "fetch",
+        "released",
+      ]);
       expect(result.changes.map((change) => change.name)).toEqual(["a", "b"]);
     }),
   );

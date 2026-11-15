@@ -7,7 +7,13 @@
 
 import {
   AcceptedResolutionWriter,
+  CurrentWorkspaceReadPhase,
+  DesiredStateReader,
+  LockfileReader,
   ProjectionUnitPathSchema,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   UNCONSTRAINED_DESIRED_NODE,
   type DesiredNodeIdentity,
   type Lockfile,
@@ -21,10 +27,17 @@ import * as nodePath from "node:path";
 import { describe, expect, it, vi } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import {
+  FileSystemRecorder,
+  layerRecordingFileSystem,
+  makeRecordingFileSystem,
+} from "@agentxm/test-support";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -118,6 +131,89 @@ const makeMockCodingAgent = (
 
 const TEST_REGISTRY_ENDPOINT = decodeRegistryEndpointSync("https://registry.agentxm.ai");
 
+/** A package whose Codex implementation binds a package resource file. */
+const writeResourcePackage = (packageRoot: string) => {
+  writeSubagentPackage(packageRoot, "planner", "Plans work");
+  nodeFs.writeFileSync(
+    nodePath.join(packageRoot, "subagent.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "subagent",
+      name: "planner",
+      version: "1.0.0",
+      description: "Plans work",
+      core: { instructions: "src/planner.md" },
+      implementations: {
+        codex: {
+          kind: "customized",
+          configuration: { model_instructions_file: "instructions.md" },
+        },
+      },
+    }),
+  );
+  nodeFs.writeFileSync(nodePath.join(packageRoot, "instructions.md"), "Review the complete plan.");
+  return nodePath.join(packageRoot, "instructions.md");
+};
+
+/**
+ * Run `effect` in an observation read phase over the test filesystem that ends,
+ * as a mutation through its port would, when it first touches `endsAt`.
+ * The phase records nothing itself; only its lifetime is under test.
+ */
+const inEndingReadPhase = <A, E, R>(effect: Effect.Effect<A, E, R>, endsAt?: string) =>
+  Effect.gen(function* () {
+    const base = yield* FileSystem.FileSystem;
+    let active = true;
+    const touch = (path: string) =>
+      Effect.sync(() => {
+        if (path === endsAt) active = false;
+      });
+    const { fileSystem } = makeRecordingFileSystem({
+      ...base,
+      access: (path, options) => Effect.andThen(touch(path), base.access(path, options)),
+      readFile: (path) => Effect.andThen(touch(path), base.readFile(path)),
+    });
+    return yield* effect.pipe(
+      Effect.provideService(FileSystem.FileSystem, fileSystem),
+      Effect.provideService(CurrentWorkspaceReadPhase, {
+        location: yield* WorkspaceLocation,
+        observations: true,
+        stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+        fileSystem,
+        readers: {
+          desired: yield* DesiredStateReader,
+          settings: yield* SettingsReader,
+          locks: yield* LockfileReader,
+        },
+        records: yield* WorkspaceRecords,
+        packDocuments: new Map(),
+        isActive: () => active,
+        endedBy: () => (active ? undefined : "mutation"),
+        close: () => {
+          active = false;
+        },
+      }),
+    );
+  });
+
+/** Counts spans by name; `reset` forgets setup spans. */
+const makeSpanCounter = () => {
+  const spans: Tracer.NativeSpan[] = [];
+  return {
+    tracer: Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    }),
+    count: (name: string) => spans.filter((span) => span.name === name).length,
+    reset: () => {
+      spans.length = 0;
+    },
+  };
+};
+
 const makeTestLayer = (overrides?: {
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
@@ -199,7 +295,11 @@ const makeTestLayer = (overrides?: {
     Layer.provide(SourceHostProvidersTest()),
     Layer.provideMerge(
       Layer.mergeAll(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+        Layer.provideMerge(
+          RegistryTransportTest(FetchHttpClient.layer),
+          // Every filesystem call is recorded, so a test can count per-path work.
+          Layer.mergeAll(NativePlatformTest, layerRecordingFileSystem(NodeFileSystem.layer)),
+        ),
         NativeWriteAuthorityPermissive,
       ),
     ),
@@ -899,5 +999,166 @@ describe("SubagentManager", () => {
         });
       }).pipe(Effect.provide(makeTestLayer())),
     );
+  });
+
+  describe("work within one call", () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = nodeFs.mkdtempSync(
+        nodePath.join(nodeFs.realpathSync(nodeOs.tmpdir()), "axm-subagent-work-"),
+      );
+    });
+
+    afterEach(() => {
+      nodeFs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    const resourceFixture = () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      const resource = writeResourcePackage(sourceDir);
+      const axmDir = nodePath.join(tmpDir, "project", ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      return {
+        sourceDir,
+        resource,
+        layer: makeTestLayer({
+          axmDir,
+          agents: [codingAgentForId("claude-code"), codingAgentForId("codex")],
+        }),
+      };
+    };
+
+    it.effect(
+      "prepares each configured agent once when outcomes also validate destinations",
+      () => {
+        const { sourceDir, resource, layer } = resourceFixture();
+        const spans = makeSpanCounter();
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          recording.reset();
+          const validated = yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+            sourceRoot: sourceDir,
+            validateDestinations: true,
+          });
+          expect(spans.count("axm.subagent.prepare")).toBe(2);
+          expect(spans.count("axm.subagent.compile")).toBe(2);
+          expect(recording.contentReads(resource)).toBe(1);
+
+          // Without destination checks the call prepares each agent once, as before.
+          spans.reset();
+          recording.reset();
+          const unvalidated = yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+            sourceRoot: sourceDir,
+          });
+          expect(spans.count("axm.subagent.prepare")).toBe(2);
+          expect(spans.count("axm.subagent.compile")).toBe(2);
+          expect(recording.contentReads(resource)).toBe(1);
+          expect(validated).toEqual(unvalidated);
+          expect(validated.map(({ agentId, outcome }) => ({ agentId, outcome }))).toEqual([
+            { agentId: "claude-code", outcome: "projected" },
+            { agentId: "codex", outcome: "projected" },
+          ]);
+        }).pipe(
+          Effect.provide(layer),
+          Effect.withTracer(spans.tracer),
+          Effect.withTracerEnabled(true),
+        );
+      },
+    );
+
+    it.effect("observes a projection with one preparation per configured agent", () => {
+      const { sourceDir, resource, layer } = resourceFixture();
+      const spans = makeSpanCounter();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        recording.reset();
+        const observed = yield* manager.projectionObservation(ref, { sourceRoot: sourceDir });
+        expect(spans.count("axm.subagent.prepare")).toBe(2);
+        expect(spans.count("axm.subagent.compile")).toBe(2);
+        expect(recording.contentReads(resource)).toBe(1);
+        expect(observed.present).toBe(false);
+        expect(observed.current).toBe(false);
+        expect(observed.targets?.map(({ change }) => change)).toEqual(["created", "created"]);
+      }).pipe(
+        Effect.provide(layer),
+        Effect.withTracer(spans.tracer),
+        Effect.withTracerEnabled(true),
+      );
+    });
+
+    it.effect("refuses a misconfigured placement through the destination preflight", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const misconfigured = makeMockCodingAgent("claude-code", {
+        resolveEffectiveSubagentsDir: () =>
+          Effect.succeed({ _tag: "misconfigured", reason: "Subagent directory is not a folder" }),
+      });
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const outcomes = yield* manager
+          .configuredAgentOutcomesForRef(ref, "projected", {
+            sourceRoot: sourceDir,
+            validateDestinations: true,
+          })
+          .pipe(Effect.flip);
+        const observation = yield* manager
+          .projectionObservation(ref, { sourceRoot: sourceDir })
+          .pipe(Effect.flip);
+        for (const error of [outcomes, observation])
+          expect(error).toMatchObject({
+            _tag: "SubagentDefinitionInvalid",
+            detail: "Subagent directory is not a folder",
+          });
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            axmDir: nodePath.join(tmpDir, "project", ".axm"),
+            agents: [misconfigured],
+          }),
+        ),
+      );
+    });
+
+    it.effect("prepares again once the read phase the preflight observed through ends", () => {
+      const { sourceDir, resource, layer } = resourceFixture();
+      const spans = makeSpanCounter();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const outcomes = (endsAt?: string) =>
+          inEndingReadPhase(
+            manager.configuredAgentOutcomesForRef(ref, "projected", {
+              sourceRoot: sourceDir,
+              validateDestinations: true,
+            }),
+            endsAt,
+          );
+        const observation = (endsAt?: string) =>
+          inEndingReadPhase(manager.projectionObservation(ref, { sourceRoot: sourceDir }), endsAt);
+
+        const held = yield* outcomes();
+        expect(spans.count("axm.subagent.prepare")).toBe(2);
+        spans.reset();
+        expect(yield* outcomes(resource)).toEqual(held);
+        expect(spans.count("axm.subagent.prepare")).toBe(4);
+
+        spans.reset();
+        const observed = yield* observation();
+        expect(spans.count("axm.subagent.prepare")).toBe(2);
+        spans.reset();
+        expect(yield* observation(resource)).toEqual(observed);
+        expect(spans.count("axm.subagent.prepare")).toBe(4);
+      }).pipe(
+        Effect.provide(layer),
+        Effect.withTracer(spans.tracer),
+        Effect.withTracerEnabled(true),
+      );
+    });
   });
 });

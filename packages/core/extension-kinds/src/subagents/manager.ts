@@ -391,10 +391,18 @@ export const SubagentManagerLive = Layer.effect(
             options?.configuredAgents ??
             (yield* (phase?.readers.settings ?? settings).configuredAgents);
           const pkg = yield* readPackageForRef(ref, state, options);
-          if (options?.validateDestinations === true) yield* preflight(ref, pkg, configuredAgents);
-          return (yield* preparedTargets(ref, pkg, configuredAgents)).map((target) =>
-            outcomeForTarget(ref, target, state),
-          );
+          const validated =
+            options?.validateDestinations === true
+              ? (yield* preflight(ref, pkg, configuredAgents)).targets
+              : undefined;
+          // The preflight's preparation is this call's own, but never outlives
+          // the read phase it observed through: once that phase ends, the call
+          // prepares again on live state.
+          const targets =
+            validated !== undefined && phase?.isActive() !== false
+              ? validated
+              : yield* preparedTargets(ref, pkg, configuredAgents);
+          return targets.map((target) => outcomeForTarget(ref, target, state));
         }),
       );
     /** Native files of these names in every Subagent container, declared or not. */
@@ -865,10 +873,17 @@ export const SubagentManagerLive = Layer.effect(
           (yield* (phase?.readers.settings ?? settings).configuredAgents);
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
         // Observation reports an unrecorded file as not current; only a write refuses it.
-        yield* preflight(ref, pkg, configuredAgents, "report");
-        const targets = yield* preparedTargets(ref, pkg, configuredAgents);
+        const prepared = yield* preflight(ref, pkg, configuredAgents, "report");
+        // The preflight's preparation and plan serve the rest of this call, but
+        // never outlive the read phase they observed through: once that phase
+        // ends, the call prepares and plans again on live state.
+        const targets =
+          phase?.isActive() !== false
+            ? prepared.targets
+            : yield* preparedTargets(ref, pkg, configuredAgents);
         const rows = yield* subagentRows;
-        const planned = yield* plannedFiles(ref, targets);
+        const planned =
+          phase?.isActive() !== false ? prepared.planned : yield* plannedFiles(ref, targets);
         const allAgents = yield* agentRepo.all;
         const observations = [];
         for (const target of targets) {

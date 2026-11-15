@@ -10,6 +10,7 @@
  * observed again, and the count with one observation shared inside the
  * preparation. Applying still observes live under the transition lock.
  */
+import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Context from "effect/Context";
@@ -461,4 +462,81 @@ describe("Uninstall preparation shares its read-phase observations", () => {
         .pipe(Effect.provide(recordedNodeServices));
     },
   );
+
+  /** Bind the accepted package a second time, under another lock key. */
+  const bindAgain = (lockPath: string, key: string) =>
+    fs.writeFileSync(
+      lockPath,
+      fs
+        .readFileSync(lockPath, "utf8")
+        .replace(
+          new RegExp(`^${key} = (.*)$`, "m"),
+          (row, binding) => `${row}\n${key}-copy = ${binding}`,
+        ),
+    );
+
+  // The artifact describes the bundle from what its ownership check observed,
+  // so a bundle whose content no longer verifies, is gone, or is still bound
+  // elsewhere is described as it was when the artifact observed it itself.
+  it.effect.each([
+    {
+      condition: "edited content",
+      change: ({ packageRoot }: { packageRoot: string; lockPath: string }) =>
+        fs.appendFileSync(nodePath.join(packageRoot, "src", "index.md"), "Local edit.\n"),
+      reference: {
+        state: "unknown",
+        reason: "canonical ownership or content could not be verified",
+      },
+    },
+    {
+      condition: "deleted content",
+      change: ({ packageRoot }: { packageRoot: string; lockPath: string }) =>
+        fs.rmSync(packageRoot, { recursive: true, force: true }),
+      reference: { state: "absent", reason: "canonical content is already absent" },
+    },
+    {
+      condition: "a package another binding accepts",
+      change: ({ lockPath }: { packageRoot: string; lockPath: string }) =>
+        bindAgain(lockPath, "guide"),
+      reference: { state: "retained", reason: "required by resulting desired state" },
+    },
+  ])("describes a Knowledge bundle with $condition as it observes it", ({ change, reference }) => {
+    const created = world();
+    const { workspace, registry } = created;
+    publish(created, "knowledge", "guide");
+    const packagePath = fileRegistryPackagePath(registry, "knowledge", "guide");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* install("knowledge", "guide");
+          change({
+            packageRoot: nodePath.join(workspace.root, packagePath),
+            lockPath: nodePath.join(workspace.root, "axm.lock"),
+          });
+          const preview = yield* previewUninstall(
+            uninstallRequest({ type: "knowledge", selector: "guide" }),
+          );
+          // The package is kept and reported, never removed.
+          expect(described(preview.units, workspace.root)).toEqual([
+            {
+              id: "knowledge/guide",
+              targets: [
+                { path: "axm.json", change: "updated" },
+                { path: "axm.lock", change: "updated" },
+                { path: "<workspace>/AGENTS.md#knowledge", change: "updated" },
+              ],
+              references: [{ path: packagePath, ...reference }],
+              managedRegions: [
+                {
+                  owner: "@agentxm/knowledge/discovery",
+                  path: "<workspace>/AGENTS.md#knowledge",
+                  unitId: "knowledge:discovery-region",
+                },
+              ],
+            },
+          ]);
+        }),
+      )
+      .pipe(Effect.provide(recordedNodeServices));
+  });
 });

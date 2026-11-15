@@ -185,6 +185,73 @@ describe("Pack uninstall preparation shares its owner call's observations", () =
       .pipe(Effect.provide(recordedNodeServices));
   });
 
+  // The Pack's artifact describes the package from what the retirement check
+  // observed, so a package that no longer verifies, or that another binding
+  // still accepts, is described as it was when the artifact observed it.
+  it.effect.each([
+    {
+      condition: "an edited package",
+      change: ({ packageRoot }: { packageRoot: string; lockPath: string }) =>
+        fs.appendFileSync(nodePath.join(packageRoot, "README.md"), "Edited.\n"),
+      reference: {
+        state: "unknown",
+        reason: "canonical ownership or content could not be verified",
+      },
+    },
+    {
+      condition: "a package another binding accepts",
+      change: ({ lockPath }: { packageRoot: string; lockPath: string }) =>
+        fs.writeFileSync(
+          lockPath,
+          fs
+            .readFileSync(lockPath, "utf8")
+            .replace(/^toolkit = (.*)$/m, (row, binding) => `${row}\ntoolkit-copy = ${binding}`),
+        ),
+      reference: { state: "retained", reason: "required by resulting desired state" },
+    },
+  ])("describes an acquired Pack with $condition as it observes it", ({ change, reference }) => {
+    const created = world();
+    const { workspace, registry } = created;
+    registry.writeSkill("member", [{ version: "1.0.0", body: "Member guidance." }]);
+    registry.writePack("toolkit", [
+      {
+        version: "1.0.0",
+        dependencies: { "@acme/skills/member": "^1.0.0" },
+        files: { "README.md": "# toolkit\n" },
+      },
+    ]);
+    const packagePath = fileRegistryPackagePath(registry, "packs", "toolkit");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* installPack("@acme/packs/toolkit");
+          change({
+            packageRoot: nodePath.join(workspace.root, packagePath),
+            lockPath: nodePath.join(workspace.root, "axm.lock"),
+          });
+          const preview = yield* previewUninstall(
+            uninstallRequest({ type: "pack", selector: "toolkit" }),
+          );
+          // The Pack's package is kept and reported, never removed.
+          expect(described(preview.units, workspace.root)).toEqual([
+            {
+              id: "1 pack",
+              targets: [
+                { path: "axm.lock", change: "updated" },
+                { path: fileRegistryPackagePath(registry, "skills", "member"), change: "removed" },
+                { path: ".agents/skills/member", change: "removed" },
+                { path: ".claude/skills/member", change: "removed" },
+                { path: "axm.json", change: "updated" },
+              ],
+              references: [{ path: packagePath, ...reference }],
+              managedRegions: [],
+            },
+          ]);
+        }),
+      )
+      .pipe(Effect.provide(recordedNodeServices));
+  });
+
   it.effect("describes a workspace-authored Pack from its own observation", () => {
     const created = world({ packs: { toolkit: { source: "workspace", enabled: true } } });
     const { workspace } = created;

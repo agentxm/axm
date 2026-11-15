@@ -125,7 +125,7 @@ const validateLexicalDirectory = (
 const validateExistingAuthoredRoot = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
-  projectRoot: AbsolutePath,
+  realProjectRootOf: Effect.Effect<string>,
   type: ExtensionType,
   root: AbsolutePath,
 ): Effect.Effect<void, WorkspaceLayoutError> =>
@@ -155,9 +155,7 @@ const validateExistingAuthoredRoot = (
       return yield* layoutError(`Invalid ${type} authored root ${root}: expected a directory`);
     }
 
-    const realProjectRoot = yield* fs
-      .realPath(projectRoot)
-      .pipe(Effect.orElseSucceed(() => path.resolve(projectRoot)));
+    const realProjectRoot = yield* realProjectRootOf;
     const realRoot = yield* fs
       .realPath(root)
       .pipe(
@@ -247,8 +245,13 @@ export const resolveProjectWorkspaceLayout = (
     const roots = yield* resolveAuthoredDirectories(path, projectRoot, (type) =>
       configuredAuthoredDirectory(settings, type),
     );
+    // Every existing root of this call compares against one project real path,
+    // resolved at the first root that needs it; each root's own real path stays fresh.
+    const realProjectRoot = yield* Effect.cached(
+      fs.realPath(projectRoot).pipe(Effect.orElseSucceed(() => path.resolve(projectRoot))),
+    );
     for (const [extensionType, root] of roots) {
-      yield* validateExistingAuthoredRoot(fs, path, projectRoot, extensionType, root);
+      yield* validateExistingAuthoredRoot(fs, path, realProjectRoot, extensionType, root);
     }
 
     const authoredRoot = (type: ExtensionType): AbsolutePath => {

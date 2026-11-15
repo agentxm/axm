@@ -121,6 +121,7 @@ import {
   WorkspaceRecords,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type AcceptedCanonicalObservation,
   type AcceptedCanonicalRefError,
   settingsDisplayPath,
   withWorkspaceReadView,
@@ -497,6 +498,8 @@ type RealizationPreparer<R> = (args: {
   readonly selection: SyncSelection;
   readonly adapter: StepFailureConversionService;
   readonly retireUnreachable: boolean;
+  /** A Hook's usable observation from settling, whose tree this phase judges again. */
+  readonly settledSubject?: AcceptedCanonicalObservation;
 }) => Effect.Effect<ActivationRealization, SyncPolicyFailure, R>;
 
 const settleLeaf = <R>(
@@ -565,6 +568,13 @@ const settleLeaf = <R>(
       request.type === "rule" || request.type === "knowledge"
         ? yield* instructionGate()
         : Option.none<OperationRefused>();
+    // Step collection may take settlement's observation of a Hook: its
+    // projected outcomes below select the Hook, judging its tree again in
+    // this phase. Every other type keeps step collection's own observation.
+    const rejudged =
+      request.type === "hook" && (yield* HookManager).configuredAgentOutcomes !== undefined;
+    const settledSubject =
+      canonical?.observation.status === "usable" && rejudged ? canonical : undefined;
     const realization: ActivationRealization =
       Option.isSome(refusal) || Option.isSome(gate)
         ? {
@@ -588,6 +598,7 @@ const settleLeaf = <R>(
             },
             adapter,
             retireUnreachable: false,
+            ...(settledSubject === undefined ? {} : { settledSubject }),
           }).pipe(Effect.mapError(conflictFrom(`Cannot prepare ${request.type} activation`)));
     const agentOutcomes = yield* Effect.gen(function* () {
       if (

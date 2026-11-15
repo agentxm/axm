@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { WorkspaceReadViews, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -315,6 +316,153 @@ describe("Activation planning observes canonical content only where a decision r
           rootProbes: counted.recording.counts(root).access,
         }).toEqual({ treeHashes: 1, rootDirectoryReads: 2, rootProbes: 1 });
       });
+    },
+    { timeout: 60_000 },
+  );
+});
+
+/**
+ * Enabling an installed, disabled Registry subject whose native outputs are
+ * current. Settlement observes the subject's tree; step collection takes that
+ * observation for a Hook, whose projected outcomes judge its tree again in the
+ * phase. Every other type keeps step collection's own observation.
+ * `repeated` is the count with step collection's own observation.
+ */
+describe("Activation planning hands settlement's observation to step collection", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  const rows = [
+    {
+      type: "hook",
+      plural: "hooks",
+      publish: (r: InstallWorld["registry"]) => r.writeHook("review", [{ version: "1.0.0" }]),
+      steps: [],
+      repeated: { treeHashes: 5, rootDirectoryReads: 10, rootProbes: 7 },
+      observed: { treeHashes: 4, rootDirectoryReads: 9, rootProbes: 6 },
+    },
+    {
+      type: "rule",
+      plural: "rules",
+      publish: (r: InstallWorld["registry"]) =>
+        r.writeRule("review", [{ version: "1.0.0", body: "Review." }]),
+      steps: [],
+      repeated: { treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 },
+      observed: { treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 },
+    },
+    {
+      type: "knowledge",
+      plural: "knowledge",
+      publish: (r: InstallWorld["registry"]) =>
+        r.writeKnowledge("review", [{ version: "1.0.0", body: "# Review\n" }]),
+      steps: [],
+      repeated: { treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 },
+      observed: { treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 },
+    },
+    {
+      type: "skill",
+      plural: "skills",
+      publish: (r: InstallWorld["registry"]) =>
+        r.writeSkill("review", [{ version: "1.0.0", body: "Review." }]),
+      // The disabled Skill's native link is gone, so it materializes again.
+      steps: [{ key: "skill:review", readiness: "ready" }],
+      repeated: { treeHashes: 2, rootDirectoryReads: 4, rootProbes: 2 },
+      observed: { treeHashes: 2, rootDirectoryReads: 4, rootProbes: 2 },
+    },
+  ] as const;
+  for (const row of rows)
+    it.effect(
+      `prepares a ${row.type} enable`,
+      () => {
+        const created = makeInstallWorld();
+        cleanups.push(created.cleanup);
+        row.publish(created.registry);
+        return Effect.gen(function* () {
+          const counted = yield* measure(
+            created,
+            Effect.gen(function* () {
+              const installed = yield* applyInstallAcceptingExecutionChanges(
+                installRequest({
+                  type: row.type,
+                  subject: { kind: "source", source: `test:@acme/${row.plural}/review` },
+                }),
+              );
+              expect(deriveOperationOutcome(installed)).toBe("applied");
+              const disabled = yield* applyActivationAcceptingExecutionChanges({
+                type: row.type,
+                name: "review",
+                enabled: false,
+              });
+              expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe(
+                "applied",
+              );
+            }),
+            EnableExtension.prepare({ type: row.type, name: "review" }),
+          );
+          const root = acquiredRoot(created, row.plural, "review");
+          if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+          expect(Option.isNone(counted.result.blocked)).toBe(true);
+          expect(stepsOf(counted.result)).toEqual(row.steps);
+          expect(
+            {
+              treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+                .length,
+              rootDirectoryReads: counted.recording.counts(root).readDirectory,
+              rootProbes: counted.recording.counts(root).access,
+            },
+            `repeated: ${JSON.stringify(row.repeated)}`,
+          ).toEqual(row.observed);
+        });
+      },
+      { timeout: 60_000 },
+    );
+});
+
+describe("Activation planning still judges a handed Hook's tree later in the phase", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  it.effect(
+    "refuses a hook enable whose tree changes after settlement observed it",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      return Effect.gen(function* () {
+        const installed = yield* applyInstallAcceptingExecutionChanges(
+          installRequest({
+            type: "hook",
+            subject: { kind: "source", source: "test:@acme/hooks/review" },
+          }),
+        );
+        expect(deriveOperationOutcome(installed)).toBe("applied");
+        yield* applyActivationAcceptingExecutionChanges({
+          type: "hook",
+          name: "review",
+          enabled: false,
+        });
+        const root = acquiredRoot(created, "hooks", "review");
+        // A foreign edit lands right after settlement's tree hash completes.
+        let edited = false;
+        const prepared = yield* EnableExtension.prepare({ type: "hook", name: "review" }).pipe(
+          Effect.provideService(CurrentWorkObserver, {
+            record: (fact) => {
+              if (edited || fact.kind !== "axm.hash.materialized-tree") return;
+              edited = true;
+              fs.writeFileSync(nodePath.join(root, "src", "edited.txt"), "Edited.\n");
+            },
+            detailSelected: () => false,
+          }),
+          Effect.flip,
+        );
+        expect(edited).toBe(true);
+        // The Hook's projected outcomes judge its tree again in this phase and
+        // refuse to prepare the change.
+        expect(prepared).toMatchObject({ _tag: "ContributorTreeMismatch", packageRoot: root });
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
     },
     { timeout: 60_000 },
   );

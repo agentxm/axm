@@ -76,13 +76,14 @@ import {
   DesiredStateReader,
   unresolvedPackRoutes,
   desiredReachability,
-  type LockfileReader,
+  LockfileReader,
   SettingsReader,
   type SettingsReaderService,
   WorkspaceLocation,
   WorkspaceRecords,
   type WorkspaceLocationService,
   usableAcceptedCanonicalFrom,
+  type AcceptedCanonicalObservation,
   type CanonicalObservation,
   type DesiredExtensionNode,
   type DesiredStateGraph,
@@ -601,6 +602,12 @@ export const collectMaterializeSteps = (args: {
    * inspected and no inventory is returned for a later freshness check.
    */
   readonly inventories?: "observed" | "presence";
+  /**
+   * A selected Hook's usable observation, made earlier in this read phase by
+   * a caller that selects the Hook's projected outcomes later in the phase,
+   * which judges its tree again. It stands in for observing that Hook here.
+   */
+  readonly settledSubject?: AcceptedCanonicalObservation;
   readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   CollectedMaterializeSteps,
@@ -784,6 +791,24 @@ export const collectMaterializeSteps = (args: {
         }),
       ),
     );
+    const lockfileReader = yield* LockfileReader;
+    // The handed observation of this node, when it stands in for observing it.
+    const settledObservation = (node: DesiredExtensionNode) =>
+      Effect.gen(function* () {
+        const settled = args.settledSubject;
+        if (
+          settled === undefined ||
+          node.type !== "hook" ||
+          settled.observation.status !== "usable" ||
+          settled.desired.type !== node.type ||
+          settled.desired.name !== node.name
+        )
+          return Option.none<AcceptedCanonicalObservation>();
+        const accepted = yield* lockfileReader.acceptedEntry(node.type, node.name);
+        return Option.getOrUndefined(accepted) === settled.accepted
+          ? Option.some<AcceptedCanonicalObservation>({ ...settled, desired: node })
+          : Option.none<AcceptedCanonicalObservation>();
+      });
     const phaseReader = {
       ...desiredStateReader,
       graph: (options) =>
@@ -795,7 +820,14 @@ export const collectMaterializeSteps = (args: {
         Effect.gen(function* () {
           // One observation per node judges this phase; the usable ref and
           // the blocker below both read it rather than observing again.
-          const canonical = yield* observeDesiredCanonical(node);
+          const canonical = yield* settledObservation(node).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () => observeDesiredCanonical(node),
+                onSome: Effect.succeed,
+              }),
+            ),
+          );
           const { observation, accepted } = canonical;
           if (observation.status === "constraint-mismatch") {
             // `axm update` names the extension by its accepted package, or by

@@ -241,6 +241,7 @@ export {
   usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
+  type AcceptedCanonicalObservation,
   type AcceptedCanonicalRefError,
 } from "./workspace/accepted-canonical-ref.js";
 export { isObservedInstalled } from "./workspace/observed-installed.js";

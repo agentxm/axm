@@ -29,6 +29,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import {
   SettingsReader,
   WorkspaceLocation,
+  type AcceptedCanonicalObservation,
   type AcceptedResolutionWriter,
   type DesiredExtensionNode,
   type LockfileReader,
@@ -204,6 +205,8 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
 export const prepareEnabledRealization = Effect.fnUntraced(function* (
   args: ActivationRealizationInput & {
     readonly selection: SyncSelection;
+    /** A Hook subject's usable observation from settling this change, in this read phase. */
+    readonly settledSubject?: AcceptedCanonicalObservation;
   },
 ) {
   const { inventoryObservations: _unobserved, ...materialization } = yield* collectMaterializeSteps(
@@ -214,6 +217,7 @@ export const prepareEnabledRealization = Effect.fnUntraced(function* (
       requireSubagentSupport: true,
       // Activation never rechecks the collection's inventories.
       inventories: "presence",
+      ...(args.settledSubject === undefined ? {} : { settledSubject: args.settledSubject }),
       adapter: args.adapter,
     },
   );

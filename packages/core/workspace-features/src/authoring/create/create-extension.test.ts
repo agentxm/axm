@@ -213,12 +213,14 @@ describe("CreateExtension prepared work", () => {
       );
       const { prepare, apply } = yield* prepareAndApply("skill");
       // Measured before preparation reused its first resolution: 16 calls while
-      // preparing (two resolutions plus the per-target checks) and 102 under
-      // the lock, where the destinations resolve fresh.
+      // preparing (two resolutions plus the per-target checks). Applying makes
+      // 98: the authored-step preflight resolves both destinations once in its
+      // shared document phase (4 calls), and from the transaction's first
+      // snapshot on, under the lock, the destinations resolve fresh (94).
       const resolution = resolutionCalls(standalone.calls);
       expect(resolution).toBe(4);
       expect(resolutionCalls(prepare.calls)).toBe(16 - resolution);
-      expect(resolutionCalls(apply.calls)).toBe(102);
+      expect(resolutionCalls(apply.calls)).toBe(98);
     }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
   });
 

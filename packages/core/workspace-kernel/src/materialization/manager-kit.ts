@@ -22,6 +22,7 @@ import {
   usableAcceptedCanonical,
   usableAcceptedCanonicalRef,
   type ConfiguredRecordRow,
+  type DesiredExtensionNode,
   type ExtensionTarget,
   type SettingsReaderService,
   type WorkspaceLayout,
@@ -167,6 +168,14 @@ export const listMaterializableFromAccepted = <T extends InstallableExtensionTyp
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  /**
+   * A ref this call already resolved for an authored package, when the
+   * accepted restoration would resolve the same package with the same inputs.
+   */
+  readonly preparedWorkspaceRef?: (
+    desired: DesiredExtensionNode,
+    resolution: { readonly layout: WorkspaceLayout; readonly scope: WorkspaceScope },
+  ) => Option.Option<ExtensionRef>;
 }): Effect.Effect<
   ReadonlyArray<Extract<ExtensionRef, { readonly type: T }>>,
   ExtensionManagerFailure,
@@ -177,9 +186,13 @@ export const listMaterializableFromAccepted = <T extends InstallableExtensionTyp
     const refs = yield* Effect.forEach(
       names,
       (name) =>
-        usableAcceptedCanonicalRef({ type: args.type, name }).pipe(
-          Effect.map(Option.filter(isExtensionRefOfType(args.type))),
-        ),
+        usableAcceptedCanonicalRef({
+          type: args.type,
+          name,
+          ...(args.preparedWorkspaceRef === undefined
+            ? {}
+            : { preparedWorkspaceRef: args.preparedWorkspaceRef }),
+        }).pipe(Effect.map(Option.filter(isExtensionRefOfType(args.type)))),
       { concurrency: 16 },
     );
     return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));

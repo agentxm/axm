@@ -509,6 +509,7 @@ export const SkillManagerLive = Layer.effect(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
           ),
         );
+        const diskLayout = currentLayout();
         const workspaceRefs = yield* listMaterializableFromDisk({
           type: "skill",
           records: currentRecords,
@@ -519,9 +520,29 @@ export const SkillManagerLive = Layer.effect(
             path,
             baseDir,
             scope: location.scope,
-            layout: currentLayout(),
+            layout: diskLayout,
           },
         });
+        // Each authored ref the disk pass resolved, with the settings source it
+        // resolved from. Owned by this call; restoration reads it only for the
+        // same package resolved with the same inputs.
+        const resolvedFromDisk: ReadonlyMap<
+          string,
+          { readonly ref: SkillExtensionRef; readonly source: string }
+        > = new Map(
+          workspaceRefs.flatMap(
+            (
+              ref,
+            ): ReadonlyArray<
+              readonly [string, { readonly ref: SkillExtensionRef; readonly source: string }]
+            > => {
+              const source = configuredWithoutBundled[ref.skill.name]?.source;
+              return ref.refType === "workspace" && source !== undefined
+                ? [[ref.skill.name, { ref, source }]]
+                : [];
+            },
+          ),
+        );
         const trustedRefs = yield* listMaterializableFromAccepted({
           type: "skill",
           names: Effect.succeed(
@@ -529,6 +550,17 @@ export const SkillManagerLive = Layer.effect(
               .filter(([name]) => configuredEntries[name]?.origin !== "bundled")
               .map(([name]) => name),
           ),
+          preparedWorkspaceRef: (desired, resolution) => {
+            const resolved = resolvedFromDisk.get(desired.name);
+            return resolved !== undefined &&
+              desired.type === "skill" &&
+              desired.identity.authority === "workspace" &&
+              desired.source === resolved.source &&
+              resolution.layout === diskLayout &&
+              resolution.scope === location.scope
+              ? Option.some(resolved.ref)
+              : Option.none();
+          },
         });
         const refsByName = new Map(workspaceRefs.map((ref) => [ref.skill.name, ref]));
         for (const ref of trustedRefs) {

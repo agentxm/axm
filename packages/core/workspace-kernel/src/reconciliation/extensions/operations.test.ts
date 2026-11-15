@@ -797,6 +797,85 @@ describe("buildAuthoredExtensionStep", () => {
       expect(calls).toEqual(["resolution-facts", "settings"]);
     }),
   );
+
+  describe("preflight read failure", () => {
+    const unreadable = new LockfileIoError({ path: "axm.lock", cause: "EIO" });
+    const managerWith = (
+      isInstalled: AuthorMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >["isInstalled"],
+    ) =>
+      ({
+        isInstalled,
+        listMaterializable: () => Effect.succeed([authoredSkillRef()]),
+        materializeInstall: () => Effect.succeed(NO_FACTS),
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+      }) satisfies AuthorMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >;
+    /** Run the step, optionally failing the document capture its preflight reads through. */
+    const runStep = (manager: ReturnType<typeof managerWith>, capture?: "fails") =>
+      Effect.gen(function* () {
+        const scaffold = vi.fn(() => Effect.void);
+        const step = buildAuthoredExtensionStep(manager, {
+          target: { type: "skill", name: extensionName("review") },
+          location: authoredSkillRef().location,
+          versionRange: Option.none(),
+          toStepFailure,
+          scaffold: Effect.suspend(scaffold),
+          markAuthored: Effect.void,
+          message: "Created review",
+        });
+        if (step.readiness === "error") throw new Error(step.errorMessage);
+        const before = snapshotTree(transactionDir);
+        const views = yield* Effect.serviceOption(WorkspaceReadViews);
+        if (Option.isNone(views)) throw new Error("Expected production read views");
+        const failure = yield* step.run.pipe(
+          capture === undefined
+            ? (effect) => effect
+            : Effect.provideService(WorkspaceReadViews, {
+                ...views.value,
+                capture: (options) =>
+                  options?.observations === true
+                    ? views.value.capture(options)
+                    : Effect.fail(unreadable),
+              }),
+          Effect.flip,
+        );
+        expect(scaffold).not.toHaveBeenCalled();
+        expect(snapshotTree(transactionDir)).toEqual(before);
+        return failure;
+      });
+
+    it.effect("reports a failed installed-before read as the step failure", () =>
+      Effect.gen(function* () {
+        const failure = yield* grounded(runStep(managerWith(() => Effect.fail(unreadable))));
+        expect(failure).toEqual(
+          new StepFailure({ category: "internal", detail: String(unreadable) }),
+        );
+      }),
+    );
+
+    it.effect("reports an unavailable preflight document view as the same step failure", () =>
+      Effect.gen(function* () {
+        const expected = yield* grounded(runStep(managerWith(() => Effect.fail(unreadable))));
+        const failure = yield* grounded(
+          runStep(
+            managerWith(() => Effect.succeed(false)),
+            "fails",
+          ),
+        );
+        expect(failure).toEqual(expected);
+      }),
+    );
+  });
 });
 
 describe("buildMaterializeOperation", () => {

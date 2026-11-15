@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import type { WorkspaceLayout } from "./layout.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { Lockfile } from "../desired/lockfile/schema.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -56,6 +57,20 @@ interface AcceptedCanonicalRefArgs {
   readonly name: string;
   /** Proposed authority when preparing a transition before publishing intent. */
   readonly desired?: DesiredExtensionNode;
+}
+
+/**
+ * A ref the caller resolved earlier in the same call for the authored package
+ * `desired` names, under the layout and scope the restoration would resolve
+ * it with; `None` resolves the package as usual.
+ */
+type PreparedWorkspaceRef = (
+  desired: DesiredExtensionNode,
+  resolution: { readonly layout: WorkspaceLayout; readonly scope: WorkspaceScope },
+) => Option.Option<ExtensionRef>;
+
+interface UsableAcceptedCanonicalArgs extends AcceptedCanonicalRefArgs {
+  readonly preparedWorkspaceRef?: PreparedWorkspaceRef;
 }
 
 /** Every failure the accepted-canonical reconstruction functions can produce. */
@@ -274,6 +289,7 @@ export const acceptedLockedResolutionRef = (
 
 const refForDesired = (
   desired: DesiredExtensionNode,
+  preparedWorkspaceRef?: PreparedWorkspaceRef,
 ): Effect.Effect<
   ExtensionRef,
   AcceptedCanonicalRefError,
@@ -301,6 +317,11 @@ const refForDesired = (
       });
     }
     if (desired.identity.authority === "workspace") {
+      const prepared =
+        preparedWorkspaceRef === undefined
+          ? Option.none<ExtensionRef>()
+          : preparedWorkspaceRef(desired, { layout, scope: location.scope });
+      if (Option.isSome(prepared)) return prepared.value;
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
@@ -439,6 +460,7 @@ export const usableAcceptedCanonicalObservation = (
  */
 export const usableAcceptedCanonicalFrom = (
   canonical: AcceptedCanonicalObservation,
+  preparedWorkspaceRef?: PreparedWorkspaceRef,
 ): Effect.Effect<
   Option.Option<UsableAcceptedCanonical>,
   AcceptedCanonicalRefError,
@@ -447,7 +469,7 @@ export const usableAcceptedCanonicalFrom = (
   Effect.gen(function* () {
     const usable = asUsable(canonical);
     if (Option.isNone(usable)) return Option.none();
-    const ref = yield* refForDesired(usable.value.desired);
+    const ref = yield* refForDesired(usable.value.desired, preparedWorkspaceRef);
     // A usable local acquisition is the accepted copy, even if the original
     // directory has changed or disappeared. Keep sourcePath as its identity.
     const path = yield* Path.Path;
@@ -465,7 +487,7 @@ export const usableAcceptedCanonicalFrom = (
   });
 
 export const usableAcceptedCanonical = (
-  args: AcceptedCanonicalRefArgs,
+  args: UsableAcceptedCanonicalArgs,
 ): Effect.Effect<
   Option.Option<UsableAcceptedCanonical>,
   AcceptedCanonicalRefError,
@@ -480,13 +502,13 @@ export const usableAcceptedCanonical = (
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.succeed(Option.none()),
-        onSome: usableAcceptedCanonicalFrom,
+        onSome: (canonical) => usableAcceptedCanonicalFrom(canonical, args.preparedWorkspaceRef),
       }),
     ),
   );
 
 export const usableAcceptedCanonicalRef = (
-  args: AcceptedCanonicalRefArgs,
+  args: UsableAcceptedCanonicalArgs,
 ): Effect.Effect<
   Option.Option<ExtensionRef>,
   AcceptedCanonicalRefError,

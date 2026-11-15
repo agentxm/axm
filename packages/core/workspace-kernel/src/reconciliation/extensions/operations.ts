@@ -48,6 +48,7 @@ import {
   desiredReachability,
   acceptedCanonicalObservation,
   withFreshWorkspaceObservationReadView,
+  withWorkspaceReadView,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import { observeSatisfiedInstall } from "./satisfied-install.js";
@@ -770,13 +771,20 @@ export const buildAuthoredExtensionStep = <
     readiness: "ready",
     ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
     run: Effect.gen(function* () {
-      if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
-      const installedBefore = yield* manager.isInstalled({ target });
-      const priorGraph = yield* (yield* DesiredStateReader).graph();
-      const priorAuthority =
-        target.type === "hook" || target.type === "rule" || target.type === "knowledge"
-          ? yield* captureAgentOutputAuthority()
-          : undefined;
+      // The read-only preflight shares one document view; it ends before the
+      // transaction, whose readers and writers observe the workspace afresh.
+      const { installedBefore, priorGraph, priorAuthority } = yield* withWorkspaceReadView(
+        Effect.gen(function* () {
+          if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
+          const installedBefore = yield* manager.isInstalled({ target });
+          const priorGraph = yield* (yield* DesiredStateReader).graph();
+          const priorAuthority =
+            target.type === "hook" || target.type === "rule" || target.type === "knowledge"
+              ? yield* captureAgentOutputAuthority()
+              : undefined;
+          return { installedBefore, priorGraph, priorAuthority };
+        }),
+      );
       const { value: transaction, footprint } = yield* observeFootprint(
         runWorkspaceTransaction({
           targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),

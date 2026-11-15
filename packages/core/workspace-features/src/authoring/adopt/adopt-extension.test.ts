@@ -233,12 +233,16 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
         });
         // Apply: the in-lock resolution is the only reader of the authored
         // Skill under the lock, so its fresh manifest read, presence and hash
-        // remain beside the snapshot and the post-write resolution.
+        // remain beside the snapshot and the post-write resolution. The
+        // read-only preflight before the lock shares one document view, so its
+        // listing, presence check and prior graph share one install-root
+        // inventory; each Skill listing resolves the authored Skill once, and
+        // its accepted restoration reuses that resolution.
         expect(measured.apply).toEqual({
-          installRootListings: 44,
-          manifestReads: 6,
-          packageRootListings: 16,
-          packageHashes: 3,
+          installRootListings: 35,
+          manifestReads: 4,
+          packageRootListings: 15,
+          packageHashes: 2,
         });
       }),
     TIMEOUT,
@@ -260,11 +264,14 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
           packageRootListings: 0,
           packageHashes: 0,
         });
+        // Each Skill listing resolves the moved authored copy once: the
+        // accepted restoration reuses the listing's resolution instead of
+        // hashing the package a second time.
         expect({ ...measured.apply, installRootListings: undefined }).toEqual({
           installRootListings: undefined,
           manifestReads: 4,
           packageRootListings: 3,
-          packageHashes: 3,
+          packageHashes: 2,
         });
       }),
     TIMEOUT,

@@ -858,5 +858,105 @@ describe("HookManager", () => {
         }).toEqual({ entrypointReads: 1, entrypointInspections: 1 });
       }),
     );
+
+    it.effect("reads a prepared package's fixture receipt once per preparation", () =>
+      Effect.gen(function* () {
+        const counted = yield* countPreparation;
+        // A corrupt receipt is still reported, now from the one read.
+        expect(counted.prepared.agentOutcomes).toMatchObject([
+          {
+            name: "audit",
+            agentId: "claude-code",
+            hook: { fixtureEvidence: { state: "invalid" } },
+          },
+        ]);
+        expect({
+          receiptReads: counted.receiptReads,
+          receiptAccesses: counted.receiptAccesses,
+          canonicalRootExistenceChecks: counted.canonicalRootExistenceChecks,
+        }).toEqual({ receiptReads: 1, receiptAccesses: 2, canonicalRootExistenceChecks: 1 });
+      }),
+    );
+
+    it.effect(
+      "keeps each prepared contributor's fixture evidence under its own configuration",
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-hook-prepared-statuses-"),
+          );
+          try {
+            const configuration = { mode: { type: "string" } };
+            const auditRoot = nodePath.join(workspaceRoot, "source-audit");
+            const lintRoot = nodePath.join(workspaceRoot, "source-lint");
+            writeHookPackage(auditRoot, "audit", { configuration });
+            writeHookPackage(lintRoot, "lint", { configuration });
+            // Both receipts record the audit configuration; only audit still uses it.
+            yield* writeReceipt(workspaceRoot, auditRoot, { configuration: { mode: "strict" } });
+            yield* writeReceipt(workspaceRoot, lintRoot, { configuration: { mode: "strict" } });
+            const prepared = yield* withRecordedManager(workspaceRoot, (manager) =>
+              manager.prepareProjection(
+                [makeLocalHookRef("audit", auditRoot), makeLocalHookRef("lint", lintRoot)],
+                {
+                  hookConfigurations: new Map([
+                    ["audit", { mode: "strict" }],
+                    ["lint", { mode: "relaxed" }],
+                  ]),
+                },
+              ),
+            );
+            expect(
+              prepared.agentOutcomes.map(({ name, hook }) => ({
+                name,
+                state: hook?.fixtureEvidence.state,
+              })),
+            ).toEqual([
+              { name: "audit", state: "historical" },
+              { name: "lint", state: "stale" },
+            ]);
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
+
+    it.effect("reads a retained contributor's receipt once when nothing is prepared", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-retained-once-"),
+        );
+        try {
+          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+          writeHookPackage(packageRoot, "audit");
+          const receiptPath = yield* writeReceipt(workspaceRoot, packageRoot, "corrupt");
+          const counted = yield* Effect.gen(function* () {
+            const { fileSystem, recording } = makeRecordingFileSystem(
+              yield* Effect.gen(function* () {
+                return yield* FileSystem.FileSystem;
+              }).pipe(Effect.provide(NodeFileSystem.layer)),
+            );
+            const platform = Layer.provideMerge(
+              Layer.succeed(FileSystem.FileSystem, fileSystem),
+              NativePlatformTest,
+            );
+            return yield* Effect.gen(function* () {
+              const manager = yield* HookManager;
+              yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+              recording.reset();
+              yield* manager.projectionPlans();
+              return {
+                receiptReads: recording.contentReads(receiptPath),
+                receiptAccesses: receiptAccesses(recording, receiptPath),
+              };
+            }).pipe(
+              Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"], platform })),
+            );
+          });
+          expect(counted).toEqual({ receiptReads: 1, receiptAccesses: 2 });
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
   });
 });

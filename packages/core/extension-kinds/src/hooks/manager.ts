@@ -208,6 +208,30 @@ const preparedContentHash = (
     : computePackageContentHash(packageRoot);
 };
 
+/**
+ * One fixture receipt status read inside one owner call, with every input the
+ * read depends on in that call: the package location, its content, and its
+ * effective configuration.
+ */
+interface FixtureEvidenceReading {
+  readonly root: string;
+  readonly contentHash: string;
+  readonly configurationHash: string;
+  readonly status: HookEvidenceStatus;
+}
+
+/** A deeply frozen copy, so a recorded status cannot change after its read. */
+const frozenEvidence = (status: HookEvidenceStatus): HookEvidenceStatus => {
+  const copy = structuredClone(status);
+  const freeze = (value: unknown): void => {
+    if (typeof value !== "object" || value === null) return;
+    for (const nested of Object.values(value)) freeze(nested);
+    Object.freeze(value);
+  };
+  freeze(copy);
+  return copy;
+};
+
 const quoteShell = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
 
 const valueShell = (
@@ -488,11 +512,19 @@ export const HookManagerLive = Layer.effect(
     const readManifestForRef = (ref: HookExtensionRef) =>
       Effect.scoped(rootForRef(ref).pipe(Effect.flatMap(readManifest)));
 
-    const evaluateConfiguredOutcomes = (args: {
+    /**
+     * Configured-agent outcomes with the fixture receipt statuses read for the
+     * contributors named in `record`. A contributor matching one of the given
+     * `readings` on every input of the read takes a copy of that status
+     * instead of reading the receipt again.
+     */
+    const evaluateConfiguredOutcomesWithEvidence = (args: {
       readonly configuredAgents: ReadonlyArray<string>;
       readonly targets: ReadonlyArray<HookWriterTarget>;
       readonly contributors: ReadonlyArray<RenderedHookContributor>;
       readonly state: "projected" | "current";
+      readonly readings?: ReadonlyArray<FixtureEvidenceReading>;
+      readonly record?: ReadonlyArray<string>;
     }) =>
       Effect.gen(function* () {
         const entries = yield* (yield* planningSettings).entries("hook");
@@ -507,27 +539,46 @@ export const HookManagerLive = Layer.effect(
                 state: "absent",
                 reason: "No local fixture evidence was evaluated for this source",
               };
+              let reading: FixtureEvidenceReading | undefined;
               if (contributor.contentHash !== undefined && Result.isSuccess(resolved)) {
-                const canonical = path.resolve(baseDir, contributor.root);
-                const packageRoot = (yield* fs.exists(canonical))
-                  ? yield* fs.realPath(canonical)
-                  : canonical;
-                fixtureEvidence = yield* readHookEvidence({
-                  runtimeDir: location.runtimeDir,
-                  packageRoot,
-                  contentHash: contributor.contentHash,
-                  configurationHash: hookConfigurationHash(resolved.success),
-                  scope: location.scope,
-                }).pipe(
-                  Effect.catch(() =>
-                    Effect.succeed<HookEvidenceStatus>({
-                      state: "invalid",
-                      reason: "The local fixture receipt could not be read",
-                    }),
-                  ),
+                const contentHash = contributor.contentHash;
+                const configurationHash = hookConfigurationHash(resolved.success);
+                const prior = args.readings?.find(
+                  (candidate) =>
+                    candidate.root === contributor.root &&
+                    candidate.contentHash === contentHash &&
+                    candidate.configurationHash === configurationHash,
                 );
+                if (prior !== undefined) fixtureEvidence = structuredClone(prior.status);
+                else {
+                  const canonical = path.resolve(baseDir, contributor.root);
+                  const packageRoot = (yield* fs.exists(canonical))
+                    ? yield* fs.realPath(canonical)
+                    : canonical;
+                  fixtureEvidence = yield* readHookEvidence({
+                    runtimeDir: location.runtimeDir,
+                    packageRoot,
+                    contentHash,
+                    configurationHash,
+                    scope: location.scope,
+                  }).pipe(
+                    Effect.catch(() =>
+                      Effect.succeed<HookEvidenceStatus>({
+                        state: "invalid",
+                        reason: "The local fixture receipt could not be read",
+                      }),
+                    ),
+                  );
+                  if (args.record?.includes(contributor.name) === true)
+                    reading = Object.freeze({
+                      root: contributor.root,
+                      contentHash,
+                      configurationHash,
+                      status: frozenEvidence(fixtureEvidence),
+                    });
+                }
               }
-              return args.configuredAgents.map((agentId): ConfiguredAgentOutcome => {
+              const outcomes = args.configuredAgents.map((agentId): ConfiguredAgentOutcome => {
                 const agent = capabilityAgentById(agentId);
                 if (agent === undefined)
                   return {
@@ -553,16 +604,22 @@ export const HookManagerLive = Layer.effect(
                   fixtureEvidence,
                 });
               });
+              return { outcomes, reading };
             }),
           { concurrency: 1 },
         );
-        return groups
-          .flat()
-          .sort((left, right) =>
-            left.name === right.name
-              ? left.agentId.localeCompare(right.agentId)
-              : left.name.localeCompare(right.name),
-          );
+        return {
+          outcomes: groups
+            .flatMap(({ outcomes }) => outcomes)
+            .sort((left, right) =>
+              left.name === right.name
+                ? left.agentId.localeCompare(right.agentId)
+                : left.name.localeCompare(right.name),
+            ),
+          readings: Object.freeze(
+            groups.flatMap(({ reading }) => (reading === undefined ? [] : [reading])),
+          ),
+        };
       }).pipe(
         Effect.mapError(
           (cause) =>
@@ -572,6 +629,10 @@ export const HookManagerLive = Layer.effect(
             }),
         ),
       );
+
+    const evaluateConfiguredOutcomes = (
+      args: Omit<Parameters<typeof evaluateConfiguredOutcomesWithEvidence>[0], "record">,
+    ) => evaluateConfiguredOutcomesWithEvidence(args).pipe(Effect.map(({ outcomes }) => outcomes));
 
     const renderInstalledHookGroups = (
       target: HookWriterTarget,
@@ -695,12 +756,17 @@ export const HookManagerLive = Layer.effect(
         } satisfies ProjectionUnitObservation;
       });
 
-    /** Build the hook plans, observe them as the pre-write refusal, and hand that to `use`. */
+    /**
+     * Build the hook plans, observe them as the pre-write refusal, and hand
+     * that to `use`, with the fixture receipt statuses this call read for the
+     * prospective contributors.
+     */
     const observedHookProjectionPlans = <A, E, R>(
       prospective: ReadonlyArray<RenderedHookContributor>,
       options: NativeProjectionOptions | undefined,
       use: (
         observed: ObservedProjectionPlans<ExtensionManagerFailure, ManagerRequirements>,
+        prospectiveEvidence: ReadonlyArray<FixtureEvidenceReading>,
       ) => Effect.Effect<A, E, R>,
     ) =>
       Effect.gen(function* () {
@@ -747,11 +813,12 @@ export const HookManagerLive = Layer.effect(
             return configuration === undefined ? contributor : { ...contributor, configuration };
           })
           .sort((a, b) => a.marker.localeCompare(b.marker));
-        const outcomes = yield* evaluateConfiguredOutcomes({
+        const { outcomes, readings } = yield* evaluateConfiguredOutcomesWithEvidence({
           configuredAgents,
           targets,
           contributors,
           state: "projected",
+          record: prospective.map(({ name }) => name),
         });
         const blocked = outcomes.filter(({ outcome }) => outcome === "blocked");
         if (blocked.length > 0) {
@@ -855,7 +922,9 @@ export const HookManagerLive = Layer.effect(
             return plan;
           }),
         );
-        return yield* withObservedProjectionPlans(nativePlans, use);
+        return yield* withObservedProjectionPlans(nativePlans, (observed) =>
+          use(observed, readings),
+        );
       });
 
     const configuredAgentOutcomes = (
@@ -958,7 +1027,7 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
-        return yield* observedHookProjectionPlans(prepared, options, (observed) =>
+        return yield* observedHookProjectionPlans(prepared, options, (observed, readings) =>
           Effect.gen(function* () {
             for (const contributor of prepared)
               for (const plan of observed.plans) {
@@ -972,11 +1041,14 @@ export const HookManagerLive = Layer.effect(
                   ),
                 );
               }
+            // The projected evaluation above read these contributors' receipts
+            // in this call with the same inputs; only those it did not read are read here.
             const agentOutcomes = yield* evaluateConfiguredOutcomes({
               configuredAgents,
               targets,
               contributors: prepared,
               state: "projected",
+              readings,
             });
             return yield* use({
               observed,
@@ -992,7 +1064,7 @@ export const HookManagerLive = Layer.effect(
       );
 
     const observedProjectionPlans: HookManagerService["observedProjectionPlans"] = (options, use) =>
-      observedHookProjectionPlans([], options, use);
+      observedHookProjectionPlans([], options, (observed) => use(observed));
     const projectionPlans: HookManagerService["projectionPlans"] = (options) =>
       observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
 

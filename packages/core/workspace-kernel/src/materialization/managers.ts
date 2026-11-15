@@ -204,12 +204,14 @@ interface InstallMcpServerOperationArgs {
    */
   readonly nonInteractive: boolean;
   /**
-   * Set only by an activation that published this connection's settings
-   * entry, under the connection's own name, as the last `axm.json` write
-   * before this install in the same closure settlement under the workspace
-   * transition lock. The install then does not set again an entry equal to
-   * the one it reads live. Every other route leaves it unset, so an unchanged
-   * entry still normalizes `axm.json` there.
+   * Set only by a route that published this connection's settings entry,
+   * under the connection's own name, as the last `axm.json` write before
+   * this install in the same closure settlement under the workspace
+   * transition lock: an activation, or an authored import or fork. That
+   * publication leaves `axm.json` at the settings writer's fixed point, so
+   * the install does not set again an entry equal to the one it reads live.
+   * Every other route leaves it unset, so an unchanged entry still
+   * normalizes `axm.json` there.
    */
   readonly entryJustPublished?: boolean;
 }

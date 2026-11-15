@@ -233,30 +233,14 @@ const syncConfiguredAgentsOnInstall = (args: {
 // Public API
 // -----------------------------------------------------------------------------
 
-/** How a caller that owns the settings entry's publication narrows one install. */
-interface InstallMcpServerOptions {
-  /**
-   * The caller's own settings writer publication of this connection's entry
-   * is the last `axm.json` write before this install, in the same closure
-   * settlement under the workspace transition lock. That publication leaves
-   * `axm.json` at the settings writer's fixed point, so re-setting an entry
-   * equal to the one this install reads live is the writer's no-op and is
-   * skipped. Ordinary install, update, and retained routes never set it: their
-   * `axm.json` need not be at that fixed point, and an unchanged entry still
-   * normalizes it.
-   */
-  readonly entryJustPublished?: boolean;
-}
-
 /** Install a selected, symbolically bound connection and project it to configured hosts. */
 export const installMcpServer: (
   op: InstallMcpServerOperation,
-  options?: InstallMcpServerOptions,
 ) => Effect.Effect<
   Extract<JobStepResult, { readonly result: "success" }>,
   ExtensionManagerFailure,
   McpServerManager | McpConnectionInstallRequirements
-> = (op, options) =>
+> = (op) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -405,9 +389,12 @@ export const installMcpServer: (
               ...preferences,
               enabled,
             };
-            // Decided from this install's own live read of the entry.
+            // The caller's publication left `axm.json` at the settings writer's
+            // fixed point, so setting an entry equal to the one this install
+            // reads live would be the writer's no-op. Decided from this
+            // install's own live read of the entry.
             if (
-              (options?.entryJustPublished === true || op.args.entryJustPublished === true) &&
+              op.args.entryJustPublished === true &&
               currentEntry !== undefined &&
               Equal.equals(nextEntry, currentEntry)
             )

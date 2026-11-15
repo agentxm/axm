@@ -2,7 +2,8 @@
  * How often planning observes an accepted Registry Hook's package.
  *
  * Observing an accepted package hashes its whole tree. Within one planning
- * call, Hook install planning decides from one observation of the package,
+ * call, Hook install planning, Pack install and update planning, and their
+ * acquisition settlement each decide from one observation of the package,
  * so these examples count materialized-tree hashes of the planning alone in
  * real workspaces with a `file://` Registry.
  */
@@ -18,7 +19,7 @@ import { afterEach } from "vitest";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome, type Plan } from "@agentxm/workspace-kernel/operations";
 import {
   acceptedLockedResolutionRef,
   withWorkspaceReadView,
@@ -32,6 +33,8 @@ import {
   type InstallWorld,
 } from "../testing/install-world.js";
 import { InstallExtensions } from "./index.js";
+import { configuredUpdateRequest } from "./update/test-helpers.js";
+import { UpdateExtensions } from "./update/update-extensions.js";
 
 const HOOK = "guard";
 
@@ -148,6 +151,146 @@ describe("Hook install planning of an accepted Registry Hook", () => {
       yield* installed.workspace.provide(InstallExtensions.prepare(hookRequest).pipe(work.provide));
 
       expect(treeHashes(work)).toBe(2);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
+const packRequest = installRequest({
+  type: "pack",
+  subject: { kind: "source", source: "@acme/packs/toolkit" },
+});
+
+/** A workspace that accepted Packs whose only members are Registry Hooks. */
+const acceptedPacks = (packs: Readonly<Record<string, string>>) =>
+  Effect.gen(function* () {
+    const installed = world();
+    for (const [pack, hook] of Object.entries(packs)) {
+      installed.registry.writeHook(hook, [{ version: "1.0.0" }]);
+      installed.registry.writePack(pack, [
+        { version: "1.0.0", dependencies: { [`@acme/hooks/${hook}`]: "^1.0.0" } },
+      ]);
+      const applied = yield* installed.workspace.provide(
+        applyInstallAcceptingExecutionChanges(
+          installRequest({
+            type: "pack",
+            subject: { kind: "source", source: `@acme/packs/${pack}` },
+          }),
+        ),
+      );
+      expect(deriveOperationOutcome(applied)).toBe("applied");
+    }
+    return installed;
+  });
+
+const acceptedPack = acceptedPacks({ toolkit: HOOK });
+
+/** Every planned step's acquisitions, and whether any step still carries planning observations. */
+const acquisitionsOf = (plan: Plan<unknown>) => {
+  const steps = plan.jobs.flatMap((job) => job.steps);
+  return {
+    acquisitions: steps.flatMap((step) =>
+      (step.acquisitionRefs ?? []).map((ref) => `${ref.type}:${ref.name}`),
+    ),
+    carriesObservations: steps.some((step) => "acceptedContent" in step),
+  };
+};
+
+/** Prepare the Pack install again, counting only the preparation's tree hashes. */
+const reprepare = (installed: InstallWorld) =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    const candidate = yield* installed.workspace.provide(
+      InstallExtensions.prepare(packRequest).pipe(work.provide),
+    );
+    return { ...acquisitionsOf(candidate.execution.plan), treeHashes: treeHashes(work) };
+  });
+
+describe("Pack install planning of an accepted Registry Hook member", () => {
+  it.effect("decides that an intact member is reused from the Hook preparation's observation", () =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedPack;
+
+      expect(yield* reprepare(installed)).toEqual({
+        acquisitions: [],
+        carriesObservations: false,
+        treeHashes: 8,
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("settles a drifted member's acquisition from one observation", () =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedPack;
+      drift(installed);
+
+      expect(yield* reprepare(installed)).toEqual({
+        acquisitions: [`hook:${HOOK}`],
+        carriesObservations: false,
+        treeHashes: 8,
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
+/** Publish a later release of each Pack with the same Hook member. */
+const advancePacks = (installed: InstallWorld, packs: Readonly<Record<string, string>>) => {
+  for (const [pack, hook] of Object.entries(packs))
+    installed.registry.writePack(pack, [
+      { version: "1.0.0", dependencies: { [`@acme/hooks/${hook}`]: "^1.0.0" } },
+      { version: "1.1.0", dependencies: { [`@acme/hooks/${hook}`]: "^1.0.0" } },
+    ]);
+};
+
+/** Prepare a configured Pack update, counting only the preparation's tree hashes. */
+const prepareUpdate = (installed: InstallWorld, reinstall = false) =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    const candidate = yield* installed.workspace.provide(
+      UpdateExtensions.prepare(configuredUpdateRequest({ type: "pack", reinstall })).pipe(
+        work.provide,
+      ),
+    );
+    if (candidate.outcome !== "planned") return yield* Effect.die("The update planned nothing");
+    return { ...acquisitionsOf(candidate.execution.plan), treeHashes: treeHashes(work) };
+  });
+
+describe("Pack update planning of an unchanged Registry Hook member", () => {
+  it.effect("decides that the member is reused from the Hook preparation's observation", () =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedPack;
+      advancePacks(installed, { toolkit: HOOK });
+
+      expect(yield* prepareUpdate(installed)).toEqual({
+        acquisitions: ["pack:toolkit"],
+        carriesObservations: false,
+        treeHashes: 5,
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("decides each updated Pack's members from its own plan's observations", () =>
+    Effect.gen(function* () {
+      const packs = { toolkit: HOOK, kit: "lint" };
+      const installed = yield* acceptedPacks(packs);
+      advancePacks(installed, packs);
+
+      expect(yield* prepareUpdate(installed)).toEqual({
+        acquisitions: ["pack:toolkit", "pack:kit"],
+        carriesObservations: false,
+        treeHashes: 18,
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("still observes every member a reinstall acquires", () =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedPack;
+
+      expect(yield* prepareUpdate(installed, true)).toEqual({
+        acquisitions: ["pack:toolkit", `hook:${HOOK}`],
+        carriesObservations: false,
+        treeHashes: 6,
+      });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

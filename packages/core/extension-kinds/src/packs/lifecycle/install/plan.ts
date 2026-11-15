@@ -88,6 +88,7 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 import {
   operationPresentation,
+  type AcceptedContentObservation,
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
@@ -881,9 +882,9 @@ export const planPackInstall: (
           .map((ref) => ref.hook.name),
       ),
     };
-    const hookExposures =
+    const { exposures: hookExposures, acceptedContent: hookAcceptedContent } =
       hookRefs.length === 0
-        ? []
+        ? { exposures: [], acceptedContent: undefined }
         : yield* hookManager
             .observedPrepareProjection(
               (intent.projectionRefs ?? refs)
@@ -895,7 +896,7 @@ export const planPackInstall: (
                     )?.enabled !== false,
                 ),
               { ...hookProjection, desiredGraph: proposedGraph },
-              ({ observed }) =>
+              ({ observed, acceptedContent }) =>
                 observeObservedPlans(observed).pipe(
                   Effect.flatMap((observations) =>
                     projectionExposureRefs({
@@ -904,6 +905,7 @@ export const planPackInstall: (
                       proposedRefs: intent.projectionRefs ?? refs,
                     }),
                   ),
+                  Effect.map((exposures) => ({ exposures, acceptedContent })),
                 ),
             )
             .pipe(Effect.mapError(projectionRefusal));
@@ -1040,27 +1042,51 @@ export const planPackInstall: (
       { concurrency: 1 },
     );
 
-    const acquisitionRefs = yield* Effect.forEach(refs, (ref) =>
+    // Each member's accepted package is observed once in this call: the Hook
+    // preparation above already observed its Registry Hooks with the same
+    // arguments, and acquisition settlement takes what this decision observed.
+    const acquisitionDecisions = yield* Effect.forEach(refs, (ref) =>
       Effect.gen(function* () {
         if (intent.forceCanonical === true || ref.type === "pack" || ref.refType === "workspace")
-          return ref;
-        const canonical = yield* usableAcceptedCanonical({
-          type: ref.type,
-          name: targetFromRef(ref).name,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: `Accepted canonical content for ${targetFromRef(ref).name} could not be inspected`,
-              cause,
-            }),
-          ),
-        );
-        return Option.isSome(canonical) &&
-          sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
-          ? undefined
-          : ref;
+          return { ref, observed: undefined };
+        const target = { type: ref.type, name: targetFromRef(ref).name };
+        const observed =
+          hookAcceptedContent?.find(
+            ({ type, name }) => type === target.type && name === target.name,
+          ) ??
+          (yield* usableAcceptedCanonical(target).pipe(
+            Effect.mapError((cause) =>
+              installRefused({
+                category: "internal",
+                detail: `Accepted canonical content for ${targetFromRef(ref).name} could not be inspected`,
+                cause,
+              }),
+            ),
+            Effect.map((canonical): AcceptedContentObservation =>
+              Object.freeze({
+                ...target,
+                ...(Option.isSome(canonical)
+                  ? {
+                      usable: Object.freeze({
+                        path: canonical.value.observation.path,
+                        contentKey: sourceRefContentKey(canonical.value.ref),
+                      }),
+                    }
+                  : {}),
+              }),
+            ),
+          ));
+        return observed.usable !== undefined &&
+          observed.usable.contentKey === sourceRefContentKey(ref)
+          ? { ref: undefined, observed }
+          : { ref, observed };
       }),
+    );
+    const acquisitionRefs = acquisitionDecisions.map(({ ref }) => ref);
+    const acceptedContent = Object.freeze(
+      acquisitionDecisions.flatMap(({ ref, observed }) =>
+        ref === undefined || observed === undefined ? [] : [observed],
+      ),
     );
 
     const acceptedPack = yield* (yield* LockfileReader)
@@ -1327,6 +1353,7 @@ export const planPackInstall: (
             {
               ...graphStep,
               acquisitionRefs: acquisitionRefs.filter((ref) => ref !== undefined),
+              ...(acceptedContent.length === 0 ? {} : { acceptedContent }),
               exposureRefs: [
                 ...refs.filter(
                   (ref) =>

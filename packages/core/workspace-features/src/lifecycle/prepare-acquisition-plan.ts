@@ -50,9 +50,16 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
       ...input,
       jobs: yield* Effect.forEach(input.jobs, (job) =>
         Effect.gen(function* () {
-          const steps = yield* Effect.forEach(job.steps, (step) =>
+          const steps = yield* Effect.forEach(job.steps, (planned) =>
             Effect.gen(function* () {
-              if (step.readiness === "error") return step;
+              // The planner's accepted-package observations from this planning
+              // phase are taken here and go no further than this settlement.
+              if (planned.readiness === "error") {
+                if (planned.acceptedContent === undefined) return planned;
+                const { acceptedContent: _dropped, ...settled } = planned;
+                return settled;
+              }
+              const { acceptedContent: observedContent, ...step } = planned;
               const refs =
                 step.acquisitionRefs ??
                 (step.sourceBinding === undefined
@@ -96,9 +103,18 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                   const offersOtherContent = (accepted: Option.Option<ExtensionRef>) =>
                     Option.isNone(accepted) ||
                     sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref);
-                  const observeUsable = usableAcceptedCanonical(target).pipe(
-                    Effect.mapError(inspectionRefused),
+                  // An observation the planner made of exactly this package in
+                  // this phase decides as observing it again would.
+                  const observed = observedContent?.find(
+                    ({ type, name }) => type === target.type && name === target.name,
                   );
+                  const observeUsable =
+                    observed === undefined
+                      ? usableAcceptedCanonical(target).pipe(
+                          Effect.mapError(inspectionRefused),
+                          Effect.map(Option.isSome),
+                        )
+                      : Effect.succeed(observed.usable !== undefined);
                   // A sourced Registry, Git, HTTP, or path node restores exactly
                   // the ref its accepted row records. When that ref already
                   // offers other content, the proposal acquires whatever the
@@ -113,11 +129,10 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                     const recorded = yield* Effect.result(acceptedLockedResolutionRef(target));
                     if (Result.isSuccess(recorded)) {
                       if (offersOtherContent(recorded.success)) return true;
-                      return Option.isNone(yield* observeUsable);
+                      return !(yield* observeUsable);
                     }
                   }
-                  const canonical = yield* observeUsable;
-                  if (Option.isNone(canonical)) return true;
+                  if (!(yield* observeUsable)) return true;
                   const accepted = yield* acceptedLockedResolutionRef(target).pipe(
                     Effect.mapError((cause) =>
                       installRefused({

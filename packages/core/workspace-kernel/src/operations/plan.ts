@@ -331,7 +331,8 @@ export type JobStepResult<Output = never> =
  * What one observation of an extension's accepted canonical package found,
  * made by a planner with exactly this type and name and no proposed desired
  * node, handed on only within the owner call or planning read phase that
- * made it.
+ * made it. A planning step hands it to acquisition settlement in the same
+ * planning read phase, which drops it; it never reaches execution.
  */
 export interface AcceptedContentObservation {
   readonly type: ExtensionRef["type"];
@@ -356,6 +357,8 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly sourceBinding?: SourceBindingProposal;
   /** External source trees required by a grouped semantic closure. */
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  /** Accepted-package observations this planning phase made for `acquisitionRefs`. */
+  readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
   /** Exact external sources this step makes agent-readable, including retained content. */
   readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
   readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
@@ -377,6 +380,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
   /** Exact external sources this step makes agent-readable, including retained content. */
   readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
   readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
@@ -398,6 +402,7 @@ interface ErrorJobStep {
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
   /** Exact external sources this step makes agent-readable, including retained content. */
   readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
   readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;

@@ -9,7 +9,11 @@ import { afterEach } from "vitest";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
-import { deriveOperationOutcome, type Plan } from "@agentxm/workspace-kernel/operations";
+import {
+  deriveOperationOutcome,
+  type AcceptedContentObservation,
+  type Plan,
+} from "@agentxm/workspace-kernel/operations";
 import {
   acceptedLockedResolutionRef,
   withWorkspaceReadView,
@@ -26,8 +30,14 @@ import { prepareAcquisitionPlan } from "./prepare-acquisition-plan.js";
 
 const HOOK = "guard";
 
-/** One planned step that needs the given external source tree. */
-const planAcquiring = (ref: ExtensionRef): Plan => ({
+/**
+ * One planned step that needs the given external source tree, with the
+ * accepted-package observations its planner made, if any.
+ */
+const planAcquiring = (
+  ref: ExtensionRef,
+  acceptedContent?: ReadonlyArray<AcceptedContentObservation>,
+): Plan => ({
   _tag: "Plan",
   name: "Update extensions",
   description: Option.none(),
@@ -39,6 +49,7 @@ const planAcquiring = (ref: ExtensionRef): Plan => ({
           readiness: "ready",
           label: `Update ${HOOK}`,
           acquisitionRefs: [ref],
+          ...(acceptedContent === undefined ? {} : { acceptedContent }),
           run: Effect.succeed({ result: "success", message: "Updated" }),
         },
       ],
@@ -72,6 +83,7 @@ const settle = (
   world: InstallWorld,
   propose: (accepted: ExtensionRef) => ExtensionRef,
   reinstall = false,
+  acceptedContent?: ReadonlyArray<AcceptedContentObservation>,
 ) =>
   Effect.gen(function* () {
     const work = workObservations(false);
@@ -81,9 +93,10 @@ const settle = (
           const accepted = yield* acceptedLockedResolutionRef({ type: "hook", name: HOOK });
           if (Option.isNone(accepted)) throw new Error("The Hook was not accepted");
           const proposed = propose(accepted.value);
-          const plan = yield* prepareAcquisitionPlan(planAcquiring(proposed), reinstall).pipe(
-            work.provide,
-          );
+          const plan = yield* prepareAcquisitionPlan(
+            planAcquiring(proposed, acceptedContent),
+            reinstall,
+          ).pipe(work.provide);
           return { accepted: accepted.value, proposed, plan };
         }),
       ),
@@ -91,6 +104,7 @@ const settle = (
     const step = settled.plan.jobs[0]?.steps[0];
     return {
       ...settled,
+      carriesObservations: step !== undefined && "acceptedContent" in step,
       acquisitionRefs: step?.readiness === "error" ? undefined : step?.acquisitionRefs,
       treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
     };
@@ -140,6 +154,40 @@ describe("Acquisition reuse of accepted Registry content", () => {
       const settled = yield* settle(world, (accepted) => accepted);
 
       expect(settled.acquisitionRefs).toEqual([settled.accepted]);
+      expect(settled.treeHashes).toBe(1);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("takes the planner's observation of the same package in this phase", () =>
+    Effect.gen(function* () {
+      const world = yield* acceptedHook(cleanups);
+      const canonical = nodePath.join(
+        world.workspace.root,
+        fileRegistryPackagePath(world.registry, "hooks", HOOK),
+      );
+      fs.writeFileSync(nodePath.join(canonical, "drift.txt"), "Local drift.\n");
+
+      const settled = yield* settle(world, (accepted) => accepted, false, [
+        { type: "hook", name: HOOK },
+      ]);
+
+      expect(settled.acquisitionRefs).toEqual([settled.accepted]);
+      expect(settled.carriesObservations).toBe(false);
+      expect(settled.treeHashes).toBe(0);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("observes a package its planner did not observe", () =>
+    Effect.gen(function* () {
+      const world = yield* acceptedHook(cleanups);
+
+      const settled = yield* settle(world, (accepted) => accepted, false, [
+        { type: "hook", name: "other" },
+        { type: "skill", name: HOOK },
+      ]);
+
+      expect(settled.acquisitionRefs).toEqual([]);
+      expect(settled.carriesObservations).toBe(false);
       expect(settled.treeHashes).toBe(1);
     }).pipe(Effect.provide(NodeServices.layer)),
   );

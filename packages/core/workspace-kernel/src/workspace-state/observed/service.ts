@@ -60,6 +60,7 @@ import {
 import { makeScopedStateApi, type ScopedStateLoaders } from "./state.js";
 import type { RawSourceBytes } from "../desired/source-bytes.js";
 import { makeScannerFileSystem } from "./scanners/fs-helpers.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import type { Scope } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,12 @@ export interface WorkspaceReadModel {
   readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
   /** The resolved storage layout, or none when the layout could not be resolved. */
   readonly layout: Option.Option<WorkspaceLayout>;
+  /**
+   * The deep-frozen JSON value the canonical scan parsed from an acquired
+   * Knowledge manifest at exactly `manifestPath`, when its text was exactly
+   * `text`. Never starts the scan: none until the scan has parsed it.
+   */
+  readonly knowledgeManifestParse: (manifestPath: string, text: string) => Option.Option<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +245,11 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
 
   // Scanner cells — eagerly enumerate the closed scanner key set.
   const scannerFs = yield* makeScannerFileSystem(fs);
+  // Owned by the canonical scan cell; consumers receive only frozen values.
+  const knowledgeManifestParses = new Map<
+    string,
+    { readonly text: string; readonly parsed: unknown }
+  >();
   const canonicalScanner = yield* Effect.cached(
     Result.isFailure(layoutResult)
       ? Effect.succeed<ReadonlyArray<CanonicalExtensionOccurrence>>([])
@@ -247,8 +259,20 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           workspaceRoot,
           diagnostics,
           layout: layoutResult.success,
+          receiveKnowledgeManifestParse: (manifestPath, text, parsed) => {
+            knowledgeManifestParses.set(manifestPath, { text, parsed });
+          },
         }),
   );
+  const knowledgeManifestParse: WorkspaceReadModel["knowledgeManifestParse"] = (
+    manifestPath,
+    text,
+  ) => {
+    const recorded = knowledgeManifestParses.get(manifestPath);
+    return recorded === undefined || recorded.text !== text
+      ? Option.none()
+      : Option.some(freezeWorkspaceValue(recorded.parsed));
+  };
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
       nativeDirectoryInputs: deps.nativeDirectoryInputs,
@@ -430,6 +454,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics: diagnostics.snapshot,
     canonicalExtensions: canonicalScanner,
     layout: Result.isFailure(layoutResult) ? Option.none() : Option.some(layoutResult.success),
+    knowledgeManifestParse,
   } satisfies WorkspaceReadModel;
 });
 

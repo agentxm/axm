@@ -33,6 +33,11 @@ interface ReadManifestOptions {
    * the text from them exactly as `readFileString` would.
    */
   readonly receiveBytes?: (bytes: Uint8Array) => void;
+  /**
+   * A JSON value parsed earlier from exactly this manifest text at exactly
+   * this path, used in place of parsing the text again; none parses it.
+   */
+  readonly parsedText?: (manifestPath: string, text: string) => Option.Option<unknown>;
 }
 
 /** The manifest a package of `T` declares. */
@@ -137,18 +142,19 @@ const decodeManifestText = <T extends ExtensionType>(
   options: ReadManifestOptions | undefined,
 ): Effect.Effect<ReadManifestResult<T>, ManifestError> =>
   Effect.gen(function* () {
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-      content,
-    ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ManifestError({
-            code: "manifest_invalid_json",
-            detail: `Manifest file "${fileName}" contains invalid JSON.`,
-            cause,
-          }),
-      ),
-    );
+    const shared = options?.parsedText?.(manifestPath, content) ?? Option.none();
+    const parsed = Option.isSome(shared)
+      ? shared.value
+      : yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(content).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ManifestError({
+                code: "manifest_invalid_json",
+                detail: `Manifest file "${fileName}" contains invalid JSON.`,
+                cause,
+              }),
+          ),
+        );
     const raw = withDefaultOwner(parsed, options?.defaultOwner);
     const decoded = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(
       raw,

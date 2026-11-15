@@ -69,6 +69,16 @@ export interface CanonicalExtensionsScannerDeps {
   readonly workspaceRoot: string;
   readonly diagnostics: Diagnostics;
   readonly layout: WorkspaceLayout;
+  /**
+   * Receives the JSON value parsed from an acquired Knowledge bundle's
+   * manifest, with the path and exact text it was parsed from. The scanner
+   * never reads or mutates the value after handing it over.
+   */
+  readonly receiveKnowledgeManifestParse?: (
+    manifestPath: string,
+    text: string,
+    parsed: unknown,
+  ) => void;
 }
 
 /**
@@ -166,12 +176,8 @@ const readNativeIdentity = (
   Effect.gen(function* () {
     const filenameType = extensionTypeForManifestFilename(filename);
     if (filenameType === undefined) return Option.none();
-    const raw = yield* readTextFile(
-      SCANNER_NAME,
-      deps.fs,
-      deps.diagnostics,
-      deps.path.join(dir, filename),
-    );
+    const manifestPath = deps.path.join(dir, filename);
+    const raw = yield* readTextFile(SCANNER_NAME, deps.fs, deps.diagnostics, manifestPath);
     const fallbackName = yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
       deps.path.basename(dir),
     ).pipe(Effect.option);
@@ -183,9 +189,22 @@ const readNativeIdentity = (
         owner: null,
       });
     }
-    const identity = yield* Schema.decodeUnknownEffect(
-      Schema.fromJsonString(ScannableManifestIdentitySchema),
-    )(raw.value).pipe(Effect.option);
+    // Parse once into a value and decode the identity from it, so an acquired
+    // Knowledge manifest's parse can be handed to its receiver.
+    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      raw.value,
+    ).pipe(Effect.option);
+    if (
+      Option.isSome(parsed) &&
+      filenameType === "knowledge" &&
+      deps.receiveKnowledgeManifestParse !== undefined
+    )
+      deps.receiveKnowledgeManifestParse(manifestPath, raw.value, parsed.value);
+    const identity = Option.isNone(parsed)
+      ? Option.none()
+      : yield* Schema.decodeUnknownEffect(ScannableManifestIdentitySchema)(parsed.value).pipe(
+          Effect.option,
+        );
     if (Option.isNone(identity) || manifestFilenameForType(identity.value.type) !== filename) {
       if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({

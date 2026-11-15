@@ -159,6 +159,12 @@ export interface WorkspaceRecordsService {
   ) => RecordsRead<ExtensionInventory>;
   /** Lifecycle records without configured-agent outcomes. */
   readonly rows: (type: InstallableExtensionType) => RecordsRead<ReadonlyArray<WorkspaceRecordRow>>;
+  /**
+   * The deep-frozen JSON value this read phase's canonical scan parsed from
+   * an acquired Knowledge manifest at exactly `manifestPath`, when its text
+   * was exactly `text`. Never starts a scan; none once the phase has ended.
+   */
+  readonly knowledgeManifestParse?: (manifestPath: string, text: string) => Option.Option<unknown>;
 }
 
 /** The scopes and source view that identify a workspace's document cells. */

@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
@@ -22,10 +23,27 @@ const missingManifestDescription = (): KnowledgeDiagnostic =>
     message: `${manifestFilenameForType("knowledge")} should include a concise bundle description for discovery.`,
   });
 
+interface KnowledgePackageReadOptions {
+  /**
+   * A JSON value parsed earlier from exactly the manifest text at exactly the
+   * manifest path, used in place of parsing that text again.
+   */
+  readonly parsedManifestText?: (manifestPath: string, text: string) => Option.Option<unknown>;
+}
+
 /** Read and decode one Knowledge package manifest without inspecting its bundle body. */
-export const readKnowledgePackageManifest = Effect.fnUntraced(function* (packageRoot: string) {
+export const readKnowledgePackageManifest = Effect.fnUntraced(function* (
+  packageRoot: string,
+  options?: KnowledgePackageReadOptions,
+) {
   const path = yield* Path.Path;
-  const { manifest } = yield* readExtensionManifest(packageRoot, "knowledge");
+  const { manifest } = yield* readExtensionManifest(
+    packageRoot,
+    "knowledge",
+    options?.parsedManifestText === undefined
+      ? undefined
+      : { parsedText: options.parsedManifestText },
+  );
   const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
   return { sourceRoot, manifest };
 });
@@ -52,7 +70,10 @@ export const inspectKnowledgePackageWithManifest = Effect.fnUntraced(function* (
 });
 
 /** Inspect one complete Knowledge package, including manifest-level profile diagnostics. */
-export const inspectKnowledgePackage = Effect.fnUntraced(function* (packageRoot: string) {
-  const { manifest } = yield* readKnowledgePackageManifest(packageRoot);
+export const inspectKnowledgePackage = Effect.fnUntraced(function* (
+  packageRoot: string,
+  options?: KnowledgePackageReadOptions,
+) {
+  const { manifest } = yield* readKnowledgePackageManifest(packageRoot, options);
   return yield* inspectKnowledgePackageWithManifest(packageRoot, manifest);
 });

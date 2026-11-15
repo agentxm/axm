@@ -43,6 +43,7 @@ import { PackManifests } from "./pack-manifests.js";
 import { observeInstallRoot } from "./install-root.js";
 import { readModelFor, freshStateLoadersFor } from "./state-cells.js";
 import { WorkspaceRecords, makeWorkspaceRecords } from "./workspace-records.js";
+import type { WorkspaceReadModel } from "../observed/service.js";
 
 type ReadServices =
   | SettingsReader
@@ -157,6 +158,8 @@ export const WorkspaceReadViewsLive = Layer.effect(
             options?.observations === true || Option.isNone(callerFs) ? liveFs : callerFs.value;
           let active = true;
           let endReason: WorkspaceReadPhaseEnd | undefined;
+          // The phase's read model once built; looking it up never builds it.
+          let builtModel: WorkspaceReadModel | undefined;
           const packDocuments: WorkspaceReadPhaseState["packDocuments"] = new Map();
           const knowledgeInspections: NonNullable<WorkspaceReadPhaseState["knowledgeInspections"]> =
             new Map();
@@ -170,6 +173,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
             candidates.clear();
             packDocuments.clear();
             knowledgeInspections.clear();
+            builtModel = undefined;
           };
           const readFileSystem = options?.fileSystem ?? fs;
           const observation =
@@ -212,7 +216,14 @@ export const WorkspaceReadViewsLive = Layer.effect(
               );
             const selectedState = yield* stateLoaders(location.scope);
             const model = yield* Effect.cached(
-              readModelFor(location, location.scope, selectedState).pipe(Effect.provideContext(io)),
+              readModelFor(location, location.scope, selectedState).pipe(
+                Effect.tap((value) =>
+                  Effect.sync(() => {
+                    if (active) builtModel = value;
+                  }),
+                ),
+                Effect.provideContext(io),
+              ),
             );
             const capturedDocuments: WorkspaceDocumentsService = {
               ...documents,
@@ -405,6 +416,10 @@ export const WorkspaceReadViewsLive = Layer.effect(
                 ),
               rows: (type) =>
                 Effect.suspend(() => (active ? capturedRecords : liveRecords).rows(type)),
+              knowledgeManifestParse: (manifestPath, text) =>
+                active && builtModel !== undefined
+                  ? builtModel.knowledgeManifestParse(manifestPath, text)
+                  : Option.none(),
             };
             return Context.make(DesiredStateReader, desired).pipe(
               Context.add(SettingsReader, settings),

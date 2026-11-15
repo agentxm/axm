@@ -2622,6 +2622,105 @@ describe("instruction projection reads each prepared input once", () => {
     ),
   );
 
+  it.effect("admits a source shared by planned items once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.health, item.ownership]),
+        ).toEqual([
+          ["claude-code", "missing-target", "absent"],
+          ["gemini-cli", "missing-target", "absent"],
+        ]);
+        expect(snapshot.status.missingSources).toEqual([]);
+        expect({
+          // One admission shared by both planned items and the missing-source
+          // check, then the source witness's own entry and content admissions.
+          source: recording.counts(ws.source),
+          contentReads: recording.contentReads(ws.source),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({
+          source: { readFile: 1, readLink: 6, realPath: 5, stat: 7 },
+          contentReads: 1,
+          witnessHashes: 4,
+        });
+      }),
+    ),
+  );
+
+  for (const [name, arrange] of [
+    [
+      "an escaping link",
+      (source: string, outside: string) => {
+        fs.rmSync(source);
+        fs.writeFileSync(path.join(outside, "AGENTS.md"), "# Foreign\n");
+        fs.symlinkSync(path.join(outside, "AGENTS.md"), source);
+      },
+    ],
+    [
+      "a hard link",
+      (source: string, outside: string) => fs.linkSync(source, path.join(outside, "AGENTS.md")),
+    ],
+  ] as const)
+    it.effect(`reports a source with ${name} missing for every planned item`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const host = yield* EffectFileSystem.FileSystem;
+          const recording = yield* FileSystemRecorder;
+          const ws = yield* workspace({});
+          const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+          arrange(ws.source, outside);
+          recording.reset();
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code", "gemini-cli"],
+            symlinkSupported: true,
+          });
+          expect(snapshot.status.items.map((item) => [item.agentId, item.health])).toEqual([
+            ["claude-code", "missing-source"],
+            ["gemini-cli", "missing-source"],
+          ]);
+          expect(snapshot.status.missingSources).toEqual([ws.source]);
+          expect(recording.contentReads(ws.source)).toBe(0);
+        }),
+      ),
+    );
+
+  it.effect("admits a user-scope source separately for the missing-source check", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const home = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const configRoot = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const external = path.join(configRoot, "AGENTS.md");
+        yield* host.writeFileString(external, "# User\n");
+        yield* host.symlink(external, path.join(home, "AGENTS.md"));
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: home,
+          scope: "user",
+          nativeDirectoryInputs: {
+            skillsDirectoryOverrides: {},
+            userConfigRootOverrides: { "claude-code": configRoot },
+          },
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+        });
+        // The planned item reads the source through the declared config root;
+        // the workspace-only missing-source admission refuses the same link.
+        expect(snapshot.status.items.map((item) => item.health)).toEqual(["missing-target"]);
+        expect(snapshot.status.missingSources).toEqual([path.join(home, "AGENTS.md")]);
+      }),
+    ),
+  );
+
   for (const mechanism of ["symlink", "copy"] as const)
     it.effect(`publishes the bytes its own witness verified for a ${mechanism} target`, () =>
       recorded(

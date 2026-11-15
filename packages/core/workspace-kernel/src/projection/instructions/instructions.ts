@@ -13,7 +13,9 @@ import {
   observeInstructionNativeLocations,
 } from "./native-outcomes.js";
 import * as Context from "effect/Context";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -744,6 +746,64 @@ const withInstructionReadCells = <A, E, R>(
     );
   });
 
+/**
+ * Content admissions shared by the planned-item and missing-source reads of
+ * one observation, which run with no write between them. A key names the
+ * resolved roots, the resolved path and the owner root, so an admission under
+ * other roots is never reused. Witnesses, prepare and every read outside those
+ * two stages admit their paths fresh.
+ */
+type InstructionAdmission = Effect.Effect<
+  Option.Option<NativeEntryAddress>,
+  never,
+  FileSystem.FileSystem | Path.Path
+>;
+
+class InstructionAdmissionCells extends Context.Service<
+  InstructionAdmissionCells,
+  {
+    readonly admit: (key: string, fresh: InstructionAdmission) => InstructionAdmission;
+  }
+>()("@agentxm/workspace-kernel/projection/instructions/instructions/InstructionAdmissionCells") {}
+
+/**
+ * Run `use` with a `share` that lets the effects it wraps reuse one another's
+ * content admissions, until `use` ends. Only a completed admission is kept;
+ * a defect or an interruption is never reused.
+ */
+const withInstructionAdmissionCells = <A, E, R>(
+  use: (
+    share: <B, E2, R2>(effect: Effect.Effect<B, E2, R2>) => Effect.Effect<B, E2, R2>,
+  ) => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> =>
+  Effect.suspend(() => {
+    const cells = new Map<string, InstructionAdmission>();
+    let active = true;
+    const admit = (key: string, fresh: InstructionAdmission) =>
+      Effect.gen(function* () {
+        if (!active) return yield* fresh;
+        const previous = cells.get(key);
+        if (previous !== undefined) return yield* previous;
+        const created = yield* Effect.cachedWithTTL(fresh, (exit) =>
+          Exit.isSuccess(exit) ? Duration.infinity : Duration.zero,
+        );
+        // A concurrent miss may have installed its admission meanwhile; share it.
+        const selected = cells.get(key) ?? created;
+        cells.set(key, selected);
+        return yield* selected;
+      });
+    const share = <B, E2, R2>(effect: Effect.Effect<B, E2, R2>) =>
+      Effect.provideService(effect, InstructionAdmissionCells, { admit });
+    return use(share).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          active = false;
+          cells.clear();
+        }),
+      ),
+    );
+  });
+
 /** One call's own content admission of a path and, for a readable entry, its referent's bytes. */
 interface AdmittedInstructionRead {
   readonly referentPath: string;
@@ -763,7 +823,8 @@ const readAdmittedFile = (
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const address = yield* assertNativeMutationWithinRoots(
+    const path = yield* Path.Path;
+    const admit = assertNativeMutationWithinRoots(
       nativeRoots,
       filePath,
       "content",
@@ -772,6 +833,18 @@ const readAdmittedFile = (
       Effect.map((selected) => selected.address),
       Effect.option,
     );
+    const admissions = yield* Effect.serviceOption(InstructionAdmissionCells);
+    const address = Option.isSome(admissions)
+      ? yield* admissions.value.admit(
+          JSON.stringify([
+            nativeRoots.map((root) => path.resolve(root)),
+            path.resolve(filePath),
+            "content",
+            path.resolve(workspaceRoot),
+          ]),
+          admit,
+        )
+      : yield* admit;
     if (Option.isNone(address) || address.value.referentPath === undefined)
       return Option.none<AdmittedInstructionRead>();
     const referentPath = address.value.referentPath;
@@ -1978,56 +2051,70 @@ export const observeInstructionProjection = (
     });
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
-    const items = yield* observePlannedItems({
-      workspaceRoot: args.workspaceRoot,
-      nativeRoots,
-      plan: proposed,
-      config: args.config,
-      symlinkSupported,
-      rows: args.rows,
-      prospectiveRoots: args.prospectiveRoots ?? [],
-    });
-    const plan = {
-      ...proposed,
-      items: proposed.items.filter(
-        (item) =>
-          item.action === "skip" ||
-          items.some(
-            (observed) => observed.root === item.root && observed.agentId === item.agentId,
-          ),
-      ),
-    };
-    const desiredTargets = new Set(
-      proposed.items.flatMap((item) =>
-        item.action === "skip" ? [] : [path.resolve(item.targetPath)],
-      ),
+    // The planned items and the missing-source check share their content
+    // admissions: nothing writes between them, and every kept path is admitted
+    // again by its witness below. The stale-candidate stage between them and
+    // every other read admit fresh.
+    const { items, plan, staleTargets, missingSources } = yield* withInstructionAdmissionCells(
+      (share) =>
+        Effect.gen(function* () {
+          const items = yield* share(
+            observePlannedItems({
+              workspaceRoot: args.workspaceRoot,
+              nativeRoots,
+              plan: proposed,
+              config: args.config,
+              symlinkSupported,
+              rows: args.rows,
+              prospectiveRoots: args.prospectiveRoots ?? [],
+            }),
+          );
+          const plan = {
+            ...proposed,
+            items: proposed.items.filter(
+              (item) =>
+                item.action === "skip" ||
+                items.some(
+                  (observed) => observed.root === item.root && observed.agentId === item.agentId,
+                ),
+            ),
+          };
+          const desiredTargets = new Set(
+            proposed.items.flatMap((item) =>
+              item.action === "skip" ? [] : [path.resolve(item.targetPath)],
+            ),
+          );
+          // Candidates are only the alias names actually present at visited
+          // directories — a handful in practice — so sequential classification adds
+          // no fan-out beyond the walk and keeps the reported order deterministic.
+          const staleTargets = (yield* Effect.forEach(
+            tree.candidates.filter(
+              (candidate) => !desiredTargets.has(path.resolve(candidate.targetPath)),
+            ),
+            (candidate) =>
+              observeStaleCandidate(
+                candidate,
+                args.config.fileName,
+                args.workspaceRoot,
+                nativeRoots,
+                args.rows,
+              ),
+            { concurrency: 1 },
+          ))
+            .filter(Option.isSome)
+            .map((item) => item.value);
+          const missingSources = (yield* share(
+            Effect.forEach(plan.roots, (root) =>
+              readFileOption(path.join(root, args.config.fileName), args.workspaceRoot).pipe(
+                Effect.map((content) =>
+                  Option.isSome(content) ? [] : [path.join(root, args.config.fileName)],
+                ),
+              ),
+            ),
+          )).flat();
+          return { items, plan, staleTargets, missingSources };
+        }),
     );
-    // Candidates are only the alias names actually present at visited
-    // directories — a handful in practice — so sequential classification adds
-    // no fan-out beyond the walk and keeps the reported order deterministic.
-    const staleTargets = (yield* Effect.forEach(
-      tree.candidates.filter(
-        (candidate) => !desiredTargets.has(path.resolve(candidate.targetPath)),
-      ),
-      (candidate) =>
-        observeStaleCandidate(
-          candidate,
-          args.config.fileName,
-          args.workspaceRoot,
-          nativeRoots,
-          args.rows,
-        ),
-      { concurrency: 1 },
-    ))
-      .filter(Option.isSome)
-      .map((item) => item.value);
-    const missingSources = (yield* Effect.forEach(plan.roots, (root) =>
-      readFileOption(path.join(root, args.config.fileName), args.workspaceRoot).pipe(
-        Effect.map((content) =>
-          Option.isSome(content) ? [] : [path.join(root, args.config.fileName)],
-        ),
-      ),
-    )).flat();
     const gitignore = yield* observeInstructionsGitignore({
       workspaceRoot: args.workspaceRoot,
       plan,

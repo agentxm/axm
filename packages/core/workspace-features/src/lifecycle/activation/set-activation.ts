@@ -108,7 +108,7 @@ import {
   problemsAffectingSubject,
   unresolvedPackRoutes,
   unresolvedPackRoutesText,
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationOfKeptRoot,
   desiredPackageKey,
   desiredStateProblemsText,
   observeDesiredCanonical,
@@ -738,20 +738,24 @@ const settlePack = <R>(
       onNone: (): ReadonlyArray<JobStepArtifactTarget> => [],
       onSome: (step) => step.artifact?.targets ?? [],
     });
+    // A retired member's canonical root is the retirement's target and is not
+    // reported as retained, so its content is not observed again.
     const retainedReferences = (yield* Effect.forEach(members, (node) =>
-      acceptedCanonicalObservation({ type: node.type, name: node.name }).pipe(
-        Effect.map((canonical): ReadonlyArray<JobStepArtifactReference> => {
-          if (Option.isNone(canonical) || canonical.value.observation.path === undefined) return [];
-          const relative = path.relative(location.baseDir, canonical.value.observation.path);
-          if (retirementTargets.some((target) => target.path === relative)) return [];
-          return [
-            {
-              path: relative,
-              state: canonical.value.observation.status === "usable" ? "retained" : "unknown",
-              reason: "canonical content retained",
-            },
-          ];
-        }),
+      acceptedCanonicalObservationOfKeptRoot({ type: node.type, name: node.name }, (root) =>
+        retirementTargets.some((target) => target.path === path.relative(location.baseDir, root)),
+      ).pipe(
+        Effect.map((kept): ReadonlyArray<JobStepArtifactReference> =>
+          Option.match(kept, {
+            onNone: () => [],
+            onSome: ({ path: root, observed }) => [
+              {
+                path: path.relative(location.baseDir, root),
+                state: observed.observation.status === "usable" ? "retained" : "unknown",
+                reason: "canonical content retained",
+              },
+            ],
+          }),
+        ),
       ),
     )).flat();
     return {

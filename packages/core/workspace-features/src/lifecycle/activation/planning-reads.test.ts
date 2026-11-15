@@ -5,9 +5,12 @@
  * Activation reads only the steps and prepared projections of that collection,
  * so the collection reads each type's inventory for presence and paths alone:
  * the pre-change native outcomes a detailed inventory adds are never consumed.
- * Counts are exact for these fixtures over a real temporary workspace and a
+ * Where a decision consumes only the canonical root an observation reports,
+ * the root is derived from the accepted row instead of observing the content.
+ * Every example names the count observed before those reductions. Counts are exact for these fixtures over a real temporary workspace and a
  * `file://` Registry, beneath the production read views.
  */
+import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Context from "effect/Context";
@@ -30,7 +33,7 @@ import {
   makeInstallWorld,
   type InstallWorld,
 } from "../../testing/install-world.js";
-import { EnableExtension } from "./set-activation.js";
+import { DisableExtension, EnableExtension } from "./set-activation.js";
 import { applyActivationAcceptingExecutionChanges } from "./test-helpers.js";
 
 const recordedNodeServices = Layer.provideMerge(
@@ -94,6 +97,7 @@ const measure = <A, E, R>(
       detailedMcpInventories: detailed.get("mcp-server") ?? 0,
       mcpConfigReads: recording.contentReads(nodePath.join(world.workspace.root, ".mcp.json")),
       facts: work.facts,
+      recording,
     };
   }).pipe(world.workspace.provide, Effect.provide(recordedNodeServices));
 
@@ -191,6 +195,125 @@ describe("Activation planning reads each type's inventory for presence only", ()
         // Repeated: one detailed inventory, inspecting every active MCP server,
         // and 6 reads of `.mcp.json`. The member's currency keeps its reads.
         expect(counted).toMatchObject({ detailedMcpInventories: 0, mcpConfigReads: 4 });
+      });
+    },
+    { timeout: 60_000 },
+  );
+});
+
+/** The acquired canonical root of `name`, wherever its source places it. */
+const acquiredRoot = (world: InstallWorld, plural: string, name: string): string => {
+  const found = fs
+    .readdirSync(nodePath.join(world.workspace.root, "agent_extensions"), {
+      recursive: true,
+      encoding: "utf8",
+    })
+    .filter((relative) => relative.endsWith(nodePath.join(plural, name)));
+  if (found.length !== 1) throw new Error(`Expected one acquired ${plural}/${name}: ${found}`);
+  return nodePath.join(world.workspace.root, "agent_extensions", found[0] ?? "");
+};
+
+describe("Activation planning observes canonical content only where a decision reads it", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  it.effect(
+    "projects an MCP server enable's outcomes from its canonical root without walking it",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeMcp("context", [{ version: "1.0.0" }]);
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          Effect.gen(function* () {
+            const installed = yield* applyInstallAcceptingExecutionChanges(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source: "test:@acme/mcps/context" },
+              }),
+            );
+            expect(deriveOperationOutcome(installed)).toBe("applied");
+            yield* applyActivationAcceptingExecutionChanges({
+              type: "mcp-server",
+              name: "context",
+              enabled: false,
+            });
+          }),
+          EnableExtension.prepare({ type: "mcp-server", name: "context" }),
+        );
+        const root = acquiredRoot(created, "mcps", "context");
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        expect(counted.result.agentOutcomes).toEqual([
+          {
+            extensionType: "mcp-server",
+            name: "context",
+            agentId: "claude-code",
+            outcome: "projected",
+            reasonCode: "supported",
+            reason: "claude-code has a matching MCP projection.",
+            path: nodePath.join(created.workspace.root, ".mcp.json"),
+          },
+        ]);
+        // Repeated: 4 tree hashes, 7 directory reads and 4 presence probes of
+        // the root, and 13 reads of its manifest. Settlement, step collection
+        // and the execution review still judge the tree.
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootDirectoryReads: counted.recording.counts(root).readDirectory,
+          rootProbes: counted.recording.counts(root).access,
+          manifestReads: counted.recording.contentReads(nodePath.join(root, "mcp.json")),
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 6, rootProbes: 3, manifestReads: 11 });
+      });
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "prepares a Pack disable without observing a retired member again",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/skills/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          Effect.gen(function* () {
+            const pack = yield* applyInstallAcceptingExecutionChanges(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "test:@acme/packs/reviews" },
+              }),
+            );
+            expect(deriveOperationOutcome(pack)).toBe("applied");
+          }),
+          DisableExtension.prepare({ type: "pack", name: "reviews" }),
+        );
+        const root = acquiredRoot(created, "skills", "review");
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        // The member is retired, so it is a removed target and no retained reference.
+        expect(counted.result.artifact.references).toEqual([]);
+        expect(counted.result.artifact.targets).toEqual([
+          { path: "axm.json", change: "updated" },
+          {
+            path: nodePath.relative(created.workspace.root, root),
+            change: "removed",
+          },
+        ]);
+        // Repeated: 2 tree hashes, 3 directory reads and 2 presence probes of
+        // the member root. The retirement still verifies the tree it retires.
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootDirectoryReads: counted.recording.counts(root).readDirectory,
+          rootProbes: counted.recording.counts(root).access,
+        }).toEqual({ treeHashes: 1, rootDirectoryReads: 2, rootProbes: 1 });
       });
     },
     { timeout: 60_000 },

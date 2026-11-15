@@ -39,6 +39,7 @@ import {
 import {
   capturedManifestFor,
   observeCanonicalExtensionCapturing,
+  observedCanonicalPath,
   type CanonicalObservation,
   type CapturedManifest,
 } from "./canonical-observation.js";
@@ -395,8 +396,18 @@ const observeDesiredCanonicalCapturing = (desired: DesiredExtensionNode) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout);
+  });
+
+/** Observe one desired node against the accepted row already read for it. */
+const observeAcceptedCanonicalCapturing = (
+  desired: DesiredExtensionNode,
+  accepted: Option.Option<LockEntry>,
+  layout: WorkspaceLayout,
+) =>
+  Effect.gen(function* () {
     const reader = yield* LockfileReader;
-    const accepted = yield* reader.acceptedEntry(desired.type, desired.name);
     const { observation, manifest } = yield* observeCanonicalExtensionCapturing({
       layout,
       desired,
@@ -464,6 +475,69 @@ export const acceptedCanonicalObservation = (
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > => Effect.map(acceptedCanonicalObservationCapturing(args), (capture) => capture.observed);
+
+/**
+ * The node `args` names, its accepted row, and the canonical root an
+ * observation of it reports, derived from that row and the layout alone: no
+ * canonical content is read.
+ */
+const acceptedCanonicalSubject = ({ type, name, desired: proposed }: AcceptedCanonicalRefArgs) =>
+  Effect.gen(function* () {
+    const desiredState = yield* DesiredStateReader;
+    const desired =
+      proposed ??
+      (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
+    if (desired === undefined) return Option.none();
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+    const path = observedCanonicalPath(
+      yield* Path.Path,
+      layout,
+      desired,
+      Option.getOrUndefined(accepted),
+    );
+    return Option.some({ desired, accepted, layout, path });
+  });
+
+/**
+ * The canonical root `acceptedCanonicalObservation` would report for the
+ * node, without observing it: nothing about the content is judged.
+ */
+export const acceptedCanonicalObservationPath = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  Option.Option<string>,
+  AcceptedCanonicalRefError,
+  Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.map(
+    acceptedCanonicalSubject(args),
+    Option.flatMap(({ path }) => Option.fromUndefinedOr(path)),
+  );
+
+/**
+ * Observe like `acceptedCanonicalObservation`, only when the observation
+ * reports a canonical root the caller keeps: `None` when the node is
+ * undeclared, its observation reports no root, or `discarded` names that root.
+ * The root is the one the observation reports.
+ */
+export const acceptedCanonicalObservationOfKeptRoot = (
+  args: AcceptedCanonicalRefArgs,
+  discarded: (canonicalPath: string) => boolean,
+): Effect.Effect<
+  Option.Option<{ readonly path: string; readonly observed: AcceptedCanonicalObservation }>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.gen(function* () {
+    const subject = yield* acceptedCanonicalSubject(args);
+    if (Option.isNone(subject)) return Option.none();
+    const { desired, accepted, layout, path } = subject.value;
+    if (path === undefined || discarded(path)) return Option.none();
+    const { observed } = yield* observeAcceptedCanonicalCapturing(desired, accepted, layout);
+    return Option.some({ path, observed });
+  });
 
 const asUsable = (
   value: AcceptedCanonicalObservation,

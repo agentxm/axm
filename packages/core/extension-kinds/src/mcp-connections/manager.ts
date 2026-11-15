@@ -24,6 +24,7 @@ import {
   acquiredPackageRelativePath,
   validateExactResolvedVersion,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationPath,
   acceptedLockedResolutionRef,
   removableAcceptedCanonicalPath,
   type TreeIntegrity,
@@ -389,16 +390,16 @@ export const McpServerManagerLive = Layer.effect(
           nodes,
           (node) =>
             Effect.gen(function* () {
+              // Only the canonical root reaches the inspection, and the root
+              // an observation reports never depends on the content it reads.
               const canonical =
                 node.authority === "inline"
                   ? Option.none<string>()
-                  : (yield* acceptedCanonicalObservation({
+                  : yield* acceptedCanonicalObservationPath({
                       type: "mcp-server",
                       name: node.name,
                       desired: node,
-                    })).pipe(
-                      Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
-                    );
+                    });
               const { outcomes, conflict } = yield* inspectDesiredMcpServer({
                 nativeDirectoryInputs: location.nativeDirectoryInputs,
                 workspaceRoot: baseDir,

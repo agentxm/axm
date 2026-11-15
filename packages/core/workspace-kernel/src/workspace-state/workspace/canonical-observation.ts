@@ -436,12 +436,64 @@ const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapt
 });
 
 /**
+ * What an observation of the desired node settles before it reads any
+ * canonical content: either a settled observation, or the canonical root the
+ * content is then read from. A pure function of the node, the accepted row
+ * and the layout.
+ */
+const judgeBeforeContent = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+):
+  | { readonly settled: CanonicalObservation }
+  | {
+      readonly settled?: undefined;
+      readonly root: string;
+      readonly desired: DesiredExtensionNode & { readonly source: string };
+    } => {
+  if (desired.source === undefined) {
+    return { settled: { type: desired.type, name: desired.name, status: "not-applicable" } };
+  }
+  const judged = observeAcceptedResolution(desired, accepted, path);
+  const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
+  if (Option.isSome(judged)) {
+    return {
+      settled:
+        judged.value.status === "constraint-mismatch" && root !== undefined
+          ? { ...judged.value, path: root }
+          : judged.value,
+    };
+  }
+  if (root === undefined) {
+    return { settled: { type: desired.type, name: desired.name, status: "wrong-origin" } };
+  }
+  return { root, desired };
+};
+
+/**
+ * The `path` an observation of the desired node reports, derived without
+ * reading canonical content: every observation that reads content reports
+ * the canonical root it read.
+ */
+export const observedCanonicalPath = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+): string | undefined => {
+  const judged = judgeBeforeContent(path, layout, desired, accepted);
+  return judged.settled === undefined ? judged.root : judged.settled.path;
+};
+
+/**
  * Observe like `observeCanonicalExtension`, also handing the caller the
  * manifest text the observation read. The text is never retained here.
  */
 export const observeCanonicalExtensionCapturing = ({
   layout,
-  desired,
+  desired: observed,
   accepted,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservationCapture,
@@ -451,23 +503,11 @@ export const observeCanonicalExtensionCapturing = ({
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (desired.source === undefined) {
-      return uncaptured({ type: desired.type, name: desired.name, status: "not-applicable" });
-    }
-    const judged = observeAcceptedResolution(desired, accepted, path);
-    const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
-    if (Option.isSome(judged)) {
-      return uncaptured(
-        judged.value.status === "constraint-mismatch" && root !== undefined
-          ? { ...judged.value, path: root }
-          : judged.value,
-      );
-    }
+    const judged = judgeBeforeContent(path, layout, observed, accepted);
+    if (judged.settled !== undefined) return uncaptured(judged.settled);
+    const { root, desired } = judged;
     const workspaceAuthored = desired.identity.authority === "workspace";
     const bundled = desired.identity.authority === "bundled";
-    if (root === undefined) {
-      return uncaptured({ type: desired.type, name: desired.name, status: "wrong-origin" });
-    }
     const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
       return uncaptured({ type: desired.type, name: desired.name, status: "missing", path: root });

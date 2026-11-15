@@ -11,6 +11,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
@@ -22,12 +23,13 @@ import {
   observeAcceptedResolution,
   observeCanonicalExtension,
   observeCanonicalExtensionCapturing,
+  observedCanonicalPath,
 } from "./canonical-observation.js";
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
 import type { LockEntry } from "./lock-entry.js";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { resolveProjectWorkspaceLayout } from "./layout.js";
+import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "./layout.js";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 import type { WorkFact } from "@agentxm/host-primitives/work-observation";
@@ -649,6 +651,114 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       expect(capture.observation.status).toBe("missing");
       expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
       expect(capture.manifest).toEqual(Option.none());
+    }),
+  );
+
+  // The path an observation reports never depends on the content it reads, so
+  // a caller that consumes only the path can derive it without observing.
+  it.effect("derives exactly the path each observation reports, without reading content", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const layout = yield* projectLayout(root);
+      const userLayout = yield* resolveUserWorkspaceLayout(decodeAbsolutePathSync(root));
+      const endpoint = decodeRegistryEndpointSync("https://registry.example.com");
+      const member: DesiredExtensionNode = {
+        ...desiredPackMember({ authority: "workspace", fqn: "@acme/packs/team" }),
+        identity: {
+          authority: "registry",
+          fqn: "@acme/skills/review",
+          registry: { sourceName: "test", endpoint },
+        },
+      };
+      const registryRow = (treeIntegrity = placeholderTreeIntegrity): LockEntry => ({
+        source: { type: "registry", url: endpoint },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-registry-member",
+          publisherBindingId: "test-publisher",
+        },
+        treeIntegrity,
+      });
+      const canonical = canonicalPathForAcceptedExtension(path, layout, member, registryRow());
+      if (canonical === undefined) return yield* Effect.die("Expected an acquired path");
+      const manifest = (owner: string) =>
+        JSON.stringify({ owner, type: "skill", name: "review", version: "1.0.0" });
+      // No files leaves the canonical root absent.
+      const writePackage = (files: Readonly<Record<string, string>>) => {
+        nodeFs.rmSync(canonical, { recursive: true, force: true });
+        for (const [relative, contents] of Object.entries(files)) {
+          nodeFs.mkdirSync(nodePath.dirname(nodePath.join(canonical, relative)), {
+            recursive: true,
+          });
+          nodeFs.writeFileSync(nodePath.join(canonical, relative), contents);
+        }
+      };
+      const complete = { "skill.json": manifest("@acme"), "src/SKILL.md": "# Review\n" };
+      const inline: DesiredExtensionNode = {
+        type: "mcp-server",
+        name: "browser",
+        authority: "inline",
+        identity: { authority: "inline", name: "browser" },
+        enabled: true,
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        origins: [{ type: "settings", authority: "inline", enabled: true }],
+      };
+      const rows: ReadonlyArray<{
+        readonly status: string;
+        readonly files?: Readonly<Record<string, string>>;
+        readonly desired?: DesiredExtensionNode;
+        readonly accepted?: () => Effect.Effect<
+          LockEntry | undefined,
+          never,
+          FileSystem.FileSystem | Path.Path
+        >;
+        readonly user?: boolean;
+      }> = [
+        {
+          status: "usable",
+          files: complete,
+          accepted: () =>
+            Effect.map(Effect.orDie(computeMaterializedTreeIntegrity(canonical)), registryRow),
+        },
+        { status: "missing" },
+        { status: "incomplete", files: { "skill.json": manifest("@acme") } },
+        { status: "materialization-mismatch", files: complete },
+        { status: "wrong-origin", files: { ...complete, "skill.json": manifest("@other") } },
+        {
+          status: "missing-resolution",
+          files: complete,
+          accepted: () => Effect.succeed(undefined),
+        },
+        {
+          status: "wrong-origin",
+          files: complete,
+          accepted: () => Effect.succeed(acceptedPath("vendor/review")),
+        },
+        {
+          status: "constraint-mismatch",
+          files: complete,
+          desired: { ...member, constraint: desiredConstraintOf("^2.0.0") },
+        },
+        { status: "not-applicable", desired: inline },
+        {
+          status: "wrong-origin",
+          files: complete,
+          desired: desiredSkill("workspace:@acme/skills/review"),
+          user: true,
+        },
+      ];
+      for (const row of rows) {
+        writePackage(row.files ?? {});
+        const desired = row.desired ?? member;
+        const accepted = row.accepted === undefined ? registryRow() : yield* row.accepted();
+        const args = { layout: row.user === true ? userLayout : layout, desired, accepted };
+        const observed = yield* observeCanonicalExtension(args);
+        expect(observed.status, row.status).toBe(row.status);
+        expect(observedCanonicalPath(path, args.layout, desired, accepted), row.status).toBe(
+          observed.path,
+        );
+      }
     }),
   );
 

@@ -233,6 +233,8 @@ export {
   prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
+  acceptedCanonicalObservationOfKeptRoot,
+  acceptedCanonicalObservationPath,
   observeDesiredCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,

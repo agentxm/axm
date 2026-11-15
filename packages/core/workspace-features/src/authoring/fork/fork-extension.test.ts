@@ -116,6 +116,9 @@ describe("ForkExtension prepared work", () => {
   // Each preflight run's manager prepares from the manifest that run decoded,
   // so its own read of the staged manifest goes in each phase.
   const sharedManifestDecode = { rule: [1, 0], hook: [1] } as const;
+  // Each preflight run's HookManager takes that run's package hash for the
+  // staged root instead of framing its own.
+  const sharedPackageHash = { rule: 0, hook: 1 } as const;
 
   for (const type of ["rule", "hook"] as const)
     it.effect(`hashes an enabled ${type} fork's staged package once while preparing`, () => {
@@ -123,13 +126,14 @@ describe("ForkExtension prepared work", () => {
       const measured = before[type];
       const shared = sharedTreeWalk[type];
       const decoded = sharedManifestDecode[type];
+      const hashed = sharedPackageHash[type];
       return Effect.gen(function* () {
         const { prepare, apply, staged } = yield* forkPhases(type, source, { enable: true });
         expect(deriveOperationOutcome(apply.value)).toBe("applied");
         // The preflight no longer re-hashes the staged root, so its walk and
         // its read of every staged file go; it still reads the manifest.
         expect(stagedCounts(prepare, staged, measured.files)).toEqual({
-          hashes: measured.prepare.hashes - 1,
+          hashes: measured.prepare.hashes - 1 - hashed,
           rootReadDirectory: measured.prepare.rootReadDirectory - 1 - shared,
           readFile: measured.prepare.readFile.map(
             (count, index) => count - 1 - shared - (decoded[index] ?? 0),
@@ -137,7 +141,7 @@ describe("ForkExtension prepared work", () => {
         });
         // Under the lock the preflight reads and hashes the staged package fresh.
         expect(stagedCounts(apply, staged, measured.files)).toEqual({
-          hashes: measured.apply.hashes,
+          hashes: measured.apply.hashes - hashed,
           rootReadDirectory: measured.apply.rootReadDirectory - shared,
           readFile: measured.apply.readFile.map(
             (count, index) => count - shared - (decoded[index] ?? 0),

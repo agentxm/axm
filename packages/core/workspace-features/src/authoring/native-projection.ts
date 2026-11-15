@@ -80,9 +80,10 @@ export const preparedManifestFacts = ({
  *
  * Each value is non-authoritative and replaces only a read the run would
  * make itself, so a supplied manifest is identity-checked as a read one is.
- * The source hash only fills the ref handed to the managers, and no preflight
- * consumer may read `ref.sourceHash` as freshness evidence: staged-byte
- * freshness belongs to publication validation.
+ * The source hash fills the ref handed to the managers and, for a Hook, keys
+ * the HookManager's fixture-evidence lookup, whose outcome the preflight
+ * discards. No preflight consumer may read either as freshness evidence:
+ * staged-byte freshness belongs to publication validation.
  */
 interface AuthoredPreflightArgs {
   readonly identity: ExtensionFqnParts;
@@ -279,9 +280,9 @@ const nativeProjection = (args: AuthoredPreflightArgs) =>
       location: args.packageRoot,
       sourceHash,
     };
-    // This run's manifest decode for the staged root, owned by this call and
-    // handed to the manager it calls; the run under the transition lock reads
-    // for itself.
+    // This run's manifest decode and package hash for the staged root, owned
+    // by this call and handed to the manager it calls; the run under the
+    // transition lock reads and hashes for itself.
     const preparedManifests = Option.match(decoded, {
       onNone: () => ({}),
       onSome: (value) => ({
@@ -316,7 +317,12 @@ const nativeProjection = (args: AuthoredPreflightArgs) =>
               hook: { name: manifest.name },
             },
           ],
-          options,
+          {
+            ...options,
+            preparedContentHashes: new Map([
+              [manifest.name, { packageRoot: args.packageRoot, contentHash: sourceHash }],
+            ]),
+          },
         );
         break;
       case "knowledge":

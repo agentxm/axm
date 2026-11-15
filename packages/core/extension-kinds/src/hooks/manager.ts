@@ -1007,7 +1007,16 @@ export const HookManagerLive = Layer.effect(
                   "hooks",
                   ref.hook.name,
                 ).canonicalPath;
-                const { treeIntegrity, contentHash } = yield* computeMaterializedTreeDigests(root);
+                // The strict tree walk always runs; the package hash is framed
+                // from it unless the caller hashed this same root in this boundary.
+                const preparedHash = options?.preparedContentHashes?.get(ref.hook.name);
+                const { treeIntegrity, contentHash } =
+                  preparedHash !== undefined && preparedHash.packageRoot === root
+                    ? {
+                        treeIntegrity: yield* computeMaterializedTreeIntegrity(root),
+                        contentHash: preparedHash.contentHash,
+                      }
+                    : yield* computeMaterializedTreeDigests(root);
                 return {
                   name: ref.hook.name,
                   marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),

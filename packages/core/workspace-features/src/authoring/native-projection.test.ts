@@ -147,7 +147,8 @@ describe("authored native preflight inputs", () => {
     decodedAndHash: 1,
   };
   // `axm.hash.package` executions: the preflight's hash unless one is
-  // supplied, plus the HookManager's own content hash for a hook.
+  // supplied. The HookManager takes that same hash for the staged package
+  // instead of framing its own.
   const hashes: Record<Inputs, number> = {
     neither: 1,
     hash: 0,
@@ -155,14 +156,6 @@ describe("authored native preflight inputs", () => {
     factsAndHash: 0,
     decoded: 1,
     decodedAndHash: 0,
-  };
-  const hookHashes: Record<Inputs, number> = {
-    neither: 2,
-    hash: 1,
-    facts: 2,
-    factsAndHash: 1,
-    decoded: 2,
-    decodedAndHash: 1,
   };
 
   const stage = (type: keyof typeof plural) => {
@@ -254,11 +247,7 @@ describe("authored native preflight inputs", () => {
           manifestReads: observed((run) => run.readFile(manifestFile)),
           payloadReads: observed((run) => run.readFile(payload[type])),
           hashes: observed((run) => run.hashes),
-        }).toEqual({
-          manifestReads: manifestReads[type],
-          payloadReads: payloadReads,
-          hashes: type === "hook" ? hookHashes : hashes,
-        });
+        }).toEqual({ manifestReads: manifestReads[type], payloadReads, hashes });
 
         // A different supplied hash changes neither the outcome nor any read.
         expect(otherHashFacts.result).toEqual(runs.factsAndHash.result);
@@ -387,6 +376,81 @@ describe("authored native preflight inputs", () => {
         }).toEqual({ none: 1 + walk, otherRoot: 1 + walk, otherType: 1 + walk, matching: walk });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
+
+  it.effect("frames a hook's own content hash unless one was hashed for its root", () => {
+    const { workspace, packageRoot } = stage("hook");
+    const other = stage("hook").packageRoot;
+    return Effect.gen(function* () {
+      const location = yield* WorkspaceLocation;
+      const { manifest } = yield* readExtensionManifest(packageRoot, "hook");
+      const supplied = yield* computeSourceHash("supplied");
+      const prepare = (packageRootOfHash: string) =>
+        Effect.gen(function* () {
+          return yield* (yield* HookManager).prepareProjection(
+            [
+              {
+                refType: "workspace",
+                scope: location.scope,
+                owner: manifest.owner,
+                name: manifest.name,
+                version: manifest.version,
+                location: packageRoot,
+                sourceHash: supplied,
+                type: "hook",
+                source: {
+                  type: "workspace",
+                  owner: manifest.owner,
+                  name: manifest.name,
+                  extensionType: "hook",
+                },
+                hook: { name: manifest.name },
+              },
+            ],
+            {
+              nativeInsertionEligibleNames: new Set<string>(),
+              preparedContentHashes: new Map([
+                [manifest.name, { packageRoot: packageRootOfHash, contentHash: supplied }],
+              ]),
+            },
+          );
+        }).pipe(withWorkspaceReadView);
+      const otherRoot = yield* measured(packageRoot, prepare(other));
+      const matching = yield* measured(packageRoot, prepare(packageRoot));
+      expect({ otherRoot: otherRoot.hashes, matching: matching.hashes }).toEqual({
+        otherRoot: 1,
+        matching: 0,
+      });
+      // The tree walk still reads every staged file either way.
+      expect(matching.calls).toEqual(otherRoot.calls);
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+  });
+
+  // Root reads a file whatever its mode, so this case cannot make one unreadable there.
+  it.effect.skipIf(process.getuid?.() === 0)(
+    "refuses an unreadable staged hook file at the tree walk when the hash is supplied",
+    () => {
+      const { workspace, packageRoot } = stage("hook");
+      const unreadable = nodePath.join(packageRoot, "src/hook.sh");
+      return Effect.gen(function* () {
+        const identity = yield* Effect.fromResult(parseFqn("@acme/hooks/review"));
+        const facts = preparedManifestFacts(yield* readExtensionManifest(packageRoot, "hook"));
+        fs.chmodSync(unreadable, 0o000);
+        cleanups.unshift(() => fs.chmodSync(unreadable, 0o644));
+        const refused = yield* preflightAuthoredNativeProjection({
+          identity,
+          packageRoot,
+          enabled: true,
+          manifest: Effect.succeed(facts),
+          sourceHash: Effect.succeed(yield* computeSourceHash("supplied")),
+        }).pipe(withLiveWorkspaceObservations, Effect.flip);
+        expect(refused).toMatchObject({
+          _tag: "MaterializedTreeInvalid",
+          root: packageRoot,
+          reason: "cannot read src/hook.sh",
+        });
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+    },
+  );
 });
 
 describe("authored native preflight documents", () => {

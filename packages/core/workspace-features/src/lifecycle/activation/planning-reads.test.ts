@@ -418,6 +418,111 @@ describe("Activation planning observes canonical content only where a decision r
   );
 
   it.effect(
+    "prepares a blocked Pack disable that observes a kept member's tree in full",
+    () => {
+      const created = makeInstallWorld({
+        settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+      });
+      cleanups.push(created.cleanup);
+      created.workspace.writeFile("AGENTS.md", "# Workspace\n");
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          installPack("reviews").pipe(
+            // An unowned alias blocks the instruction gate a Hook member passes.
+            Effect.tap(() =>
+              Effect.sync(() => created.workspace.writeFile("CLAUDE.md", "# Human-owned\n")),
+            ),
+          ),
+          DisableExtension.prepare({ type: "pack", name: "reviews" }),
+        );
+        const root = acquiredRoot(created, "hooks", "review");
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        expect(Option.isSome(counted.result.blocked)).toBe(true);
+        expect(counted.result.artifact.references).toEqual([
+          {
+            path: nodePath.relative(created.workspace.root, root),
+            state: "retained",
+            reason: "canonical content retained",
+          },
+        ]);
+        // The blocked step describes no withdrawal, so the retained reference
+        // is the last judgement of the member's tree and still hashes it.
+        const steps = counted.result.execution.plan.jobs.flatMap((job) => job.steps);
+        expect(steps.map((step) => step.readiness)).toEqual(["error"]);
+        expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootDirectoryReads: counted.recording.counts(root).readDirectory,
+          rootProbes: counted.recording.counts(root).access,
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 4 });
+      });
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "prepares a Pack disable that observes in full a kept member whose registrations are gone",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        const counted = yield* measure(
+          created,
+          installPack("reviews").pipe(
+            // Only a foreign MCP entry still runs the member's code, so the
+            // member is kept while its withdrawal changes no registration.
+            Effect.tap(() =>
+              Effect.sync(() => {
+                const script = nodePath.join(acquiredRoot(created, "hooks", "review"), "src");
+                created.workspace.writeFile(".claude/settings.json", "{}\n");
+                created.workspace.writeFile(
+                  ".mcp.json",
+                  `${JSON.stringify({
+                    mcpServers: { foreign: { command: "bash", args: [`${script}/hook.sh`] } },
+                  })}\n`,
+                );
+              }),
+            ),
+          ),
+          DisableExtension.prepare({ type: "pack", name: "reviews" }),
+        );
+        const root = acquiredRoot(created, "hooks", "review");
+        if (counted.result._tag !== "SetActivation") throw new Error("Expected a change");
+        expect(counted.result.blocked).toEqual(Option.none());
+        expect(counted.result.artifact.references).toEqual([
+          {
+            path: nodePath.relative(created.workspace.root, root),
+            state: "retained",
+            reason: "canonical content retained",
+          },
+        ]);
+        // No withdrawal description judges the tree later, so the retained
+        // reference still hashes it.
+        const steps = counted.result.execution.plan.jobs.flatMap((job) => job.steps);
+        expect(steps.map((step) => step.readiness)).toEqual(["ready"]);
+        expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
+        expect({
+          treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+          rootDirectoryReads: counted.recording.counts(root).readDirectory,
+          rootProbes: counted.recording.counts(root).access,
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 4 });
+      });
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
     "refuses a Pack disable whose kept member's tree differs from its accepted resolution",
     () => {
       const created = makeInstallWorld();

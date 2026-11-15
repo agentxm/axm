@@ -153,8 +153,9 @@ describe("Activation hands each manager's eager projection observation to its co
           previewActivation({ type: "hook", name: "review", enabled: true }),
         );
         expect(outcomeOf(counted.result)).toBe("previewed");
-        // Repeated: 5 reads and 12 parses.
-        expect(counted).toMatchObject({ settingsReads: 3, nativeParses: 6 });
+        // Repeated: 5 reads and 12 parses. Step collection reads the hook
+        // inventory for presence only, so it inspects no native outcomes.
+        expect(counted).toMatchObject({ settingsReads: 2, nativeParses: 4 });
       }),
     { timeout: 30_000 },
   );
@@ -262,11 +263,12 @@ describe("Activation hands each manager's eager projection observation to its co
   // region and the source of the instruction-file aliases. Each
   // instruction-file observation reads it once and shares those bytes between
   // its decisions and its witness digest; the witness re-check before a write
-  // still reads it fresh.
+  // still reads it fresh. An enable's step collection reads the Knowledge
+  // inventory for presence only, so it inspects no discovery region.
   const knowledgeRows = [
-    { mode: "preview", enabled: true, repeated: 11, observed: 7 },
+    { mode: "preview", enabled: true, repeated: 11, observed: 6 },
     { mode: "preview", enabled: false, repeated: 7, observed: 5 },
-    { mode: "apply", enabled: true, repeated: 28, observed: 23 },
+    { mode: "apply", enabled: true, repeated: 28, observed: 22 },
     { mode: "apply", enabled: false, repeated: 20, observed: 17 },
   ] as const;
   for (const { mode, enabled, repeated, observed } of knowledgeRows) {

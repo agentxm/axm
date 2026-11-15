@@ -71,6 +71,13 @@ const AGGREGATE_UNIT_TYPES: ReadonlySet<ExtensionType> = new Set<ExtensionType>(
   "knowledge",
 ]);
 
+/**
+ * The materialize steps an activation applies. Activation reads each type's
+ * inventory for presence only, so the collection carries no inventory a
+ * freshness check could compare.
+ */
+type ActivationMaterialization = Omit<CollectedMaterializeSteps, "inventoryObservations">;
+
 /** An activation change, settled: what the graph will say, and how it is realized. */
 export interface ActivationRealization {
   readonly proposal: DesiredStateProposal;
@@ -83,7 +90,7 @@ export interface ActivationRealization {
   readonly projectionNativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly projectionFailure?: OperationRefused;
   /** The sync steps that materialize what became active. */
-  readonly materialization: Option.Option<CollectedMaterializeSteps>;
+  readonly materialization: Option.Option<ActivationMaterialization>;
   /** The retirement of acquired content nothing reaches once the change applies. */
   readonly retirement: Option.Option<PlannedJobStep<SyncStepRequirements | LockfileReader>>;
 }
@@ -108,7 +115,7 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
     args: Pick<ActivationRealizationInput, "proposal" | "subjects">,
     removing: boolean,
     hookWithdrawals: ReadonlyArray<HookNativeDeclaration> = [],
-    materialization?: CollectedMaterializeSteps,
+    materialization?: ActivationMaterialization,
   ) {
     if (materialization?.steps.some((step) => step.readiness === "error"))
       return { projectionExposureRefs: [], projectionNativeLocations: [] };
@@ -199,13 +206,17 @@ export const prepareEnabledRealization = Effect.fnUntraced(function* (
     readonly selection: SyncSelection;
   },
 ) {
-  const materialization = yield* collectMaterializeSteps({
-    desiredState: args.proposal.after,
-    settings: args.proposal.settings,
-    selection: args.selection,
-    requireSubagentSupport: true,
-    adapter: args.adapter,
-  });
+  const { inventoryObservations: _unobserved, ...materialization } = yield* collectMaterializeSteps(
+    {
+      desiredState: args.proposal.after,
+      settings: args.proposal.settings,
+      selection: args.selection,
+      requireSubagentSupport: true,
+      // Activation never rechecks the collection's inventories.
+      inventories: "presence",
+      adapter: args.adapter,
+    },
+  );
   const projections = yield* prepareSharedProjectionExposure(args, false, [], materialization);
   return {
     ...projections,
@@ -281,7 +292,7 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
     subjects: args.subjects,
     hookWithdrawals,
     nativeWithdrawals: combineNativeLocationOutcomes(nativeWithdrawals),
-    materialization: Option.none<CollectedMaterializeSteps>(),
+    materialization: Option.none<ActivationMaterialization>(),
     retirement,
   } satisfies ActivationRealization;
 });

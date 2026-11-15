@@ -3,6 +3,7 @@ import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-supp
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Tracer from "effect/Tracer";
@@ -15,6 +16,11 @@ import { WorkspaceReadViews, WorkspaceRecords } from "@agentxm/workspace-kernel/
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { SyncWorkspace } from "./sync-workspace.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../testing/install-world.js";
 import {
   applySync,
   makeFileRegistry,
@@ -179,6 +185,78 @@ describe("Sync inventory observation", () => {
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("plans an agent's materialization reading inventories for presence only", () => {
+    // Adding an agent applies only the planned steps; the pre-change native
+    // outcomes a detailed inventory would inspect are never consumed.
+    const { workspace, registry, cleanup } = makeInstallWorld();
+    cleanups.push(cleanup);
+    registry.writeMcp("context", [{ version: "1.0.0" }]);
+    const mcpConfig = nodePath.join(workspace.root, ".mcp.json");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const recording = yield* FileSystemRecorder;
+          const installed = yield* applyInstallAcceptingExecutionChanges(
+            installRequest({
+              type: "mcp-server",
+              subject: { kind: "source", source: "test:@acme/mcps/context" },
+            }),
+          );
+          expect(deriveOperationOutcome(installed)).toBe("applied");
+          expect(fs.existsSync(mcpConfig)).toBe(true);
+          const records = yield* WorkspaceRecords;
+          let detailedMcpInventories = 0;
+          recording.reset();
+          const planned = yield* SyncWorkspace.planMaterialization({
+            selection: { target: Option.none(), types: [] },
+            configuredAgents: ["claude-code", "cursor"],
+          }).pipe(
+            Effect.provideService(WorkspaceRecords, {
+              ...records,
+              getExtensionInventory: (type, options) =>
+                Effect.sync(() => {
+                  if (type === "mcp-server" && options.details === true)
+                    detailedMcpInventories += 1;
+                }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
+            }),
+          );
+          // The arriving agent's native entry is missing, so the server materializes.
+          expect(planned.steps.map((step) => step.key)).toEqual(["mcp-server:context"]);
+          // Repeated: one detailed inventory and 6 reads of `.mcp.json`; the
+          // currency judgment for the resulting membership keeps its reads.
+          expect({
+            detailedMcpInventories,
+            mcpConfigReads: recording.contentReads(mcpConfig),
+          }).toEqual({ detailedMcpInventories: 0, mcpConfigReads: 4 });
+          // A sync still plans over detailed inventories, which its freshness
+          // check compares before it writes.
+          const settings: unknown = JSON.parse(workspace.readFile("axm.json"));
+          workspace.writeFile(
+            "axm.json",
+            JSON.stringify({
+              ...(typeof settings === "object" ? settings : {}),
+              agents: ["claude-code", "cursor"],
+            }),
+          );
+          const candidate = yield* SyncWorkspace.prepare(syncRequest());
+          if (candidate._tag === "AlreadyReconciled") throw new Error("Expected a sync plan");
+          const observed = candidate.inventoryObservations.find(
+            (item) => item.type === "mcp-server",
+          );
+          expect(observed?.inventory.items.map((item) => item.inspectionState)).toEqual([
+            "complete",
+          ]);
+        }),
+      )
+      .pipe(
+        Effect.provide(
+          layerRecordingFileSystem(NodeFileSystem.layer).pipe(
+            Layer.provideMerge(NodeServices.layer),
+          ),
+        ),
+      );
   });
 
   /** Two local Skills not yet materialized, so applying the prepared sync writes. */

@@ -561,7 +561,11 @@ export interface CollectedMaterializeSteps {
   /** The names the cleanup sweep must treat as expected, from the whole graph. */
   readonly expectedNames: ExpectedProjectionNames;
   readonly releaseAge: ReleaseAgeOperationEvidence;
-  /** Physical inventories used to judge currency in this planning phase. */
+  /**
+   * Physical inventories used to judge currency in this planning phase, with
+   * their native detail, for a caller that rechecks them before it writes.
+   * Empty when the caller asked for presence-only inventories.
+   */
   readonly inventoryObservations: ReadonlyArray<{
     readonly type: DesiredExtensionNode["type"];
     readonly options: { readonly agents?: ReadonlyArray<string> };
@@ -591,6 +595,12 @@ export const collectMaterializeSteps = (args: {
   readonly packRecovery?: ConfiguredPackRecovery;
   /** Enabled transitions require at least one compatible configured runtime. */
   readonly requireSubagentSupport?: boolean;
+  /**
+   * `presence` when the caller discards `inventoryObservations`: currency
+   * reads only each item's presence and paths, so no native detail is
+   * inspected and no inventory is returned for a later freshness check.
+   */
+  readonly inventories?: "observed" | "presence";
   readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   CollectedMaterializeSteps,
@@ -755,6 +765,7 @@ export const collectMaterializeSteps = (args: {
     const selected = selectable.filter((node) => subjectBlockers(node).length === 0);
     // Every node of a type judges currency against the same physical inventory
     // in this planning phase. Keep the shared read local to this invocation.
+    const observedInventories = args.inventories !== "presence";
     const inventoryOptions = (type: DesiredExtensionNode["type"]) =>
       configuredAgents.length > 0 &&
       (type === "skill" || type === "mcp-server" || type === "subagent")
@@ -764,7 +775,10 @@ export const collectMaterializeSteps = (args: {
       yield* Effect.forEach([...new Set(selected.map((node) => node.type))], (type) =>
         Effect.gen(function* () {
           const read = yield* Effect.cached(
-            records.getExtensionInventory(type, { ...inventoryOptions(type), details: true }),
+            records.getExtensionInventory(type, {
+              ...inventoryOptions(type),
+              details: observedInventories,
+            }),
           );
           return [type, read] as const;
         }),
@@ -1555,13 +1569,15 @@ export const collectMaterializeSteps = (args: {
       changedKnowledge.length === 0
         ? undefined
         : yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
-    const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
-      Effect.map(Effect.result(read), (result) =>
-        Result.isSuccess(result)
-          ? [{ type, options: inventoryOptions(type), inventory: result.success }]
-          : [],
-      ),
-    )).flat();
+    const inventoryObservations = observedInventories
+      ? (yield* Effect.forEach([...inventories], ([type, read]) =>
+          Effect.map(Effect.result(read), (result) =>
+            Result.isSuccess(result)
+              ? [{ type, options: inventoryOptions(type), inventory: result.success }]
+              : [],
+          ),
+        )).flat()
+      : [];
     return {
       ...(args.localOnly === true ? { unassessed } : {}),
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),

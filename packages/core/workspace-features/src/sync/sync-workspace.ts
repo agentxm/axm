@@ -252,16 +252,23 @@ const planWorkspaceMaterialization = (args: {
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
-}): Effect.Effect<CollectedMaterializeSteps, SyncWorkspaceFailure, SyncWorkspaceRequirements> =>
+}): Effect.Effect<
+  Omit<CollectedMaterializeSteps, "inventoryObservations">,
+  SyncWorkspaceFailure,
+  SyncWorkspaceRequirements
+> =>
   Effect.gen(function* () {
     const conversion = yield* StepFailureConversion;
     const graph = yield* (yield* DesiredStateReader).graph();
-    const materialization = yield* collectMaterializeSteps({
-      desiredState: graph,
-      ...(args.selection === undefined ? {} : { selection: args.selection }),
-      ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
-      adapter: conversion,
-    });
+    const { inventoryObservations: _unobserved, ...materialization } =
+      yield* collectMaterializeSteps({
+        desiredState: graph,
+        ...(args.selection === undefined ? {} : { selection: args.selection }),
+        ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
+        // The membership closure applies only the steps; it never rechecks inventories.
+        inventories: "presence",
+        adapter: conversion,
+      });
     if (args.newlyConfiguredAgentIds === undefined || args.newlyConfiguredAgentIds.length === 0)
       return materialization;
     const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph);

@@ -1617,6 +1617,138 @@ describe("agent instructions", () => {
     ),
   );
 
+  describe("prior-membership route targets", () => {
+    /**
+     * One observation asked for the prior membership's routes, beside an
+     * observation of that membership alone: the routes an agent addition
+     * compares against.
+     */
+    const priorRoutes = (args: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly priorConfiguredAgents: ReadonlyArray<string>;
+      readonly prospectiveRoots?: ReadonlyArray<string>;
+    }) =>
+      Effect.gen(function* () {
+        const recorded = yield* rows;
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: args.configuredAgents,
+          priorConfiguredAgents: args.priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: recorded,
+          ...(args.prospectiveRoots === undefined
+            ? {}
+            : { prospectiveRoots: args.prospectiveRoots }),
+        });
+        const prior = yield* observeInstructionProjection({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: args.priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: recorded,
+        });
+        return {
+          snapshot,
+          derived: snapshot.priorRouteTargets,
+          observed: prior.plan.items.flatMap((item) =>
+            item.action === "skip" ? [] : [item.targetPath],
+          ),
+        };
+      });
+
+    it.effect("keeps a shared native route and every root's routes", () =>
+      run(
+        Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, "docs"));
+          fs.mkdirSync(path.join(tempDir, "notes"));
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          fs.writeFileSync(path.join(tempDir, "docs", "AGENTS.md"), "# Docs\n");
+          fs.writeFileSync(path.join(tempDir, "notes", "AGENTS.md"), "");
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["codex", "claude-code", "opencode"],
+            priorConfiguredAgents: ["codex", "claude-code"],
+          });
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([
+            path.join(tempDir, "AGENTS.md"),
+            path.join(tempDir, "CLAUDE.md"),
+            path.join(tempDir, "docs", "AGENTS.md"),
+            path.join(tempDir, "docs", "CLAUDE.md"),
+            path.join(tempDir, "notes", "AGENTS.md"),
+          ]);
+        }),
+      ),
+    );
+
+    it.effect("drops an empty source's alias even at a prospective root", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "");
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+            prospectiveRoots: [tempDir],
+          });
+          expect(snapshot.status.items.map((item) => item.agentId)).toEqual([
+            "claude-code",
+            "gemini-cli",
+          ]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("ignores a root only an added agent's alias evidences", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Gemini\n");
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("keeps a prior agent's recorded route without a source", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+          fs.rmSync(path.join(tempDir, "AGENTS.md"));
+          fs.rmSync(path.join(tempDir, "CLAUDE.md"));
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([path.join(tempDir, "CLAUDE.md")]);
+        }),
+      ),
+    );
+
+    it.effect("derives nothing for a prior agent that is no longer configured", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code"],
+            priorConfiguredAgents: ["gemini-cli"],
+          });
+          expect(derived).toBeUndefined();
+          expect(observed).toEqual([path.join(tempDir, "GEMINI.md")]);
+        }),
+      ),
+    );
+  });
+
   it.effect("removes stale aliases without a managed gitignore region to consult", () =>
     run(
       Effect.gen(function* () {
@@ -2618,6 +2750,74 @@ describe("instruction projection reads each prepared input once", () => {
           copy: recording.contentReads(path.join(ws.root, "GEMINI.md")),
           witnessHashes: witnessHashes(observations.facts),
         }).toEqual({ source: 1, copy: 1, witnessHashes: 4 });
+      }),
+    ),
+  );
+
+  it.effect("derives the prior membership's route targets from one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "CLAUDE.md": "AGENTS.md" } });
+        const priorConfiguredAgents = ["claude-code"];
+        // What a step planning an agent addition needs: the prior membership's
+        // route targets, from the observation itself when it can derive them,
+        // otherwise from a second observation of the prior membership.
+        const priorTargets = (snapshot: InstructionProjectionSnapshot) =>
+          snapshot.priorRouteTargets === undefined
+            ? observeAt(ws.root, {
+                configuredAgents: priorConfiguredAgents,
+                symlinkSupported: true,
+              }).pipe(
+                Effect.map((prior) =>
+                  prior.plan.items.flatMap((item) =>
+                    item.action === "skip" ? [] : [item.targetPath],
+                  ),
+                ),
+              )
+            : Effect.succeed(snapshot.priorRouteTargets);
+        recording.reset();
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: NO_ROWS,
+        });
+        const targets = yield* priorTargets(snapshot);
+        const counted = {
+          rootListings: recording.counts(ws.root).readDirectory ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        };
+        recording.reset();
+        // The same observation without a prior membership does the same work.
+        const unasked = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        const unaskedCounts = {
+          rootListings: recording.counts(ws.root).readDirectory ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        };
+        const independent = yield* observeAt(ws.root, {
+          configuredAgents: priorConfiguredAgents,
+          symlinkSupported: true,
+        });
+        expect(targets).toEqual([path.join(ws.root, "CLAUDE.md")]);
+        expect(targets).toEqual(
+          independent.plan.items.flatMap((item) =>
+            item.action === "skip" ? [] : [item.targetPath],
+          ),
+        );
+        expect("priorRouteTargets" in unasked).toBe(false);
+        expect({ counted, unaskedCounts }).toEqual({
+          // One observation lists the workspace root five times, during its
+          // discovery walk and its route checks, and reads the source once.
+          counted: { rootListings: 5, sourceReads: 1 },
+          unaskedCounts: { rootListings: 5, sourceReads: 1 },
+        });
       }),
     ),
   );

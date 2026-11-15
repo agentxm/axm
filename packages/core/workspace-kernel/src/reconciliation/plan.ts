@@ -970,21 +970,25 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   ];
   // Rows are read first, so a lockfile this CLI cannot read refuses here.
   const rows = yield* readInstructionRows;
-  const observed = yield* observeInstructionProjection({
+  const { priorRouteTargets, ...observed } = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
     nativeDirectoryInputs: location.nativeDirectoryInputs,
     scope: location.scope,
     configuredAgents,
     eligibleAgentIds,
+    ...(eligibleAgentIds.length === 0 ? {} : { priorConfiguredAgents }),
     config: resolvedConfig,
     prospectiveRoots,
     rows,
     ...overrides,
   });
-  const prior =
+  // The prior membership's routes come from the observation above when it
+  // contains that membership; otherwise that membership is observed on its own.
+  const priorTargets =
     eligibleAgentIds.length === 0
-      ? undefined
-      : yield* observeInstructionProjection({
+      ? []
+      : (priorRouteTargets ??
+        (yield* observeInstructionProjection({
           workspaceRoot: location.baseDir,
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           scope: location.scope,
@@ -992,14 +996,12 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
           config: resolvedConfig,
           symlinkSupported: observed.symlinkSupported,
           rows,
-        });
-  const priorEntries = yield* Effect.forEach(
-    prior?.plan.items.filter((item) => item.action !== "skip") ?? [],
-    (item) =>
-      resolveNativeEntry(item.targetPath).pipe(
-        Effect.map((entry) => entry.entryPath),
-        Effect.option,
-      ),
+        })).plan.items.flatMap((item) => (item.action === "skip" ? [] : [item.targetPath])));
+  const priorEntries = yield* Effect.forEach(priorTargets, (target) =>
+    resolveNativeEntry(target).pipe(
+      Effect.map((entry) => entry.entryPath),
+      Effect.option,
+    ),
   );
   const previousPaths = new Set(priorEntries.flatMap(Option.toArray));
   const priorRoutesKnown = priorEntries.every(Option.isSome);

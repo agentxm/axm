@@ -146,6 +146,11 @@ export interface InstructionProjectionSnapshot {
   readonly scope: WorkspaceScope;
   readonly eligibleAgentIds: ReadonlyArray<string>;
   readonly eligibleTargets?: ReadonlyArray<string>;
+  /**
+   * The target paths the prior membership's own observation would plan, when
+   * the observation was asked for them and could derive them from its own facts.
+   */
+  readonly priorRouteTargets?: ReadonlyArray<string>;
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly witnesses: ReadonlyArray<{
     readonly path: string;
@@ -1273,6 +1278,16 @@ const observeTargetPath = (args: {
     }
   });
 
+/** One planned item's observation, before a prospective root decides whether it is kept. */
+interface ObservedPlannedItem {
+  readonly root: string;
+  readonly agentId: string;
+  /** Absent when the item is dropped from this observation. */
+  readonly status: Option.Option<InstructionStatusItem>;
+  /** An empty source would create or adopt an empty alias: kept only at a prospective root. */
+  readonly emptyAlias: boolean;
+}
+
 const observePlannedItems = (args: {
   readonly nativeRoots: ReadonlyArray<string>;
   readonly workspaceRoot: string;
@@ -1281,29 +1296,36 @@ const observePlannedItems = (args: {
   readonly symlinkSupported: boolean;
   readonly rows: InstructionProjectionRows;
   readonly prospectiveRoots: ReadonlyArray<string>;
-}) =>
+}): Effect.Effect<ReadonlyArray<ObservedPlannedItem>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.forEach(
     args.plan.items,
     (item) =>
       Effect.gen(function* () {
+        const observedItem = (
+          status: Option.Option<InstructionStatusItem>,
+          emptyAlias: boolean,
+        ): ObservedPlannedItem => ({ root: item.root, agentId: item.agentId, status, emptyAlias });
         if (item.action === "skip") {
-          return Option.some({
-            root: item.root,
-            agentId: item.agentId,
-            agentName: item.agentName,
-            sourceFile: item.sourcePath,
-            targetFile: item.sourcePath,
-            mechanism: "none",
-            health: "unsupported",
-            ownership: "absent",
-            observedForm: "none",
-            details:
-              item.reason === "unknown-agent"
-                ? "Unknown agent ID."
-                : item.reason === "unverified-scope"
-                  ? "The native instruction location for this scope is unverified."
-                  : "Agent descriptor has no instruction-file convention.",
-          } satisfies InstructionStatusItem);
+          return observedItem(
+            Option.some({
+              root: item.root,
+              agentId: item.agentId,
+              agentName: item.agentName,
+              sourceFile: item.sourcePath,
+              targetFile: item.sourcePath,
+              mechanism: "none",
+              health: "unsupported",
+              ownership: "absent",
+              observedForm: "none",
+              details:
+                item.reason === "unknown-agent"
+                  ? "Unknown agent ID."
+                  : item.reason === "unverified-scope"
+                    ? "The native instruction location for this scope is unverified."
+                    : "Agent descriptor has no instruction-file convention.",
+            } satisfies InstructionStatusItem),
+            false,
+          );
         }
         const mechanism =
           item.action === "native"
@@ -1334,35 +1356,37 @@ const observePlannedItems = (args: {
               });
         // No content authorizes creating or adopting a new empty alias. Use
         // this same source/target observation for the plan, status and apply.
-        if (
+        const emptyAlias =
           item.action === "write" &&
           Option.isSome(sourceContent) &&
           sourceContent.value.length === 0 &&
-          !args.prospectiveRoots.includes(item.root) &&
-          (target.ownership === "absent" || target.ownership === "owned-unrecorded-identical")
-        )
-          return Option.none<InstructionStatusItem>();
+          (target.ownership === "absent" || target.ownership === "owned-unrecorded-identical");
+        if (emptyAlias && !args.prospectiveRoots.includes(item.root))
+          return observedItem(Option.none(), true);
         const health = toInstructionHealth({
           sourceExists: Option.isSome(sourceContent),
           mechanism,
           ...target,
         });
-        return Option.some({
-          root: item.root,
-          agentId: item.agentId,
-          agentName: item.agentName,
-          sourceFile: item.sourcePath,
-          targetFile: item.targetPath,
-          mechanism,
-          health,
-          ownership: target.ownership,
-          observedForm: target.observedForm,
-          ...(target.lastWrite === undefined ? {} : { lastWrite: target.lastWrite }),
-          details: instructionDetails(item.instructions, health, target.ownership),
-        } satisfies InstructionStatusItem);
+        return observedItem(
+          Option.some({
+            root: item.root,
+            agentId: item.agentId,
+            agentName: item.agentName,
+            sourceFile: item.sourcePath,
+            targetFile: item.targetPath,
+            mechanism,
+            health,
+            ownership: target.ownership,
+            observedForm: target.observedForm,
+            ...(target.lastWrite === undefined ? {} : { lastWrite: target.lastWrite }),
+            details: instructionDetails(item.instructions, health, target.ownership),
+          } satisfies InstructionStatusItem),
+          emptyAlias,
+        );
       }),
     { concurrency: 16 },
-  ).pipe(Effect.map((items) => items.filter(Option.isSome).map((item) => item.value)));
+  );
 
 /**
  * Classify a registry-convention path the current plan does not desire. Only
@@ -1943,6 +1967,13 @@ export interface ObserveInstructionProjectionArgs {
   readonly eligibleAgentIds?: ReadonlyArray<string>;
   /** Physical entry routes proven absent from the prior configured readership. */
   readonly eligibleTargets?: ReadonlyArray<string>;
+  /**
+   * The configured agents before this change. When each of them is still
+   * configured, the snapshot carries `priorRouteTargets`: the target paths an
+   * observation of that membership alone, without this change's prospective or
+   * withdrawn sources, would plan.
+   */
+  readonly priorConfiguredAgents?: ReadonlyArray<string>;
   readonly symlinkSupported?: boolean;
   /** Canonical roots this proposed closure will create; their sources still observe as missing. */
   readonly prospectiveRoots?: ReadonlyArray<string>;
@@ -1960,6 +1991,53 @@ export interface ObserveInstructionProjectionArgs {
   /** Delete recorded copies even when they were modified since AXM last wrote them. */
   readonly discardModified?: boolean;
 }
+
+/**
+ * The target paths an observation of only the prior membership would plan,
+ * from this observation's own facts. Discovery does not depend on the agents,
+ * and every planned item is a pure function of its root and agent, so for a
+ * prior membership this observation contains, its roots are this
+ * observation's discovered roots plus the workspace root where a prior agent's
+ * alias evidence or recorded route adds it, and its kept items are those this
+ * observation observed without an empty alias. No prospective root keeps an
+ * empty alias there. Undefined when no prior membership was asked for, when a
+ * prior agent is no longer configured, or when an item was not observed here.
+ */
+const priorRouteTargetsFrom = (args: {
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly priorConfiguredAgents: ReadonlyArray<string> | undefined;
+  readonly treeRoots: ReadonlyArray<string>;
+  readonly aliasEvidence: ReadonlyArray<InstructionTargetCandidate>;
+  readonly recordedRootsFor: (configuredAgents: ReadonlyArray<string>) => ReadonlyArray<string>;
+  readonly planFor: (
+    roots: ReadonlyArray<string>,
+    configuredAgents: ReadonlyArray<string>,
+  ) => InstructionProjectionPlan;
+  readonly observedItems: ReadonlyArray<ObservedPlannedItem>;
+}): ReadonlyArray<string> | undefined => {
+  const prior = args.priorConfiguredAgents;
+  if (prior === undefined || !prior.every((agent) => args.configuredAgents.includes(agent)))
+    return undefined;
+  const roots = [
+    ...new Set([
+      ...args.treeRoots,
+      ...args.aliasEvidence
+        .filter((candidate) => prior.includes(candidate.agentId))
+        .map((candidate) => candidate.root),
+      ...args.recordedRootsFor(prior),
+    ]),
+  ];
+  const targets: Array<string> = [];
+  for (const item of args.planFor(roots, prior).items) {
+    if (item.action === "skip") continue;
+    const observedItem = args.observedItems.find(
+      (candidate) => candidate.root === item.root && candidate.agentId === item.agentId,
+    );
+    if (observedItem === undefined) return undefined;
+    if (!observedItem.emptyAlias) targets.push(item.targetPath);
+  }
+  return targets;
+};
 
 /**
  * Build the command-scoped snapshot: discover roots and alias candidates in
@@ -1987,26 +2065,31 @@ export const observeInstructionProjection = (
       args.scope,
       args.nativeDirectoryInputs,
     );
-    const routes = buildInstructionProjectionPlan({
-      roots: [args.workspaceRoot],
-      scope: args.scope,
-      ...(args.nativeDirectoryInputs === undefined
-        ? {}
-        : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
-      configuredAgents: args.configuredAgents,
-      sourceFileName: args.config.fileName,
-      path,
-    });
-    const recordedRoots = [...args.rows.keys()].flatMap((key) =>
-      routes.items.flatMap((item) => {
-        if (item.action === "skip") return [];
-        const relative = path
-          .relative(args.workspaceRoot, item.targetPath)
-          .split(path.sep)
-          .join("/");
-        return key === relative ? [args.workspaceRoot] : [];
-      }),
-    );
+    const planFor = (roots: ReadonlyArray<string>, configuredAgents: ReadonlyArray<string>) =>
+      buildInstructionProjectionPlan({
+        roots,
+        scope: args.scope,
+        ...(args.nativeDirectoryInputs === undefined
+          ? {}
+          : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
+        configuredAgents,
+        sourceFileName: args.config.fileName,
+        path,
+      });
+    const recordedRootsFor = (configuredAgents: ReadonlyArray<string>) => {
+      const routes = planFor([args.workspaceRoot], configuredAgents);
+      return [...args.rows.keys()].flatMap((key) =>
+        routes.items.flatMap((item) => {
+          if (item.action === "skip") return [];
+          const relative = path
+            .relative(args.workspaceRoot, item.targetPath)
+            .split(path.sep)
+            .join("/");
+          return key === relative ? [args.workspaceRoot] : [];
+        }),
+      );
+    };
+    const recordedRoots = recordedRootsFor(args.configuredAgents);
     const aliasEvidence = yield* Effect.filter(
       tree.candidates.filter(
         (candidate) =>
@@ -2040,26 +2123,17 @@ export const observeInstructionProjection = (
         (args.prospectiveRoots ?? []).includes(root) ||
         !(args.withdrawnSources ?? []).includes(path.resolve(root, args.config.fileName)),
     );
-    const proposed = buildInstructionProjectionPlan({
-      roots,
-      scope: args.scope,
-      ...(args.nativeDirectoryInputs === undefined
-        ? {}
-        : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
-      configuredAgents: args.configuredAgents,
-      sourceFileName: args.config.fileName,
-      path,
-    });
+    const proposed = planFor(roots, args.configuredAgents);
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
     // The planned items and the missing-source check share their content
     // admissions: nothing writes between them, and every kept path is admitted
     // again by its witness below. The stale-candidate stage between them and
     // every other read admit fresh.
-    const { items, plan, staleTargets, missingSources } = yield* withInstructionAdmissionCells(
-      (share) =>
+    const { observedItems, items, plan, staleTargets, missingSources } =
+      yield* withInstructionAdmissionCells((share) =>
         Effect.gen(function* () {
-          const items = yield* share(
+          const observedItems = yield* share(
             observePlannedItems({
               workspaceRoot: args.workspaceRoot,
               nativeRoots,
@@ -2070,6 +2144,7 @@ export const observeInstructionProjection = (
               prospectiveRoots: args.prospectiveRoots ?? [],
             }),
           );
+          const items = observedItems.flatMap((item) => Option.toArray(item.status));
           const plan = {
             ...proposed,
             items: proposed.items.filter(
@@ -2113,9 +2188,18 @@ export const observeInstructionProjection = (
               ),
             ),
           )).flat();
-          return { items, plan, staleTargets, missingSources };
+          return { observedItems, items, plan, staleTargets, missingSources };
         }),
-    );
+      );
+    const priorRouteTargets = priorRouteTargetsFrom({
+      configuredAgents: args.configuredAgents,
+      priorConfiguredAgents: args.priorConfiguredAgents,
+      treeRoots: tree.roots,
+      aliasEvidence,
+      recordedRootsFor,
+      planFor,
+      observedItems,
+    });
     const gitignore = yield* observeInstructionsGitignore({
       workspaceRoot: args.workspaceRoot,
       plan,
@@ -2180,6 +2264,7 @@ export const observeInstructionProjection = (
       witnesses,
       eligibleAgentIds: args.eligibleAgentIds ?? [],
       ...(args.eligibleTargets === undefined ? {} : { eligibleTargets: args.eligibleTargets }),
+      ...(priorRouteTargets === undefined ? {} : { priorRouteTargets }),
       nativeLocations: [
         ...(yield* observeInstructionNativeLocations({
           workspaceRoot: args.workspaceRoot,

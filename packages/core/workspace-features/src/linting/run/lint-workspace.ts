@@ -45,7 +45,7 @@ import {
   expectedProjectionNames,
   observeAgentOutputs,
   observeConfiguredSkillLocations,
-  observeWorkspaceOwnershipIssues,
+  workspaceOwnershipIssues,
   deriveAgentOutputAuthority,
   instructionProjectionEffects,
   instructionReconciliationReadiness,
@@ -442,14 +442,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           layout,
           entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
         };
-        const ownership = yield* observeWorkspaceOwnershipIssues({
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          workspaceRoot: location.baseDir,
-          scope: location.scope,
-          configuredAgentIds: new Set(configuredAgents),
-          ...outputAuthority,
-          authoredSkills,
-        });
         const materializationAgentIds = new Set(
           (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
         );
@@ -462,6 +454,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           ...outputAuthority,
           authoredSkills,
         });
+        // Ownership depends only on proof, never on the desired agents or the
+        // expected names, so the agent-output inventory answers it as well.
+        const ownership = workspaceOwnershipIssues(agentOutputs);
         // Cross-scope agent facts. The agents that read this workspace also read
         // the user scope; a project folder that is the user home has no separate
         // user scope, and a Git-index snapshot has no live agent folders.

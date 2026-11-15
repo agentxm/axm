@@ -127,7 +127,7 @@ export {
 } from "./managed-file-discovery.js";
 export {
   observeAgentOutputs,
-  observeWorkspaceOwnershipIssues,
+  workspaceOwnershipIssues,
   type AgentOutputInventory,
   type AgentOutputObservation,
   type AgentOutputOwnershipProof,

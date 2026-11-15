@@ -19,6 +19,8 @@ import { afterEach } from "vitest";
 
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { RegistryClientFactory } from "@agentxm/registry-client";
+import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
+import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import {
@@ -259,6 +261,66 @@ describe("lint read model documents", () => {
       expect(exit._tag).toBe("Success");
       expect(work("axm.parse.settings")).toBe(2);
       expect(work("axm.parse.lockfile")).toBe(2);
+    });
+  });
+});
+
+/** Counts each coding agent's native read-location resolutions by agent and kind. */
+const countingAgentResolutions = () => {
+  const counts = new Map<string, number>();
+  const count = <A, E, R>(run: Effect.Effect<A, E, R>) =>
+    run.pipe(
+      Effect.updateService(CodingAgentRepository, (repository) => ({
+        ...repository,
+        all: Effect.map(repository.all, (agents) =>
+          agents.map((agent): CodingAgent => ({
+            ...agent,
+            resolveNativeReadLocations: (args) =>
+              Effect.suspend(() => {
+                const key = `${agent.id}:${args.kind}`;
+                counts.set(key, (counts.get(key) ?? 0) + 1);
+                return agent.resolveNativeReadLocations(args);
+              }),
+          })),
+        ),
+      })),
+    );
+  return { count, resolutions: (key: string) => counts.get(key) ?? 0 };
+};
+
+describe("lint agent-output inventory", () => {
+  it.effect("inventories the agents' native outputs once and reports unowned files", () => {
+    const fixture = workspaceWith({
+      settings: { agents: ["claude-code"] },
+      files: {
+        "axm.lock": validLock,
+        ".claude/skills/stray/SKILL.md": "---\nname: stray\ndescription: Stray\n---\nStray\n",
+        ".claude/agents/stray.md": "Stray\n",
+      },
+    });
+    const { count, resolutions } = countingAgentResolutions();
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(fixture, count(query(fixture)));
+      expect(exit._tag).toBe("Success");
+      if (exit._tag !== "Success") return;
+      // One resolution of each kind is the run's single agent-output inventory;
+      // the others belong to lint's other native-location observations.
+      expect(resolutions("claude-code:skill")).toBe(3);
+      expect(resolutions("claude-code:subagent")).toBe(2);
+      expect(
+        exit.value.document.findings
+          .filter((finding) => finding.ruleId === "workspace/managed-file-unowned")
+          .map(({ message, location }) => ({ message, file: location?.file })),
+      ).toEqual([
+        {
+          message: "Agent skill artifact has no AXM ownership proof.",
+          file: ".claude/skills/stray",
+        },
+        {
+          message: "Agent subagent file is not a declared Subagent at this path.",
+          file: ".claude/agents/stray.md",
+        },
+      ]);
     });
   });
 });

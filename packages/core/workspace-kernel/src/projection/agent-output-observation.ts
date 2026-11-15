@@ -567,60 +567,31 @@ export const observeAgentOutputs = (
   });
 
 /**
- * The ownership problems a workspace's agent-native outputs present, with no
- * expectation of what should be there.
+ * The ownership problems an agent-output inventory presents.
  *
  * Reporting ownership is a different question from reconciling it: the
  * reporter must not need a desired graph, because the workspaces most in need
- * of the answer are the ones whose desired state cannot be resolved. Every
- * expected-name set is therefore empty, and the answer is only about proof —
- * file artifacts that lack their required ownership evidence. Native MCP
- * and Hook declarations follow declaration authority instead.
+ * of the answer are the ones whose desired state cannot be resolved. The
+ * answer is therefore only about proof — file artifacts that lack their
+ * required ownership evidence — and an inventory's ownership never depends on
+ * its desired agents or expected names, so any inventory of the workspace
+ * taken with the same ownership authority answers it. Native MCP and Hook
+ * declarations follow declaration authority instead.
  */
-export const observeWorkspaceOwnershipIssues = (args: {
-  readonly workspaceRoot: string;
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly scope: WorkspaceScope;
-  readonly configuredAgentIds: ReadonlySet<string>;
-  readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
-  readonly declaredMcpNames: ReadonlySet<string>;
-  readonly expectedSkillSources: ObserveAgentOutputsArgs["expectedSkillSources"];
-  readonly expectedSubagentNames: ObserveAgentOutputsArgs["expectedSubagentNames"];
-  readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
-}): Effect.Effect<
-  ReadonlyArray<WorkspaceOwnershipIssue>,
-  Config.ConfigError,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path
-> =>
-  observeAgentOutputs({
-    workspaceRoot: args.workspaceRoot,
-    nativeDirectoryInputs: args.nativeDirectoryInputs,
-    scope: args.scope,
-    desiredAgentIds: args.configuredAgentIds,
-    expectedNames: {
-      skill: new Set<string>(),
-      subagent: new Set<string>(),
-      "mcp-server": new Set<string>(),
-      hook: new Set<string>(),
-    },
-    expectedHooks: args.expectedHooks,
-    declaredMcpNames: args.declaredMcpNames,
-    expectedSkillSources: args.expectedSkillSources,
-    expectedSubagentNames: args.expectedSubagentNames,
-    authoredSkills: args.authoredSkills,
-  }).pipe(
-    Effect.map((observed) =>
-      observed.unownedFootprints
-        .filter(
-          (output) => output.extensionType !== "mcp-server" && output.extensionType !== "hook",
-        )
-        .map((output) => ({
+export const workspaceOwnershipIssues = (
+  inventory: AgentOutputInventory,
+): ReadonlyArray<WorkspaceOwnershipIssue> =>
+  Object.freeze(
+    inventory.unownedFootprints
+      .filter((output) => output.extensionType !== "mcp-server" && output.extensionType !== "hook")
+      .map((output) =>
+        Object.freeze({
           kind: "managed-file-unowned" as const,
           path: output.path,
           detail:
             output.extensionType === "subagent"
               ? "Agent subagent file is not a declared Subagent at this path."
               : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
-        })),
-    ),
+        }),
+      ),
   );

@@ -184,7 +184,8 @@ their payload family under `result.contract`. Knowledge queries declare
 `capabilities.contract: "knowledge-discovery-capabilities-v1"` and refer to the
 query contract with `queryContract`.
 
-Error-envelope `code` and plan `failure.category` retain snake_case as a
+Error-envelope `code`, plan `failure.category`, and release verification
+assessment `failure.category` retain snake_case as a
 deliberate exception to kebab-case CLI enums. Registry `problemCode` remains
 unchanged; the CLI does not translate its spelling.
 

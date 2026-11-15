@@ -269,7 +269,9 @@ They name the Registry that answered and how it was selected, keep each request
 in `selection.requests`, and list each distinct release once with the requests
 that named it. Each release reports `presence`, `identity`, and `archive` with
 coverage separate from conclusion, plus the observed Registry facts and any
-caller-supplied expectation with its source. A publish result's reported
+caller-supplied expectation with its source. An assessment's
+`failure.category` uses the same `ErrorCode` vocabulary as envelope codes and
+plan failure categories. A publish result's reported
 statuses are input, not observations. The result is a query: when
 `verdict.reasons` is not empty, it still completes with `outcome: "completed"`,
 `ok: false`, and exit 1. A failure that leaves no Registry observation

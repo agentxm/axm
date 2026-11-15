@@ -6204,7 +6204,10 @@
         },
         "failure": {
           "type": "object",
-          "properties": { "category": { "type": "string" }, "message": { "type": "string" } },
+          "properties": {
+            "category": { "$ref": "#/$defs/ErrorCode" },
+            "message": { "type": "string" }
+          },
           "required": ["category", "message"],
           "additionalProperties": false
         }

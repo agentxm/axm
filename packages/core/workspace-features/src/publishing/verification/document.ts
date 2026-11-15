@@ -20,6 +20,7 @@ import {
   HandleSchema,
 } from "@agentxm/extension-model/unstable/extensions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
+import { ErrorCodeSchema } from "@agentxm/workspace-kernel/operations";
 
 import { PublishResultSchema } from "../publish/result.js";
 
@@ -62,7 +63,7 @@ const ReleaseVerificationAssessmentSchema = Schema.Struct({
     Schema.Literals(["extension-unavailable", "version-missing", "integrity-mismatch"] as const),
   ),
   /** The Registry client's failure, when the evidence could not be obtained. */
-  failure: Schema.optionalKey(Schema.Struct({ category: Schema.String, message: Schema.String })),
+  failure: Schema.optionalKey(Schema.Struct({ category: ErrorCodeSchema, message: Schema.String })),
 }).annotate({
   identifier: "ReleaseVerificationAssessment",
   title: "Release Verification Assessment",

@@ -14,10 +14,7 @@ import type {
 } from "./document.js";
 
 /** A Registry client failure as the result reports it. */
-export interface CapturedFailure {
-  readonly category: string;
-  readonly message: string;
-}
+export type CapturedFailure = NonNullable<ReleaseVerificationAssessment["failure"]>;
 
 /** The facts a Registry observation listed for the selected version. */
 type ObservedRelease = NonNullable<ReleaseVerificationRelease["observed"]>;

@@ -416,7 +416,8 @@ describe("Uninstall preparation shares its read-phase observations", () => {
             // Repeated: 12 manifest reads, 6 root reads and 4 tree hashes; one
             // observation reads the manifest once and hashes it once more.
             // The exposure passes and the projection facts still observe the
-            // bundle on their own.
+            // bundle on their own; each contributor selection among them
+            // decodes the manifest its own observation captured.
             expect
               .soft({
                 manifest: counted.readFile(nodePath.join(root, "knowledge.json")),
@@ -426,7 +427,7 @@ describe("Uninstall preparation shares its read-phase observations", () => {
                 projectionFacts: counted.projectionFacts,
               })
               .toEqual({
-                manifest: 10,
+                manifest: 8,
                 root: 5,
                 treeHashes: 3,
                 evaluations: 4,

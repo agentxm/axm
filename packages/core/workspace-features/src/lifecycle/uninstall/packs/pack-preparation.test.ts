@@ -319,6 +319,8 @@ describe("Pack uninstall preparation shares its owner call's observations", () =
             // Repeated: each of the three ordered targets evaluated the facts,
             // observing the remaining Rule contributor each time: 3 fact
             // evaluations, 5 root reads, 15 manifest reads and 17 tree hashes.
+            // Each remaining contributor selection decodes the manifest its
+            // own observation captured instead of reading it again.
             expect
               .soft({
                 projectionFacts: counted.projectionFacts,
@@ -329,7 +331,7 @@ describe("Pack uninstall preparation shares its owner call's observations", () =
               .toEqual({
                 projectionFacts: 1,
                 contributorRoot: 3,
-                contributorManifest: 9,
+                contributorManifest: 6,
                 treeHashes: 10,
               });
             // Every member and the Pack still name the same targets and

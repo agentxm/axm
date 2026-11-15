@@ -141,30 +141,33 @@ describe("Knowledge candidate preparation", () => {
     ).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("refuses an unreadable bundle document as a failed inspection", () =>
-    withProject((root) =>
-      Effect.gen(function* () {
-        const extensionDir = writeKnowledge(root, "review");
-        const document = nodePath.join(extensionDir, "src", "architecture.md");
-        const candidate = yield* decoded("review", extensionDir);
-        fs.chmodSync(document, 0o000);
+  // Permission bits do not stop a privileged reader, and Windows does not honor them.
+  it.effect.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "refuses an unreadable bundle document as a failed inspection",
+    () =>
+      withProject((root) =>
+        Effect.gen(function* () {
+          const extensionDir = writeKnowledge(root, "review");
+          const document = nodePath.join(extensionDir, "src", "architecture.md");
+          const candidate = yield* decoded("review", extensionDir);
+          fs.chmodSync(document, 0o000);
 
-        const failure = yield* prepareCandidate(candidate, Option.none(), false).pipe(
-          Effect.ensuring(Effect.sync(() => fs.chmodSync(document, 0o644))),
-          Effect.flip,
-        );
+          const failure = yield* prepareCandidate(candidate, Option.none(), false).pipe(
+            Effect.ensuring(Effect.sync(() => fs.chmodSync(document, 0o644))),
+            Effect.flip,
+          );
 
-        expect(failure).toMatchObject({
-          _tag: "OperationRefused",
-          category: "validation",
-          detail: "Failed to inspect Knowledge bundle: @acme/knowledge/review",
-        });
-        const cause: unknown = "cause" in failure ? failure.cause : undefined;
-        expect(PlatformError.isPlatformError(cause)).toBe(true);
-        expect(cause).toMatchObject({
-          reason: { _tag: "PermissionDenied", method: "readFile", pathOrDescriptor: document },
-        });
-      }),
-    ).pipe(Effect.provide(NodeServices.layer)),
+          expect(failure).toMatchObject({
+            _tag: "OperationRefused",
+            category: "validation",
+            detail: "Failed to inspect Knowledge bundle: @acme/knowledge/review",
+          });
+          const cause: unknown = "cause" in failure ? failure.cause : undefined;
+          expect(PlatformError.isPlatformError(cause)).toBe(true);
+          expect(cause).toMatchObject({
+            reason: { _tag: "PermissionDenied", method: "readFile", pathOrDescriptor: document },
+          });
+        }),
+      ).pipe(Effect.provide(NodeServices.layer)),
   );
 });

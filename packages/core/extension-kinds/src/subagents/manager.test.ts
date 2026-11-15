@@ -17,8 +17,10 @@ import {
   UNCONSTRAINED_DESIRED_NODE,
   type DesiredNodeIdentity,
   type Lockfile,
+  computeMaterializedTreeIntegrity,
   type SubagentLockEntry,
   type Settings,
+  type TreeIntegrity,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import * as nodeFs from "node:fs";
@@ -31,6 +33,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import {
@@ -62,7 +65,10 @@ import { SourceHostProvidersTest } from "@agentxm/workspace-kernel/sources/testi
 import { SubagentManagerLive } from "./manager.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { canonicalMaterializationPaths } from "@agentxm/workspace-kernel/acquisition";
+import {
+  AcquiredContent,
+  canonicalMaterializationPaths,
+} from "@agentxm/workspace-kernel/acquisition";
 import { parseNativeSubagent } from "@agentxm/extension-content";
 
 // ---------------------------------------------------------------------------
@@ -1537,6 +1543,9 @@ describe("SubagentManager", () => {
         source: makeLocalSubagentRef("planner", sourceDir),
         inPlace: makeLocalSubagentRef("planner", canonicalDir),
         layer: makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] }),
+        /** The same workspace with an accepted lockfile. */
+        layerWith: (lockedSubagents: Readonly<Record<string, SubagentLockEntry>>) =>
+          makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")], lockedSubagents }),
       };
     };
 
@@ -1563,6 +1572,80 @@ describe("SubagentManager", () => {
           expect(nodeFs.readFileSync(native, "utf8")).toContain("Plans work");
         }).pipe(Effect.provide(layer));
       });
+
+    /** Filesystem calls under the package's staging tree. */
+    const stagedCalls =
+      (canonicalDir: string) =>
+      (recording: { readonly calls: () => ReadonlyArray<{ readonly path: string }> }) =>
+        recording
+          .calls()
+          .filter((call) =>
+            call.path.startsWith(canonicalMaterializationPaths(canonicalDir).stagingPath),
+          );
+
+    it.effect(
+      "reads a recorded file once more to keep an acquisition already made in this candidate",
+      () => {
+        const { canonicalDir, native, source, layer } = inPlaceFixture();
+        const staged = stagedCalls(canonicalDir);
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          const acquired = {
+            materializedPackages: yield* Ref.make<ReadonlyMap<string, TreeIntegrity>>(new Map()),
+            requestedKeys: new Set<string>(),
+            filesByKey: new Map(),
+            failuresByKey: new Map(),
+          };
+          const install = manager
+            .materializeInstall({ ref: source })
+            .pipe(Effect.provideService(AcquiredContent, acquired));
+          yield* install;
+          recording.reset();
+          // The second install keeps the canonical tree the first published:
+          // its validation judges the bytes the source validation read.
+          yield* install;
+          expect(staged(recording)).toEqual([]);
+          expect(recording.contentReads(native)).toBe(2);
+          expect(nodeFs.readFileSync(native, "utf8")).toContain("Plans work");
+        }).pipe(Effect.provide(layer));
+      },
+    );
+
+    it.effect("reads a recorded file once more to keep a retained package's canonical tree", () => {
+      const { sourceDir, canonicalDir, native, source, layerWith } = inPlaceFixture();
+      const staged = stagedCalls(canonicalDir);
+      // Another accepted component of the same path package retains its tree.
+      nodeFs.cpSync(sourceDir, canonicalDir, { recursive: true });
+      nodeFs.mkdirSync(nodePath.dirname(native), { recursive: true });
+      return computeMaterializedTreeIntegrity(sourceDir).pipe(
+        Effect.provide(Layer.mergeAll(NativePlatformTest, NodeFileSystem.layer)),
+        Effect.flatMap((tree) =>
+          Effect.gen(function* () {
+            const manager = yield* SubagentManager;
+            const recording = yield* FileSystemRecorder;
+            recording.reset();
+            yield* manager.materializeInstall({ ref: source });
+            expect(staged(recording)).toEqual([]);
+            // The source validation reads the absent file, the kept canonical
+            // tree is judged on that read, and the write reads it again.
+            expect(recording.contentReads(native)).toBe(2);
+            expect(nodeFs.readFileSync(native, "utf8")).toContain("Plans work");
+          }).pipe(
+            Effect.provide(
+              layerWith({
+                "retained-planner": {
+                  source: { type: "path", path: decodeRelativePathSync("sources/planner") },
+                  identity: { owner: handle("@acme"), name: extensionName("planner") },
+                  resolved: { tree },
+                  treeIntegrity: tree,
+                },
+              }),
+            ),
+          ),
+        ),
+      );
+    });
 
     it.effect("refuses a file that appears after validation when it is written in place", () => {
       const { canonicalDir, native, inPlace, layer } = inPlaceFixture();

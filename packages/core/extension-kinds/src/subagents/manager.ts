@@ -630,14 +630,15 @@ export const SubagentManagerLive = Layer.effect(
       );
     const stageRows = (changes: ReadonlyArray<ProjectionRowChange>) =>
       changes.length === 0 ? Effect.void : accepted.withBatch(accepted.stageProjections(changes));
+    /** The bytes a planned destination holds now, or `None` when it cannot be read. */
+    const readDestination = (destination: string) =>
+      fs.readFileString(destination).pipe(Effect.option);
     /**
      * Refuse before any write when a planned destination holds a file AXM has
      * no record of writing and whose bytes differ from the render. An
      * observation passes `report`: it checks the plan's shape and leaves the
      * unrecorded file to read as not current.
      */
-    const readDestination = (destination: string) =>
-      fs.readFileString(destination).pipe(Effect.option);
     const preflight = (
       ref: SubagentExtensionRef,
       pkg: PreparedPackage,
@@ -707,11 +708,19 @@ export const SubagentManagerLive = Layer.effect(
         // either keeping the accepted tree or acquiring the source in place. A
         // staged copy is validated at its staging path, after staging writes,
         // and reads afresh, as does a destination the source did not plan.
+        // Acquisition's reuse decision recovers the canonical path before it
+        // validates it; it is taken only for a Registry ref, which has no
+        // source validation, or for an external `reuse`, under which the
+        // canonical validation reads afresh too.
+        const external: Parameters<typeof acquireCanonicalForRef>[0]["external"] = {
+          sourcePath: (packageRoot) => packageRoot,
+          targetPath: canonicalPath,
+        };
         const sourceReads = new Map<string, Option.Option<string>>();
         const validate = (root: string) =>
           validateWith(root, (destination) => {
             const kept = sourceReads.get(destination);
-            return root === canonicalPath && kept !== undefined
+            return root === canonicalPath && external.reuse !== true && kept !== undefined
               ? Effect.succeed(kept)
               : readDestination(destination);
           });
@@ -750,7 +759,7 @@ export const SubagentManagerLive = Layer.effect(
             code: "internal",
             detail: (target) => `Failed to copy subagent files to ${target}`,
           },
-          external: { sourcePath: (packageRoot) => packageRoot, targetPath: canonicalPath },
+          external,
         });
         // Acquisition validates staged bytes before promotion and validates
         // reused canonical bytes. The self-copy path performs neither; retain

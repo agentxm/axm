@@ -38,13 +38,16 @@ import {
   layerRecordingFileSystem,
   makeRecordingFileSystem,
 } from "@agentxm/test-support";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import {
+  CodingAgentRepository,
+  projectionOutputDigest,
+} from "@agentxm/workspace-kernel/projection";
 import {
   AcceptedResolutionWriterTest,
   WorkspaceReadTest,
@@ -1329,6 +1332,138 @@ describe("SubagentManager", () => {
         Effect.withTracer(spans.tracer),
         Effect.withTracerEnabled(true),
       );
+    });
+
+    /** An accepted Registry Subagent whose canonical package is on disk. */
+    const registryCanonicalFixture = () => {
+      const projectDir = nodePath.join(tmpDir, "project");
+      const canonicalDir = nodePath.join(
+        projectDir,
+        "agent_extensions",
+        "registry.agentxm.ai",
+        "@acme",
+        "subagents",
+        "planner",
+      );
+      writeSubagentPackage(canonicalDir, "planner", "Plans work");
+      return {
+        canonicalDir,
+        manifest: nodePath.join(canonicalDir, "subagent.json"),
+        layer: makeTestLayer({
+          axmDir: nodePath.join(projectDir, ".axm"),
+          configuredSubagents: { planner: { source: "@acme/subagents/planner", enabled: true } },
+          lockedSubagents: {
+            planner: {
+              source: { type: "registry", url: TEST_REGISTRY_ENDPOINT },
+              identity: { owner: handle("@acme"), name: extensionName("planner") },
+              resolved: {
+                version: exactVersion("1.0.0"),
+                integrity: "sha512-test",
+                publisherBindingId: "hbnd_test",
+              },
+              treeIntegrity: TEST_TREE_INTEGRITY,
+            },
+          },
+        }),
+      };
+    };
+
+    for (const removal of ["materializeUninstall", "materializeDeactivate"] as const)
+      it.effect(`${removal} observes the accepted canonical tree once`, () => {
+        const { canonicalDir, manifest, layer } = registryCanonicalFixture();
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          const observed = workObservations(false);
+          recording.reset();
+          yield* manager[removal]({ target: { type: "subagent", name: "planner" } }).pipe(
+            observed.provide,
+          );
+          // One observation reads the manifest as text, loads the package
+          // through the contained loader and hashes the tree; the withdrawal's
+          // native names come from that load.
+          expect(recording.contentReads(manifest)).toBe(3);
+          expect(
+            observed.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
+          ).toBe(1);
+          expect(nodeFs.existsSync(canonicalDir)).toBe(removal === "materializeDeactivate");
+        }).pipe(Effect.provide(layer));
+      });
+
+    it.effect("withdraws the native names the observed accepted package renders", () => {
+      const { canonicalDir, manifest, layer } = registryCanonicalFixture();
+      // The package renders under a native name other than its own.
+      nodeFs.writeFileSync(
+        manifest,
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+          core: { name: "reviewer", instructions: "src/planner.md" },
+        }),
+      );
+      const native = nodePath.join(tmpDir, "project", ".claude/agents/reviewer.md");
+      nodeFs.mkdirSync(nodePath.dirname(native), { recursive: true });
+      nodeFs.writeFileSync(native, "Reviewer as AXM wrote it\n");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const accepted = yield* AcceptedResolutionWriter;
+        yield* accepted.withBatch(
+          accepted.stageProjections([
+            {
+              kind: "subagents",
+              path: ProjectionUnitPathSchema.make(".claude/agents/reviewer.md"),
+              row: { output: yield* projectionOutputDigest("Reviewer as AXM wrote it\n") },
+            },
+          ]),
+        );
+        const result = yield* manager.materializeUninstall({
+          target: { type: "subagent", name: "planner" },
+        });
+        expect(nodeFs.existsSync(native)).toBe(false);
+        expect(result.observation.targets).toEqual([
+          { path: ".claude/agents/reviewer.md", agentIds: ["claude-code"] },
+        ]);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
+        expect(nodeFs.existsSync(canonicalDir)).toBe(false);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("retires a canonical package whose content cannot be loaded", () => {
+      const { canonicalDir, manifest, layer } = registryCanonicalFixture();
+      // The manifest names an instruction file the package does not hold.
+      nodeFs.rmSync(nodePath.join(canonicalDir, "src", "planner.md"));
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+        const result = yield* manager.materializeUninstall({
+          target: { type: "subagent", name: "planner" },
+        });
+        expect(recording.contentReads(manifest)).toBe(2);
+        expect(result.observation.targets).toEqual([]);
+        expect(nodeFs.existsSync(canonicalDir)).toBe(false);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("never loads a manifest that escapes its package to derive native names", () => {
+      const { canonicalDir, manifest, layer } = registryCanonicalFixture();
+      const outside = nodePath.join(tmpDir, "outside.json");
+      nodeFs.renameSync(manifest, outside);
+      nodeFs.symlinkSync(outside, manifest);
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+        yield* manager.materializeDeactivate({ target: { type: "subagent", name: "planner" } });
+        // Only the observation's lexical read reaches the linked manifest; the
+        // contained loader refuses it before reading.
+        expect(recording.contentReads(manifest)).toBe(1);
+        expect(recording.contentReads(outside)).toBe(0);
+        expect(nodeFs.existsSync(canonicalDir)).toBe(true);
+      }).pipe(Effect.provide(layer));
     });
 
     it.effect("probes a recorded file again once the read phase it was probed in ends", () => {

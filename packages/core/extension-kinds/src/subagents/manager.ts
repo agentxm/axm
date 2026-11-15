@@ -6,7 +6,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import { loadSubagentPackage, selectSubagentImplementation } from "@agentxm/extension-content";
+import {
+  loadSubagentPackage,
+  selectSubagentImplementation,
+  type DecodedSubagentPackage,
+} from "@agentxm/extension-content";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -27,7 +31,9 @@ import {
   computeMaterializedTreeIntegrity,
   computePackageContentHash,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   removableAcceptedCanonicalPath,
+  type AcceptedCanonicalObservation,
   type ProjectionRowChange,
   type ProjectionUnitPath,
   type RecordedProjectionRow,
@@ -441,19 +447,28 @@ export const SubagentManagerLive = Layer.effect(
         ),
       ]);
     /**
-     * An accepted Subagent's own name and every selected native name, or
-     * `None` when its accepted package cannot be read.
+     * An accepted Subagent's own name and every selected native name, from an
+     * observation of it, or `None` when its accepted package cannot be read.
+     * The package its payload check loaded at the observed root is that root's
+     * load; any other root is loaded here.
      */
-    const acceptedNames = (name: string) =>
+    const acceptedNamesFrom = (
+      name: string,
+      canonical: Option.Option<AcceptedCanonicalObservation>,
+      observedPackage: Option.Option<{
+        readonly root: string;
+        readonly loaded: () => Option.Option<DecodedSubagentPackage>;
+      }>,
+    ) =>
       Effect.gen(function* () {
-        const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name }).pipe(
-          Effect.option,
-        );
-        const root = Option.flatMap(Option.flatten(canonical), (state) =>
+        const root = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
         if (Option.isNone(root)) return Option.none<ReadonlySet<string>>();
-        const pkg = yield* readPackage(root.value).pipe(Effect.option);
+        const captured = Option.filter(observedPackage, (loaded) => loaded.root === root.value);
+        const pkg = Option.isSome(captured)
+          ? captured.value.loaded()
+          : Option.map(yield* readPackage(root.value).pipe(Effect.option), (read) => read.package);
         if (Option.isNone(pkg)) return Option.none<ReadonlySet<string>>();
         const agents = yield* agentRepo.all;
         return Option.some<ReadonlySet<string>>(
@@ -462,13 +477,21 @@ export const SubagentManagerLive = Layer.effect(
             ...agents.flatMap((agent) => {
               // A missing resource does not release a declared native name to
               // another package's orphan cleanup.
-              const selected = selectSubagentImplementation(pkg.value.package, agent.id);
+              const selected = selectSubagentImplementation(pkg.value, agent.id);
               return selected.kind === "unsupported"
                 ? []
                 : [selected.kind === "native" ? selected.native.name : selected.name];
             }),
           ]),
         );
+      });
+    /** `acceptedNamesFrom` over a fresh observation of the accepted Subagent. */
+    const acceptedNames = (name: string) =>
+      Effect.gen(function* () {
+        const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name }).pipe(
+          Effect.option,
+        );
+        return yield* acceptedNamesFrom(name, Option.flatten(canonical), Option.none());
       });
     /**
      * Stems of recorded Subagent files that no declared Subagent names, by its
@@ -832,13 +855,21 @@ export const SubagentManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): SubagentManagerService["materializeUninstall"] =>
       Effect.fn("SubagentManager.materializeRemoval")(function* ({ target }) {
-        const canonical = yield* acceptedCanonicalObservation({
-          type: "subagent",
-          name: target.name,
-        });
+        const { observed: canonical, subagentPackage } =
+          yield* acceptedCanonicalObservationCapturing({
+            type: "subagent",
+            name: target.name,
+          });
         const authority = yield* captureAgentOutputAuthority();
+        // Nothing is written before the names are derived, so the observation
+        // that decides retirement also names the outputs to withdraw.
+        const names = yield* acceptedNamesFrom(
+          target.name,
+          canonical,
+          subagentPackage ?? Option.none(),
+        );
         const retired = yield* retireOutputs({
-          names: Option.getOrElse(yield* acceptedNames(target.name), () => new Set([target.name])),
+          names: Option.getOrElse(names, () => new Set([target.name])),
           authority,
           keep: new Set(),
           rows: yield* subagentRows,

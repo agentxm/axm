@@ -42,6 +42,7 @@ import {
   observedCanonicalPath,
   type CanonicalObservation,
   type CapturedManifest,
+  type CapturedSubagentPackage,
 } from "./canonical-observation.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
@@ -408,7 +409,7 @@ const observeAcceptedCanonicalCapturing = (
 ) =>
   Effect.gen(function* () {
     const reader = yield* LockfileReader;
-    const { observation, manifest } = yield* observeCanonicalExtensionCapturing({
+    const { observation, manifest, subagentPackage } = yield* observeCanonicalExtensionCapturing({
       layout,
       desired,
       accepted: Option.getOrUndefined(accepted),
@@ -430,7 +431,7 @@ const observeAcceptedCanonicalCapturing = (
           },
         }),
     };
-    return { observed, manifest };
+    return { observed, manifest, subagentPackage };
   });
 
 /** Observe one desired node against the accepted resolution its type and name resolve to. */
@@ -444,7 +445,8 @@ export const observeDesiredCanonical = (
 
 /**
  * Observe like `acceptedCanonicalObservation`, also handing the caller the
- * manifest text the observation read, for that caller's own decode.
+ * manifest text the observation read, for that caller's own decode, and the
+ * Subagent package its payload check loaded. Neither is retained here.
  */
 export const acceptedCanonicalObservationCapturing = ({
   type,
@@ -454,6 +456,8 @@ export const acceptedCanonicalObservationCapturing = ({
   {
     readonly observed: Option.Option<AcceptedCanonicalObservation>;
     readonly manifest: Option.Option<CapturedManifest>;
+    /** Present when a declared node was observed. */
+    readonly subagentPackage?: Option.Option<CapturedSubagentPackage>;
   },
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
@@ -464,8 +468,9 @@ export const acceptedCanonicalObservationCapturing = ({
       proposed ??
       (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return { observed: Option.none(), manifest: Option.none() };
-    const { observed, manifest } = yield* observeDesiredCanonicalCapturing(desired);
-    return { observed: Option.some(observed), manifest };
+    const { observed, manifest, subagentPackage } =
+      yield* observeDesiredCanonicalCapturing(desired);
+    return { observed: Option.some(observed), manifest, subagentPackage };
   });
 
 export const acceptedCanonicalObservation = (

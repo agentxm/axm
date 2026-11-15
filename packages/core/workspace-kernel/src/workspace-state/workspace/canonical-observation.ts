@@ -14,6 +14,7 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
 import {
   loadSubagentPackage,
   readExtensionManifestCapture,
+  type DecodedSubagentPackage,
   type ExtensionManifest,
 } from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
@@ -108,22 +109,18 @@ export const canonicalPathForAcceptedExtension = (
   ).canonicalPath;
 };
 
+/** Whether a package of a type other than Subagent holds its required payload. */
 const hasRequiredPayload = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   root: string,
-  type: ExtensionType,
-): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> => {
+  type: Exclude<ExtensionType, "subagent">,
+): Effect.Effect<boolean> => {
   switch (type) {
     case "skill":
       return Effect.map(Effect.all([fs.exists(path.join(root, "src", "SKILL.md"))]), (exists) =>
         exists.some(Boolean),
       ).pipe(Effect.orElseSucceed(() => false));
-    case "subagent":
-      return loadSubagentPackage(root).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
-      );
     case "rule":
     case "hook":
     case "knowledge":
@@ -424,15 +421,28 @@ export const capturedManifestFor = <T extends ExtensionType>(
       : Option.none(),
   );
 
+/** The Subagent package an observation's payload check loaded at `root`. */
+export interface CapturedSubagentPackage {
+  readonly root: string;
+  /**
+   * The contained load's package, or `None` when that load failed. It is
+   * deep-frozen when first requested and belongs to the caller that observed.
+   */
+  readonly loaded: () => Option.Option<DecodedSubagentPackage>;
+}
+
 interface CanonicalObservationCapture {
   readonly observation: CanonicalObservation;
   /** Present whenever the observation read the authored manifest's text. */
   readonly manifest: Option.Option<CapturedManifest>;
+  /** Present whenever the observation loaded a Subagent package to check its payload. */
+  readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
 }
 
 const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
   observation,
   manifest: Option.none(),
+  subagentPackage: Option.none(),
 });
 
 /**
@@ -588,7 +598,10 @@ export const observeCanonicalExtensionCapturing = ({
     }
 
     const capture = yield* readExtensionManifestCapture(root, desired.type);
-    const captured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
+    const captured = (
+      observation: CanonicalObservation,
+      subagentPackage: Option.Option<CapturedSubagentPackage> = Option.none(),
+    ): CanonicalObservationCapture => ({
       observation,
       manifest: Option.map(capture.text, (text) => ({
         path: path.join(root, manifestFilenameForType(desired.type)),
@@ -598,6 +611,7 @@ export const observeCanonicalExtensionCapturing = ({
             freezeWorkspaceValue(manifest),
           ),
       })),
+      subagentPackage,
     });
     const read = capture.result;
     if (Result.isFailure(read)) {
@@ -635,11 +649,28 @@ export const observeCanonicalExtensionCapturing = ({
     const manifestVersion =
       "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
 
-    const payloadComplete = yield* hasRequiredPayload(fs, path, root, desired.type).pipe(
-      Effect.orElseSucceed(() => false),
-    );
+    // A Subagent's payload is complete exactly when its package loads through
+    // the contained loader; the caller receives that load.
+    const { payloadComplete, subagentPackage } =
+      desired.type === "subagent"
+        ? yield* Effect.map(loadSubagentPackage(root).pipe(Effect.option), (loaded) => ({
+            payloadComplete: Option.isSome(loaded),
+            subagentPackage: Option.some<CapturedSubagentPackage>({
+              root,
+              loaded: () => Option.map(loaded, (pkg) => freezeWorkspaceValue(pkg)),
+            }),
+          }))
+        : {
+            payloadComplete: yield* hasRequiredPayload(fs, path, root, desired.type).pipe(
+              Effect.orElseSucceed(() => false),
+            ),
+            subagentPackage: Option.none<CapturedSubagentPackage>(),
+          };
     if (!payloadComplete) {
-      return captured({ type: desired.type, name: desired.name, status: "incomplete", path: root });
+      return captured(
+        { type: desired.type, name: desired.name, status: "incomplete", path: root },
+        subagentPackage,
+      );
     }
 
     if (
@@ -647,12 +678,15 @@ export const observeCanonicalExtensionCapturing = ({
       accepted !== undefined &&
       !(yield* observedTreeMatchesAccepted(root, accepted))
     ) {
-      return captured({
-        type: desired.type,
-        name: desired.name,
-        status: "materialization-mismatch",
-        path: root,
-      });
+      return captured(
+        {
+          type: desired.type,
+          name: desired.name,
+          status: "materialization-mismatch",
+          path: root,
+        },
+        subagentPackage,
+      );
     }
 
     // Authored and path/git content have no accepted Registry version:
@@ -668,15 +702,19 @@ export const observeCanonicalExtensionCapturing = ({
           canonicalPath: root,
           ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
         }),
+        subagentPackage,
       );
     }
 
-    return captured({
-      type: desired.type,
-      name: desired.name,
-      status: "usable",
-      path: root,
-    });
+    return captured(
+      {
+        type: desired.type,
+        name: desired.name,
+        status: "usable",
+        path: root,
+      },
+      subagentPackage,
+    );
   });
 
 export const observeCanonicalExtension = (

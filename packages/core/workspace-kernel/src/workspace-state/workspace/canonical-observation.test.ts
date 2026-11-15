@@ -33,7 +33,7 @@ import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "./lay
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 import type { WorkFact } from "@agentxm/host-primitives/work-observation";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import { loadSubagentPackage, readExtensionManifest } from "@agentxm/extension-content";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { NativePlatformTest, workObservations } from "../../locations/testing.js";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
@@ -638,6 +638,101 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       }),
     );
   }
+
+  for (const scenario of [
+    { label: "loadable", instructions: true, status: "usable", loaded: true },
+    { label: "missing instructions", instructions: false, status: "incomplete", loaded: false },
+  ] as const)
+    it.effect(`hands back the Subagent package its payload check loaded: ${scenario.label}`, () =>
+      Effect.gen(function* () {
+        const layout = yield* projectLayout(root);
+        const source = "workspace:@acme/subagents/planner";
+        const desired: DesiredExtensionNode = {
+          type: "subagent",
+          name: "planner",
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        };
+        const canonical = nodePath.join(root, "subagents", "planner");
+        nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(canonical, "subagent.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "subagent",
+            name: "planner",
+            version: "1.0.0",
+            description: "Plans work",
+            core: { instructions: "src/planner.md" },
+          }),
+        );
+        if (scenario.instructions)
+          nodeFs.writeFileSync(nodePath.join(canonical, "src", "planner.md"), "Plan the work.");
+        const capture = yield* observeCanonicalExtensionCapturing({
+          layout,
+          desired,
+          accepted: undefined,
+        });
+        expect(capture.observation.status).toBe(scenario.status);
+        expect(Option.map(capture.subagentPackage, ({ root }) => root)).toEqual(
+          Option.some(canonical),
+        );
+        const loaded = Option.flatMap(capture.subagentPackage, ({ loaded }) => loaded());
+        // The capture is the contained loader's own result at that root.
+        const own = yield* loadSubagentPackage(canonical).pipe(Effect.option);
+        expect(loaded).toEqual(own);
+        expect(Option.isSome(loaded)).toBe(scenario.loaded);
+        // Frozen when handed out, and the same value on every request.
+        expect(Option.map(loaded, (pkg) => Object.isFrozen(pkg.implementations))).toEqual(
+          scenario.loaded ? Option.some(true) : Option.none(),
+        );
+        expect(
+          Option.map(
+            Option.flatMap(capture.subagentPackage, ({ loaded }) => loaded()),
+            (pkg) => Option.exists(loaded, (first) => first === pkg),
+          ),
+        ).toEqual(scenario.loaded ? Option.some(true) : Option.none());
+      }),
+    );
+
+  it.effect("hands back no Subagent package when the payload check does not run", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const source = "workspace:@acme/subagents/planner";
+      const canonical = nodePath.join(root, "subagents", "planner");
+      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+      // A foreign owner is judged before the payload is checked.
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "subagent.json"),
+        JSON.stringify({
+          owner: "@other",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+          core: { instructions: "src/planner.md" },
+        }),
+      );
+      const capture = yield* observeCanonicalExtensionCapturing({
+        layout,
+        desired: {
+          type: "subagent",
+          name: "planner",
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        },
+        accepted: undefined,
+      });
+      expect(capture.observation.status).toBe("wrong-origin");
+      expect(capture.subagentPackage).toEqual(Option.none());
+    }),
+  );
 
   it.effect("hands back no manifest text when the content root is absent", () =>
     Effect.gen(function* () {

@@ -39,6 +39,7 @@ import {
 import {
   capturedManifestFor,
   observeCanonicalExtensionCapturing,
+  type VerifiedCanonicalTree,
   observedCanonicalPath,
   type CanonicalObservation,
   type CapturedManifest,
@@ -406,6 +407,7 @@ const observeAcceptedCanonicalCapturing = (
   desired: DesiredExtensionNode,
   accepted: Option.Option<LockEntry>,
   layout: WorkspaceLayout,
+  verifiedTree?: VerifiedCanonicalTree,
 ) =>
   Effect.gen(function* () {
     const reader = yield* LockfileReader;
@@ -413,6 +415,7 @@ const observeAcceptedCanonicalCapturing = (
       layout,
       desired,
       accepted: Option.getOrUndefined(accepted),
+      ...(verifiedTree === undefined ? {} : { verifiedTree }),
     });
     const observed: AcceptedCanonicalObservation = {
       desired,
@@ -525,11 +528,15 @@ export const acceptedCanonicalObservationPath = (
  * Observe like `acceptedCanonicalObservation`, only when the observation
  * reports a canonical root the caller keeps: `None` when the node is
  * undeclared, its observation reports no root, or `discarded` names that root.
- * The root is the one the observation reports.
+ * The root is the one the observation reports. `verifiedTree` is a digest of
+ * that root's tree the caller's read phase computed against the node's
+ * accepted row and judges again later; it stands in for hashing the tree
+ * only for that root and that row.
  */
 export const acceptedCanonicalObservationOfKeptRoot = (
   args: AcceptedCanonicalRefArgs,
   discarded: (canonicalPath: string) => boolean,
+  verifiedTree?: VerifiedCanonicalTree,
 ): Effect.Effect<
   Option.Option<{ readonly path: string; readonly observed: AcceptedCanonicalObservation }>,
   AcceptedCanonicalRefError,
@@ -540,7 +547,12 @@ export const acceptedCanonicalObservationOfKeptRoot = (
     if (Option.isNone(subject)) return Option.none();
     const { desired, accepted, layout, path } = subject.value;
     if (path === undefined || discarded(path)) return Option.none();
-    const { observed } = yield* observeAcceptedCanonicalCapturing(desired, accepted, layout);
+    const { observed } = yield* observeAcceptedCanonicalCapturing(
+      desired,
+      accepted,
+      layout,
+      verifiedTree,
+    );
     return Option.some({ path, observed });
   });
 

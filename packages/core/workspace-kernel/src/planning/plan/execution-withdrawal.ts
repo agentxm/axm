@@ -29,8 +29,12 @@ export interface ExecutionWithdrawalSubject {
   readonly name: string;
 }
 
-/** Removal evidence uses retained declarations only. Missing content never causes a fetch. */
-const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
+/**
+ * The native registrations a step carrying `artifact` withdraws from
+ * `subject`, with the accepted row and canonical root its description reads;
+ * `undefined` when the step withdraws none.
+ */
+const withdrawnRegistrations = Effect.fnUntraced(function* (
   subject: ExecutionWithdrawalSubject,
   artifact: JobStepArtifact,
 ) {
@@ -71,6 +75,38 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
           )
       : [];
   if (changed.length === 0 && removedEntries.length === 0) return undefined;
+  return {
+    type: subject.type,
+    accepted: accepted.value,
+    canonical,
+    changed,
+    removedEntries,
+    settings,
+    path,
+  };
+});
+
+/**
+ * The canonical root whose tree the withdrawal description of `subject`
+ * judges against its accepted row, for a ready step carrying `artifact`:
+ * `None` when that description reads no tree.
+ */
+export const executionWithdrawalJudgedRoot = (
+  subject: ExecutionWithdrawalSubject,
+  artifact: JobStepArtifact,
+) =>
+  Effect.map(withdrawnRegistrations(subject, artifact), (withdrawn) =>
+    withdrawn === undefined ? Option.none<string>() : withdrawn.canonical,
+  );
+
+/** Removal evidence uses retained declarations only. Missing content never causes a fetch. */
+const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
+  subject: ExecutionWithdrawalSubject,
+  artifact: JobStepArtifact,
+) {
+  const withdrawn = yield* withdrawnRegistrations(subject, artifact);
+  if (withdrawn === undefined) return undefined;
+  const { type, accepted, canonical, changed, removedEntries, settings, path } = withdrawn;
   const registrations = [
     ...new Map([
       ...changed.flatMap((unit) =>
@@ -108,7 +144,7 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
   const declaration = yield* Effect.gen(function* () {
     if (
       Option.isNone(canonical) ||
-      (yield* computeMaterializedTreeIntegrity(canonical.value)) !== accepted.value.treeIntegrity
+      (yield* computeMaterializedTreeIntegrity(canonical.value)) !== accepted.treeIntegrity
     )
       return undefined;
     const details: string[] = [];
@@ -163,10 +199,10 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
     return { details, references: [...new Set(references)].sort() };
   }).pipe(Effect.catch(() => Effect.succeed(undefined)));
   return {
-    extensionType: subject.type,
+    extensionType: type,
     name: subject.name,
     source,
-    contentIdentity: accepted.value.treeIntegrity,
+    contentIdentity: accepted.treeIntegrity,
     targets,
     registrations,
     details: [

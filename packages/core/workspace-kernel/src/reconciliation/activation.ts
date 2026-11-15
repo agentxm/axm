@@ -62,7 +62,7 @@ import {
 } from "./materialize.js";
 import type { SyncStepRequirements } from "./plan.js";
 import { publishDesiredState, type DesiredStateProposal } from "./proposed-state.js";
-import { collectUnreachableRetirement } from "./retirement.js";
+import { collectUnreachableRetirementVerifying, type RetiredTreeDigest } from "./retirement.js";
 import { projectionExposureRefs } from "./projection-exposure.js";
 import { withAggregateObservedPlans } from "./aggregate-projection-step.js";
 
@@ -95,6 +95,16 @@ export interface ActivationRealization {
   readonly materialization: Option.Option<ActivationMaterialization>;
   /** The retirement of acquired content nothing reaches once the change applies. */
   readonly retirement: Option.Option<PlannedJobStep<SyncStepRequirements | LockfileReader>>;
+}
+
+/**
+ * What preparing a realization verified in its caller's read phase, for that
+ * caller alone: the caller takes it off before it keeps the realization, and
+ * it never enters a step.
+ */
+export interface RealizationVerification {
+  /** The tree digests the retirement of unreachable content verified. */
+  readonly retiredTree?: RetiredTreeDigest;
 }
 
 /**
@@ -301,14 +311,17 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
     );
     nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
   }
-  const retirement = args.retireUnreachable
-    ? yield* collectUnreachableRetirement(args.adapter, {
+  const { step: retirement, verifiedTree } = args.retireUnreachable
+    ? yield* collectUnreachableRetirementVerifying(args.adapter, {
         resultingGraph: args.proposal.after,
         subjects: args.subjects,
       })
-    : Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    : {
+        step: Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>(),
+        verifiedTree: undefined,
+      };
   const projections = yield* prepareSharedProjectionExposure(args, true, hookWithdrawals);
-  return {
+  const realization = {
     ...projections,
     proposal: args.proposal,
     enabled: false,
@@ -318,6 +331,10 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
     materialization: Option.none<ActivationMaterialization>(),
     retirement,
   } satisfies ActivationRealization;
+  return verifiedTree === undefined
+    ? realization
+    : ({ ...realization, retiredTree: verifiedTree } satisfies ActivationRealization &
+        RealizationVerification);
 });
 
 /** Withdraw one leaf's own projection through the manager that owns it. */

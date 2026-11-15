@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
@@ -33,8 +34,11 @@ import {
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
+  acceptedCanonicalObservationOfKeptRoot,
   DesiredStateReader,
+  LockfileReader,
   observeDesiredCanonical,
+  TreeIntegritySchema,
   withWorkspaceReadView,
   WorkspaceReadViews,
   WorkspaceRecords,
@@ -382,14 +386,126 @@ describe("Activation planning observes canonical content only where a decision r
             reason: "canonical content retained",
           },
         ]);
-        // Unchanged: the kept member is still observed in full.
+        // The withdrawal still describes the registrations it removes from
+        // the member's verified declaration.
+        const steps = counted.result.execution.plan.jobs.flatMap((job) => job.steps);
+        expect(steps.map((step) => step.readiness)).toEqual(["ready"]);
+        expect(steps[0]?.artifact?.executionChanges).toMatchObject([
+          {
+            extensionType: "hook",
+            name: "review",
+            registrations: [{ target: "claude-code", change: "removed" }],
+            details: [
+              "Withdraw external execution; host permissions and running processes remain separate.",
+              "claude-code: PreToolUse, bash src/hook.sh",
+            ],
+            secretReferenceChanges: { previous: "known", added: [], removed: [] },
+          },
+        ]);
+        // Repeated: 4 tree hashes, 6 directory reads and 4 presence probes of
+        // the member root. The retained reference takes the tree digest the
+        // retirement just verified; the retirement and the withdrawal
+        // description still hash the tree.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 4, rootDirectoryReads: 6, rootProbes: 4 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 4 });
       });
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "refuses a Pack disable whose kept member's tree differs from its accepted resolution",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        yield* installPack("reviews");
+        fs.writeFileSync(
+          nodePath.join(acquiredRoot(created, "hooks", "review"), "src", "edited.txt"),
+          "Edited.\n",
+        );
+        const failure = yield* DisableExtension.prepare({ type: "pack", name: "reviews" }).pipe(
+          Effect.flip,
+        );
+        // The retirement still verifies the tree before anything takes its digest.
+        expect(failure).toMatchObject({
+          _tag: "OperationRefused",
+          detail: "Cannot verify Pack member retirement",
+          cause: {
+            detail: expect.stringContaining("Cannot retire unverified acquired content at"),
+          },
+        });
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "observes a kept member's tree unless a digest names its root and accepted row",
+    () => {
+      const created = makeInstallWorld();
+      cleanups.push(created.cleanup);
+      created.registry.writeHook("review", [{ version: "1.0.0" }]);
+      created.registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/review": "^1.0.0" } },
+      ]);
+      return Effect.gen(function* () {
+        yield* installPack("reviews");
+        const root = acquiredRoot(created, "hooks", "review");
+        const results = yield* Effect.gen(function* () {
+          const accepted = Option.getOrUndefined(
+            yield* (yield* LockfileReader).acceptedEntry("hook", "review"),
+          );
+          if (accepted === undefined) throw new Error("Expected an accepted row");
+          /** Observe the kept member with `verifiedTree`, counting tree hashes. */
+          const observe = (
+            verifiedTree?: Parameters<typeof acceptedCanonicalObservationOfKeptRoot>[2],
+          ) =>
+            Effect.gen(function* () {
+              const work = workObservations(false);
+              const kept = yield* acceptedCanonicalObservationOfKeptRoot(
+                { type: "hook", name: "review" },
+                () => false,
+                verifiedTree,
+              ).pipe(work.provide);
+              return {
+                status: Option.getOrUndefined(kept)?.observed.observation.status,
+                treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+                  .length,
+              };
+            });
+          const verified = { root, accepted, integrity: accepted.treeIntegrity };
+          return {
+            observed: yield* observe(),
+            verified: yield* observe(verified),
+            otherRoot: yield* observe({ ...verified, root: nodePath.join(root, "src") }),
+            copiedRow: yield* observe({ ...verified, accepted: { ...accepted } }),
+            otherDigest: yield* observe({
+              ...verified,
+              integrity: Schema.decodeUnknownSync(TreeIntegritySchema)(
+                `sha256-tree-v2:${"0".repeat(64)}`,
+              ),
+            }),
+          };
+        }).pipe(withWorkspaceReadView);
+        // Only a digest of this root against this phase's accepted row stands
+        // in for the hash, and the observation still compares it.
+        expect(results).toEqual({
+          observed: { status: "usable", treeHashes: 1 },
+          verified: { status: "usable", treeHashes: 0 },
+          otherRoot: { status: "usable", treeHashes: 1 },
+          copiedRow: { status: "usable", treeHashes: 1 },
+          otherDigest: { status: "materialization-mismatch", treeHashes: 0 },
+        });
+      }).pipe(created.workspace.provide, Effect.provide(recordedNodeServices));
     },
     { timeout: 60_000 },
   );

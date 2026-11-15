@@ -60,6 +60,7 @@ import {
   proposeDesiredState,
   realizeActivation,
   type ActivationRealization,
+  type RealizationVerification,
   StepFailureConversion,
   withAdaptedStepFailures,
   type KernelFailure,
@@ -99,6 +100,7 @@ import {
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
+  executionWithdrawalJudgedRoot,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -500,7 +502,7 @@ type RealizationPreparer<R> = (args: {
   readonly retireUnreachable: boolean;
   /** The subject's usable observation from settling, for a tree this phase judges again. */
   readonly settledSubject?: AcceptedCanonicalObservation;
-}) => Effect.Effect<ActivationRealization, SyncPolicyFailure, R>;
+}) => Effect.Effect<ActivationRealization & RealizationVerification, SyncPolicyFailure, R>;
 
 const settleLeaf = <R>(
   request: SetActivationRequest,
@@ -734,7 +736,7 @@ const settlePack = <R>(
     )
       ? yield* instructionGate()
       : Option.none<OperationRefused>();
-    const realization = yield* prepareRealization({
+    const { retiredTree, ...realization } = yield* prepareRealization({
       proposal,
       subjects: members,
       selection: { target: Option.some(identity), types: [] },
@@ -753,11 +755,38 @@ const settlePack = <R>(
       onNone: (): ReadonlyArray<JobStepArtifactTarget> => [],
       onSome: (step) => step.artifact?.targets ?? [],
     });
+    const blocked = Option.orElse(gate, () => blockedMaterialization(realization));
+    // Disabling withdraws execution from the members, and describing a ready
+    // step's withdrawal of native registrations from a member judges that
+    // member's tree again later in this phase. A kept member's retained
+    // reference then takes the digest the retirement verified for its tree.
+    const withdrawalArtifact = activationArtifact(scope, realization, [], []);
+    const verifiedTree = (node: DesiredExtensionNode) =>
+      Effect.gen(function* () {
+        if (retiredTree === undefined || request.enabled || Option.isSome(blocked))
+          return undefined;
+        const accepted = yield* (yield* LockfileReader).acceptedEntry(node.type, node.name);
+        if (Option.isNone(accepted)) return undefined;
+        const tree = retiredTree(node.type, accepted.value);
+        if (tree === undefined) return undefined;
+        const judged = yield* executionWithdrawalJudgedRoot(
+          { type: node.type, name: node.name },
+          withdrawalArtifact,
+        );
+        return Option.isSome(judged) && judged.value === tree.root ? tree : undefined;
+      }).pipe(Effect.orElseSucceed(() => undefined));
     // A retired member's canonical root is the retirement's target and is not
     // reported as retained, so its content is not observed again.
     const retainedReferences = (yield* Effect.forEach(members, (node) =>
-      acceptedCanonicalObservationOfKeptRoot({ type: node.type, name: node.name }, (root) =>
-        retirementTargets.some((target) => target.path === path.relative(location.baseDir, root)),
+      Effect.flatMap(verifiedTree(node), (tree) =>
+        acceptedCanonicalObservationOfKeptRoot(
+          { type: node.type, name: node.name },
+          (root) =>
+            retirementTargets.some(
+              (target) => target.path === path.relative(location.baseDir, root),
+            ),
+          tree,
+        ),
       ).pipe(
         Effect.map((kept): ReadonlyArray<JobStepArtifactReference> =>
           Option.match(kept, {
@@ -781,7 +810,7 @@ const settlePack = <R>(
       scope,
       artifact: activationArtifact(scope, realization, retainedReferences, []),
       realization,
-      blocked: Option.orElse(gate, () => blockedMaterialization(realization)),
+      blocked,
       refusal: Option.none(),
       warning: Option.none(),
       agentOutcomes: [],

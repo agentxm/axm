@@ -7,6 +7,7 @@ import * as Ref from "effect/Ref";
 import {
   extensionTypes,
   toExtensionTypePlural,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   AcceptedResolutionWriter,
@@ -23,6 +24,8 @@ import {
   sameAcceptedResolution,
   type DesiredStateGraph,
   type ExtensionTarget,
+  type LockEntry,
+  type TreeIntegrity,
 } from "../workspace-state/index.js";
 import { protectWorkspacePath, runWorkspaceTransaction } from "../settlement/index.js";
 import type { PlannedJobStep } from "../operations/index.js";
@@ -31,8 +34,41 @@ import type { StepFailureConversionService } from "./step-failure-conversion.js"
 import type { SyncStepRequirements } from "./plan.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
 
+/** A canonical tree digest a retirement verified against one accepted row. */
+interface VerifiedRetirementTree {
+  readonly type: ExtensionType;
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly integrity: TreeIntegrity;
+}
+
+/** The digest a retirement verified for `type`'s accepted row `entry`, when it hashed that tree. */
+export type RetiredTreeDigest = (
+  type: ExtensionType,
+  entry: LockEntry,
+) => Omit<VerifiedRetirementTree, "type"> | undefined;
+
 /** A full-graph maintenance closure; never infers intent from accepted records. */
 export const collectUnreachableRetirement = (
+  adapter: StepFailureConversionService,
+  scope?: {
+    readonly resultingGraph: DesiredStateGraph;
+    readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>;
+  },
+  observedGraph?: DesiredStateGraph,
+) =>
+  Effect.map(
+    collectUnreachableRetirementVerifying(adapter, scope, observedGraph),
+    ({ step }) => step,
+  );
+
+/**
+ * Collect the retirement like `collectUnreachableRetirement`, also handing
+ * the caller the tree digest it verified for an accepted row it judged, by
+ * type and row. The digest belongs to the caller's read phase and never
+ * enters the step.
+ */
+export const collectUnreachableRetirementVerifying = (
   adapter: StepFailureConversionService,
   scope?: {
     readonly resultingGraph: DesiredStateGraph;
@@ -83,7 +119,7 @@ export const collectUnreachableRetirement = (
     const retainedPaths = new Set(
       accepted.filter((row) => !unreached(graph, row)).map(canonicalPath),
     );
-    const retired = yield* Effect.forEach(
+    const judged = yield* Effect.forEach(
       accepted.filter(
         (row) =>
           unreached(graph, row) &&
@@ -114,6 +150,7 @@ export const collectUnreachableRetirement = (
               isLexicallyWithin(path, canonical, retained) ||
               isLexicallyWithin(path, retained, canonical),
           );
+          let verified: VerifiedRetirementTree | undefined;
           if (exists && !shared) {
             const integrity = yield* computeMaterializedTreeIntegrity(canonical);
             if (integrity !== row.entry.treeIntegrity)
@@ -121,6 +158,7 @@ export const collectUnreachableRetirement = (
                 category: "conflict",
                 detail: `Cannot retire unverified acquired content at ${canonical}`,
               });
+            verified = { type: row.type, root: canonical, accepted: row.entry, integrity };
           }
           const nativeReferences =
             exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")
@@ -140,21 +178,38 @@ export const collectUnreachableRetirement = (
                 )
               : [];
           return {
-            ...row,
-            canonical,
-            shared,
-            exists,
-            nativeReferences,
-            removeCanonical: exists && !shared && nativeReferences.length === 0,
+            row: {
+              ...row,
+              canonical,
+              shared,
+              exists,
+              nativeReferences,
+              removeCanonical: exists && !shared && nativeReferences.length === 0,
+            },
+            verified,
           };
         }),
     );
-    if (retired.length === 0)
-      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    const retired = judged.map(({ row }) => row);
+    const verifiedTrees = judged.flatMap(({ verified }) =>
+      verified === undefined ? [] : [verified],
+    );
+    const verifiedTree: RetiredTreeDigest = (type, entry) => {
+      const found = verifiedTrees.find(
+        (candidate) => candidate.type === type && candidate.accepted === entry,
+      );
+      return found === undefined
+        ? undefined
+        : { root: found.root, accepted: found.accepted, integrity: found.integrity };
+    };
+    const none = {
+      step: Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>(),
+      verifiedTree,
+    };
+    if (retired.length === 0) return none;
     const retainedNative = retired.filter((row) => row.nativeReferences.length > 0);
     const removable = retired.filter((row) => row.nativeReferences.length === 0);
-    if (removable.length === 0)
-      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    if (removable.length === 0) return none;
     const retiredPackages = [...new Map(retired.map((row) => [row.canonical, row])).values()];
     const artifact = {
       path: lockfileDisplayPath(location.scope),
@@ -179,7 +234,7 @@ export const collectUnreachableRetirement = (
           change: "removed" as const,
         })),
     };
-    return Option.some<PlannedJobStep<SyncStepRequirements | LockfileReader>>({
+    const step = Option.some<PlannedJobStep<SyncStepRequirements | LockfileReader>>({
       key: "workspace:unreachable-acquisitions",
       label: "unreachable acquired extensions",
       readiness: "ready",
@@ -282,4 +337,5 @@ export const collectUnreachableRetirement = (
         }),
       ),
     });
+    return { step, verifiedTree };
   });

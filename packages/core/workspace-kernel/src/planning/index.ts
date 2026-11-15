@@ -26,6 +26,7 @@ export {
   type CompositeChildPlanOptions,
   type PlanResolutionFailure,
 } from "./plan/resolve-plan.js";
+export { executionWithdrawalJudgedRoot } from "./plan/execution-withdrawal.js";
 
 // The plan-execution failure family.
 export { planExecutionFailures } from "./plan/step-failure-conversions.js";

@@ -77,10 +77,22 @@ export type CanonicalObservation =
       readonly status: Exclude<CanonicalObservationStatus, "constraint-mismatch">;
     });
 
+/**
+ * The digest of the tree at `root`, computed earlier in the caller's read
+ * phase against the accepted row `accepted`, for a tree that phase judges
+ * again later. It stands in for hashing that tree only for that root and row.
+ */
+export interface VerifiedCanonicalTree {
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly integrity: TreeIntegrity;
+}
+
 interface ObserveCanonicalArgs {
   readonly layout: WorkspaceLayout;
   readonly desired: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
+  readonly verifiedTree?: VerifiedCanonicalTree;
 }
 
 export const canonicalPathForAcceptedExtension = (
@@ -505,6 +517,7 @@ export const observeCanonicalExtensionCapturing = ({
   layout,
   desired: observed,
   accepted,
+  verifiedTree,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservationCapture,
   never,
@@ -513,6 +526,10 @@ export const observeCanonicalExtensionCapturing = ({
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const treeMatchesAccepted = (root: string, entry: LockEntry) =>
+      verifiedTree !== undefined && verifiedTree.root === root && verifiedTree.accepted === entry
+        ? Effect.succeed(verifiedTree.integrity === entry.treeIntegrity)
+        : observedTreeMatchesAccepted(root, entry);
     const judged = judgeBeforeContent(path, layout, observed, accepted);
     if (judged.settled !== undefined) return uncaptured(judged.settled);
     const { root, desired } = judged;
@@ -537,7 +554,7 @@ export const observeCanonicalExtensionCapturing = ({
           status: "incomplete",
           path: root,
         });
-      if (!(yield* observedTreeMatchesAccepted(root, accepted)))
+      if (!(yield* treeMatchesAccepted(root, accepted)))
         return uncaptured({
           type: desired.type,
           name: desired.name,
@@ -576,7 +593,7 @@ export const observeCanonicalExtensionCapturing = ({
           path: root,
         });
       }
-      if (!(yield* observedTreeMatchesAccepted(root, accepted))) {
+      if (!(yield* treeMatchesAccepted(root, accepted))) {
         return uncaptured({
           type: desired.type,
           name: desired.name,
@@ -676,7 +693,7 @@ export const observeCanonicalExtensionCapturing = ({
     if (
       !workspaceAuthored &&
       accepted !== undefined &&
-      !(yield* observedTreeMatchesAccepted(root, accepted))
+      !(yield* treeMatchesAccepted(root, accepted))
     ) {
       return captured(
         {

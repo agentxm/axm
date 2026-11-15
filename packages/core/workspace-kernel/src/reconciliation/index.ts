@@ -81,6 +81,7 @@ export {
   prepareDisabledRealization,
   realizeActivation,
   type ActivationRealization,
+  type RealizationVerification,
 } from "./activation.js";
 
 export { collectUnreachableRetirement } from "./retirement.js";

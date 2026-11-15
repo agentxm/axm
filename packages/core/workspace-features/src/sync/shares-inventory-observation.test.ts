@@ -244,23 +244,26 @@ describe("Sync inventory observation", () => {
             "file.readAlloc": 2,
             readFile: 1,
           });
+          // Linking the skill decides from the link entry it has just resolved,
+          // and the closure's post-write check shares one observation of it.
           expect(recording.counts(at(".claude/skills/review"))).toEqual({
-            readLink: 29,
-            stat: 21,
+            readLink: 28,
+            stat: 19,
             realPath: 6,
             symlink: 1,
           });
           // The candidate check and the preflight check share these documents'
-          // reads inside one fresh validation observation.
+          // reads inside one fresh validation observation, and each closure's
+          // two post-write checks read them once per check, not once per reader.
           expect(countsOf(recording.counts(at("axm.json")))).toEqual({
             readLink: 15,
             stat: 13,
-            readFile: 25,
+            readFile: 17,
           });
           expect(countsOf(recording.counts(at("axm.lock")))).toEqual({
             readLink: 37,
             stat: 41,
-            readFile: 39,
+            readFile: 25,
           });
           expect(countsOf(recording.counts(userSettings ?? ""))).toEqual({
             readLink: 1,

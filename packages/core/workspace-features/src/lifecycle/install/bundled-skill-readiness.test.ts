@@ -25,7 +25,9 @@ const SHARED_AGENTS = ["codex", "gemini-cli", "zed"];
 
 // Calls the install transaction makes on `.agents/skills/axm` after its
 // readiness: the ensure-time inspection and the write of the bundled skill.
-const IN_TRANSACTION_CALLS = 48;
+// Linking the skill decides from the link entry it has just resolved, so it no
+// longer inspects that absent entry a second time.
+const IN_TRANSACTION_CALLS = 46;
 
 /** Calls naming the bundled skill's entry under `dir`, anything inside it, or its copy receipt. */
 const artifactCalls = (recording: FileSystemRecording, root: string, dir: string): number => {

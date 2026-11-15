@@ -279,7 +279,10 @@ describe("Post-write verification observation", () => {
   });
 
   // Per restored closure: the materialize operation's check and the closure's
-  // native-output check each parse settings and the lockfile once.
+  // native-output check each parse settings and the lockfile once. Validation
+  // opens one fresh observation that the candidate check and the plan's own
+  // freshness check share, so it reads settings and the lockfile once each
+  // instead of once per check.
   for (const [names, expected] of [
     [
       ["review"],
@@ -288,9 +291,9 @@ describe("Post-write verification observation", () => {
         lockfileParses: 6,
         presenceSettingsParses: 1,
         presenceLockfileParses: 1,
-        settingsContentReads: 10,
-        lockfileContentReads: 14,
-        observationPhases: 3,
+        settingsContentReads: 9,
+        lockfileContentReads: 13,
+        observationPhases: 4,
         verificationPhases: [verified("operation"), verified("closure")],
       },
     ],
@@ -301,9 +304,9 @@ describe("Post-write verification observation", () => {
         lockfileParses: 12,
         presenceSettingsParses: 2,
         presenceLockfileParses: 2,
-        settingsContentReads: 18,
-        lockfileContentReads: 26,
-        observationPhases: 5,
+        settingsContentReads: 17,
+        lockfileContentReads: 25,
+        observationPhases: 6,
         verificationPhases: [
           verified("operation"),
           verified("closure"),
@@ -347,14 +350,15 @@ describe("Post-write verification observation", () => {
     return Effect.gen(function* () {
       const result = yield* observeRestore(workspace, observation);
       expect(describeOutcome(result).units.map((unit) => unit.state)).toEqual(["committed"]);
+      // Validation shares one fresh observation of settings and the lockfile.
       expect(observation.summary(workspace.root)).toEqual({
         settingsParses: 6,
         lockfileParses: 6,
         presenceSettingsParses: 1,
         presenceLockfileParses: 1,
-        settingsContentReads: 10,
-        lockfileContentReads: 14,
-        observationPhases: 3,
+        settingsContentReads: 9,
+        lockfileContentReads: 13,
+        observationPhases: 4,
         verificationPhases: [verified("operation"), verified("closure")],
       });
     }).pipe(provideObserved(observation));

@@ -253,7 +253,9 @@ the result skipped as already published have no prepared archive, so their
 identity is not assessed. A preview result works the same way. Saved before
 publishing, it records the integrity that the current source produces, so
 verifying it after publication compares the published release with that
-source.
+source. A release the result lists more than once is verified once for all of
+its listings when its entries agree, and a result whose entries for one release
+disagree is an unusable publish result.
 
 With exact references, AXM reads the Registry named by `--registry`, or the
 default Registry. With `--publish-result`, it reads the Registry named by

@@ -9,6 +9,8 @@
  * publication set as its selection. Each prepared archive integrity is that
  * release's caller-supplied expectation; reported participation, action,
  * status and settlement are carried as reported input, never as observations.
+ * A release listed more than once is one release when its entries agree on
+ * those fields; a document whose entries for one release disagree is refused.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -71,6 +73,48 @@ interface PublishResultSelection {
   readonly releases: ReadonlyArray<PublishResultRelease>;
 }
 
+type DecodedPublishResult = typeof VerificationPublishResultSchema.Type;
+type RecordedOutcome = DecodedPublishResult["execution"]["outcomes"][number];
+
+/** Recorded outcomes by the release they name; an outcome without a version names none. */
+const outcomesByRelease = (
+  outcomes: ReadonlyArray<RecordedOutcome>,
+): ReadonlyMap<string, ReadonlyArray<RecordedOutcome>> => {
+  const grouped = new Map<string, ReadonlyArray<RecordedOutcome>>();
+  for (const outcome of outcomes) {
+    if (outcome.version === undefined) continue;
+    const { owner, type, name, version } = outcome;
+    const id = releaseId({ owner, type, name, version });
+    grouped.set(id, [...(grouped.get(id) ?? []), outcome]);
+  }
+  return grouped;
+};
+
+/** The recorded fields verification reads from one outcome, comparable as text. */
+const outcomeClaim = (outcome: RecordedOutcome): string =>
+  JSON.stringify([
+    outcome.archive?.integrity ?? null,
+    outcome.action,
+    outcome.status,
+    outcome.settlement ?? null,
+  ]);
+
+/**
+ * The first release, in publication-set order, whose entries disagree on
+ * what verification reads: its participation, or its recorded outcomes.
+ */
+const disagreeingRelease = (
+  items: ReadonlyArray<{ readonly id: string; readonly participation: string }>,
+  outcomes: ReadonlyMap<string, ReadonlyArray<RecordedOutcome>>,
+): string | undefined => {
+  const participations = new Map<string, Set<string>>();
+  for (const { id, participation } of items)
+    participations.set(id, (participations.get(id) ?? new Set()).add(participation));
+  for (const [id, claimed] of participations)
+    if (claimed.size > 1 || new Set((outcomes.get(id) ?? []).map(outcomeClaim)).size > 1) return id;
+  return undefined;
+};
+
 const objectProperty = (value: unknown, key: string): unknown =>
   Predicate.isObject(value) && Object.hasOwn(value, key) && Predicate.hasProperty(value, key)
     ? value[key]
@@ -110,17 +154,26 @@ const publishResultSelection = (
     );
   if (result.publicationSet.items.length === 0)
     return Result.fail(refuse("The publish result's admitted publication set has no releases."));
+  const listed = result.publicationSet.items.map((item) => {
+    const parts = { owner: item.owner, type: item.type, name: item.name, version: item.version };
+    return { item, parts, id: releaseId(parts), participation: item.participation };
+  });
+  const outcomes = outcomesByRelease(result.execution.outcomes);
+  const disagreeing = disagreeingRelease(listed, outcomes);
+  if (disagreeing !== undefined)
+    return Result.fail(
+      refuse(
+        `The publish result's entries for ${disagreeing} disagree on its participation or recorded outcome.`,
+      ),
+    );
   return Result.succeed({
     registry:
       result.selection.registry === UNRECORDED_REGISTRY ? undefined : result.selection.registry,
-    releases: result.publicationSet.items.map((item): PublishResultRelease => {
-      const outcome = result.execution.outcomes.find(
-        (candidate) => candidate.id === item.id && candidate.version === item.version,
-      );
+    releases: listed.map(({ item, parts, id }): PublishResultRelease => {
+      const outcome = outcomes.get(id)?.[0];
       const integrity = outcome?.archive?.integrity;
-      const parts = { owner: item.owner, type: item.type, name: item.name, version: item.version };
       return {
-        reference: { ...parts, input: item.id, id: releaseId(parts) },
+        reference: { ...parts, input: item.id, id },
         ...(integrity === undefined ? {} : { expectation: { integrity } }),
         reported: {
           participation: item.participation,

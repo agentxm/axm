@@ -110,6 +110,8 @@ interface PublishedItemFixture {
   readonly type?: ExtensionType;
   /** An upload candidate carries its prepared integrity; an existing version carries none. */
   readonly prepared?: string;
+  /** Defaults to `publish` for an upload candidate and `verified-existing` otherwise. */
+  readonly participation?: PublishResult["publicationSet"]["items"][number]["participation"];
   readonly status?: PublishResult["execution"]["outcomes"][number]["status"];
   readonly settlement?: "response" | "readback" | "replay" | "unresolved";
 }
@@ -167,7 +169,8 @@ export const publishResult = (
         type,
         name,
         version,
-        participation: item.prepared === undefined ? "verified-existing" : "publish",
+        participation:
+          item.participation ?? (item.prepared === undefined ? "verified-existing" : "publish"),
         dependencyIds: [],
         dependencyResolutions: [],
         selectionOrder,

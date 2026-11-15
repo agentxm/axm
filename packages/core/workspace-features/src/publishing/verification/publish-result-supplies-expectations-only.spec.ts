@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/verify/publish-result-supplies-expectations-only",
   title: "A publish result supplies the verified set and its expected integrity only",
   statement:
-    "When given a publish result, verify shall take the admitted publication set as its selection, each prepared archive integrity as that release's caller-supplied expectation and, when no Registry is named, the recorded Registry as the one to read, report identity as not applicable for a release the result did not prepare, carry reported status and settlement only as reported input, and refuse a document with another contract, without an admitted set or without a usable Registry before any Registry request.",
+    "When given a publish result, verify shall take the admitted publication set as its selection, each prepared archive integrity as that release's caller-supplied expectation and, when no Registry is named, the recorded Registry as the one to read, verify a release the result lists more than once only once when its entries agree, report identity as not applicable for a release the result did not prepare, carry reported status and settlement only as reported input, and refuse a document with another contract, without an admitted set, without a usable Registry or whose entries for one release disagree before any Registry request.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "machine-automation", "safe-repetition"],
@@ -30,7 +30,9 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "Whether a publication-set item whose id disagrees with its owner, type and name should be refused is undecided.",
+  ],
 });
 
 const path = "/work/publish.json";
@@ -247,6 +249,122 @@ describe("Publish result as verification input", () => {
       );
       expect(document.registry.selectedBy).toBe("flag");
       expect(document.verdict.ok).toBe(true);
+    }),
+  );
+
+  it.effect(
+    "verifies a release listed more than once only once, attributing it to every listing",
+    () =>
+      Effect.gen(function* () {
+        const review = { name: "review", version: "1.2.0", prepared: uploaded };
+        const saved = savedEnvelope(
+          publishResult([
+            { ...review, settlement: "response" },
+            { name: "format", version: "2.0.0" },
+            { ...review, settlement: "response" },
+          ]),
+        );
+        const world = makeMemoryWorld({ extensions: catalog, files: { [path]: saved } });
+        const document = yield* world.provide(
+          VerifyPublishedReleases.verify(publishResultRequest(path)),
+        );
+        expect(document.selection.requests).toEqual([
+          { id: "request-1", input: "@acme/skills/review" },
+          { id: "request-2", input: "@acme/skills/format" },
+          { id: "request-3", input: "@acme/skills/review" },
+        ]);
+        expect(document.releases.map(({ id, requestRefs }) => ({ id, requestRefs }))).toEqual([
+          { id: "@acme/skills/review@1.2.0", requestRefs: ["request-1", "request-3"] },
+          { id: "@acme/skills/format@2.0.0", requestRefs: ["request-2"] },
+        ]);
+        expect(document.releases[0]).toMatchObject({
+          expectation: { integrity: uploaded, source: "publish-result" },
+          reported: { participation: "publish", settlement: "response" },
+          identity: { conclusion: "satisfied" },
+        });
+        expect(document.verdict.ok).toBe(true);
+        expect(world.registryCalls()).toEqual([
+          {
+            operation: "selectMany",
+            subjects: ["@acme/skills/review", "@acme/skills/format"],
+          },
+          {
+            operation: "withAccessibleContent",
+            subjects: ["@acme/skills/review@1.2.0", "@acme/skills/format@2.0.0"],
+          },
+          { operation: "read", subjects: ["@acme/skills/review@1.2.0"] },
+          { operation: "read", subjects: ["@acme/skills/format@2.0.0"] },
+        ]);
+      }),
+  );
+
+  const listedTwice = (
+    first: Parameters<typeof publishResult>[0][number],
+    second: Parameters<typeof publishResult>[0][number],
+  ) => publishResult([first, { name: "format", version: "2.0.0" }, second]);
+  const listedOnce = (result: ReturnType<typeof publishResult>) => ({
+    ...result,
+    publicationSet: {
+      ...result.publicationSet,
+      items: result.publicationSet.items.filter(
+        (item, index, items) => items.findIndex((other) => other.id === item.id) === index,
+      ),
+    },
+  });
+
+  it.effect.each([
+    {
+      entries: "two listings whose prepared integrities differ",
+      result: listedTwice(
+        { name: "review", version: "1.2.0", prepared: uploaded },
+        { name: "review", version: "1.2.0", prepared: digestOf("review-1.2.0-elsewhere") },
+      ),
+    },
+    {
+      entries: "two listings whose participations differ",
+      result: listedTwice(
+        { name: "review", version: "1.2.0", prepared: uploaded },
+        {
+          name: "review",
+          version: "1.2.0",
+          prepared: uploaded,
+          participation: "verified-existing",
+        },
+      ),
+    },
+    {
+      entries: "one listing whose recorded outcomes differ in settlement",
+      result: listedOnce(
+        listedTwice(
+          { name: "review", version: "1.2.0", prepared: uploaded, settlement: "response" },
+          { name: "review", version: "1.2.0", prepared: uploaded, settlement: "unresolved" },
+        ),
+      ),
+    },
+    {
+      entries: "one listing whose recorded outcomes differ in status",
+      result: listedOnce(
+        listedTwice(
+          { name: "review", version: "1.2.0", prepared: uploaded, status: "success" },
+          { name: "review", version: "1.2.0", prepared: uploaded, status: "unknown" },
+        ),
+      ),
+    },
+  ])("refuses a release with $entries as invalid before any Registry request", ({ result }) =>
+    Effect.gen(function* () {
+      const world = makeMemoryWorld({
+        extensions: catalog,
+        files: { [path]: savedEnvelope(result) },
+      });
+      const refusal = expectPublishRefused(
+        yield* world
+          .provide(VerifyPublishedReleases.verify(publishResultRequest(path)))
+          .pipe(Effect.flip),
+      );
+      expect(refusal.category).toBe("validation");
+      expect(refusal.detail).toContain("@acme/skills/review@1.2.0");
+      expect(refusal.detail).toContain("disagree");
+      expect(world.calls).toEqual([]);
     }),
   );
 

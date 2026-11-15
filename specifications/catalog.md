@@ -4313,13 +4313,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/verify/publish-result-supplies-expectations-only`
 - Owner: `workspace-features`
-- Statement: When given a publish result, verify shall take the admitted publication set as its selection, each prepared archive integrity as that release's caller-supplied expectation and, when no Registry is named, the recorded Registry as the one to read, report identity as not applicable for a release the result did not prepare, carry reported status and settlement only as reported input, and refuse a document with another contract, without an admitted set or without a usable Registry before any Registry request.
+- Statement: When given a publish result, verify shall take the admitted publication set as its selection, each prepared archive integrity as that release's caller-supplied expectation and, when no Registry is named, the recorded Registry as the one to read, verify a release the result lists more than once only once when its entries agree, report identity as not applicable for a release the result did not prepare, carry reported status and settlement only as reported input, and refuse a document with another contract, without an admitted set, without a usable Registry or whose entries for one release disagree before any Registry request.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Boundary rationale: Saved documents are read from an in-memory file system and the Registry is a recording port; the production Registry client and the compiled command reading a file from disk need separate evidence.
 - Methods: decision-table, example
+- Open questions: Whether a publication-set item whose id disagrees with its owner, type and name should be refused is undecided.
 - Additional evidence: process via [`apps/cli-e2e/src/verify-published-releases.e2e.test.ts`](../apps/cli-e2e/src/verify-published-releases.e2e.test.ts) — The built CLI verifies releases it published through its own publish command against an independent HTTP Registry and a file Registry; wire contracts validate every captured document against the published schema while the Registry journal records selection, admission and download traffic.
 - Source: [`packages/core/workspace-features/src/publishing/verification/publish-result-supplies-expectations-only.spec.ts`](../packages/core/workspace-features/src/publishing/verification/publish-result-supplies-expectations-only.spec.ts)
 

@@ -70,7 +70,6 @@ import {
   observeInstructions,
   observeObservedPlans,
   reconcileInstructions,
-  removeInstructionTargetsFor,
   resolveInstructionsConfig,
   type InstructionProjectionEffect,
   type InstructionProjectionSnapshot,
@@ -447,19 +446,11 @@ export type ManageInstructionsRequirements =
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 
-const transitionEffect = (
-  candidate: InstructionTransition & { readonly action: "enable" },
-  config: ResolvedInstructionsConfig,
-) =>
+/** Record the choice and apply rule regions; a superseded configuration's aliases are already removed. */
+const transitionEffect = (config: ResolvedInstructionsConfig) =>
   Effect.gen(function* () {
     const settingsWriter = yield* SettingsWriter;
     const ruleManager = yield* RuleManager;
-    if (Option.isSome(candidate.supersededConfig)) {
-      yield* removeInstructionTargetsFor({
-        config: candidate.supersededConfig.value,
-        ...candidate.overrides,
-      });
-    }
     yield* settingsWriter.setInstructionsConfig({
       fileName: config.fileName,
       gitignoreAliases: config.gitignoreAliases,
@@ -543,9 +534,9 @@ const transitionStep = (
           configuredAgents: yield* settings.configuredAgents,
           config,
           ...(Option.isSome(candidate.supersededConfig)
-            ? { preflightConfig: candidate.supersededConfig.value }
+            ? { supersededConfig: candidate.supersededConfig.value }
             : {}),
-          transition: transitionEffect({ ...candidate, action: "enable" }, config),
+          transition: transitionEffect(config),
         });
         return result.nativeLocations;
       }).pipe(Effect.mapError(transitionFailureToStepFailure));

@@ -198,7 +198,6 @@ export {
   reconcileInstructions,
   reconcileInstructionAliases,
   recordInstructionCopiesBeforeSourceWrite,
-  removeInstructionTargetsFor,
   type InstructionOutputOverrides,
 } from "./instructions/reconciliation.js";
 

@@ -76,8 +76,13 @@ describe("Instruction management hands the rule manager's eager observation to i
             expect(resolution.units.flatMap((unit) => unit.artifact?.targets ?? [])).toContainEqual(
               { path: INSTRUCTIONS, change: "updated" },
             );
-            // Observing the rule plans again read the instruction file 6 times.
-            expect(planned).toBe(5);
+            // Planning reads the instruction file three times: once for the
+            // instruction observation, whose decisions, missing-source check
+            // and witness digest share those bytes; once for the rule
+            // manager's eager observation of the Rules region, which the plan
+            // reports its pending region update from; and once for the plan's
+            // candidate fingerprint.
+            expect(planned).toBe(3);
           }),
         )
         .pipe(Effect.provide(recordedNodeServices));

@@ -12,10 +12,12 @@ import {
   instructionChangeLocations,
   observeInstructionNativeLocations,
 } from "./native-outcomes.js";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
 import {
   makeScannerFileSystem,
@@ -47,6 +49,7 @@ import {
   resolveNativeEntry,
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
+  type NativeEntryAddress,
   type NativeLocationOutcome,
   isGitManaged,
 } from "../../locations/index.js";
@@ -151,6 +154,20 @@ export interface InstructionProjectionSnapshot {
   readonly symlinkSupported: boolean;
   readonly status: InstructionsStatus;
   readonly gitignore: InstructionsGitignoreStatus;
+  /**
+   * The observation's strict `.gitignore` admission and the referent its early
+   * read admitted, for a readiness check that directly follows it with no
+   * write between. Absent from a hand-built snapshot, which is checked live.
+   */
+  readonly gitignoreAdmission?: {
+    readonly gitManaged: boolean;
+    readonly view: "working-tree" | "git-index";
+    readonly workspaceRoot: string;
+    /** The admitted physical file, or the refusal readiness raises. */
+    readonly strict: Result.Result<string, InstructionMaintenanceFailed>;
+    readonly earlyReferent: Option.Option<string>;
+    readonly regionState: ManagedRegionState["state"];
+  };
   /** Recorded `instructions` projection rows the observation decided against. */
   readonly rows: InstructionProjectionRows;
   /** Recorded rows no planned or stale copy accounts for; reconciliation withdraws them. */
@@ -683,11 +700,67 @@ const instructionDetails = (
 const STALE_TARGET_DETAILS =
   "AXM-owned instruction file is no longer desired by the current plan; sync removes it.";
 
-const readFileOption = (
+/**
+ * Admitted referent bytes shared by the reads of one observation or one
+ * prepare call. Every read still admits its own path with its own roots
+ * first; only the bytes of the referent that admission selected are shared.
+ */
+class InstructionReadCells extends Context.Service<
+  InstructionReadCells,
+  {
+    readonly read: (
+      referentPath: string,
+      fresh: Effect.Effect<Option.Option<string>>,
+    ) => Effect.Effect<Option.Option<string>>;
+  }
+>()("@agentxm/workspace-kernel/projection/instructions/instructions/InstructionReadCells") {}
+
+/** Share admitted referent bytes among the reads `effect` makes, until it ends. */
+const withInstructionReadCells = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> =>
+  Effect.suspend(() => {
+    const cells = new Map<string, Effect.Effect<Option.Option<string>>>();
+    let active = true;
+    const read = (referentPath: string, fresh: Effect.Effect<Option.Option<string>>) =>
+      Effect.gen(function* () {
+        if (!active) return yield* fresh;
+        const previous = cells.get(referentPath);
+        if (previous !== undefined) return yield* previous;
+        const created = yield* Effect.cached(fresh);
+        // A concurrent miss may have installed its read meanwhile; share it.
+        const selected = cells.get(referentPath) ?? created;
+        cells.set(referentPath, selected);
+        return yield* selected;
+      });
+    return effect.pipe(
+      Effect.provideService(InstructionReadCells, { read }),
+      Effect.ensuring(
+        Effect.sync(() => {
+          active = false;
+          cells.clear();
+        }),
+      ),
+    );
+  });
+
+/** One call's own content admission of a path and, for a readable entry, its referent's bytes. */
+interface AdmittedInstructionRead {
+  readonly referentPath: string;
+  /** False for an absent entry or a directory, which are never read. */
+  readonly readable: boolean;
+  readonly content: Option.Option<string>;
+}
+
+const readAdmittedFile = (
   filePath: string,
   workspaceRoot: string,
   nativeRoots: ReadonlyArray<string> = [workspaceRoot],
-) =>
+): Effect.Effect<
+  Option.Option<AdmittedInstructionRead>,
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const address = yield* assertNativeMutationWithinRoots(
@@ -699,18 +772,35 @@ const readFileOption = (
       Effect.map((selected) => selected.address),
       Effect.option,
     );
-    if (
-      Option.isNone(address) ||
-      address.value.kind === "absent" ||
-      address.value.kind === "directory" ||
-      address.value.referentPath === undefined
-    )
-      return Option.none<string>();
-    return yield* fs.readFileString(address.value.referentPath).pipe(Effect.option);
+    if (Option.isNone(address) || address.value.referentPath === undefined)
+      return Option.none<AdmittedInstructionRead>();
+    const referentPath = address.value.referentPath;
+    if (address.value.kind === "absent" || address.value.kind === "directory")
+      return Option.some({ referentPath, readable: false, content: Option.none<string>() });
+    const fresh = fs.readFileString(referentPath).pipe(Effect.option);
+    const cells = yield* Effect.serviceOption(InstructionReadCells);
+    const content = Option.isSome(cells)
+      ? yield* cells.value.read(referentPath, fresh)
+      : yield* fresh;
+    return Option.some({ referentPath, readable: true, content });
   });
 
-/** Ephemeral observation proof; only digests and filesystem identity cross planning. */
-const instructionWitness = (
+const readFileOption = (
+  filePath: string,
+  workspaceRoot: string,
+  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+) =>
+  Effect.map(
+    readAdmittedFile(filePath, workspaceRoot, nativeRoots),
+    Option.flatMap((read) => read.content),
+  );
+
+/**
+ * Ephemeral observation proof; only digests and filesystem identity cross
+ * planning. The admitted read the content digest was taken from is returned
+ * beside it, for a caller that publishes exactly the bytes it just verified.
+ */
+const observeInstructionWitness = (
   workspaceRoot: string,
   target: string,
   observedAnchor?: string,
@@ -728,7 +818,12 @@ const instructionWitness = (
     let anchor = observedAnchor ?? path.dirname(address.entryPath);
     while (observedAnchor === undefined && !(yield* fs.exists(anchor))) {
       const parent = path.dirname(anchor);
-      if (parent === anchor) return { anchor, fingerprint: "unreadable" };
+      if (parent === anchor)
+        return {
+          anchor,
+          fingerprint: "unreadable",
+          read: Option.none<AdmittedInstructionRead>(),
+        };
       anchor = parent;
     }
     const parentIdentity = yield* captureContainerIdentity({
@@ -742,10 +837,11 @@ const instructionWitness = (
         : yield* captureContainerIdentity({ nativeRoot, ownerRoot: workspaceRoot, target }).pipe(
             Effect.option,
           );
-    const content =
+    const read =
       address.kind === "directory" || address.kind === "absent"
-        ? Option.none<string>()
-        : yield* readFileOption(target, workspaceRoot, nativeRoots);
+        ? Option.none<AdmittedInstructionRead>()
+        : yield* readAdmittedFile(target, workspaceRoot, nativeRoots);
+    const content = Option.flatMap(read, (admitted) => admitted.content);
     const fingerprint = yield* Effect.gen(function* () {
       let bytes = 0;
       let count = 0;
@@ -775,36 +871,69 @@ const instructionWitness = (
         ),
       );
     }).pipe((effect) => withWork("axm.hash.instruction-witness", effect));
-    return { anchor, fingerprint };
+    return { anchor, fingerprint, read };
   }).pipe(
     Effect.catch(() =>
-      Effect.succeed({ anchor: observedAnchor ?? workspaceRoot, fingerprint: "unreadable" }),
+      Effect.succeed({
+        anchor: observedAnchor ?? workspaceRoot,
+        fingerprint: "unreadable",
+        read: Option.none<AdmittedInstructionRead>(),
+      }),
     ),
   );
 
-const assertInstructionWitnesses = (
+const instructionWitness = (
+  workspaceRoot: string,
+  target: string,
+  observedAnchor?: string,
+  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+) =>
+  Effect.map(
+    observeInstructionWitness(workspaceRoot, target, observedAnchor, nativeRoots),
+    ({ anchor, fingerprint }) => ({ anchor, fingerprint }),
+  );
+
+/**
+ * Re-take every selected witness fresh and refuse any that changed. Returns
+ * the admitted reads of the passing witnesses named in `sourcePaths`.
+ */
+const verifyInstructionWitnesses = (
   snapshot: InstructionProjectionSnapshot,
-  selected?: ReadonlySet<string>,
+  selected: ReadonlySet<string> | undefined,
+  sourcePaths: ReadonlyArray<string>,
 ) =>
   Effect.gen(function* () {
+    const sourceReads: Array<AdmittedInstructionRead> = [];
     for (const witness of snapshot.witnesses) {
       if (selected !== undefined && !selected.has(witness.path)) continue;
-      if (
-        witness.fingerprint === "unreadable" ||
-        (yield* instructionWitness(
-          snapshot.workspaceRoot,
-          witness.path,
-          witness.anchor,
-          snapshot.nativeRoots,
-        )).fingerprint !== witness.fingerprint
-      ) {
+      const current =
+        witness.fingerprint === "unreadable"
+          ? undefined
+          : yield* observeInstructionWitness(
+              snapshot.workspaceRoot,
+              witness.path,
+              witness.anchor,
+              snapshot.nativeRoots,
+            );
+      if (current === undefined || current.fingerprint !== witness.fingerprint) {
         return yield* new InstructionMaintenanceFailed({
           category: "conflict",
           detail: `Instruction input changed after observation: ${witness.path}`,
         });
       }
+      if (sourcePaths.includes(witness.path)) sourceReads.push(...Option.toArray(current.read));
     }
+    return sourceReads;
   });
+
+const assertInstructionWitnesses = (
+  snapshot: InstructionProjectionSnapshot,
+  selected?: ReadonlySet<string>,
+) => Effect.asVoid(verifyInstructionWitnesses(snapshot, selected, []));
+
+/** The physical file a strict `.gitignore` admission selects. */
+const ignoreFilePath = (address: NativeEntryAddress): string =>
+  address.referentPath ?? address.entryPath;
 
 const instructionContentAddress = (workspaceRoot: string, target: string) =>
   assertNativeMutationWithin(workspaceRoot, target, "content").pipe(
@@ -1335,11 +1464,38 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
   Effect.gen(function* () {
     if (!(yield* isGitManaged(workspaceRoot))) return;
     const lexical = yield* instructionGitignorePath(workspaceRoot);
-    const address = yield* instructionContentAddress(workspaceRoot, lexical);
-    const filePath = address.referentPath ?? address.entryPath;
+    const filePath = ignoreFilePath(yield* instructionContentAddress(workspaceRoot, lexical));
     const current = yield* readFileOption(filePath, workspaceRoot);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
     if (state !== "malformed") return;
+    return yield* unsafeGitignoreRegionFailure(filePath);
+  });
+
+/**
+ * {@link assertInstructionsGitignoreSafe} for a readiness check that directly
+ * follows `snapshot`'s observation, with no write between. The observation's
+ * own strict admission decides when it observed the working tree of this
+ * workspace root and its early read admitted the same referent; anything else
+ * is checked live.
+ */
+export const assertObservedInstructionsGitignoreSafe = (
+  snapshot: Pick<InstructionProjectionSnapshot, "gitignoreAdmission">,
+  workspaceRoot: string,
+): Effect.Effect<void, InstructionMaintenanceFailed, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const observed = snapshot.gitignoreAdmission;
+    if (
+      observed === undefined ||
+      observed.view !== "working-tree" ||
+      observed.workspaceRoot !== workspaceRoot
+    )
+      return yield* assertInstructionsGitignoreSafe(workspaceRoot);
+    if (!observed.gitManaged) return;
+    if (Result.isFailure(observed.strict)) return yield* observed.strict.failure;
+    const filePath = observed.strict.success;
+    if (Option.isNone(observed.earlyReferent) || observed.earlyReferent.value !== filePath)
+      return yield* assertInstructionsGitignoreSafe(workspaceRoot);
+    if (observed.regionState !== "malformed") return;
     return yield* unsafeGitignoreRegionFailure(filePath);
   });
 
@@ -1387,6 +1543,14 @@ const desiredGitignorePatterns = (args: {
       ].sort()
     : [];
 
+/** The `.gitignore` status with the facts its early read established. */
+interface ObservedInstructionsGitignore {
+  readonly status: InstructionsGitignoreStatus;
+  readonly gitManaged: boolean;
+  readonly earlyReferent: Option.Option<string>;
+  readonly regionState: ManagedRegionState["state"];
+}
+
 const observeInstructionsGitignore = (args: {
   readonly workspaceRoot: string;
   readonly plan: InstructionProjectionPlan;
@@ -1394,7 +1558,7 @@ const observeInstructionsGitignore = (args: {
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView: boolean;
   readonly rows: InstructionProjectionRows;
-}): Effect.Effect<InstructionsGitignoreStatus, never, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<ObservedInstructionsGitignore, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -1402,16 +1566,22 @@ const observeInstructionsGitignore = (args: {
     const gitManaged = yield* isGitManaged(args.workspaceRoot);
     if (!gitManaged) {
       return {
-        file,
-        present: false,
-        managed: false,
-        desired: false,
-        current: true,
-        trackedAliases: [],
+        status: {
+          file,
+          present: false,
+          managed: false,
+          desired: false,
+          current: true,
+          trackedAliases: [],
+        },
+        gitManaged,
+        earlyReferent: Option.none<string>(),
+        regionState: "absent",
       };
     }
 
-    const currentContent = yield* readFileOption(file, args.workspaceRoot);
+    const early = yield* readAdmittedFile(file, args.workspaceRoot);
+    const currentContent = Option.flatMap(early, (read) => read.content);
     const writeTargets = args.plan.items
       .flatMap((item) =>
         item.action === "write"
@@ -1467,13 +1637,26 @@ const observeInstructionsGitignore = (args: {
         ? Option.none()
         : yield* gitignoreLastWrite({ content: currentContent.value, patterns, recorded });
     return {
-      file,
-      present: Option.isSome(currentContent),
-      managed: complete,
-      desired,
-      trackedAliases,
-      current,
-      ...Option.match(lastWrite, { onNone: () => ({}), onSome: (value) => ({ lastWrite: value }) }),
+      status: {
+        file,
+        present: Option.isSome(currentContent),
+        managed: complete,
+        desired,
+        trackedAliases,
+        current,
+        ...Option.match(lastWrite, {
+          onNone: () => ({}),
+          onSome: (value) => ({ lastWrite: value }),
+        }),
+      },
+      gitManaged,
+      // A referent whose bytes could not be read decides nothing for readiness.
+      earlyReferent: Option.flatMap(early, (read) =>
+        read.readable && Option.isNone(read.content)
+          ? Option.none<string>()
+          : Option.some(read.referentPath),
+      ),
+      regionState: currentRegionState,
     };
   });
 
@@ -1872,7 +2055,7 @@ export const observeInstructionProjection = (
     const orphanRows = [...args.rows.keys()]
       .filter((unit) =>
         unit === GITIGNORE_UNIT
-          ? !gitignore.desired && !gitignore.managed && gitignore.current
+          ? !gitignore.status.desired && !gitignore.status.managed && gitignore.status.current
           : !recordedCopies.has(unit),
       )
       .sort((left, right) => left.localeCompare(right, "en"));
@@ -1886,7 +2069,7 @@ export const observeInstructionProjection = (
               : [item.sourcePath, item.targetPath],
         ),
         ...staleTargets.flatMap((item) => [item.sourceFile, item.targetFile]),
-        gitignore.file,
+        gitignore.status.file,
       ]),
     ].sort();
     const witnesses = yield* Effect.forEach(witnessPaths, (target) =>
@@ -1894,14 +2077,14 @@ export const observeInstructionProjection = (
         Effect.map((witness) => ({ path: target, ...witness })),
       ),
     );
-    const ignoreAddress = yield* assertNativeMutationWithin(
-      args.workspaceRoot,
-      gitignore.file,
-      "content",
-    ).pipe(Effect.option);
-    const ignorePhysical = Option.isSome(ignoreAddress)
-      ? (ignoreAddress.value.referentPath ?? ignoreAddress.value.entryPath)
-      : gitignore.file;
+    const gitignoreView: "working-tree" | "git-index" =
+      args.gitIndexView === true ? "git-index" : "working-tree";
+    const strictIgnore = yield* Effect.result(
+      instructionContentAddress(args.workspaceRoot, gitignore.status.file),
+    );
+    const ignorePhysical = Result.isSuccess(strictIgnore)
+      ? ignoreFilePath(strictIgnore.success)
+      : gitignore.status.file;
     return {
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
@@ -1920,7 +2103,7 @@ export const observeInstructionProjection = (
             ? {}
             : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
         })),
-        ...(gitignore.managed || gitignore.desired
+        ...(gitignore.status.managed || gitignore.status.desired
           ? [
               {
                 scope: args.scope,
@@ -1929,12 +2112,12 @@ export const observeInstructionProjection = (
                   path: ignorePhysical,
                   region: "instruction-aliases",
                 },
-                aliases: [gitignore.file],
+                aliases: [gitignore.status.file],
                 configuredConsumers: [],
                 potentialReaders: [],
                 policyReasons: ["instruction-alias-ignore"],
-                ownership: gitignore.managed ? ("owned" as const) : ("absent" as const),
-                state: gitignore.managed ? ("unchanged" as const) : ("absent" as const),
+                ownership: gitignore.status.managed ? ("owned" as const) : ("absent" as const),
+                state: gitignore.status.managed ? ("unchanged" as const) : ("absent" as const),
                 mechanism: "managed-region" as const,
                 availability: [],
               },
@@ -1956,9 +2139,17 @@ export const observeInstructionProjection = (
         items,
         staleTargets,
       },
-      gitignore,
+      gitignore: gitignore.status,
+      gitignoreAdmission: {
+        gitManaged: gitignore.gitManaged,
+        view: gitignoreView,
+        workspaceRoot: args.workspaceRoot,
+        strict: Result.map(strictIgnore, ignoreFilePath),
+        earlyReferent: gitignore.earlyReferent,
+        regionState: gitignore.regionState,
+      },
     };
-  });
+  }).pipe(withInstructionReadCells);
 
 // -----------------------------------------------------------------------------
 // Views over a snapshot — pure.
@@ -2135,6 +2326,8 @@ const removeTargetFile = (targetPath: string, cleanupDirectories = true) =>
 
 interface PreparedInstructionTarget extends InstructionStatusItem {
   readonly observedPaths: ReadonlyArray<string>;
+  /** The planned (lexical) source paths; `sourceFile` is their physical referent. */
+  readonly sourcePaths: ReadonlyArray<string>;
   /** The row key of the planned (lexical) target. */
   readonly unit: Option.Option<ProjectionUnitPath>;
 }
@@ -2149,6 +2342,7 @@ const preparePhysicalInstructionTargets = (
   items: ReadonlyArray<InstructionStatusItem>,
   purpose: "write" | "record" | "remove",
 ) =>
+  // Items sharing a source read it once; every read precedes any write.
   Effect.gen(function* () {
     const { workspaceRoot, nativeRoots } = snapshot;
     const targets = new Map<string, PreparedInstructionTarget>();
@@ -2204,11 +2398,13 @@ const preparePhysicalInstructionTargets = (
         targetFile: address.entryPath,
         sourceFile,
         observedPaths: [...(prior?.observedPaths ?? []), item.targetFile, item.sourceFile],
+        sourcePaths: [...(prior?.sourcePaths ?? []), item.sourceFile],
         unit: yield* scopeUnitPath(workspaceRoot, item.targetFile),
       });
     }
     return [...targets.values()];
   }).pipe(
+    withInstructionReadCells,
     Effect.mapError((cause) =>
       cause instanceof InstructionMaintenanceFailed
         ? cause
@@ -2544,6 +2740,48 @@ export const removeInstructionsGitignore = (args: {
     };
   });
 
+/**
+ * Verify one prepared target's witnesses, then return the source bytes to
+ * publish for it: those its own source witness just verified, when that
+ * witness admitted the prepared referent and the workspace-root admission a
+ * fresh read would make selects the same readable referent; otherwise a fresh
+ * read under that admission. A target witness never supplies source bytes.
+ */
+const verifiedSourceContent = (
+  snapshot: InstructionProjectionSnapshot,
+  item: PreparedInstructionTarget,
+  workspaceRoot: string,
+) =>
+  Effect.gen(function* () {
+    const sourceReads = yield* verifyInstructionWitnesses(
+      snapshot,
+      new Set(item.observedPaths),
+      item.sourcePaths,
+    );
+    const witnessed = sourceReads.find(
+      (read) => read.referentPath === item.sourceFile && Option.isSome(read.content),
+    );
+    if (witnessed !== undefined) {
+      const admitted = yield* assertNativeMutationWithinRoots(
+        [workspaceRoot],
+        item.sourceFile,
+        "content",
+        workspaceRoot,
+      ).pipe(
+        Effect.map((selected) => selected.address),
+        Effect.option,
+      );
+      if (
+        Option.isSome(admitted) &&
+        admitted.value.kind !== "absent" &&
+        admitted.value.kind !== "directory" &&
+        admitted.value.referentPath === item.sourceFile
+      )
+        return witnessed.content;
+    }
+    return yield* readFileOption(item.sourceFile, workspaceRoot);
+  });
+
 /** Rows recording copies whose bytes were just re-observed equal to their source. */
 const recordPreparedCopies = (
   snapshot: InstructionProjectionSnapshot,
@@ -2553,8 +2791,7 @@ const recordPreparedCopies = (
     records,
     (item) =>
       Effect.gen(function* () {
-        yield* assertInstructionWitnesses(snapshot, new Set(item.observedPaths));
-        const sourceContent = yield* readFileOption(item.sourceFile, snapshot.workspaceRoot);
+        const sourceContent = yield* verifiedSourceContent(snapshot, item, snapshot.workspaceRoot);
         if (Option.isNone(sourceContent) || Option.isNone(item.unit))
           return yield* new InstructionMaintenanceFailed({
             category: "conflict",
@@ -2689,8 +2926,7 @@ export const applyInstructionProjection = (args: {
       targets,
       (item) =>
         Effect.gen(function* () {
-          yield* assertInstructionWitnesses(snapshot, new Set(item.observedPaths));
-          const sourceContent = yield* readFileOption(item.sourceFile, args.workspaceRoot);
+          const sourceContent = yield* verifiedSourceContent(snapshot, item, args.workspaceRoot);
           if (Option.isNone(sourceContent)) {
             return yield* new InstructionMaintenanceFailed({
               category: "internal",

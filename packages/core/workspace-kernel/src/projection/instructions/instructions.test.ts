@@ -1,7 +1,7 @@
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../locations/index.js";
-import { NativePlatformTest, withDetailedWork } from "../../locations/testing.js";
+import { NativePlatformTest, withDetailedWork, workObservations } from "../../locations/testing.js";
 import { CanonicalNativePathLive } from "../../locations/live.js";
 import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
@@ -22,6 +22,8 @@ import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
 import { afterEach, beforeEach } from "vitest";
 import {
+  applyInstructionProjection,
+  assertInstructionsGitignoreSafe,
   assertInstructionTargetsSafe,
   instructionProjectionEffects,
   recordIdenticalInstructionCopies,
@@ -34,9 +36,14 @@ import {
   removeInstructionsGitignore,
   resolveInstructionMechanism,
   syncInstructions,
+  type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
-import { observeInstructionSurfacePlans, reconcileInstructions } from "./reconciliation.js";
+import {
+  instructionReconciliationReadiness,
+  observeInstructionSurfacePlans,
+  reconcileInstructions,
+} from "./reconciliation.js";
 import { planAggregateProjection } from "../planning.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
 import { ProjectionRowsTest } from "../../workspace-state/testing.js";
@@ -2525,5 +2532,388 @@ describe("instruction ignore-pattern withdrawal through the live authority", () 
         }).toEqual(before);
       }).pipe(Effect.provide(counted.layer));
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+/**
+ * Work one instruction call repeats on the same admitted file. Counts are exact
+ * for these fixtures: a real temporary workspace observed through a recording
+ * filesystem, reset after setup.
+ */
+describe("instruction projection reads each prepared input once", () => {
+  const NO_ROWS = new Map();
+  const WITNESS_HASH = "axm.hash.instruction-witness";
+
+  /** A real workspace whose canonical source is `AGENTS.md`, observed through a recording filesystem. */
+  const workspace = (files: {
+    readonly git?: boolean;
+    readonly links?: Readonly<Record<string, string>>;
+    readonly copies?: ReadonlyArray<string>;
+  }) =>
+    Effect.gen(function* () {
+      const host = yield* EffectFileSystem.FileSystem;
+      const root = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+      if (files.git === true) yield* host.makeDirectory(path.join(root, ".git"));
+      yield* host.writeFileString(path.join(root, "AGENTS.md"), "# Workspace\n");
+      for (const [link, target] of Object.entries(files.links ?? {}))
+        yield* host.symlink(target, path.join(root, link));
+      for (const copy of files.copies ?? [])
+        yield* host.writeFileString(path.join(root, copy), "# Workspace\n");
+      return {
+        root,
+        source: path.join(root, "AGENTS.md"),
+        gitignore: path.join(root, ".gitignore"),
+        git: path.join(root, ".git"),
+      };
+    });
+
+  const observeAt = (
+    root: string,
+    args: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly config?: ResolvedInstructionsConfig;
+      readonly symlinkSupported: boolean;
+    },
+  ) =>
+    observeInstructionProjection({
+      workspaceRoot: root,
+      scope: "project",
+      configuredAgents: args.configuredAgents,
+      config: args.config ?? TRACKED,
+      symlinkSupported: args.symlinkSupported,
+      rows: NO_ROWS,
+    });
+
+  const recorded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provide(layerRecordingFileSystem(NodeServices.layer)),
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(NativeWriteAuthorityPermissive, NativePlatformTest, CanonicalNativePathLive),
+      ),
+    );
+
+  const witnessHashes = (facts: ReadonlyArray<{ readonly kind: string }>) =>
+    facts.filter((fact) => fact.kind === WITNESS_HASH).length;
+
+  it.effect("reads each admitted referent once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "CLAUDE.md": "AGENTS.md" }, copies: ["GEMINI.md"] });
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "owned-unrecorded-identical", "copy"],
+        ]);
+        expect({
+          source: recording.contentReads(ws.source),
+          copy: recording.contentReads(path.join(ws.root, "GEMINI.md")),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({ source: 1, copy: 1, witnessHashes: 4 });
+      }),
+    ),
+  );
+
+  for (const mechanism of ["symlink", "copy"] as const)
+    it.effect(`publishes the bytes its own witness verified for a ${mechanism} target`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const recording = yield* FileSystemRecorder;
+          const ws = yield* workspace({});
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code"],
+            symlinkSupported: mechanism === "symlink",
+          });
+          const observations = workObservations(false);
+          recording.reset();
+          const applied = yield* applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }).pipe(observations.provide);
+          const target = path.join(ws.root, "CLAUDE.md");
+          expect(applied.written).toEqual([target]);
+          expect(fs.lstatSync(target).isSymbolicLink()).toBe(mechanism === "symlink");
+          expect(fs.readFileSync(target, "utf-8")).toBe("# Workspace\n");
+          expect({
+            // Prepare's re-observation, the whole-snapshot witness, and the
+            // per-target witness whose bytes are published.
+            source: recording.contentReads(ws.source),
+            witnessHashes: witnessHashes(observations.facts),
+          }).toEqual({ source: 3, witnessHashes: 5 });
+        }),
+      ),
+    );
+
+  it.effect("records an identical copy from the bytes its own witness verified", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ copies: ["CLAUDE.md"] });
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        const records = yield* recordIdenticalInstructionCopies(snapshot);
+        expect(records.map((change) => change.path)).toEqual(["CLAUDE.md"]);
+        // Prepare's re-observation and the record's own witness.
+        expect(recording.contentReads(ws.source)).toBe(2);
+      }),
+    ),
+  );
+
+  it.effect("reads a source shared by alias items once while preparing", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: TRACKED,
+          snapshot,
+          dryRun: false,
+        });
+        // One prepare read, the whole-snapshot witness, one witness per target.
+        expect(recording.contentReads(ws.source)).toBe(4);
+      }),
+    ),
+  );
+
+  it.effect("refuses a source edited after observation before publishing anything", () =>
+    recorded(
+      Effect.gen(function* () {
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        fs.writeFileSync(ws.source, "# Edited\n");
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            category: "conflict",
+            detail: `Instruction input changed after observation: ${ws.source}`,
+          });
+        expect(fs.existsSync(path.join(ws.root, "CLAUDE.md"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("never publishes verified bytes of a source outside the workspace root", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const home = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const configRoot = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const external = path.join(configRoot, "AGENTS.md");
+        yield* host.writeFileString(external, "# User\n");
+        yield* host.symlink(external, path.join(home, "AGENTS.md"));
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: home,
+          scope: "user",
+          nativeDirectoryInputs: {
+            skillsDirectoryOverrides: {},
+            userConfigRootOverrides: { "claude-code": configRoot },
+          },
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+        });
+        const target = path.join(configRoot, "CLAUDE.md");
+        expect(snapshot.status.items.map((item) => [item.targetFile, item.health])).toEqual([
+          [target, "missing-target"],
+        ]);
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: home,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            category: "internal",
+            detail: `Instruction source disappeared before projection: ${external}`,
+          });
+        expect(fs.existsSync(target)).toBe(false);
+      }),
+    ),
+  );
+
+  for (const [name, arrange] of [
+    [
+      "an escaping link",
+      (root: string, outside: string) => {
+        fs.writeFileSync(path.join(outside, "ignore"), "dist/\n");
+        fs.symlinkSync(path.join(outside, "ignore"), path.join(root, ".gitignore"));
+      },
+    ],
+    [
+      "a dangling link",
+      (root: string, outside: string) =>
+        fs.symlinkSync(path.join(outside, "missing"), path.join(root, ".gitignore")),
+    ],
+    [
+      "a hard link",
+      (root: string, outside: string) => {
+        fs.writeFileSync(path.join(root, ".gitignore"), "dist/\n");
+        fs.linkSync(path.join(root, ".gitignore"), path.join(outside, "ignore"));
+      },
+    ],
+    [
+      "malformed region fences",
+      (root: string) =>
+        fs.writeFileSync(
+          path.join(root, ".gitignore"),
+          "dist/\n# axm:instruction-aliases\n**/CLAUDE.md\n",
+        ),
+    ],
+  ] as const)
+    it.effect(`refuses readiness for a .gitignore with ${name} exactly as the live check`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const host = yield* EffectFileSystem.FileSystem;
+          const ws = yield* workspace({ git: true });
+          const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+          arrange(ws.root, outside);
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code"],
+            config: IGNORED,
+            symlinkSupported: true,
+          });
+          const live = yield* Effect.flip(assertInstructionsGitignoreSafe(ws.root));
+          const readiness = yield* instructionReconciliationReadiness({
+            snapshot,
+            workspaceRoot: ws.root,
+          });
+          if (Option.isNone(readiness)) throw new Error("Expected readiness to refuse");
+          const refusal = expectMaintenanceFailed(readiness.value);
+          expect(refusal).toEqual(live);
+          expect({ category: refusal.category, detail: refusal.detail }).toEqual({
+            category: live.category,
+            detail: live.detail,
+          });
+        }),
+      ),
+    );
+
+  it.effect("checks .gitignore readiness live when the observation cannot decide it", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ git: true });
+        fs.writeFileSync(ws.gitignore, "dist/\n");
+        const observeView = (gitIndexView: boolean) =>
+          observeInstructionProjection({
+            workspaceRoot: ws.root,
+            scope: "project",
+            configuredAgents: ["claude-code"],
+            config: IGNORED,
+            symlinkSupported: true,
+            gitIndexView,
+            rows: NO_ROWS,
+          });
+        const liveChecks = (snapshot: InstructionProjectionSnapshot, workspaceRoot = ws.root) =>
+          Effect.gen(function* () {
+            recording.reset();
+            expect(
+              Option.isNone(yield* instructionReconciliationReadiness({ snapshot, workspaceRoot })),
+            ).toBe(true);
+            return recording.contentReads(ws.gitignore);
+          });
+        const working = yield* observeView(false);
+        const admission = working.gitignoreAdmission;
+        expect(admission?.earlyReferent).toEqual(Option.some(ws.gitignore));
+        expect(yield* liveChecks(working)).toBe(0);
+        // A Git-index view, a referent the early read did not admit, a hand-built
+        // snapshot, and another workspace spelling each read the file live.
+        expect(yield* liveChecks(yield* observeView(true))).toBe(1);
+        if (admission === undefined) throw new Error("Expected a recorded admission");
+        expect(
+          yield* liveChecks({
+            ...working,
+            gitignoreAdmission: { ...admission, earlyReferent: Option.some(ws.source) },
+          }),
+        ).toBe(1);
+        const { gitignoreAdmission: _recorded, ...handBuilt } = working;
+        expect(yield* liveChecks(handBuilt)).toBe(1);
+        expect(yield* liveChecks(working, `${ws.root}${path.sep}`)).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("decides readiness from the observation's own .gitignore admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ git: true });
+        const first = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
+        const applied = yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: IGNORED,
+          snapshot: first,
+          dryRun: false,
+        });
+        expect(applied.written).toContain(ws.gitignore);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
+        expect(snapshot.gitignore.managed).toBe(true);
+        const observed = {
+          git: recording.calls({ path: ws.git }).length,
+          gitignore: recording.counts(ws.gitignore),
+        };
+        recording.reset();
+        const readiness = yield* instructionReconciliationReadiness({
+          snapshot,
+          workspaceRoot: ws.root,
+        });
+        expect(Option.isNone(readiness)).toBe(true);
+        expect({
+          observed,
+          readiness: {
+            git: recording.calls({ path: ws.git }).length,
+            gitignore: recording.counts(ws.gitignore),
+          },
+        }).toEqual({
+          // The early read and the region's witness share one content read.
+          observed: { git: 1, gitignore: { readFile: 1, readLink: 6, realPath: 5, stat: 7 } },
+          readiness: { git: 0, gitignore: {} },
+        });
+      }),
+    ),
   );
 });

@@ -258,11 +258,16 @@ describe("Activation hands each manager's eager projection observation to its co
     { timeout: 30_000 },
   );
 
+  // Instruction files are managed here, so `AGENTS.md` is both the discovery
+  // region and the source of the instruction-file aliases. Each
+  // instruction-file observation reads it once and shares those bytes between
+  // its decisions and its witness digest; the witness re-check before a write
+  // still reads it fresh.
   const knowledgeRows = [
-    { mode: "preview", enabled: true, repeated: 15, observed: 11 },
-    { mode: "preview", enabled: false, repeated: 13, observed: 11 },
-    { mode: "apply", enabled: true, repeated: 43, observed: 38 },
-    { mode: "apply", enabled: false, repeated: 35, observed: 32 },
+    { mode: "preview", enabled: true, repeated: 11, observed: 7 },
+    { mode: "preview", enabled: false, repeated: 7, observed: 5 },
+    { mode: "apply", enabled: true, repeated: 28, observed: 23 },
+    { mode: "apply", enabled: false, repeated: 20, observed: 17 },
   ] as const;
   for (const { mode, enabled, repeated, observed } of knowledgeRows) {
     it.effect(

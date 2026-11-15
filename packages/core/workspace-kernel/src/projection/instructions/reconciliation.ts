@@ -60,6 +60,7 @@ import {
   replaceableUnrecorded,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
+  assertObservedInstructionsGitignoreSafe,
   instructionProjectionIsCurrent,
   observeInstructionProjection,
   removeInstructionsGitignore,
@@ -118,6 +119,8 @@ export interface InstructionOutputOverrides {
 export const observeInstructions = Effect.fn("Instructions.observe")(function* (
   args: {
     readonly config: ResolvedInstructionsConfig;
+    /** Symlink capability this caller already probed for the same workspace. */
+    readonly symlinkSupported?: boolean;
   } & InstructionOutputOverrides,
 ): Effect.fn.Return<
   InstructionProjectionSnapshot,
@@ -142,6 +145,7 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
     configuredAgents: agents,
     config: args.config,
     rows,
+    ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
     replaceUnrecorded: args.replaceUnrecorded ?? posture.replaceUnrecorded === true,
     discardModified: args.discardModified ?? posture.discardModified === true,
   });
@@ -197,7 +201,7 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
       Effect.all(
         [
           assertInstructionTargetsSafe(args.snapshot),
-          assertInstructionsGitignoreSafe(args.workspaceRoot),
+          assertObservedInstructionsGitignoreSafe(args.snapshot, args.workspaceRoot),
         ],
         { concurrency: 1, discard: true },
       ),
@@ -215,9 +219,10 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
  * never leaves the old arrangement behind. Refuses on an unowned target like
  * every other path; a modified copy is retained unless `discardModified`.
  */
-export const removeInstructionTargetsFor = Effect.fnUntraced(function* (
+const removeInstructionTargetsFor = Effect.fnUntraced(function* (
   args: {
     readonly config: ResolvedInstructionsConfig;
+    readonly symlinkSupported: boolean;
   } & InstructionOutputOverrides,
 ): Effect.fn.Return<
   ReadonlyArray<string>,
@@ -244,9 +249,16 @@ export interface InstructionsReconciliation<A> extends InstructionsSyncResult {
   readonly transition: A;
 }
 
-type ReconcileInstructionsArgs = Omit<ObserveInstructionProjectionArgs, "rows"> & {
-  readonly preflightConfig?: ResolvedInstructionsConfig;
-};
+type ReconcileInstructionsArgs = Omit<ObserveInstructionProjectionArgs, "rows">;
+
+/**
+ * The configuration a transition replaces. Its preflight is observed in its
+ * place, and its owned aliases are removed after the gates and before the
+ * transition runs.
+ */
+interface SupersededInstructionsArgs {
+  readonly supersededConfig?: ResolvedInstructionsConfig;
+}
 
 type ReconcileRequirements =
   | FileSystem.FileSystem
@@ -262,32 +274,58 @@ type ReconcileFailure =
 /**
  * Gate, transition, apply, and read back one instruction projection. Rows are
  * read before the preflight and again after the transition, and the applied
- * row edits are staged before the read-back.
+ * row edits are staged before the read-back. A superseded configuration's
+ * aliases are removed between the gates and the transition, observed afresh
+ * with the symlink capability the preflight probed.
  */
 export function reconcileInstructions<A, E, R>(
-  args: ReconcileInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
+  args: ReconcileInstructionsArgs & {
+    readonly supersededConfig?: never;
+    readonly transition: Effect.Effect<A, E, R>;
+  },
 ): Effect.Effect<InstructionsReconciliation<A>, E | ReconcileFailure, R | ReconcileRequirements>;
-export function reconcileInstructions(
-  args: ReconcileInstructionsArgs & { readonly transition?: undefined },
-): Effect.Effect<InstructionsReconciliation<void>, ReconcileFailure, ReconcileRequirements>;
+export function reconcileInstructions<A, E, R>(
+  args: ReconcileInstructionsArgs &
+    SupersededInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
+): Effect.Effect<
+  InstructionsReconciliation<A>,
+  E | ReconcileFailure | WorkspaceSettingsReadFailure,
+  R | ReconcileRequirements | SettingsReader | WorkspaceLocation
+>;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & {
-    readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
+    readonly supersededConfig?: never;
+    readonly transition?: undefined;
   },
+): Effect.Effect<InstructionsReconciliation<void>, ReconcileFailure, ReconcileRequirements>;
+export function reconcileInstructions(
+  args: ReconcileInstructionsArgs &
+    SupersededInstructionsArgs & {
+      readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
+    },
 ): Effect.Effect<InstructionsReconciliation<unknown>, unknown, unknown> {
   return Effect.gen(function* () {
     const recorded = yield* readInstructionRows;
     const preflight = yield* observeInstructionProjection({
       ...args,
       rows: recorded,
-      config: args.preflightConfig ?? args.config,
+      config: args.supersededConfig ?? args.config,
     });
     yield* assertInstructionTargetsSafe(preflight);
-    yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
+    yield* assertObservedInstructionsGitignoreSafe(preflight, args.workspaceRoot);
+    if (args.supersededConfig !== undefined)
+      yield* removeInstructionTargetsFor({
+        config: args.supersededConfig,
+        symlinkSupported: preflight.symlinkSupported,
+        ...(args.replaceUnrecorded === undefined
+          ? {}
+          : { replaceUnrecorded: args.replaceUnrecorded }),
+        ...(args.discardModified === undefined ? {} : { discardModified: args.discardModified }),
+      });
     const transition = yield* args.transition ?? Effect.void;
     const rows = args.transition === undefined ? recorded : yield* readInstructionRows;
     const snapshot =
-      args.transition === undefined && args.preflightConfig === undefined
+      args.transition === undefined && args.supersededConfig === undefined
         ? preflight
         : yield* observeInstructionProjection({
             ...args,

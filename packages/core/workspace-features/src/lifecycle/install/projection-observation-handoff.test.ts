@@ -129,19 +129,23 @@ describe("Install hands each manager's eager projection observation to its consu
     },
     { type: "rule", mode: "preview", packages: ["demo"], repeated: [0, 3, 0], observed: [0, 2, 0] },
     { type: "rule", mode: "apply", packages: ["demo"], repeated: [0, 12, 0], observed: [0, 10, 0] },
+    // Knowledge manages instruction files, so `AGENTS.md` is also the source of
+    // the instruction-file aliases. Each instruction-file observation reads it
+    // once and shares those bytes between its decisions and its witness digest;
+    // the witness re-check before a write still reads it fresh.
     {
       type: "knowledge",
       mode: "preview",
       packages: ["demo"],
-      repeated: [0, 11, 0],
-      observed: [0, 9, 0],
+      repeated: [0, 7, 0],
+      observed: [0, 5, 0],
     },
     {
       type: "knowledge",
       mode: "apply",
       packages: ["demo"],
-      repeated: [0, 34, 0],
-      observed: [0, 31, 0],
+      repeated: [0, 22, 0],
+      observed: [0, 19, 0],
     },
     // Several members of one kind render their shared unit once, after every member.
     {
@@ -162,8 +166,8 @@ describe("Install hands each manager's eager projection observation to its consu
       type: "knowledge",
       mode: "apply",
       packages: ["first", "second"],
-      repeated: [0, 34, 0],
-      observed: [0, 31, 0],
+      repeated: [0, 22, 0],
+      observed: [0, 19, 0],
     },
   ];
 
@@ -192,9 +196,11 @@ describe("Install hands each manager's eager projection observation to its consu
     );
   }
 
+  // The Pack manages instruction files: each instruction-file observation reads
+  // `AGENTS.md` once for its decisions and its witness digest.
   for (const { mode, repeated, observed } of [
-    { mode: "preview", repeated: [2, 14, 8], observed: [1, 10, 4] },
-    { mode: "apply", repeated: [7, 47, 16], observed: [6, 41, 12] },
+    { mode: "preview", repeated: [2, 10, 8], observed: [1, 6, 4] },
+    { mode: "apply", repeated: [7, 33, 16], observed: [6, 27, 12] },
   ] as const) {
     it.effect(
       `${mode === "preview" ? "previews" : "applies"} a Pack install whose rule, hook and knowledge members share native units`,

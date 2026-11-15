@@ -50,7 +50,10 @@ import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
-import { applyPlannedProjections } from "@agentxm/workspace-kernel/projection";
+import {
+  applyPlannedProjections,
+  observeObservedPlans,
+} from "@agentxm/workspace-kernel/projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
 import { FootprintRecorderTest } from "@agentxm/workspace-kernel/planning/testing";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";
@@ -905,6 +908,219 @@ describe("KnowledgeManager", () => {
         }
       }),
   );
+
+  describe("discovery selection", () => {
+    /**
+     * Acquired path bundles whose canonical copies match their accepted
+     * trees; `invalidBody` names bundles whose concept lacks frontmatter.
+     */
+    const acquiredBundles = (
+      workspaceRoot: string,
+      bundles: ReadonlyArray<{ readonly name: string; readonly enabled: boolean }>,
+      invalidBody: ReadonlySet<string> = new Set(),
+    ) => {
+      const canonicalRootOf = (name: string) =>
+        nodePath.join(workspaceRoot, "agent_extensions", "_local", "project", "sources", name);
+      const locked: Record<string, KnowledgeLockEntry> = {};
+      for (const { name } of bundles) {
+        const canonical = canonicalRootOf(name);
+        writeKnowledgePackage(canonical, name, !invalidBody.has(name));
+        locked[name] = {
+          source: { type: "path", path: decodeRelativePathSync(`sources/${name}`) },
+          identity: { owner: handle("@acme"), name: extensionName(name) },
+          resolved: { tree: treeIntegrityOfSync(canonical) },
+          treeIntegrity: treeIntegrityOfSync(canonical),
+        };
+      }
+      const read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {
+        settings: {
+          knowledge: Object.fromEntries(
+            bundles.map(({ name, enabled }) => [name, { source: `./sources/${name}`, enabled }]),
+          ),
+        },
+        lockfile: { lockfileVersion: 1, skills: {}, knowledge: locked },
+        graph: {
+          packMembership: [],
+          nodes: bundles.map(({ name, enabled }) => ({
+            type: "knowledge" as const,
+            name,
+            identity: { authority: "path", locator: `./sources/${name}` },
+            source: `./sources/${name}`,
+            enabled,
+            constraint: UNCONSTRAINED_DESIRED_NODE,
+            origins: [{ type: "settings" as const, source: `./sources/${name}`, enabled }],
+          })),
+          mcpSourceClosures: [],
+          problems: [],
+        },
+      };
+      return { canonicalRootOf, read };
+    };
+
+    const recordedSelection = (
+      workspaceRoot: string,
+      read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">,
+    ) =>
+      Effect.gen(function* () {
+        let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+        const observed = workObservations(false);
+        const plans = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          recording?.reset();
+          // One selection; the producer's own observation of its plans is reused.
+          return yield* manager
+            .observedProjectionPlans(undefined, (held) =>
+              observeObservedPlans(held).pipe(
+                Effect.map((observations) =>
+                  held.plans.map((plan, index) => ({
+                    exclusions: plan.exclusions,
+                    expectedContributors: observations[index]?.expectedContributors,
+                  })),
+                ),
+              ),
+            )
+            .pipe(observed.provide);
+        }).pipe(
+          Effect.provide(
+            managerLayer(workspaceRoot, {
+              read,
+              fileSystem: (native) => {
+                const recorded = makeRecordingFileSystem(native);
+                recording = recorded.recording;
+                return recorded.fileSystem;
+              },
+            }),
+          ),
+        );
+        const treeHashes = observed.facts.filter(
+          (fact) => fact.kind === "axm.hash.materialized-tree",
+        ).length;
+        return { plans, recording, treeHashes };
+      });
+
+    for (const names of [["handbook"], ["handbook", "playbook"]])
+      it.effect(
+        `decodes each usable bundle's manifest once while selecting ${names.length} bundle(s)`,
+        () =>
+          Effect.gen(function* () {
+            const workspaceRoot = mkdtempSync(
+              nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+            );
+            try {
+              const { canonicalRootOf, read } = acquiredBundles(
+                workspaceRoot,
+                names.map((name) => ({ name, enabled: true })),
+              );
+              const { plans, recording, treeHashes } = yield* recordedSelection(
+                workspaceRoot,
+                read,
+              );
+
+              expect(plans.map((plan) => plan.expectedContributors)).toEqual([
+                names.map((name) => `@acme/knowledge/${name}`),
+              ]);
+              for (const name of names) {
+                const root = canonicalRootOf(name);
+                // The observation's manifest read and its tree hash; the
+                // inspection decodes what the observation read.
+                expect(recording?.contentReads(nodePath.join(root, "knowledge.json"))).toBe(2);
+                // The tree hash and the bundle-body inspection.
+                expect(recording?.contentReads(nodePath.join(root, "src", "concept.md"))).toBe(2);
+              }
+              // The canonical observation still hashes every acquired tree.
+              expect(treeHashes).toBe(names.length);
+            } finally {
+              rmSync(workspaceRoot, { recursive: true, force: true });
+            }
+          }),
+      );
+
+    it.effect("reads no manifest of a disabled bundle", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+            { name: "handbook", enabled: false },
+          ]);
+          const { plans, recording, treeHashes } = yield* recordedSelection(workspaceRoot, read);
+
+          expect(plans.map((plan) => plan.expectedContributors)).toEqual([[]]);
+          expect(
+            recording?.counts(nodePath.join(canonicalRootOf("handbook"), "knowledge.json")),
+          ).toEqual({});
+          expect(treeHashes).toBe(0);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    it.effect("excludes a usable bundle whose body fails inspection", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const { read } = acquiredBundles(
+            workspaceRoot,
+            [
+              { name: "handbook", enabled: true },
+              { name: "playbook", enabled: true },
+            ],
+            new Set(["playbook"]),
+          );
+          const { plans } = yield* recordedSelection(workspaceRoot, read);
+
+          expect(plans.map((plan) => plan.expectedContributors)).toEqual([
+            ["@acme/knowledge/handbook"],
+          ]);
+          expect(plans.map((plan) => plan.exclusions)).toEqual([
+            [
+              {
+                contributor: "playbook",
+                reason: "package-invalid",
+                detail: expect.stringContaining(
+                  "requires a YAML frontmatter block with a non-empty type",
+                ),
+              },
+            ],
+          ]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    it.effect("excludes a bundle whose manifest is corrupt without inspecting it", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+            { name: "handbook", enabled: true },
+          ]);
+          const manifestPath = nodePath.join(canonicalRootOf("handbook"), "knowledge.json");
+          writeFileSync(manifestPath, "{ not json");
+          const { plans, recording } = yield* recordedSelection(workspaceRoot, read);
+
+          expect(plans.map((plan) => plan.exclusions)).toEqual([
+            [expect.objectContaining({ contributor: "handbook", reason: "package-invalid" })],
+          ]);
+          expect(recording?.contentReads(manifestPath)).toBe(1);
+          expect(
+            recording?.contentReads(
+              nodePath.join(canonicalRootOf("handbook"), "src", "concept.md"),
+            ),
+          ).toBe(0);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+  });
 
   it.effect(
     "fails closed without rewriting discovery when one active locked source is unavailable",

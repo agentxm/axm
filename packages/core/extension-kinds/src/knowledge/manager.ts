@@ -15,6 +15,8 @@ import {
   contributorSetComplete,
   computeExtensionPathsForLayout,
   observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
+  capturedManifestFor,
   type DesiredExtensionNode,
   computePackageContentHash,
   type TreeIntegrity,
@@ -99,6 +101,7 @@ import {
 } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import {
   inspectKnowledgePackage,
+  inspectKnowledgePackageWithManifest,
   type KnowledgeInspection,
 } from "@agentxm/extension-content/knowledge";
 import { ManifestError } from "@agentxm/extension-content";
@@ -167,9 +170,17 @@ export const KnowledgeManagerLive = Layer.effect(
       computeExtensionPathsForLayout(path.join, currentLayout(), ref, "knowledge", ref.name)
         .canonicalPath;
 
-    const inspectPackage = (packageRoot: string) =>
+    /**
+     * Inspect a package, decoding its manifest unless the caller supplies the
+     * decode it already made of this package's manifest.
+     */
+    const inspectPackage = (packageRoot: string, decoded?: KnowledgeManifest) =>
       Effect.gen(function* () {
-        const { manifest, inspection } = yield* inspectKnowledgePackage(packageRoot).pipe(
+        const { manifest, inspection } = yield* (
+          decoded === undefined
+            ? inspectKnowledgePackage(packageRoot)
+            : inspectKnowledgePackageWithManifest(packageRoot, decoded)
+        ).pipe(
           Effect.mapError(
             (cause) =>
               new KnowledgeDefinitionInvalid({
@@ -344,6 +355,22 @@ export const KnowledgeManagerLive = Layer.effect(
         observeCanonicalExtension({ layout: currentLayout(), desired: node, accepted: locked }),
       );
 
+    /**
+     * The same observation, also handing over the manifest it read; the
+     * capture belongs to the one selection step that asked for it.
+     */
+    const observeDesiredKnowledgeCapturing = (
+      node: DesiredExtensionNode,
+      locked: KnowledgeLockEntry | undefined,
+    ) =>
+      provideRead(
+        observeCanonicalExtensionCapturing({
+          layout: currentLayout(),
+          desired: node,
+          accepted: locked,
+        }),
+      );
+
     const toProjectionBundle = (
       root: string,
       inspected: {
@@ -420,7 +447,8 @@ export const KnowledgeManagerLive = Layer.effect(
         graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
         (node) =>
           Effect.gen(function* () {
-            const observation = yield* observeDesiredKnowledge(node, locked[node.name]);
+            const { observation, manifest: capturedManifest } =
+              yield* observeDesiredKnowledgeCapturing(node, locked[node.name]);
             const workspaceInstructionEntry = configured[node.name]?.instructionEntry;
             const resolveInclusion = (manifestInstructionEntry?: boolean) =>
               resolveKnowledgeInstructionEntry({
@@ -459,7 +487,16 @@ export const KnowledgeManagerLive = Layer.effect(
                 detail: canonicalObservationFactText(node, observation),
               });
             }
-            const inspection = yield* Effect.result(inspectPackage(root));
+            // The decode the observation just made of this package's manifest,
+            // when it is that manifest; otherwise the inspection reads it.
+            const inspection = yield* Effect.result(
+              inspectPackage(
+                root,
+                Option.getOrUndefined(
+                  capturedManifestFor(path, capturedManifest, root, "knowledge"),
+                ),
+              ),
+            );
             if (Result.isFailure(inspection)) {
               return excluded(yield* excludedContributor(node.name, root, inspection.failure));
             }

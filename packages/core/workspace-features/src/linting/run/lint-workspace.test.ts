@@ -633,7 +633,7 @@ const wrappingHandoffs =
 
 describe("lint contributor observations", () => {
   it.effect(
-    "selects acquired Rule and Hook contributors from the run's own canonical observation",
+    "selects acquired Rule, Hook and Knowledge contributors from the run's own canonical observation",
     () => {
       const workspace = syncedContributors();
       return withContributorServices(
@@ -646,10 +646,25 @@ describe("lint contributor observations", () => {
             withWorkspaceReadView(contributorLint(workspace)),
           );
           expect(reference.digests).toBe(6);
-          // Inside its own observation phase, the Rule and Hook selections take
-          // lint's observation; the Knowledge selection still observes its own.
-          const counted = yield* countedDigests(contributorLint(workspace));
-          expect(counted.digests).toBe(4);
+          // Inside its own observation phase, the Rule, Hook and Knowledge
+          // selections take lint's observation: one digest per acquired root.
+          const taken: Array<string> = [];
+          const recordingTaken = wrappingHandoffs((handoff) => ({
+            ...handoff,
+            observed: (desired) => {
+              const observed = handoff.observed(desired);
+              if (Option.isSome(observed)) taken.push(`${desired.type}:${desired.name}`);
+              return observed;
+            },
+          }));
+          const counted = yield* countedDigests(recordingTaken(contributorLint(workspace)));
+          expect(counted.digests).toBe(3);
+          expect([...taken].sort()).toEqual([
+            "hook:audit",
+            "knowledge:handbook",
+            "rule:conventions",
+            "rule:guide",
+          ]);
           expectSameDocument(counted, reference);
         }),
       );

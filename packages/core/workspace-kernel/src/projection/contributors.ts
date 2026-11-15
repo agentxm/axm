@@ -120,7 +120,7 @@ export const CurrentCanonicalObservationHandoff = Context.Reference<
  * accepted row and layout. The caller receives its own copy; anything else
  * observes for itself.
  */
-const handedOverObservation = (args: {
+export const handedOverCanonicalObservation = (args: {
   readonly layout: WorkspaceLayout;
   readonly node: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
@@ -201,7 +201,7 @@ const contributorForNode = (args: {
         identity: formatDesiredIdentity(node.identity),
       });
     }
-    const handedOver = yield* handedOverObservation({ layout, node, accepted });
+    const handedOver = yield* handedOverCanonicalObservation({ layout, node, accepted });
     const { observation, manifest } = Option.isSome(handedOver)
       ? handedOver.value
       : yield* observeCanonicalExtensionCapturing({ layout, desired: node, accepted });

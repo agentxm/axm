@@ -61,6 +61,7 @@ export {
 } from "./participants.js";
 export {
   activeContributors,
+  handedOverCanonicalObservation,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   requireCompleteContributors,
 } from "./contributors.js";

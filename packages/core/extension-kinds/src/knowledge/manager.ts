@@ -83,6 +83,7 @@ import {
   resolveKnowledgeInstructionEntry,
   captureAgentOutputAuthority,
   withObservedProjectionPlans,
+  handedOverCanonicalObservation,
   type NativeRegionSource,
 } from "@agentxm/workspace-kernel/projection";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -371,19 +372,27 @@ export const KnowledgeManagerLive = Layer.effect(
 
     /**
      * The same observation, also handing over the manifest it read; the
-     * capture belongs to the one selection step that asked for it.
+     * capture belongs to the one selection step that asked for it. A caller
+     * that already observed this identical node against the identical
+     * accepted row and layout, in the still active observation phase this
+     * selection reads through, hands over its own observation instead.
      */
     const observeDesiredKnowledgeCapturing = (
       node: DesiredExtensionNode,
       locked: KnowledgeLockEntry | undefined,
     ) =>
-      provideRead(
-        observeCanonicalExtensionCapturing({
-          layout: currentLayout(),
-          desired: node,
+      Effect.gen(function* () {
+        const layout = currentLayout();
+        const handedOver = yield* handedOverCanonicalObservation({
+          layout,
+          node,
           accepted: locked,
-        }),
-      );
+        });
+        if (Option.isSome(handedOver)) return handedOver.value;
+        return yield* provideRead(
+          observeCanonicalExtensionCapturing({ layout, desired: node, accepted: locked }),
+        );
+      });
 
     const toProjectionBundle = (
       root: string,

@@ -636,11 +636,14 @@ export const SubagentManagerLive = Layer.effect(
      * observation passes `report`: it checks the plan's shape and leaves the
      * unrecorded file to read as not current.
      */
+    const readDestination = (destination: string) =>
+      fs.readFileString(destination).pipe(Effect.option);
     const preflight = (
       ref: SubagentExtensionRef,
       pkg: PreparedPackage,
       configuredAgents?: ReadonlyArray<string>,
       unrecorded: "refuse" | "report" = "refuse",
+      read: (destination: string) => Effect.Effect<Option.Option<string>> = readDestination,
     ) =>
       Effect.gen(function* () {
         const posture = yield* ProjectionOutputPosture;
@@ -656,7 +659,7 @@ export const SubagentManagerLive = Layer.effect(
             planned,
             rows,
             destination,
-            bytes: yield* fs.readFileString(destination).pipe(Effect.option),
+            bytes: yield* read(destination),
             posture,
           });
           if (decision._tag === "conflict")
@@ -689,11 +692,28 @@ export const SubagentManagerLive = Layer.effect(
         const { canonicalPath } = getCanonicalPaths(ref);
         let prepared: Effect.Success<ReturnType<typeof preflight>> | undefined;
         let validations = 0;
-        const validate = (root: string) =>
+        const validateWith = (
+          root: string,
+          read: (destination: string) => Effect.Effect<Option.Option<string>>,
+        ) =>
           Effect.gen(function* () {
             const pkg = yield* readPackage(root);
-            if (project) prepared = yield* preflight(ref, pkg);
+            if (project) prepared = yield* preflight(ref, pkg, undefined, "refuse", read);
             validations++;
+          });
+        // What the source validation read at each planned destination, before
+        // acquisition. Only a validation of the canonical path itself judges
+        // from it: acquisition reaches that validation having written nothing,
+        // either keeping the accepted tree or acquiring the source in place. A
+        // staged copy is validated at its staging path, after staging writes,
+        // and reads afresh, as does a destination the source did not plan.
+        const sourceReads = new Map<string, Option.Option<string>>();
+        const validate = (root: string) =>
+          validateWith(root, (destination) => {
+            const kept = sourceReads.get(destination);
+            return root === canonicalPath && kept !== undefined
+              ? Effect.succeed(kept)
+              : readDestination(destination);
           });
         if (ref.refType === "workspace") {
           yield* verifyWorkspaceRefLocation({
@@ -709,7 +729,13 @@ export const SubagentManagerLive = Layer.effect(
           };
         }
         if (ref.refType !== "registry")
-          yield* validate(yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)));
+          yield* validateWith(
+            yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)),
+            (destination) =>
+              Effect.tap(readDestination(destination), (bytes) =>
+                Effect.sync(() => sourceReads.set(destination, bytes)),
+              ),
+          );
         const beforeAcquisition = validations;
         const materialized = yield* acquireCanonicalForRef({
           ref,

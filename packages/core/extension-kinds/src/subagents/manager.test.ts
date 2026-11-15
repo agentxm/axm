@@ -62,6 +62,7 @@ import { SourceHostProvidersTest } from "@agentxm/workspace-kernel/sources/testi
 import { SubagentManagerLive } from "./manager.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { canonicalMaterializationPaths } from "@agentxm/workspace-kernel/acquisition";
 import { parseNativeSubagent } from "@agentxm/extension-content";
 
 // ---------------------------------------------------------------------------
@@ -1463,6 +1464,116 @@ describe("SubagentManager", () => {
         expect(recording.contentReads(manifest)).toBe(1);
         expect(recording.contentReads(outside)).toBe(0);
         expect(nodeFs.existsSync(canonicalDir)).toBe(true);
+      }).pipe(Effect.provide(layer));
+    });
+
+    /**
+     * A local Subagent installed once from its source, and a ref to the same
+     * package whose location is its canonical copy: installing that ref
+     * acquires the canonical tree in place.
+     */
+    const inPlaceFixture = () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const canonicalDir = nodePath.join(
+        projectDir,
+        "agent_extensions",
+        "_local",
+        "project",
+        "sources",
+        "planner",
+      );
+      return {
+        sourceDir,
+        canonicalDir,
+        native: nodePath.join(projectDir, ".claude/agents/planner.md"),
+        source: makeLocalSubagentRef("planner", sourceDir),
+        inPlace: makeLocalSubagentRef("planner", canonicalDir),
+        layer: makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] }),
+      };
+    };
+
+    for (const scenario of [
+      { label: "a recorded file", present: true, inPlace: true, reads: 2 },
+      { label: "an absent recorded file", present: false, inPlace: true, reads: 2 },
+      { label: "a recorded file of a staged install", present: true, inPlace: false, reads: 3 },
+    ] as const)
+      it.effect(`reads ${scenario.label} once per validated tree and once to write it`, () => {
+        const { canonicalDir, native, source, inPlace, layer } = inPlaceFixture();
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          yield* manager.materializeInstall({ ref: source });
+          expect(nodeFs.existsSync(nodePath.join(canonicalDir, "subagent.json"))).toBe(true);
+          if (!scenario.present) nodeFs.rmSync(native);
+          recording.reset();
+          yield* manager.materializeInstall({ ref: scenario.inPlace ? inPlace : source });
+          // The source is validated before acquisition. A tree acquired in
+          // place is that same content: its validation judges the bytes the
+          // first read found. A staged copy is judged on bytes read again.
+          // The write always reads the file once more under its exclusive lock.
+          expect(recording.contentReads(native)).toBe(scenario.reads);
+          expect(nodeFs.readFileSync(native, "utf8")).toContain("Plans work");
+        }).pipe(Effect.provide(layer));
+      });
+
+    it.effect("refuses a file that appears after validation when it is written in place", () => {
+      const { canonicalDir, native, inPlace, layer } = inPlaceFixture();
+      writeSubagentPackage(canonicalDir, "planner", "Plans work");
+      const foreign = "Foreign planner\n";
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const accepted = yield* AcceptedResolutionWriter;
+        const base = yield* FileSystem.FileSystem;
+        // A foreign writer creates the native file once the package has been
+        // loaded for validation before acquisition.
+        let loads = 0;
+        const { fileSystem } = makeRecordingFileSystem({
+          ...base,
+          realPath: (path) =>
+            Effect.andThen(
+              Effect.sync(() => {
+                if (path !== canonicalDir || ++loads !== 2) return;
+                nodeFs.mkdirSync(nodePath.dirname(native), { recursive: true });
+                nodeFs.writeFileSync(native, foreign);
+              }),
+              base.realPath(path),
+            ),
+        });
+        const error = yield* manager
+          .materializeInstall({ ref: inPlace })
+          .pipe(Effect.provideService(FileSystem.FileSystem, fileSystem), Effect.flip);
+        expect(loads).toBeGreaterThanOrEqual(2);
+        expect(describeTestFailure(error)).toContain(
+          `Existing Subagent file has no recorded projection: ${native}`,
+        );
+        expect(nodeFs.readFileSync(native, "utf8")).toBe(foreign);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("judges a staged copy on the bytes its own native destination holds", () => {
+      const { canonicalDir, source, layer } = inPlaceFixture();
+      // The native directory resolves into the package's staging tree, which a
+      // prior interruption left without the planned file.
+      const { stagingPath } = canonicalMaterializationPaths(canonicalDir);
+      nodeFs.mkdirSync(nodePath.join(stagingPath, "src"), { recursive: true });
+      const agents = nodePath.join(tmpDir, "project", ".claude", "agents");
+      nodeFs.mkdirSync(nodePath.dirname(agents), { recursive: true });
+      nodeFs.symlinkSync(nodePath.join(stagingPath, "src"), agents, "dir");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const error = yield* manager.materializeInstall({ ref: source }).pipe(Effect.flip);
+        // Staging copies the authored `src/planner.md` there before its
+        // validation, which reads that file fresh and refuses it.
+        expect(error).toMatchObject({
+          _tag: "SubagentNativeConflict",
+          problem: { code: "projection-output-unrecorded" },
+        });
+        expect(nodeFs.existsSync(canonicalDir)).toBe(false);
       }).pipe(Effect.provide(layer));
     });
 

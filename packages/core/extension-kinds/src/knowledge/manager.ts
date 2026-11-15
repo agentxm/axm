@@ -728,7 +728,17 @@ export const KnowledgeManagerLive = Layer.effect(
                       }),
                   ),
                 );
-                const inspected = yield* inspectPackage(source);
+                // The decode the caller made of this same package's knowledge
+                // manifest in this boundary; otherwise inspection reads it.
+                const prepared = options?.preparedManifests?.get(ref.knowledge.name);
+                const inspected = yield* inspectPackage(
+                  source,
+                  prepared !== undefined &&
+                    prepared.packageRoot === source &&
+                    prepared.manifest.type === "knowledge"
+                    ? prepared.manifest
+                    : undefined,
+                );
                 const workspaceInstructionEntry = configured[ref.knowledge.name]?.instructionEntry;
                 const manifestInstructionEntry = inspected.manifest.instructionEntry;
                 const inclusion = resolveKnowledgeInstructionEntry({

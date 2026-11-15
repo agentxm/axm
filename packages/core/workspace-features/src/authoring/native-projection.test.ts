@@ -6,12 +6,18 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import { readExtensionManifest, type ExtensionManifest } from "@agentxm/extension-content";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { FileSystemRecorder } from "@agentxm/test-support";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import {
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+} from "@agentxm/workspace-kernel/materialization";
+import {
+  WorkspaceLocation,
   computeSourceHash,
   withLiveWorkspaceObservations,
   withWorkspaceReadView,
@@ -25,6 +31,12 @@ import {
 } from "./test-support/authoring-workspace.js";
 import { recordingAuthoringWorkspaceLayer } from "./test-support/recording-authoring-workspace.js";
 import { writeMinimalPackage } from "../testing/local-packages.js";
+
+/** A manifest a caller decoded for one package root, as a manager accepts it. */
+interface PreparedManifestEntry {
+  readonly packageRoot: string;
+  readonly manifest: ExtensionManifest;
+}
 
 describe("authored native projection outcomes", () => {
   const cleanups: Array<() => void> = [];
@@ -101,15 +113,65 @@ describe("authored native preflight inputs", () => {
     hook: "src/hook.sh",
     subagent: "src/review.md",
   };
-  // Content reads of the staged manifest during one preflight: the preflight's
-  // own manifest read and package hash, plus the manager's own reads. The
-  // HookManager frames its tree integrity and content hash from one read.
-  const manifestReadsWithoutInputs = { rule: 3, knowledge: 3, hook: 4, subagent: 4 };
-  // Content reads of the staged payload during one preflight without inputs.
-  const payloadReadsWithoutInputs = { rule: 2, knowledge: 2, hook: 2, subagent: 3 };
-  // `axm.hash.package` executions during one preflight without inputs: the
-  // preflight's hash, plus the HookManager's own content hash for a hook.
-  const hashesWithoutInputs = { rule: 1, knowledge: 1, hook: 2, subagent: 1 };
+  /** What a caller hands one preflight run besides the staged package. */
+  type Inputs = "neither" | "hash" | "facts" | "factsAndHash" | "decoded" | "decodedAndHash";
+  const inputs: ReadonlyArray<Inputs> = [
+    "neither",
+    "hash",
+    "facts",
+    "factsAndHash",
+    "decoded",
+    "decodedAndHash",
+  ];
+  // Content reads of the staged manifest during one preflight run. Without
+  // inputs: the preflight's own manifest read and package hash, then the
+  // manager's reads. A Rule, Hook or Knowledge manager prepares from the
+  // manifest the run decoded, or a full decode its caller supplied, and reads
+  // it itself only when handed bare facts. The HookManager's tree walk reads
+  // the manifest once more. The Subagent manager's outcome call and its
+  // observation each load the package through its contained loader.
+  const manifestReads: Record<keyof typeof plural, Record<Inputs, number>> = {
+    rule: { neither: 2, hash: 1, facts: 2, factsAndHash: 1, decoded: 1, decodedAndHash: 0 },
+    knowledge: { neither: 2, hash: 1, facts: 2, factsAndHash: 1, decoded: 1, decodedAndHash: 0 },
+    hook: { neither: 3, hash: 2, facts: 3, factsAndHash: 2, decoded: 2, decodedAndHash: 1 },
+    subagent: { neither: 4, hash: 3, facts: 3, factsAndHash: 2, decoded: 3, decodedAndHash: 2 },
+  };
+  // Content reads of the staged payload: the preflight's package hash unless
+  // one is supplied, plus the manager's reads: one, or two for a Subagent.
+  const payloadReads: Record<Inputs, number> = {
+    neither: 2,
+    hash: 1,
+    facts: 2,
+    factsAndHash: 1,
+    decoded: 2,
+    decodedAndHash: 1,
+  };
+  const subagentPayloadReads: Record<Inputs, number> = {
+    neither: 3,
+    hash: 2,
+    facts: 3,
+    factsAndHash: 2,
+    decoded: 3,
+    decodedAndHash: 2,
+  };
+  // `axm.hash.package` executions: the preflight's hash unless one is
+  // supplied, plus the HookManager's own content hash for a hook.
+  const hashes: Record<Inputs, number> = {
+    neither: 1,
+    hash: 0,
+    facts: 1,
+    factsAndHash: 0,
+    decoded: 1,
+    decodedAndHash: 0,
+  };
+  const hookHashes: Record<Inputs, number> = {
+    neither: 2,
+    hash: 1,
+    facts: 2,
+    factsAndHash: 1,
+    decoded: 2,
+    decodedAndHash: 1,
+  };
 
   const stage = (type: keyof typeof plural) => {
     const workspace = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
@@ -156,12 +218,14 @@ describe("authored native preflight inputs", () => {
       const manifestFile = manifestFilenameForType(type);
       return Effect.gen(function* () {
         const identity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/review`));
-        const facts = preparedManifestFacts(yield* readExtensionManifest(packageRoot, type));
+        const { manifest } = yield* readExtensionManifest(packageRoot, type);
+        const facts = preparedManifestFacts({ manifest });
         const first = yield* computeSourceHash("first supplied hash");
         const second = yield* computeSourceHash("second supplied hash");
-        const run = (inputs: {
+        const run = (supplied: {
           readonly sourceHash?: typeof first;
           readonly manifest?: typeof facts;
+          readonly decodedManifest?: typeof manifest;
         }) =>
           measured(
             packageRoot,
@@ -169,55 +233,67 @@ describe("authored native preflight inputs", () => {
               identity,
               packageRoot,
               enabled: true,
-              ...(inputs.sourceHash === undefined
+              ...(supplied.sourceHash === undefined
                 ? {}
-                : { sourceHash: Effect.succeed(inputs.sourceHash) }),
-              ...(inputs.manifest === undefined
+                : { sourceHash: Effect.succeed(supplied.sourceHash) }),
+              ...(supplied.manifest === undefined
                 ? {}
-                : { manifest: Effect.succeed(inputs.manifest) }),
+                : { manifest: Effect.succeed(supplied.manifest) }),
+              ...(supplied.decodedManifest === undefined
+                ? {}
+                : { decodedManifest: Effect.succeed(supplied.decodedManifest) }),
             }),
           );
 
-        const neither = yield* run({});
-        const hashOnly = yield* run({ sourceHash: first });
-        const manifestOnly = yield* run({ manifest: facts });
-        const both = yield* run({ sourceHash: first, manifest: facts });
-        const otherHash = yield* run({ sourceHash: second, manifest: facts });
+        const runs = {
+          neither: yield* run({}),
+          hash: yield* run({ sourceHash: first }),
+          facts: yield* run({ manifest: facts }),
+          factsAndHash: yield* run({ sourceHash: first, manifest: facts }),
+          decoded: yield* run({ decodedManifest: manifest }),
+          decodedAndHash: yield* run({ sourceHash: first, decodedManifest: manifest }),
+        };
+        const otherHashFacts = yield* run({ sourceHash: second, manifest: facts });
+        const otherHashDecoded = yield* run({ sourceHash: second, decodedManifest: manifest });
 
-        expect(neither.hashes).toBe(hashesWithoutInputs[type]);
-        expect(hashOnly.hashes).toBe(hashesWithoutInputs[type] - 1);
-        expect(manifestOnly.hashes).toBe(hashesWithoutInputs[type]);
-        expect(both.hashes).toBe(hashesWithoutInputs[type] - 1);
+        const observed = (select: (run: (typeof runs)["neither"]) => number) =>
+          Object.fromEntries(inputs.map((input) => [input, select(runs[input])]));
+        expect({
+          manifestReads: observed((run) => run.readFile(manifestFile)),
+          payloadReads: observed((run) => run.readFile(payload[type])),
+          hashes: observed((run) => run.hashes),
+        }).toEqual({
+          manifestReads: manifestReads[type],
+          payloadReads: type === "subagent" ? subagentPayloadReads : payloadReads,
+          hashes: type === "hook" ? hookHashes : hashes,
+        });
 
-        const total = manifestReadsWithoutInputs[type];
-        expect(neither.readFile(manifestFile)).toBe(total);
-        expect(hashOnly.readFile(manifestFile)).toBe(total - 1);
-        expect(manifestOnly.readFile(manifestFile)).toBe(total - 1);
-        expect(both.readFile(manifestFile)).toBe(total - 2);
-        const payloadReads = payloadReadsWithoutInputs[type];
-        expect(neither.readFile(payload[type])).toBe(payloadReads);
-        expect(hashOnly.readFile(payload[type])).toBe(payloadReads - 1);
-        expect(manifestOnly.readFile(payload[type])).toBe(payloadReads);
-        expect(both.readFile(payload[type])).toBe(payloadReads - 1);
-
-        // The supplied hash is never consumed: a different one changes nothing.
-        expect(otherHash.result).toEqual(both.result);
-        expect(otherHash.calls).toEqual(both.calls);
-        expect(both.result).toEqual(neither.result);
+        // A different supplied hash changes neither the outcome nor any read.
+        expect(otherHashFacts.result).toEqual(runs.factsAndHash.result);
+        expect(otherHashFacts.calls).toEqual(runs.factsAndHash.calls);
+        expect(otherHashDecoded.result).toEqual(runs.decodedAndHash.result);
+        expect(otherHashDecoded.calls).toEqual(runs.decodedAndHash.calls);
+        for (const input of inputs) expect(runs[input].result).toEqual(runs.neither.result);
 
         const renamedIdentity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/renamed`));
-        const renamed = yield* preflightAuthoredNativeProjection({
+        const renamedDetail =
+          type === "subagent"
+            ? "Prepared subagent identity does not match the requested identity"
+            : "Prepared authored package identity does not match the requested identity";
+        const renamedFacts = yield* preflightAuthoredNativeProjection({
           identity,
           packageRoot,
           enabled: true,
           manifest: Effect.succeed({ ...facts, name: renamedIdentity.name }),
         }).pipe(withLiveWorkspaceObservations, Effect.flip);
-        expect(renamed).toMatchObject({
-          detail:
-            type === "subagent"
-              ? "Prepared subagent identity does not match the requested identity"
-              : "Prepared authored package identity does not match the requested identity",
-        });
+        expect(renamedFacts).toMatchObject({ detail: renamedDetail });
+        const renamedDecoded = yield* preflightAuthoredNativeProjection({
+          identity,
+          packageRoot,
+          enabled: true,
+          decodedManifest: Effect.succeed({ ...manifest, name: renamedIdentity.name }),
+        }).pipe(withLiveWorkspaceObservations, Effect.flip);
+        expect(renamedDecoded).toMatchObject({ detail: renamedDetail });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
 
@@ -233,6 +309,90 @@ describe("authored native preflight inputs", () => {
         expect(disabled.result).toEqual({});
         expect(disabled.calls).toEqual([]);
         expect(disabled.hashes).toBe(0);
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+    });
+
+  for (const type of ["rule", "knowledge", "hook"] as const)
+    it.effect(`reads a ${type} manifest decoded for another package or type itself`, () => {
+      const { workspace, packageRoot } = stage(type);
+      const other = stage(type).packageRoot;
+      const manifestFile = manifestFilenameForType(type);
+      return Effect.gen(function* () {
+        const location = yield* WorkspaceLocation;
+        const { manifest } = yield* readExtensionManifest(packageRoot, type);
+        const { manifest: foreign } = yield* readExtensionManifest(
+          writeMinimalPackage(nodePath.join(nodePath.dirname(other), "foreign"), "subagent", {
+            name: "review",
+            owner: "@acme",
+          }),
+          "subagent",
+        );
+        const details = {
+          refType: "workspace" as const,
+          scope: location.scope,
+          owner: manifest.owner,
+          name: manifest.name,
+          version: manifest.version,
+          location: packageRoot,
+          sourceHash: yield* computeSourceHash("supplied"),
+        };
+        const source = { type: "workspace" as const, owner: manifest.owner, name: manifest.name };
+        const prepare = (preparedManifests: ReadonlyMap<string, PreparedManifestEntry>) => {
+          const options = { nativeInsertionEligibleNames: new Set<string>(), preparedManifests };
+          return Effect.gen(function* () {
+            switch (type) {
+              case "rule":
+                return yield* (yield* RuleManager).prepareProjection(
+                  [
+                    {
+                      ...details,
+                      type,
+                      source: { ...source, extensionType: type },
+                      rule: { name: manifest.name },
+                    },
+                  ],
+                  options,
+                );
+              case "hook":
+                return yield* (yield* HookManager).prepareProjection(
+                  [
+                    {
+                      ...details,
+                      type,
+                      source: { ...source, extensionType: type },
+                      hook: { name: manifest.name },
+                    },
+                  ],
+                  options,
+                );
+              case "knowledge":
+                return yield* (yield* KnowledgeManager).prepareProjection(
+                  [
+                    {
+                      ...details,
+                      type,
+                      source: { ...source, extensionType: type },
+                      knowledge: { name: manifest.name },
+                    },
+                  ],
+                  options,
+                );
+            }
+          }).pipe(withWorkspaceReadView);
+        };
+        const reads = (entry?: PreparedManifestEntry) =>
+          measured(
+            packageRoot,
+            prepare(new Map(entry === undefined ? [] : [[manifest.name, entry]])),
+          ).pipe(Effect.map((run) => run.readFile(manifestFile)));
+        // The HookManager's tree walk reads the manifest besides any decode.
+        const walk = type === "hook" ? 1 : 0;
+        expect({
+          none: yield* reads(),
+          otherRoot: yield* reads({ packageRoot: other, manifest }),
+          otherType: yield* reads({ packageRoot, manifest: foreign }),
+          matching: yield* reads({ packageRoot, manifest }),
+        }).toEqual({ none: 1 + walk, otherRoot: 1 + walk, otherType: 1 + walk, matching: walk });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
 });

@@ -990,7 +990,15 @@ export const HookManagerLive = Layer.effect(
             Effect.scoped(
               Effect.gen(function* () {
                 const root = yield* rootForRef(ref);
-                const manifest = yield* readManifest(root);
+                // The decode the caller made of this same package's hook
+                // manifest in this boundary; otherwise the manifest is read.
+                const preparedManifest = options?.preparedManifests?.get(ref.hook.name);
+                const manifest =
+                  preparedManifest !== undefined &&
+                  preparedManifest.packageRoot === root &&
+                  preparedManifest.manifest.type === "hook"
+                    ? preparedManifest.manifest
+                    : yield* readManifest(root);
                 yield* validatePackageFiles(root, manifest);
                 const canonicalPath = computeExtensionPathsForLayout(
                   path.join,

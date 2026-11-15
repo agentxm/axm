@@ -147,16 +147,21 @@ describe("CreateExtension prepared work", () => {
     },
   } as const;
 
+  // Each preflight run's Rule or Knowledge manager prepares from the manifest
+  // that run decoded, so its own read of the staged manifest goes per phase.
+  const sharedRunReads = { rule: [1, 0], knowledge: [1, 0], subagent: [0, 0] } as const;
+
   for (const type of ["rule", "knowledge", "subagent"] as const)
     it.effect(`stages the ${type} preview without hashing what it just wrote`, () => {
       const created = workspaceFor();
       return Effect.gen(function* () {
         const { prepare, apply } = yield* prepareAndApply(type);
         const measured = before[type];
+        const shared = sharedRunReads[type];
         const expected = {
           stagings: 1,
           rootReadDirectory: [0],
-          readFile: measured.reads.map((count) => count - 1),
+          readFile: measured.reads.map((count, index) => count - 1 - (shared[index] ?? 0)),
         };
         expect(prepare.hashes).toBe(measured.prepareHashes - 1);
         expect(stagingCounts(prepare.calls, measured.files)).toMatchObject(expected);

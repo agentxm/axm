@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
@@ -77,11 +78,11 @@ export const preparedManifestFacts = ({
  * values its caller already settled for that same package in the same
  * boundary.
  *
- * Both values are non-authoritative. Each replaces only the preflight's own
- * read where it would happen, so a supplied manifest is identity-checked as a
- * read one is. The source hash only fills the ref handed to the managers, and
- * no preflight consumer may read `ref.sourceHash` as freshness evidence:
- * staged-byte freshness belongs to publication validation.
+ * Each value is non-authoritative and replaces only a read the run would
+ * make itself, so a supplied manifest is identity-checked as a read one is.
+ * The source hash only fills the ref handed to the managers, and no preflight
+ * consumer may read `ref.sourceHash` as freshness evidence: staged-byte
+ * freshness belongs to publication validation.
  */
 interface AuthoredPreflightArgs {
   readonly identity: ExtensionFqnParts;
@@ -91,19 +92,65 @@ interface AuthoredPreflightArgs {
   readonly sourceHash?: Effect.Effect<SourceHash, PackageContentHashFailed>;
   /** The facts the caller read from `packageRoot`'s manifest. */
   readonly manifest?: Effect.Effect<PreparedManifestFacts, ManifestError>;
+  /**
+   * The full decode the caller made of `packageRoot`'s manifest, in place of
+   * `manifest`. A Rule, Hook or Knowledge manager prepares from it instead of
+   * reading the manifest again; it is deep-frozen before that hand-off.
+   */
+  readonly decodedManifest?: Effect.Effect<ExtensionManifest, ManifestError>;
 }
 
-/** The staged manifest's facts: the supplied ones when they describe `type`, else a fresh read. */
-const stagedManifestFacts = (args: AuthoredPreflightArgs, type: ExtensionType) => {
-  const read = readExtensionManifest(args.packageRoot, type).pipe(
-    Effect.map(preparedManifestFacts),
-  );
-  return args.manifest === undefined
-    ? read
-    : args.manifest.pipe(
-        Effect.flatMap((facts) => (facts.type === type ? Effect.succeed(facts) : read)),
-      );
+/** Deep-freeze a decoded manifest before a manager shares it with its caller. */
+const frozenManifest = (manifest: ExtensionManifest): ExtensionManifest => {
+  const freeze = (value: unknown): void => {
+    if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
+    for (const nested of Object.values(value)) freeze(nested);
+    Object.freeze(value);
+  };
+  freeze(manifest);
+  return manifest;
 };
+
+/**
+ * The staged manifest of `type`: its facts, and the full decode when the run
+ * read it itself or its caller supplied one. A supplied value of another type
+ * is ignored and the manifest read.
+ */
+const stagedManifest = (
+  args: AuthoredPreflightArgs,
+  type: ExtensionType,
+): Effect.Effect<
+  { readonly facts: PreparedManifestFacts; readonly decoded: Option.Option<ExtensionManifest> },
+  ManifestError,
+  FileSystem.FileSystem | Path.Path
+> => {
+  const decodedOf = (manifest: ExtensionManifest) => ({
+    facts: preparedManifestFacts({ manifest }),
+    decoded: Option.some(frozenManifest(manifest)),
+  });
+  const read = readExtensionManifest(args.packageRoot, type).pipe(
+    Effect.map(({ manifest }) => decodedOf(manifest)),
+  );
+  if (args.decodedManifest !== undefined)
+    return args.decodedManifest.pipe(
+      Effect.flatMap((manifest) =>
+        manifest.type === type ? Effect.succeed(decodedOf(manifest)) : read,
+      ),
+    );
+  if (args.manifest !== undefined)
+    return args.manifest.pipe(
+      Effect.flatMap((facts) =>
+        facts.type === type
+          ? Effect.succeed({ facts, decoded: Option.none<ExtensionManifest>() })
+          : read,
+      ),
+    );
+  return read;
+};
+
+/** The staged manifest's facts: the supplied ones when they describe `type`, else a fresh read. */
+const stagedManifestFacts = (args: AuthoredPreflightArgs, type: ExtensionType) =>
+  stagedManifest(args, type).pipe(Effect.map(({ facts }) => facts));
 
 /** The staged package's hash: the supplied one, else a fresh hash of the staged root. */
 const stagedSourceHash = (args: AuthoredPreflightArgs) =>
@@ -203,7 +250,7 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
 const nativeProjection = (args: AuthoredPreflightArgs) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
-    const manifest = yield* stagedManifestFacts(args, args.identity.type).pipe(
+    const { facts: manifest, decoded } = yield* stagedManifest(args, args.identity.type).pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "validation",
@@ -222,6 +269,7 @@ const nativeProjection = (args: AuthoredPreflightArgs) =>
         detail: "Prepared authored package identity does not match the requested identity",
       });
     }
+    const sourceHash = yield* stagedSourceHash(args);
     const details = {
       refType: "workspace" as const,
       scope: location.scope,
@@ -229,9 +277,20 @@ const nativeProjection = (args: AuthoredPreflightArgs) =>
       name: manifest.name,
       version: manifest.version,
       location: args.packageRoot,
-      sourceHash: yield* stagedSourceHash(args),
+      sourceHash,
     };
-    const options = { nativeInsertionEligibleNames: new Set<string>() };
+    // This run's manifest decode for the staged root, owned by this call and
+    // handed to the manager it calls; the run under the transition lock reads
+    // for itself.
+    const preparedManifests = Option.match(decoded, {
+      onNone: () => ({}),
+      onSome: (value) => ({
+        preparedManifests: new Map([
+          [manifest.name, { packageRoot: args.packageRoot, manifest: value }],
+        ]),
+      }),
+    });
+    const options = { nativeInsertionEligibleNames: new Set<string>(), ...preparedManifests };
     const source = { type: "workspace" as const, owner: manifest.owner, name: manifest.name };
     switch (manifest.type) {
       case "rule":

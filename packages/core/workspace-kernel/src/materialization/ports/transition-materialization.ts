@@ -1,4 +1,5 @@
 /** Materialization capabilities required by workspace transitions. */
+import type { ExtensionManifest } from "@agentxm/extension-content";
 import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
@@ -30,6 +31,15 @@ export interface NativeProjectionOptions {
   readonly preparedContentHashes?: ReadonlyMap<
     string,
     { readonly packageRoot: string; readonly contentHash: string }
+  >;
+  /**
+   * Deep-frozen package manifests, by extension name, that the caller decoded
+   * in this same boundary; a manager prepares from one in place of its own
+   * read only when both its package root and its type match exactly.
+   */
+  readonly preparedManifests?: ReadonlyMap<
+    string,
+    { readonly packageRoot: string; readonly manifest: ExtensionManifest }
   >;
   /**
    * `deferred` when a later step of the same operation reconciles instruction

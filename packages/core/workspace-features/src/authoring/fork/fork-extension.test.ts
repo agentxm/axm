@@ -113,12 +113,16 @@ describe("ForkExtension prepared work", () => {
   // The HookManager frames a prepared hook package's tree integrity and
   // content hash from one walk and one read of each file.
   const sharedTreeWalk = { rule: 0, hook: 1 } as const;
+  // Each preflight run's manager prepares from the manifest that run decoded,
+  // so its own read of the staged manifest goes in each phase.
+  const sharedManifestDecode = { rule: [1, 0], hook: [1] } as const;
 
   for (const type of ["rule", "hook"] as const)
     it.effect(`hashes an enabled ${type} fork's staged package once while preparing`, () => {
       const { created, source } = workspaceWith(type);
       const measured = before[type];
       const shared = sharedTreeWalk[type];
+      const decoded = sharedManifestDecode[type];
       return Effect.gen(function* () {
         const { prepare, apply, staged } = yield* forkPhases(type, source, { enable: true });
         expect(deriveOperationOutcome(apply.value)).toBe("applied");
@@ -127,13 +131,17 @@ describe("ForkExtension prepared work", () => {
         expect(stagedCounts(prepare, staged, measured.files)).toEqual({
           hashes: measured.prepare.hashes - 1,
           rootReadDirectory: measured.prepare.rootReadDirectory - 1 - shared,
-          readFile: measured.prepare.readFile.map((count) => count - 1 - shared),
+          readFile: measured.prepare.readFile.map(
+            (count, index) => count - 1 - shared - (decoded[index] ?? 0),
+          ),
         });
         // Under the lock the preflight reads and hashes the staged package fresh.
         expect(stagedCounts(apply, staged, measured.files)).toEqual({
           hashes: measured.apply.hashes,
           rootReadDirectory: measured.apply.rootReadDirectory - shared,
-          readFile: measured.apply.readFile.map((count) => count - shared),
+          readFile: measured.apply.readFile.map(
+            (count, index) => count - shared - (decoded[index] ?? 0),
+          ),
         });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
     });

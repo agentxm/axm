@@ -164,22 +164,23 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
         // Skill directory.
         expect(measured.inventoryListings).toBe(4);
         // Prepare: one inventory; the manifest read and hash shared by the
-        // resolution and the native preflight, plus the hash's own file read and
-        // the rule manager's projection read.
+        // resolution, the native preflight and the rule manager's projection,
+        // plus the hash's own file read.
         expect(measured.prepare).toEqual({
           installRootListings: 4,
-          manifestReads: 3,
+          manifestReads: 2,
           packageRootListings: 1,
           packageHashes: 1,
         });
-        // Apply: the in-lock preflight and resolution share one read and one
-        // hash; the fresh inventory, snapshot and post-write resolution remain.
+        // Apply: the in-lock preflight, its rule manager and the resolution
+        // share one read and one hash; the fresh inventory, snapshot and
+        // post-write resolution remain.
         // The materializable listing resolves from its observation's decode,
         // and the rule region's contributor selection decodes the manifest its
         // own observation captured.
         expect(measured.apply).toEqual({
           installRootListings: 22,
-          manifestReads: 9,
+          manifestReads: 8,
           packageRootListings: 4,
           packageHashes: 3,
         });
@@ -197,18 +198,20 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
           enabled: true,
         });
 
-        // Prepare already read and hashed the acquired copy once.
+        // Prepare already read and hashed the acquired copy once, and the rule
+        // manager prepares from that read.
         expect({ ...measured.prepare, installRootListings: undefined }).toEqual({
           installRootListings: undefined,
-          manifestReads: 3,
+          manifestReads: 2,
           packageRootListings: 1,
           packageHashes: 1,
         });
-        // Under the lock the preflight and the resolution share one read and one
-        // hash of the acquired copy; the move's own hashes are unchanged.
+        // Under the lock the preflight, its rule manager and the resolution
+        // share one read and one hash of the acquired copy; the move's own
+        // hashes are unchanged.
         expect({ ...measured.apply, installRootListings: undefined }).toEqual({
           installRootListings: undefined,
-          manifestReads: 5,
+          manifestReads: 4,
           packageRootListings: 3,
           packageHashes: 3,
         });

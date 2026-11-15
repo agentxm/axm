@@ -530,7 +530,15 @@ export const RuleManagerLive = Layer.effect(
                       }),
                   ),
                 );
-                const manifest = yield* readManifest(source);
+                // The decode the caller made of this same package's rule
+                // manifest in this boundary; otherwise the manifest is read.
+                const prepared = options?.preparedManifests?.get(ref.rule.name);
+                const manifest =
+                  prepared !== undefined &&
+                  prepared.packageRoot === source &&
+                  prepared.manifest.type === "rule"
+                    ? prepared.manifest
+                    : yield* readManifest(source);
                 const body = yield* readRuleBody(source);
                 const canonical = computeExtensionPathsForLayout(
                   path.join,

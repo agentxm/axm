@@ -96,11 +96,7 @@ import {
 import { protectCreatedAncestors } from "@agentxm/workspace-kernel/settlement";
 
 import { authoredDeclaration } from "../authored-declaration.js";
-import {
-  authoredNativeArtifact,
-  preflightAuthoredNativeProjection,
-  preparedManifestFacts,
-} from "../native-projection.js";
+import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
 import {
   CreateDestinationInspectionFailed,
   type AuthoredPackageError,
@@ -324,13 +320,14 @@ const prepareAdoptExtension: (
   });
   type PackageEvidence = Effect.Success<typeof packageEvidence>;
 
-  // The native preflight receives only the manifest's immutable facts.
+  // The native preflight receives this boundary's manifest decode, which it
+  // deep-freezes before its manager prepares from it.
   const nativePreflight = (evidence: PackageEvidence) =>
     preflightAuthoredNativeProjection({
       identity: parsed,
       packageRoot: sourceDir,
       enabled,
-      manifest: evidence.manifest.pipe(Effect.map(preparedManifestFacts)),
+      decodedManifest: evidence.manifest.pipe(Effect.map(({ manifest }) => manifest)),
       sourceHash: evidence.hash,
     });
 

@@ -3,14 +3,18 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
@@ -20,10 +24,20 @@ import {
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  PUBLICATION_SET_CONTRACT,
+  archiveSha256Hex,
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { computeIntegrity } from "@agentxm/host-primitives";
-import { admittedContentResponse, exactVersion } from "./test-helpers.js";
+import { admittedContentResponse, exactVersion, versionRange } from "./test-helpers.js";
 
-import { RegistryClientFactory, RegistryClientFactoryLive } from "./registry-client-factory.js";
+import {
+  RegistryClientFactory,
+  RegistryClientFactoryLive,
+  makeRegistryClientFactory,
+} from "./registry-client-factory.js";
+import { passThroughRegistryAuthorization } from "./testing.js";
 import {
   RegistryAuthorityContext,
   RegistryHttpClient,
@@ -279,4 +293,175 @@ describe("RegistryClientFactory", () => {
       expect(answer.status).toBe(304);
     }).pipe(Effect.provide(factoryLayer(transport.client)));
   });
+});
+
+describe("file Registry publication preview inside a read phase", () => {
+  const skill = {
+    owner: decodeHandleSync("@test"),
+    type: "skill" as const,
+    name: decodeExtensionNameSync("my-skill"),
+  };
+  const pack = {
+    owner: decodeHandleSync("@test"),
+    type: "pack" as const,
+    name: decodeExtensionNameSync("my-pack"),
+  };
+  const skillIndex: ExtensionIndex = {
+    ...skill,
+    publisherBindingId: "hbnd_test",
+    archival: null,
+    deprecation: null,
+    visibility: "private",
+    versions: [
+      {
+        version: exactVersion("1.0.0"),
+        published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
+        integrity: "sha512-AAAA==",
+        packages: [],
+      },
+    ],
+  };
+  const archive = new Uint8Array([1, 2, 3]);
+  const skillPublication = {
+    contract: PUBLICATION_SET_CONTRACT,
+    candidates: [
+      {
+        target: { ...skill, version: exactVersion("2.0.0") },
+        participation: "publish" as const,
+        archiveSha256Hex: archiveSha256Hex(archive),
+        visibility: { intent: null, request: null },
+      },
+    ],
+  };
+  const packPublication = {
+    contract: PUBLICATION_SET_CONTRACT,
+    candidates: [
+      {
+        target: { ...pack, version: exactVersion("1.0.0") },
+        participation: "publish" as const,
+        archiveSha256Hex: archiveSha256Hex(archive),
+        visibility: { intent: null, request: "private" as const },
+        pack: { dependencies: [{ ...skill, range: versionRange("^1.0.0") }] },
+      },
+    ],
+  };
+
+  const fixture = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+    const skillDir = path.join(root, "extensions", "@test", "skills", "my-skill");
+    yield* fs.makeDirectory(skillDir, { recursive: true });
+    const skillIndexPath = path.join(skillDir, "index.json");
+    yield* fs.writeFileString(skillIndexPath, JSON.stringify(skillIndex));
+    const packIndexPath = path.join(root, "extensions", "@test", "packs", "my-pack", "index.json");
+    const { fileSystem, recording } = makeRecordingFileSystem(fs);
+    const factory = yield* makeRegistryClientFactory({
+      httpClient: HttpClient.make(() => Effect.die("A file Registry sends no requests.")),
+      fileSystem,
+      path,
+      authorization: passThroughRegistryAuthorization,
+    });
+    const client = yield* factory.forEndpoint(fileEndpoint(root));
+    recording.reset();
+    return { fs, factory, client, recording, skillIndexPath, packIndexPath };
+  });
+
+  it.effect("reuses the index the phase's selection read for each previewed target", () =>
+    Effect.gen(function* () {
+      const { factory, client, recording, skillIndexPath } = yield* fixture;
+      const direct = yield* client.previewExtensionPublishes(skillPublication);
+      expect(recording.counts(skillIndexPath)).toEqual({ access: 1, readFile: 1 });
+      recording.reset();
+
+      const phased = yield* factory.withReadPhase(
+        Effect.gen(function* () {
+          yield* client.selectMany([skill]);
+          return yield* client.previewExtensionPublishes(skillPublication);
+        }),
+      );
+
+      expect(phased).toEqual(direct);
+      expect(recording.counts(skillIndexPath)).toEqual({ access: 1, readFile: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads a pack dependency the selection did not read, and an absent target once", () =>
+    Effect.gen(function* () {
+      const { factory, client, recording, skillIndexPath, packIndexPath } = yield* fixture;
+      const direct = yield* client.previewExtensionPublishes(packPublication);
+      recording.reset();
+
+      const phased = yield* factory.withReadPhase(
+        Effect.gen(function* () {
+          yield* client.selectMany([pack]);
+          return yield* client.previewExtensionPublishes(packPublication);
+        }),
+      );
+
+      expect(phased).toEqual(direct);
+      expect(phased.packs[0]?.status).toBe("admitted");
+      expect(recording.counts(packIndexPath)).toEqual({ access: 1 });
+      expect(recording.counts(skillIndexPath)).toEqual({ access: 1, readFile: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads the index itself once the phase has ended", () =>
+    Effect.gen(function* () {
+      const { factory, client, recording, skillIndexPath } = yield* fixture;
+      const preview = yield* factory.withReadPhase(
+        Effect.gen(function* () {
+          yield* client.selectMany([skill]);
+          yield* factory.invalidateReadPhase;
+          recording.reset();
+          return yield* client.previewExtensionPublishes(skillPublication);
+        }),
+      );
+
+      expect(preview.status).toBe("admitted");
+      expect(recording.counts(skillIndexPath)).toEqual({ access: 1, readFile: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a publish whose index changed after the phase's preview", () =>
+    Effect.gen(function* () {
+      const { fs, factory, client, skillIndexPath } = yield* fixture;
+      const preview = yield* factory.withReadPhase(
+        Effect.gen(function* () {
+          yield* client.selectMany([skill]);
+          return yield* client.previewExtensionPublishes(skillPublication);
+        }),
+      );
+      const candidate = preview.candidates[0];
+      if (candidate?.kind !== "resolved" || candidate.condition === undefined)
+        return yield* Effect.die("Expected a resolved preview condition");
+      const version = {
+        version: exactVersion("2.0.0"),
+        published: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
+        integrity: "sha512-BBBB==",
+        packages: [],
+      };
+      yield* fs.writeFileString(
+        skillIndexPath,
+        JSON.stringify({ ...skillIndex, versions: [version, ...skillIndex.versions] }),
+      );
+
+      const failure = yield* client
+        .publishExtension({
+          ...skill,
+          version: exactVersion("2.0.0"),
+          archive,
+          metadata: version,
+          visibilityInput: { intent: null, request: null },
+          condition: candidate.condition,
+          publicationSetDigest: preview.publicationSetDigest,
+          publicationDescriptorDigest: candidate.descriptorDigest,
+        })
+        .pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        category: "conflict",
+        detail: "Publish precondition changed; preview again before publishing.",
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

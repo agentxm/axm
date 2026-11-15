@@ -42,11 +42,15 @@ import {
 
 import type { RegistryClient } from "./client.js";
 import { makeUserArchiveCache } from "./archive-cache.js";
-import { createLocalRegistryClient } from "./local-client.js";
+import { createLocalRegistryClient, type LocalRegistryClientOptions } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./admin-client.js";
 import { requireHttpRegistryEndpoint } from "./capabilities.js";
-import { RegistryRequestFailed, type RegistryOperationUnsupported } from "./errors.js";
+import {
+  RegistryRequestFailed,
+  type RegistryClientFailure,
+  type RegistryOperationUnsupported,
+} from "./errors.js";
 import type { RegistryRequestPolicy } from "./request-policy.js";
 import {
   RegistryHttpClient,
@@ -55,6 +59,16 @@ import {
   registryWire,
   type RegistryRequestAuthorizationService,
 } from "./registry-transport.js";
+
+const withoutConfigurationError = (
+  error: RegistryClientFailure | Config.ConfigError,
+): RegistryClientFailure =>
+  error._tag === "ConfigError"
+    ? new RegistryRequestFailed({
+        category: "internal",
+        detail: "Registry client configuration is unavailable.",
+      })
+    : error;
 
 export interface RegistryClientFactoryService {
   /** A fresh metadata observation phase, including nested calls made by the effect. */
@@ -120,13 +134,18 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     const transport = (endpoint: HttpRegistryEndpoint) =>
       services.authorization.authorize(endpoint, registryWire(endpoint, services.httpClient));
 
-    const rawForEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
+    const rawForEndpoint = (
+      endpoint: RegistryEndpoint,
+      options?: { readonly requestPolicy?: RegistryRequestPolicy },
+      local?: LocalRegistryClientOptions,
+    ): Effect.Effect<RegistryClient, Config.ConfigError> =>
       Effect.gen(function* () {
         if (!isHttpRegistryEndpoint(endpoint)) {
           return createLocalRegistryClient(
             fromFileLocation(endpoint.href),
             services.fileSystem,
             services.path,
+            local,
           );
         }
         if (Result.isFailure(archiveCache)) return yield* Effect.fail(archiveCache.failure);
@@ -148,7 +167,11 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     const policies = new Map<string, RegistryRequestPolicy>();
     const policyIds = new WeakMap<RegistryRequestPolicy, string>();
     const currentPhase = ServiceMap.Reference<
-      (RegistryReadPhaseService & { readonly invalidate: Effect.Effect<void> }) | undefined
+      | (RegistryReadPhaseService & {
+          readonly invalidate: Effect.Effect<void>;
+          readonly isOpen: Effect.Effect<boolean>;
+        })
+      | undefined
     >(`@agentxm/registry-client/read-phase/${randomUUID()}`, { defaultValue: () => undefined });
     const withReadPhase: RegistryClientFactoryService["withReadPhase"] = (effect) =>
       Effect.acquireUseRelease(
@@ -170,6 +193,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
             yield* Scope.addFinalizer(scope, Effect.andThen(Ref.set(open, false), phase.clear));
             const guarded = {
               invalidate: Scope.close(scope, Exit.void),
+              isOpen: Ref.get(open),
               clear: phase.clear,
               getMany: (endpoint, args, policy) =>
                 Effect.gen(function* () {
@@ -197,14 +221,16 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
                     Fiber.interrupt,
                   );
                 }),
-            } satisfies RegistryReadPhaseService & { readonly invalidate: Effect.Effect<void> };
+            } satisfies RegistryReadPhaseService & {
+              readonly invalidate: Effect.Effect<void>;
+              readonly isOpen: Effect.Effect<boolean>;
+            };
             return yield* Effect.provideService(effect, currentPhase, guarded);
           }),
         (scope, exit) => Scope.close(scope, exit),
       );
     const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
       Effect.gen(function* () {
-        const client = yield* rawForEndpoint(endpoint, options);
         let policy = "default";
         if (options?.requestPolicy !== undefined) {
           const existing = policyIds.get(options.requestPolicy);
@@ -212,6 +238,24 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
           policyIds.set(options.requestPolicy, policy);
           policies.set(policy, options.requestPolicy);
         }
+        const selectionPolicy = policy;
+        // A file Registry's publication preview answers each entry from the
+        // open read phase, which holds what this phase's selection already
+        // read; with no phase, or one that has ended, the preview reads itself.
+        const client = yield* rawForEndpoint(endpoint, options, {
+          previewIndex: (entry, read) =>
+            Effect.flatMap(currentPhase, (phase) =>
+              phase === undefined
+                ? read
+                : Effect.flatMap(phase.isOpen, (open) =>
+                    open
+                      ? phase
+                          .get(endpoint, entry, selectionPolicy)
+                          .pipe(Effect.mapError(withoutConfigurationError))
+                      : read,
+                  ),
+            ),
+        });
         const getExtensionIndex: RegistryClient["getExtensionIndex"] = (args) => {
           const read = Effect.flatMap(currentPhase, (phase) =>
             phase === undefined
@@ -224,16 +268,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
                 )
               : phase.get(endpoint, args, policy),
           );
-          return read.pipe(
-            Effect.mapError((error) =>
-              error._tag === "ConfigError"
-                ? new RegistryRequestFailed({
-                    category: "internal",
-                    detail: "Registry client configuration is unavailable.",
-                  })
-                : error,
-            ),
-          );
+          return read.pipe(Effect.mapError(withoutConfigurationError));
         };
         const selectMany: RegistryClient["selectMany"] = (args) => {
           const read = Effect.flatMap(currentPhase, (phase) =>
@@ -249,16 +284,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
           );
           return read.pipe(
             Effect.map((results) =>
-              results.map((result) =>
-                Result.mapError(result, (failure) =>
-                  failure._tag === "ConfigError"
-                    ? new RegistryRequestFailed({
-                        category: "internal",
-                        detail: "Registry client configuration is unavailable.",
-                      })
-                    : failure,
-                ),
-              ),
+              results.map((result) => Result.mapError(result, withoutConfigurationError)),
             ),
           );
         };

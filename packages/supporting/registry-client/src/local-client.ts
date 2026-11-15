@@ -547,11 +547,38 @@ const scanAllExtensions = Effect.fnUntraced(function* (
  *
  * @experimental This API is unstable and may change without notice.
  */
+export interface LocalRegistryClientOptions {
+  /**
+   * How a publication preview obtains one entry's index: either an answer the
+   * caller already holds for this entry, or `read`, the client's own read of
+   * the entry's index.json. Omitted, the preview always reads.
+   */
+  readonly previewIndex?: (
+    entry: GetExtensionIndexArgs,
+    read: Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure>,
+  ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure>;
+}
+
 export const createLocalRegistryClient = (
   registryRoot: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  options: LocalRegistryClientOptions = {},
 ): RegistryClient => {
+  const previewIndex = (entry: GetExtensionIndexArgs) => {
+    const indexPath = path.join(
+      extensionDir(registryRoot, entry.owner, entry.type, entry.name, path.join),
+      "index.json",
+    );
+    const read = Effect.gen(function* () {
+      const exists = yield* registryPathExists(fs, indexPath);
+      return exists ? Option.some(yield* readExtensionIndex(fs, indexPath)) : Option.none();
+    });
+    return (options.previewIndex === undefined ? read : options.previewIndex(entry, read)).pipe(
+      Effect.map(Option.getOrUndefined),
+    );
+  };
+
   /**
    * Admit one exact identity against the current local Registry: the index
    * still binds the accepted publisher and integrity, and the archive on disk
@@ -658,13 +685,12 @@ export const createLocalRegistryClient = (
         descriptors,
         (descriptor): Effect.Effect<PublicationCandidateResult, RegistryClientFailure> => {
           const target = descriptor.target;
-          const indexPath = path.join(
-            extensionDir(registryRoot, target.owner, target.type, target.name, path.join),
-            "index.json",
-          );
           return Effect.gen(function* () {
-            const exists = yield* registryPathExists(fs, indexPath);
-            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            const index = yield* previewIndex({
+              owner: target.owner,
+              type: target.type,
+              name: target.name,
+            });
             const visibility = evaluateLocalPublishVisibility({
               target,
               index,
@@ -706,18 +732,11 @@ export const createLocalRegistryClient = (
         dependencyDescriptors,
         (dependency): Effect.Effect<PackDependencySnapshot, RegistryClientFailure> =>
           Effect.gen(function* () {
-            const indexPath = path.join(
-              extensionDir(
-                registryRoot,
-                dependency.owner,
-                dependency.type,
-                dependency.name,
-                path.join,
-              ),
-              "index.json",
-            );
-            const exists = yield* registryPathExists(fs, indexPath);
-            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            const index = yield* previewIndex({
+              owner: dependency.owner,
+              type: dependency.type,
+              name: dependency.name,
+            });
             return {
               target: { owner: dependency.owner, type: dependency.type, name: dependency.name },
               exists: index !== undefined,

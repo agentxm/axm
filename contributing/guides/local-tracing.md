@@ -720,3 +720,16 @@ CLI work during measurement. Leave unrelated services untouched. Full traced
 fixture retrieval sizes describe preflight artifacts; timing still ingests spans.
 Neither JSON sizes nor compression establishes Seq's on-disk growth or replaces
 a receiver capacity check.
+
+Other AXM processes of the same operating-system account contaminate a campaign
+even when every sample has its own workspace and `AXM_USER_HOME`. Physical
+boundary claims are coordinated under the account home's `.axm-runtime`
+directory, which follows the account and not the environment. A test suite or
+another worktree's CLI run that overlaps a sample makes that sample probe
+foreign leases: it records workspace-lock waits and failed lock acquisitions,
+rewrites the shared claim table once more, and can push a large restoration
+over the summary span limit. Both binaries are affected alike, so the symptom
+is a summary/detail work mismatch or extra waits that an isolated rerun does not
+reproduce. Run fixture and timing campaigns with no other AXM process on the
+account, or inside a private mount namespace that binds an empty directory
+over that `.axm-runtime` directory, and record which was used.

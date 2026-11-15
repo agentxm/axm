@@ -327,6 +327,19 @@ export type JobStepResult<Output = never> =
 // Planned step types (readiness-based discriminated union)
 // -----------------------------------------------------------------------------
 
+/**
+ * What one observation of an extension's accepted canonical package found,
+ * made by a planner with exactly this type and name and no proposed desired
+ * node, handed on only within the owner call or planning read phase that
+ * made it.
+ */
+export interface AcceptedContentObservation {
+  readonly type: ExtensionRef["type"];
+  readonly name: string;
+  /** The usable package's root and the content key of the ref it restores; absent when unusable. */
+  readonly usable?: { readonly path: string; readonly contentKey: string };
+}
+
 export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;

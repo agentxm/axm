@@ -39,6 +39,7 @@ import type {
   ProjectionPlan,
 } from "../projection/index.js";
 import type {
+  AcceptedContentObservation,
   ConfiguredAgentOutcome,
   JobStepArtifactTarget,
   JobStepResult,
@@ -494,7 +495,11 @@ export interface HookManagerService
   ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
   readonly observedPrepareProjection: ObservedPrepareProjectionCall<
     HookExtensionRef,
-    Omit<PreparedHookProjection, "plans"> & { readonly observed: ManagerObservedProjectionPlans }
+    Omit<PreparedHookProjection, "plans"> & {
+      readonly observed: ManagerObservedProjectionPlans;
+      /** This call's observations of the Registry Hooks' accepted packages, for this call's caller. */
+      readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+    }
   >;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
@@ -524,6 +529,10 @@ export interface HookManagerService
   readonly configuredAgentOutcomesForRef?: (
     ref: HookExtensionRef,
     state: "projected" | "current",
+    options?: {
+      /** Observations of accepted packages the caller's preparation made in this same call. */
+      readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+    },
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,
     ExtensionManagerFailure,

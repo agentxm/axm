@@ -80,6 +80,7 @@ import {
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type {
+  AcceptedContentObservation,
   ConfiguredAgentOutcome,
   HookEvidenceStatus,
 } from "@agentxm/workspace-kernel/operations";
@@ -487,30 +488,59 @@ export const HookManagerLive = Layer.effect(
       readonly root: string;
     }
 
-    const rootForRef = (ref: HookExtensionRef) =>
+    /** One observation of the Hook's accepted package, as a frozen fact of what it found. */
+    const observeAcceptedHook = (name: string) =>
+      usableAcceptedCanonical({ type: "hook", name }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new HookDefinitionInvalid({
+              detail: `Accepted hook extension ${name} could not be inspected`,
+              cause,
+            }),
+        ),
+        Effect.map((canonical): AcceptedContentObservation =>
+          Object.freeze({
+            type: "hook",
+            name,
+            ...(Option.isSome(canonical)
+              ? {
+                  usable: Object.freeze({
+                    path: canonical.value.observation.path,
+                    contentKey: sourceRefContentKey(canonical.value.ref),
+                  }),
+                }
+              : {}),
+          }),
+        ),
+      );
+
+    /**
+     * The package root a ref is read from, with the accepted-package
+     * observation that chose it for a Registry ref. An observation `handed` in
+     * by the same owner call for this Hook decides instead of observing again.
+     */
+    const rootForRef = (
+      ref: HookExtensionRef,
+      handed?: ReadonlyArray<AcceptedContentObservation>,
+    ) =>
       Effect.gen(function* () {
-        if (ref.refType !== "registry") return fromFileLocation(ref.location);
-        const canonical = yield* usableAcceptedCanonical({
-          type: "hook",
-          name: ref.hook.name,
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new HookDefinitionInvalid({
-                detail: `Accepted hook extension ${ref.hook.name} could not be inspected`,
-                cause,
-              }),
-          ),
-        );
+        if (ref.refType !== "registry")
+          return { root: fromFileLocation(ref.location), observed: undefined };
+        const observed =
+          handed?.find(({ type, name }) => type === "hook" && name === ref.hook.name) ??
+          (yield* observeAcceptedHook(ref.hook.name));
         if (
-          Option.isSome(canonical) &&
-          sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
+          observed.usable !== undefined &&
+          observed.usable.contentKey === sourceRefContentKey(ref)
         )
-          return canonical.value.observation.path;
-        return (yield* sources.fetch(ref)).directory;
+          return { root: observed.usable.path, observed };
+        return { root: (yield* sources.fetch(ref)).directory, observed };
       });
-    const readManifestForRef = (ref: HookExtensionRef) =>
-      Effect.scoped(rootForRef(ref).pipe(Effect.flatMap(readManifest)));
+    const readManifestForRef = (
+      ref: HookExtensionRef,
+      handed?: ReadonlyArray<AcceptedContentObservation>,
+    ) =>
+      Effect.scoped(rootForRef(ref, handed).pipe(Effect.flatMap(({ root }) => readManifest(root))));
 
     /**
      * Configured-agent outcomes with the fixture receipt statuses read for the
@@ -952,7 +982,9 @@ export const HookManagerLive = Layer.effect(
         });
       });
 
-    const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
+    const configuredAgentOutcomesForRef: NonNullable<
+      HookManagerService["configuredAgentOutcomesForRef"]
+    > = (ref, state, options) =>
       Effect.gen(function* () {
         const configuredAgents = yield* (yield* planningSettings).configuredAgents;
         const targets = yield* configuredHookWriterTargets(
@@ -962,7 +994,7 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
-        const manifest = yield* readManifestForRef(ref);
+        const manifest = yield* readManifestForRef(ref, options?.acceptedContent);
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
           targets,
@@ -984,12 +1016,12 @@ export const HookManagerLive = Layer.effect(
       use,
     ) =>
       Effect.gen(function* () {
-        const prepared = yield* Effect.forEach(
+        const preparedRefs = yield* Effect.forEach(
           refs,
           (ref) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const root = yield* rootForRef(ref);
+                const { root, observed } = yield* rootForRef(ref);
                 // The decode the caller made of this same package's hook
                 // manifest in this boundary; otherwise the manifest is read.
                 const preparedManifest = options?.preparedManifests?.get(ref.hook.name);
@@ -1018,22 +1050,31 @@ export const HookManagerLive = Layer.effect(
                       }
                     : yield* computeMaterializedTreeDigests(root);
                 return {
-                  name: ref.hook.name,
-                  marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
-                  manifest,
-                  root: path.relative(baseDir, canonicalPath),
-                  treeIntegrity,
-                  contentHash,
-                  configuration:
-                    options?.hookConfigurations?.get(ref.hook.name) ??
-                    (yield* (yield* planningSettings).entries("hook"))[ref.hook.name]
-                      ?.configuration ??
-                    {},
-                  inputRoot: root,
+                  contributor: {
+                    name: ref.hook.name,
+                    marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
+                    manifest,
+                    root: path.relative(baseDir, canonicalPath),
+                    treeIntegrity,
+                    contentHash,
+                    configuration:
+                      options?.hookConfigurations?.get(ref.hook.name) ??
+                      (yield* (yield* planningSettings).entries("hook"))[ref.hook.name]
+                        ?.configuration ??
+                      {},
+                    inputRoot: root,
+                  },
+                  observed,
                 };
               }),
             ),
           { concurrency: 1 },
+        );
+        const prepared = preparedRefs.map(({ contributor }) => contributor);
+        // Each observation this call made of a Registry Hook's accepted
+        // package, for the caller's decisions within its own call.
+        const acceptedContent = Object.freeze(
+          preparedRefs.flatMap(({ observed }) => (observed === undefined ? [] : [observed])),
         );
         const configuredAgents =
           options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
@@ -1071,6 +1112,7 @@ export const HookManagerLive = Layer.effect(
               observed,
               agentOutcomes,
               acquisitions: prepared.map(({ name, treeIntegrity }) => ({ name, treeIntegrity })),
+              acceptedContent,
             });
           }),
         );

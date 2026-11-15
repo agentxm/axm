@@ -119,7 +119,17 @@ interface PlannedZipArchive {
  * the archive owner's own: callers in this module admit (copy) or digest
  * them and never hand the buffer itself to another holder.
  */
-const zipDistribution = (dir: string, options?: BuildZipArchiveOptions) =>
+/**
+ * Hands over the bytes a caller already read for one absolute source path, at
+ * most once, or nothing. Only preparation supplies one; a rebuild reads live.
+ */
+type TakeSourceBytes = (abs: string) => Uint8Array | undefined;
+
+const zipDistribution = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -319,9 +329,14 @@ const zipDistribution = (dir: string, options?: BuildZipArchiveOptions) =>
     const contents = yield* Effect.forEach(
       files.filter((file) => includedPaths.has(file.rel)),
       ({ rel, abs, payload, mode }) =>
-        (payload === undefined ? fs.readFile(abs) : Effect.succeed(payload)).pipe(
-          Effect.map((bytes) => [rel, bytes, mode] as const),
-        ),
+        (payload === undefined
+          ? Effect.suspend(() => {
+              // Only a regular file the walk classified itself has no payload.
+              const supplied = takeSourceBytes?.(abs);
+              return supplied === undefined ? fs.readFile(abs) : Effect.succeed(supplied);
+            })
+          : Effect.succeed(payload)
+        ).pipe(Effect.map((bytes) => [rel, bytes, mode] as const)),
       { concurrency: READ_CONCURRENCY },
     ).pipe(
       Effect.mapError((cause) =>
@@ -407,9 +422,13 @@ export const admitDistribution = (archive: Uint8Array | ValidatedArchive) =>
     ),
   );
 
-const planFromZip = (dir: string, options?: BuildZipArchiveOptions) =>
+const planFromZip = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+) =>
   Effect.gen(function* () {
-    const { zipBytes, ...planned } = yield* zipDistribution(dir, options);
+    const { zipBytes, ...planned } = yield* zipDistribution(dir, options, takeSourceBytes);
     const archive = yield* admitDistribution(zipBytes);
     return { zipBytes, planned: { archive, ...planned } satisfies PlannedZipArchive };
   }).pipe(Effect.withSpan("axm.publish.archive"));
@@ -426,10 +445,16 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
  * Plan and admit a publication archive, also offering its digests over the
  * archive owner's own bytes so preparation needs no further copy. The
  * admitted archive is a copy of those bytes that is never mutated, so the
- * digests are the admitted archive's.
+ * digests are the admitted archive's. `takeSourceBytes` may hand over source
+ * bytes the preparation already read for an included regular file, which the
+ * archive then uses instead of reading that file again.
  */
-export const prepareZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
-  planFromZip(dir, options).pipe(
+export const prepareZipArchive = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+) =>
+  planFromZip(dir, options, takeSourceBytes).pipe(
     Effect.map(({ zipBytes, planned }) => ({
       ...planned,
       digests: () => ({

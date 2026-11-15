@@ -49,7 +49,10 @@ import {
   type ValidatedArchive,
 } from "@agentxm/extension-content";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
-import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
+import {
+  collectKnowledgeBundleEntries,
+  inspectKnowledgeEntries,
+} from "@agentxm/extension-content/knowledge";
 import { RegistryContext } from "@agentxm/registry-client";
 import {
   SettingsReader,
@@ -924,13 +927,32 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
       backfill = true;
     }
   }
+  // Bundle documents the Knowledge inspection read, by absolute path, until the
+  // archive takes each one; nothing else holds these bytes.
+  const inspectedDocuments = new Map<string, Uint8Array>();
+  const takeInspectedDocument = (abs: string) => {
+    const bytes = inspectedDocuments.get(abs);
+    inspectedDocuments.delete(abs);
+    return bytes;
+  };
   if (selected.type === "knowledge") {
     const knowledgeManifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(
       manifestJson,
     ).pipe(Effect.mapError((cause) => validation(`Invalid manifest: ${manifestPath}`, { cause })));
-    const inspection = yield* inspectKnowledgeBundle(
-      path.join(extensionDir, KNOWLEDGE_SOURCE_DIR),
-    ).pipe(
+    const sourceRoot = path.join(extensionDir, KNOWLEDGE_SOURCE_DIR);
+    const inspection = yield* collectKnowledgeBundleEntries(sourceRoot).pipe(
+      Effect.flatMap((entries) =>
+        inspectKnowledgeEntries(entries, (relativePath) => {
+          const abs = path.join(sourceRoot, relativePath);
+          // Decoded exactly as readFileString decodes; the bytes wait for the archive.
+          return fs.readFile(abs).pipe(
+            Effect.map((bytes) => {
+              inspectedDocuments.set(abs, bytes);
+              return new TextDecoder().decode(bytes);
+            }),
+          );
+        }),
+      ),
       Effect.mapError((cause) =>
         validation(`Failed to inspect Knowledge bundle: ${selected.fqn}`, { cause }),
       ),
@@ -977,14 +999,19 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     selected.existingDirectoryVersion === undefined
       ? manifest.publish
       : selected.sourcePublicationOptions;
-  const plannedArchive = yield* prepareZipArchive(extensionDir, {
-    ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
-    ...(selected.existingDirectoryVersion === undefined
-      ? {}
-      : {
-          skillEnvelope: new TextEncoder().encode(`${JSON.stringify(manifestJson, null, 2)}\n`),
-        }),
-  });
+  const plannedArchive = yield* prepareZipArchive(
+    extensionDir,
+    {
+      ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
+      ...(selected.existingDirectoryVersion === undefined
+        ? {}
+        : {
+            skillEnvelope: new TextEncoder().encode(`${JSON.stringify(manifestJson, null, 2)}\n`),
+          }),
+    },
+    takeInspectedDocument,
+  );
+  inspectedDocuments.clear();
   const archive = plannedArchive.archive;
   const archivePlan: ArchivePlan = {
     ...plannedArchive.plan,

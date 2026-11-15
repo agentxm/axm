@@ -35,13 +35,19 @@ const manifestText = (name: string, extra: Readonly<Record<string, unknown>> = {
 
 const packageDirectory = (name: string) => `agent_extensions/@acme/knowledge/${name}`;
 
-const makeAcquiredKnowledge = (bundles: Readonly<Record<string, string>>) => {
+const makeAcquiredKnowledge = (
+  bundles: Readonly<Record<string, string>>,
+  settings: Readonly<Record<string, unknown>> = {},
+) => {
   const files: Record<string, string> = {};
   for (const [name, manifest] of Object.entries(bundles)) {
     files[`${packageDirectory(name)}/knowledge.json`] = manifest;
     files[`${packageDirectory(name)}/src/index.md`] = '---\nokf_version: "0.2"\n---\n# Acquired\n';
   }
-  const fixture = makeInspectionFixture({ settings: { agents: [], owner: "@acme" }, files });
+  const fixture = makeInspectionFixture({
+    settings: { agents: [], owner: "@acme", ...settings },
+    files,
+  });
   return {
     ...fixture,
     packageRoot: (name: string) => nodePath.join(fixture.root, packageDirectory(name)),
@@ -84,6 +90,34 @@ describe("Knowledge inventory over acquired bundles", () => {
           },
         ]);
         expect(rows).toMatchObject([{ name: "platform", inspectionState: "not-requested" }]);
+      }),
+    );
+  });
+
+  it.effect("reports a declared bundle's manifest instruction entry from the one parse", () => {
+    const text = manifestText("platform", { instructionEntry: false });
+    const workspace = makeAcquiredKnowledge(
+      { platform: text },
+      {
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+        knowledgeConfig: { instructions: true },
+        knowledge: { platform: "@acme/knowledge/platform@1.0.0" },
+      },
+    );
+    return workspace.run(
+      Effect.gen(function* () {
+        const parses = countParses();
+        const { document } = yield* ListKnowledge.query({});
+        expect(parses(text)).toBe(1);
+        // Only a successful full decode of the manifest yields its exclusion.
+        expect(document.items).toMatchObject([
+          {
+            name: "platform",
+            installed: true,
+            inspection: { state: "not-requested" },
+            instructionEntry: { included: false, reason: "manifest-excluded" },
+          },
+        ]);
       }),
     );
   });

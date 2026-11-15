@@ -1,21 +1,28 @@
 import { downloadHttpArtifact } from "@agentxm/workspace-kernel/sources";
+import { CanonicalNativePath } from "@agentxm/workspace-kernel/locations";
+import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, onTestFinished, vi } from "vitest";
 import {
   getBuiltInSources,
   PlatformLayer,
   makeArtifactHttpClientLayer,
+  resolveExecutionDirectory,
   makeCliLoggerLayer,
   makeRegistryHttpClientLayer,
   withAxmFetchPolicy,
@@ -23,6 +30,7 @@ import {
   withWorkspace,
 } from "./runtime.js";
 import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js";
+import { ExecutionDirectory } from "./execution-directory.js";
 import { makeTestScreen } from "./test-support/screen-test.js";
 import { localTracingCollector } from "./test-support/local-tracing-collector.js";
 import { withLocalTracing } from "./cli-runtime/index.js";
@@ -187,6 +195,212 @@ describe("makeCliLoggerLayer", () => {
       }).pipe(Effect.provide(Layer.provide(makeCliLoggerLayer("normal"), screen.layer)));
 
       expect(screen.state.logs).toEqual([{ level: "warn", message: "visible warning message" }]);
+    }),
+  );
+});
+
+describe("resolveExecutionDirectory", () => {
+  let tempDir: string;
+  let referent: string;
+  let link: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "runtime-execution-dir-")));
+    referent = path.join(tempDir, "referent");
+    link = path.join(tempDir, "link");
+    fs.mkdirSync(referent);
+    fs.symlinkSync(referent, link, "dir");
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  type Port = (target: string) => Effect.Effect<string | undefined>;
+
+  /** Resolve once over a recording filesystem, counting realPath and canonical-spelling port calls. */
+  const resolveCounting = (selected: string, port: Port | undefined) =>
+    Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      let portCalls = 0;
+      const counted =
+        port === undefined
+          ? undefined
+          : (target: string) =>
+              Effect.suspend(() => {
+                portCalls += 1;
+                return port(target);
+              });
+      recording.reset();
+      const result = yield* resolveExecutionDirectory(selected).pipe(
+        Effect.provideService(CanonicalNativePath, counted),
+        Effect.result,
+      );
+      return {
+        result,
+        realPaths: recording.calls({ method: "realPath" }).length,
+        portCalls,
+      };
+    }).pipe(
+      Effect.provide(Layer.merge(layerRecordingFileSystem(NodeFileSystem.layer), NodePath.layer)),
+    );
+
+  it.effect("follows one strict realPath when the canonical port spells the directory", () =>
+    Effect.gen(function* () {
+      const observed = yield* resolveCounting(link, (target) => Effect.succeed(target));
+      expect(observed.result).toMatchObject({ _tag: "Success", success: { path: referent } });
+      expect(observed.realPaths).toBe(1);
+      expect(observed.portCalls).toBe(1);
+
+      process.chdir(tempDir);
+      const relative = yield* resolveCounting("link", (target) => Effect.succeed(target));
+      expect(relative.result).toMatchObject({ _tag: "Success", success: { path: referent } });
+      expect(relative.realPaths).toBe(1);
+      expect(relative.portCalls).toBe(1);
+    }),
+  );
+
+  it.effect("re-resolves through the listing walk when the port cannot spell the directory", () =>
+    Effect.gen(function* () {
+      const observed = yield* resolveCounting(link, () => Effect.succeed(undefined));
+      expect(observed.result).toMatchObject({ _tag: "Success", success: { path: referent } });
+      expect(observed.realPaths).toBe(2);
+      expect(observed.portCalls).toBe(1);
+    }),
+  );
+
+  it.effect("re-resolves through the listing walk on hosts without a canonical port", () =>
+    Effect.gen(function* () {
+      const observed = yield* resolveCounting(link, undefined);
+      expect(observed.result).toMatchObject({ _tag: "Success", success: { path: referent } });
+      expect(observed.realPaths).toBe(2);
+      expect(observed.portCalls).toBe(0);
+    }),
+  );
+
+  it.effect("refuses a missing selection before asking the port", () =>
+    Effect.gen(function* () {
+      const observed = yield* resolveCounting(path.join(tempDir, "missing"), (target) =>
+        Effect.succeed(target),
+      );
+      expect(observed.result).toMatchObject({ _tag: "Failure", failure: { code: "usage" } });
+      expect(observed.realPaths).toBe(1);
+      expect(observed.portCalls).toBe(0);
+    }),
+  );
+
+  const resolveLive = (selected: string) =>
+    resolveExecutionDirectory(selected).pipe(
+      Effect.flip,
+      Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, CanonicalNativePathLive)),
+    );
+
+  const expectUsage = (error: unknown, selected: string, causeTag: string) => {
+    expect(error).toMatchObject({
+      _tag: "AppError",
+      code: "usage",
+      detail: `Could not run from the selected directory '${selected}'.`,
+    });
+    expect(error).toHaveProperty("cause");
+    if (causeTag === "Error") {
+      expect(error).toMatchObject({
+        cause: new Error("The selected path is not a directory."),
+      });
+    } else {
+      expect(error).toMatchObject({ cause: { _tag: causeTag } });
+    }
+  };
+
+  it.effect("refuses missing and dangling selections with the strict realPath failure", () =>
+    Effect.gen(function* () {
+      const missing = path.join(tempDir, "missing");
+      expectUsage(yield* resolveLive(missing), missing, "PlatformError");
+
+      const dangling = path.join(tempDir, "dangling");
+      fs.symlinkSync(path.join(tempDir, "gone"), dangling, "dir");
+      expectUsage(yield* resolveLive(dangling), dangling, "PlatformError");
+    }),
+  );
+
+  it.effect("refuses a file selection as not a directory", () =>
+    Effect.gen(function* () {
+      const file = path.join(tempDir, "file");
+      fs.writeFileSync(file, "");
+      expectUsage(yield* resolveLive(file), file, "Error");
+    }),
+  );
+
+  it.effect.skipIf(process.getuid?.() === 0 || process.platform === "win32")(
+    "refuses selections whose path or contents cannot be traversed",
+    () =>
+      Effect.gen(function* () {
+        const locked = path.join(tempDir, "locked");
+        const beneath = path.join(locked, "beneath");
+        fs.mkdirSync(beneath, { recursive: true });
+        fs.chmodSync(locked, 0o000);
+        try {
+          expectUsage(yield* resolveLive(beneath), beneath, "PlatformError");
+          expectUsage(yield* resolveLive(locked), locked, "PlatformError");
+        } finally {
+          fs.chmodSync(locked, 0o700);
+        }
+      }),
+  );
+
+  it.effect("leaves the workspace location to resolve its own root freshly", () =>
+    Effect.gen(function* () {
+      const project = path.join(referent, "project");
+      fs.mkdirSync(path.join(project, ".axm"), { recursive: true });
+      fs.writeFileSync(path.join(project, "axm.json"), JSON.stringify({ agents: [] }));
+      fs.writeFileSync(path.join(project, "axm.lock"), "version = 1\n");
+      const userHome = path.join(tempDir, "home");
+      fs.mkdirSync(path.join(userHome, ".axm"), { recursive: true });
+      const originalHome = process.env["HOME"];
+      process.env["HOME"] = userHome;
+      process.chdir(project);
+      onTestFinished(() => {
+        if (originalHome === undefined) delete process.env["HOME"];
+        else process.env["HOME"] = originalHome;
+      });
+      const recorded: Array<string> = [];
+      let portCalls = 0;
+      const recordingLayer = Layer.effect(
+        FileSystem.FileSystem,
+        Effect.map(FileSystem.FileSystem, (base) =>
+          FileSystem.make({
+            ...base,
+            realPath: (target) =>
+              Effect.suspend(() => {
+                recorded.push(target);
+                return base.realPath(target);
+              }),
+          }),
+        ),
+      );
+      const testContext = makeWorkspaceHandlerTestContext({ fileSystemLayer: recordingLayer });
+      const live = yield* CanonicalNativePath.pipe(Effect.provide(CanonicalNativePathLive));
+      const port = (target: string) =>
+        Effect.suspend(() => {
+          portCalls += 1;
+          return live === undefined ? Effect.succeed(undefined) : live(target);
+        });
+      yield* Effect.gen(function* () {
+        const executionDirectory = yield* resolveExecutionDirectory(path.join(link, "project"));
+        expect(executionDirectory.path).toBe(project);
+        recorded.length = 0;
+        portCalls = 0;
+        yield* withWorkspace("project")(Effect.void).pipe(
+          Effect.provideService(ExecutionDirectory, executionDirectory),
+        );
+      }).pipe(
+        Effect.provideService(CanonicalNativePath, port),
+        Effect.provide(testContext.baseLayer),
+      );
+      expect(recorded).toContain(project);
+      expect(portCalls).toBeGreaterThanOrEqual(1);
     }),
   );
 });

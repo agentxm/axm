@@ -11,7 +11,9 @@ import {
   assertNativeMutationWithin,
   CanonicalNativePath,
   NativeLocationError,
+  NativeResolutionRoot,
   pathsOverlap,
+  resolveExistingNativeSpelling,
   resolveNativeEntry,
   resolveNativeReferent,
 } from "./native-address.js";
@@ -148,6 +150,16 @@ describe("physical spelling", () => {
               Effect.provide(pathLayer),
             );
             expect(fromPort).toBe(observed);
+            for (const port of [undefined, canonicalPort]) {
+              const strict = yield* resolveExistingNativeSpelling(
+                path.join(lowerAgents, "skills"),
+              ).pipe(
+                Effect.provideService(CanonicalNativePath, port),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provide(pathLayer),
+              );
+              expect(strict).toBe(observed);
+            }
             // Path syntax alone must never merge distinct or not-yet-created spellings.
             expect(pathsOverlap(path, upperAgents, lowerAgents)).toBe(false);
             const boundary = yield* assertNativeMutationWithin(
@@ -299,3 +311,91 @@ it.effect("resolves an identical root once per admission and observes its next a
     expect(yield* Ref.get(rootReads)).toBe(2);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+describe("strict existing spelling", () => {
+  const spellingPort = (target: string) => Effect.succeed(target);
+  const unavailablePort = () => Effect.succeed(undefined);
+
+  it.effect("spells existing and symlinked directories as referent resolution does", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const referent = path.join(root, "referent");
+      const link = path.join(root, "link");
+      yield* fs.makeDirectory(referent);
+      yield* fs.symlink(referent, link);
+      for (const port of [undefined, spellingPort, unavailablePort]) {
+        for (const selected of [referent, link]) {
+          const expected = yield* resolveNativeReferent(selected).pipe(
+            Effect.provideService(CanonicalNativePath, port),
+          );
+          const strict = yield* resolveExistingNativeSpelling(selected).pipe(
+            Effect.provideService(CanonicalNativePath, port),
+          );
+          expect(strict).toBe(referent);
+          expect(strict).toBe(expected);
+        }
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("fails with the realPath failure where referent resolution tolerates absence", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const missing = path.join(root, "missing");
+      const dangling = path.join(root, "dangling");
+      yield* fs.symlink(path.join(root, "gone"), dangling);
+
+      expect(yield* resolveNativeReferent(missing)).toBe(missing);
+      const danglingReferent = yield* resolveNativeReferent(dangling).pipe(Effect.flip);
+      expect(danglingReferent.reason).toBe("dangling-leaf");
+
+      for (const selected of [missing, dangling]) {
+        const failure = yield* resolveExistingNativeSpelling(selected).pipe(
+          Effect.provideService(CanonicalNativePath, spellingPort),
+          Effect.flip,
+        );
+        expect(failure).toBeInstanceOf(PlatformError.PlatformError);
+        if (failure instanceof PlatformError.PlatformError) {
+          expect(failure.reason._tag).toBe("NotFound");
+          expect(failure.reason.method).toBe("realPath");
+        }
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("returns the port's own failure unchanged", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const refusal = new NativeLocationError({ target: root, reason: "unreadable" });
+      const failure = yield* resolveExistingNativeSpelling(root).pipe(
+        Effect.provideService(CanonicalNativePath, () => Effect.fail(refusal)),
+        Effect.flip,
+      );
+      expect(failure).toBe(refusal);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("never asks the port inside a captured resolution root", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const selected = path.join(root, "selected");
+      yield* fs.makeDirectory(selected);
+      const portCalls = yield* Ref.make(0);
+      const strict = yield* resolveExistingNativeSpelling(selected).pipe(
+        Effect.provideService(CanonicalNativePath, (target) =>
+          Ref.update(portCalls, (count) => count + 1).pipe(Effect.as(target)),
+        ),
+        Effect.provideService(NativeResolutionRoot, root),
+      );
+      expect(strict).toBe(selected);
+      expect(yield* Ref.get(portCalls)).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});

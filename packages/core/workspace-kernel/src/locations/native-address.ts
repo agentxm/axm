@@ -54,18 +54,24 @@ const NativeSpellingRoot = Context.Reference<string | undefined>(
   { defaultValue: () => undefined },
 );
 
+/** The live port's spelling of an existing path; undefined when no authoritative answer applies. */
+const portNativeSpelling = (
+  target: string,
+): Effect.Effect<string | undefined, NativeLocationError> =>
+  Effect.gen(function* () {
+    const capturedRoot = yield* NativeResolutionRoot;
+    const canonical = yield* CanonicalNativePath;
+    // Captured views must never call the host, even when the port is installed.
+    if (capturedRoot === undefined && canonical !== undefined) return yield* canonical(target);
+    return undefined;
+  });
+
 /** realPath can retain caller spelling; only ambiguous lookups need actual directory entries. */
-const existingNativeSpelling = (target: string) =>
+const listedNativeSpelling = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const capturedRoot = yield* NativeResolutionRoot;
-    const canonical = yield* CanonicalNativePath;
-    // Captured views must never call the host, even when the port is installed.
-    if (capturedRoot === undefined && canonical !== undefined) {
-      const spelling = yield* canonical(target);
-      if (spelling !== undefined) return spelling;
-    }
     const admissionRoot = yield* NativeSpellingRoot;
     const root =
       capturedRoot ??
@@ -118,9 +124,18 @@ const existingNativeSpelling = (target: string) =>
     ),
   );
 
-/** Resolve missing suffixes through the nearest existing physical ancestor. */
-export const resolveNativeReferent = (
+const existingNativeSpelling = (target: string) =>
+  Effect.gen(function* () {
+    const spelling = yield* portNativeSpelling(target);
+    return spelling ?? (yield* listedNativeSpelling(target));
+  });
+
+/** Follow the nearest existing physical ancestor and spell it with the given step. */
+const resolveReferentWith = (
   target: string,
+  spellExisting: (
+    resolved: string,
+  ) => Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>,
 ): Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -130,7 +145,7 @@ export const resolveNativeReferent = (
     while (true) {
       const resolved = yield* fs.realPath(current).pipe(Effect.result);
       if (resolved._tag === "Success")
-        return path.join(yield* existingNativeSpelling(resolved.success), ...suffix.reverse());
+        return path.join(yield* spellExisting(resolved.success), ...suffix.reverse());
       if (!notFound(resolved.failure)) {
         return yield* new NativeLocationError({
           target,
@@ -157,6 +172,33 @@ export const resolveNativeReferent = (
       suffix.push(path.basename(current));
       current = parent;
     }
+  });
+
+/** Resolve missing suffixes through the nearest existing physical ancestor. */
+export const resolveNativeReferent = (
+  target: string,
+): Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  resolveReferentWith(target, existingNativeSpelling);
+
+/**
+ * Resolve an existing path strictly: a missing path or dangling link fails
+ * with its realPath failure. When the live port spells the followed path, that
+ * answer is final; otherwise resolution re-follows the path before walking its
+ * directory listings, so the port is consulted at most once.
+ */
+export const resolveExistingNativeSpelling = (
+  target: string,
+): Effect.Effect<
+  string,
+  PlatformError.PlatformError | NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const real = yield* fs.realPath(target);
+    const spelling = yield* portNativeSpelling(real);
+    if (spelling !== undefined) return spelling;
+    return yield* resolveReferentWith(real, listedNativeSpelling);
   });
 
 export const resolveNativeEntry = (

@@ -30,6 +30,7 @@ export {
   pathsOverlap,
   resolveNativeEntry,
   resolveNativeReferent,
+  resolveExistingNativeSpelling,
   type NativeEntryAddress,
 } from "./native-address.js";
 export {

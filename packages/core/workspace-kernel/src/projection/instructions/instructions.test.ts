@@ -1734,6 +1734,39 @@ describe("agent instructions", () => {
       ),
     );
 
+    it.effect("ignores a root only an added agent's recorded route adds", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          yield* sync({ configuredAgents: ["gemini-cli"], symlinkSupported: false });
+          fs.rmSync(path.join(tempDir, "AGENTS.md"));
+          fs.rmSync(path.join(tempDir, "GEMINI.md"));
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("ignores a prospective root without a source", () =>
+      run(
+        Effect.gen(function* () {
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+            prospectiveRoots: [tempDir],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
     it.effect("derives nothing for a prior agent that is no longer configured", () =>
       run(
         Effect.gen(function* () {

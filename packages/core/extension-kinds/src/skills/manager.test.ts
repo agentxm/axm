@@ -212,4 +212,67 @@ describe("skill projection withdrawal", () => {
       ]);
     }).pipe(Effect.provide(managerLayer())),
   );
+
+  it.effect.each(["materializeUninstall", "materializeDeactivate"] as const)(
+    "%s resolves a linked projection for the inventory, write admission and exact-link proof only",
+    (mode) =>
+      Effect.gen(function* () {
+        const source = writeAuthoredSkill();
+        nodeFs.mkdirSync(nodePath.dirname(projection()), { recursive: true });
+        nodeFs.symlinkSync(source, projection());
+
+        const { facts, recording } = yield* removeRecorded(mode);
+
+        // The inventory and the write admission each resolve the link entry;
+        // classifying the removal target reuses the inventory's entry. After
+        // the unlink, retirement observes the entry's absence afresh.
+        expect(recording.counts(projection())).toEqual({ readLink: 6, stat: 3, realPath: 2 });
+        // The inventory and the removal's exact-link proof each resolve the
+        // canonical source as referent and as the link's immediate entry.
+        expect(recording.counts(source)).toEqual({ readLink: 2, stat: 2, realPath: 4 });
+        // The shared container: inventory listing and two entry resolutions,
+        // write admission, and retirement.
+        expect(recording.counts(nodePath.dirname(projection()))).toEqual({
+          readDirectory: 3,
+          realPath: 4,
+        });
+        expect(nodeFs.existsSync(projection())).toBe(false);
+        expect(nodeFs.existsSync(source)).toBe(true);
+        expect(facts.observation.nativeLocations).toEqual([
+          expect.objectContaining({
+            address: { kind: "entry", path: projection() },
+            aliases: [projection()],
+            mechanism: "symlink",
+            ownership: "absent",
+            policyReasons: ["workspace-shared-skills"],
+            state: "removed",
+          }),
+        ]);
+      }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("fails before any write when the shared skill directory cannot be resolved", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      const reader = nodePath.join(baseDir, ".claude", "skills", NAME);
+      nodeFs.mkdirSync(nodePath.dirname(reader), { recursive: true });
+      nodeFs.symlinkSync(source, reader);
+      // A self-referential link makes the shared directory unresolvable.
+      const shared = nodePath.dirname(projection());
+      nodeFs.mkdirSync(nodePath.dirname(shared), { recursive: true });
+      nodeFs.symlinkSync(shared, shared);
+      const manager = yield* SkillManager;
+
+      const failure = yield* manager
+        .materializeUninstall({ target: { type: "skill", name: extensionName(NAME) } })
+        .pipe(Effect.flip);
+
+      expect(failure).toMatchObject({
+        _tag: "SkillDefinitionInvalid",
+        detail: "Cannot observe native Skill removal targets",
+        cause: { _tag: "NativeLocationError", target: shared, reason: "unreadable" },
+      });
+      expect(nodeFs.readlinkSync(reader)).toBe(source);
+    }).pipe(Effect.provide(managerLayer())),
+  );
 });

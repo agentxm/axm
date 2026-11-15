@@ -26,6 +26,7 @@ import {
   type NativeDirectoryInputs,
   type OwnershipUnitAddress,
   type NativeEntryAddress,
+  type NativeLocationSet,
   NativeLocationError,
 } from "../locations/index.js";
 import {
@@ -83,6 +84,13 @@ export interface AgentOutputInventory {
   readonly outputs: ReadonlyArray<AgentOutputObservation>;
   readonly ownedResidue: ReadonlyArray<AgentOutputObservation>;
   readonly unownedFootprints: ReadonlyArray<AgentOutputObservation>;
+  /**
+   * Present only when requested: the skill containers, entries and expected
+   * sources this inventory resolved, failures included. It serves the caller's
+   * classification of these outputs before its first write and is never write
+   * authority.
+   */
+  readonly skillLocations?: NativeLocationSet;
 }
 
 export interface ObserveAgentOutputsArgs {
@@ -104,6 +112,8 @@ export interface ObserveAgentOutputsArgs {
     readonly layout: WorkspaceLayout;
     readonly entries: Readonly<Record<string, SkillEntry>>;
   };
+  /** Return the skill pass's resolutions as `skillLocations`. */
+  readonly retainSkillLocations?: boolean;
 }
 
 interface ResolvedContainer {
@@ -118,9 +128,11 @@ const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
     const observed = yield* captureNativeLocationSet({
       referents: containers.map((container) => container.path),
     });
+    const referents: Array<readonly [string, Result.Result<string, NativeLocationError>]> = [];
     for (const container of containers) {
-      const resolved = yield* observed.referent(container.path).pipe(Effect.option);
-      const physicalPath = Option.isSome(resolved) ? resolved.value : container.path;
+      const resolved = yield* observed.referent(container.path).pipe(Effect.result);
+      referents.push([container.path, resolved]);
+      const physicalPath = Result.isSuccess(resolved) ? resolved.success : container.path;
       const group = grouped.get(physicalPath) ?? {
         claimants: new Set<string>(),
         sharedPolicy: false,
@@ -129,11 +141,55 @@ const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
       group.sharedPolicy ||= container.sharedPolicy === true;
       grouped.set(physicalPath, group);
     }
-    return [...grouped].map(([path, group]) => ({
-      path,
-      claimantAgentIds: [...group.claimants].sort(),
-      sharedPolicy: group.sharedPolicy,
-    }));
+    return {
+      referents,
+      containers: [...grouped].map(([path, group]) => ({
+        path,
+        claimantAgentIds: [...group.claimants].sort(),
+        sharedPolicy: group.sharedPolicy,
+      })),
+    };
+  });
+
+/**
+ * Answer from the resolutions this inventory just made, failures included, so a
+ * classification that follows them in the same owner call does not resolve the
+ * same paths again. A path the inventory did not resolve resolves live, exactly
+ * as a fresh capture would. Never write authority.
+ */
+const observedNativeLocationSet = (observed: {
+  readonly entries: ReadonlyArray<
+    readonly [target: string, result: Result.Result<NativeEntryAddress, NativeLocationError>]
+  >;
+  readonly referents: ReadonlyArray<
+    readonly [target: string, result: Result.Result<string, NativeLocationError>]
+  >;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const live = yield* Effect.context<FileSystem.FileSystem | Path.Path>();
+    const entries = new Map(
+      observed.entries.map(([target, result]) => [path.resolve(target), result]),
+    );
+    const referents = new Map(
+      observed.referents.map(([target, result]) => [path.resolve(target), result]),
+    );
+    return {
+      entry: (target) => {
+        const key = path.resolve(target);
+        const result = entries.get(key);
+        return result === undefined
+          ? resolveNativeEntry(key).pipe(Effect.provideContext(live))
+          : Effect.fromResult(result);
+      },
+      referent: (target) => {
+        const key = path.resolve(target);
+        const result = referents.get(key);
+        return result === undefined
+          ? resolveNativeReferent(key).pipe(Effect.provideContext(live))
+          : Effect.fromResult(result);
+      },
+    } satisfies NativeLocationSet;
   });
 
 const containerIsDesired = (
@@ -220,14 +276,19 @@ export const observeAgentOutputs = (
     const diagnostics: Array<NativeConfigObservationDiagnostic> = [];
     const expectedSkillSources: Array<{ packageName: string; source: string; nativeName: string }> =
       [];
+    const skillReferents: Array<readonly [string, Result.Result<string, NativeLocationError>]> = [];
+    const skillEntries: Array<
+      readonly [string, Result.Result<NativeEntryAddress, NativeLocationError>]
+    > = [];
     for (const [packageName, sources] of Object.entries(args.expectedSkillSources)) {
       for (const source of sources) {
-        const physical = yield* resolveNativeReferent(source).pipe(Effect.option);
+        const physical = yield* resolveNativeReferent(source).pipe(Effect.result);
+        skillReferents.push([source, physical]);
         const nativeName = yield* readSkillDirectoryName(source, packageName).pipe(Effect.option);
-        if (Option.isNone(physical) || Option.isNone(nativeName)) continue;
+        if (Result.isFailure(physical) || Option.isNone(nativeName)) continue;
         expectedSkillSources.push({
           packageName,
-          source: physical.value,
+          source: physical.success,
           nativeName: nativeName.value,
         });
       }
@@ -250,16 +311,19 @@ export const observeAgentOutputs = (
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of yield* groupContainers([
+    const skillGroups = yield* groupContainers([
       { path: path.join(args.workspaceRoot, ".agents/skills"), sharedPolicy: true },
       ...skillContainers,
-    ])) {
+    ]);
+    skillReferents.push(...skillGroups.referents);
+    for (const container of skillGroups.containers) {
       const desiredContainer =
         container.sharedPolicy ||
         containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* readNamedOutputDirectory(container, "skill", outputs)) {
         const artifactPath = path.join(container.path, entry);
         const nativeEntry = yield* resolveNativeEntry(artifactPath).pipe(Effect.result);
+        skillEntries.push([artifactPath, nativeEntry]);
         if (Result.isSuccess(nativeEntry) && nativeEntry.success.kind === "absent") continue;
         const address = Result.isSuccess(nativeEntry)
           ? Option.some(nativeEntry.success)
@@ -339,7 +403,7 @@ export const observeAgentOutputs = (
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of yield* groupContainers(subagentContainers)) {
+    for (const container of (yield* groupContainers(subagentContainers)).containers) {
       const desiredContainer = containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* readNamedOutputDirectory(container, "subagent", outputs)) {
         const artifactPath = path.join(container.path, entry);
@@ -563,6 +627,14 @@ export const observeAgentOutputs = (
       outputs,
       ownedResidue: outputs.filter((output) => output.ownership === "owned" && !output.desired),
       unownedFootprints: outputs.filter((output) => output.ownership === "unowned"),
+      ...(args.retainSkillLocations === true
+        ? {
+            skillLocations: yield* observedNativeLocationSet({
+              entries: skillEntries,
+              referents: skillReferents,
+            }),
+          }
+        : {}),
     };
   });
 

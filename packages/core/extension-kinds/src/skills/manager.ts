@@ -363,6 +363,7 @@ export const SkillManagerLive = Layer.effect(
           declaredMcpNames: new Set(),
           expectedHooks: [],
           authoredSkills: { layout, entries: yield* settings.entries("skill") },
+          retainSkillLocations: true,
         }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
         const ownedOutputs = inventory.outputs.filter(
           (output) =>
@@ -376,6 +377,11 @@ export const SkillManagerLive = Layer.effect(
           agents: yield* agentRepo.all,
           configuredAgentIds,
           sharedSkillPolicy: true,
+          // Only reads separate the inventory from this classification; the
+          // removal below still admits and proves each link afresh.
+          ...(inventory.skillLocations === undefined
+            ? {}
+            : { locationSet: inventory.skillLocations }),
           targets: ownedOutputs.map((output) => ({
             path: output.path,
             kind: "skill",

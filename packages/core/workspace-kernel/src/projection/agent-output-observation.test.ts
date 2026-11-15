@@ -9,7 +9,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 
-import { captureCopiedDirectory } from "../locations/index.js";
+import * as Result from "effect/Result";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import { captureCopiedDirectory, captureNativeLocationSet } from "../locations/index.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, SettingsSchema } from "../workspace-state/index.js";
 import { codingAgentFromDescriptor } from "../agent-adapters/index.js";
@@ -541,6 +543,99 @@ describe("incomplete Hook observations", () => {
           inventory.diagnostics.filter((diagnostic) => diagnostic.extensionType === "hook"),
         ).toEqual([]);
         expect(inventory.outputs.filter((output) => output.extensionType === "hook")).toEqual([]);
+      }),
+    ),
+  );
+});
+
+describe("skill locations retained for the caller's classification", () => {
+  it.effect("answer exactly as a fresh capture would, without resolving again", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const source = path.join(root, "skills/review/src");
+        const linked = path.join(root, ".claude/skills/review");
+        const dangling = path.join(root, ".claude/skills/leftover");
+        yield* fs.makeDirectory(path.dirname(linked), { recursive: true });
+        yield* fs.symlink(source, linked);
+        yield* fs.symlink(path.join(root, "missing"), dangling);
+        // The shared directory links to itself, so its referent fails.
+        const shared = path.join(root, ".agents/skills");
+        yield* fs.makeDirectory(path.dirname(shared), { recursive: true });
+        yield* fs.symlink(shared, shared);
+        const agents = yield* (yield* CodingAgentRepository).all;
+        const readers = (yield* Effect.forEach(agents, (agent) =>
+          agent.resolveNativeReadLocations({
+            workspaceRoot: root,
+            scope: "project",
+            kind: "skill",
+          }),
+        )).flatMap((locations) => locations.map((location) => location.path));
+        const { fileSystem, recording } = makeRecordingFileSystem(fs);
+        const inventory = yield* observeAgentOutputs({
+          ...args,
+          expectedSkillSources: { review: [source] },
+          retainSkillLocations: true,
+        }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+        expect(inventory.outputs.find((output) => output.path === linked)).toMatchObject({
+          ownership: "owned",
+          proof: "canonical-source-link",
+        });
+        const locations = inventory.skillLocations;
+        if (locations === undefined) return expect.unreachable("skill locations were requested");
+        const entries = [linked, dangling];
+        const referents = [shared, ...readers, source];
+        const fresh = yield* captureNativeLocationSet({ entries, referents });
+
+        recording.reset();
+        for (const entry of entries)
+          expect(yield* locations.entry(entry).pipe(Effect.result)).toEqual(
+            yield* fresh.entry(entry).pipe(Effect.result),
+          );
+        for (const referent of referents)
+          expect(yield* locations.referent(referent).pipe(Effect.result)).toEqual(
+            yield* fresh.referent(referent).pipe(Effect.result),
+          );
+        expect(recording.calls()).toEqual([]);
+        expect(Result.isFailure(yield* locations.referent(shared).pipe(Effect.result))).toBe(true);
+        expect(yield* locations.entry(dangling)).toMatchObject({
+          kind: "symlink",
+          referentPath: undefined,
+        });
+      }),
+    ),
+  );
+
+  it.effect("resolve a path the inventory did not observe live", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const elsewhere = path.join(root, "elsewhere");
+        yield* fs.makeDirectory(elsewhere);
+        const { fileSystem, recording } = makeRecordingFileSystem(fs);
+        const inventory = yield* observeAgentOutputs({ ...args, retainSkillLocations: true }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+        );
+        const locations = inventory.skillLocations;
+        if (locations === undefined) return expect.unreachable("skill locations were requested");
+        const fresh = yield* captureNativeLocationSet({
+          entries: [elsewhere],
+          referents: [elsewhere],
+        });
+
+        recording.reset();
+        expect(yield* locations.entry(elsewhere)).toEqual(yield* fresh.entry(elsewhere));
+        expect(yield* locations.referent(elsewhere)).toEqual(yield* fresh.referent(elsewhere));
+        expect(recording.counts(elsewhere)).toEqual({ readLink: 1, stat: 1, realPath: 2 });
+      }),
+    ),
+  );
+
+  it.effect("are absent unless requested", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args } = yield* fixture();
+        expect(yield* observeAgentOutputs(args)).not.toHaveProperty("skillLocations");
       }),
     ),
   );

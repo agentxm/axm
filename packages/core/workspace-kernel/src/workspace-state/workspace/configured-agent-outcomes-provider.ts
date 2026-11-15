@@ -19,6 +19,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import type { ConfiguredAgentOutcome, ErrorCode } from "../../operations/index.js";
 import type { NativeLocationOutcome } from "../../locations/index.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { AcceptedCanonicalObservation } from "./accepted-canonical-ref.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
@@ -75,6 +76,13 @@ export interface ConfiguredAgentOutcomesRequest {
     readonly installed: boolean;
     readonly paths?: ReadonlyArray<string>;
     readonly observedAgentIds?: ReadonlyArray<string>;
+    /**
+     * The accepted package the caller already observed as usable for this row
+     * with the same `readers`, inside the same read phase. A native observer
+     * derives the row's accepted ref from it when it finds the same desired
+     * node and accepted row, instead of observing the package again.
+     */
+    readonly acceptedCanonical?: AcceptedCanonicalObservation;
   }>;
 }
 

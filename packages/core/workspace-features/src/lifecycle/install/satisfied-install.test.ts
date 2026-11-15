@@ -8,9 +8,67 @@ import {
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import * as FileSystem from "effect/FileSystem";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { applyPlanExecution, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { SkillManager } from "@agentxm/workspace-kernel/materialization";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstall,
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
+import { InstallExtensions } from "../index.js";
+
+/**
+ * Repeat an accepted Registry install and count only the repeated apply's
+ * work: the accepted package's tree hashes and content reads of its manifest.
+ */
+const repeatedApplyWork = (type: "subagent" | "hook", name: string) =>
+  Effect.gen(function* () {
+    const world = makeInstallWorld();
+    if (type === "subagent") world.registry.writeSubagent(name, [{ version: "1.0.0" }]);
+    else world.registry.writeHook(name, [{ version: "1.0.0" }]);
+    const request = installRequest({
+      type,
+      subject: { kind: "source", source: `@acme/${type}s/${name}@1.0.0` },
+    });
+    const recorder = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+    const work = workObservations(false);
+    const manifest = path.join(
+      world.workspace.root,
+      fileRegistryPackagePath(world.registry, `${type}s`, name),
+      `${type}.json`,
+    );
+    const outcome = yield* world.workspace
+      .provide(
+        Effect.gen(function* () {
+          const installed = yield* applyInstallAcceptingExecutionChanges(request);
+          expect(deriveOperationOutcome(installed)).toBe("applied");
+          const candidate = yield* InstallExtensions.prepare(request);
+          recorder.recording.reset();
+          const repeated = yield* InstallExtensions.previewOrApply(
+            candidate,
+            applyPlanExecution({
+              approval: "preapproved",
+              acceptedPolicies: new Set(["accept-execution-changes"]),
+              recovery: { command: ["install"], arguments: [] },
+            }),
+          ).pipe(work.provide);
+          return deriveOperationOutcome(repeated.resolution);
+        }),
+      )
+      .pipe(
+        Effect.provideService(FileSystem.FileSystem, recorder.fileSystem),
+        Effect.ensuring(Effect.sync(world.cleanup)),
+      );
+    return {
+      outcome,
+      treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
+      manifestReads: recorder.recording.contentReads(manifest),
+    };
+  });
 
 describe("satisfied install execution", () => {
   it.effect("retains Pack member agent coverage without materializing satisfied members", () => {
@@ -124,4 +182,20 @@ describe("satisfied install execution", () => {
       )
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(world.cleanup)));
   });
+
+  it.effect("a satisfied Subagent repeat observes its accepted package once", () =>
+    Effect.gen(function* () {
+      const work = yield* repeatedApplyWork("subagent", "reviewer");
+
+      expect(work).toEqual({ outcome: "no-op", treeHashes: 1, manifestReads: 6 });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("a satisfied Hook repeat keeps its observations", () =>
+    Effect.gen(function* () {
+      const work = yield* repeatedApplyWork("hook", "guard");
+
+      expect(work).toEqual({ outcome: "no-op", treeHashes: 4, manifestReads: 12 });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

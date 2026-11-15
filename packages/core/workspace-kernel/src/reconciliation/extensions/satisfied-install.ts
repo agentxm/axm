@@ -110,7 +110,14 @@ export const observeSatisfiedInstall = (args: {
         state: "current",
         scope: location.scope,
         agentIds: evaluation.inputs.settings.agents ?? [],
-        rows: [{ name, targetState: "enabled", installed: true }],
+        rows: [
+          {
+            name,
+            targetState: "enabled",
+            installed: true,
+            acceptedCanonical: Object.freeze(canonical),
+          },
+        ],
       })).get(name);
       if (
         observation === undefined ||

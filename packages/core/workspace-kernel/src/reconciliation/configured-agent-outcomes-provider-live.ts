@@ -31,6 +31,7 @@ import {
   workspaceReadPhaseFor,
   ConfiguredAgentOutcomesUnavailable,
   DesiredStateReader,
+  usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalRef,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
@@ -97,6 +98,24 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         ...(step.cause === undefined ? {} : { cause: step.cause }),
       });
     };
+    /**
+     * The usable accepted ref of a Subagent row. A row that carries the
+     * observation its caller made of the same desired node and accepted row
+     * derives the ref from it; any other row observes the package itself.
+     */
+    const acceptedSubagentRef = (row: ConfiguredAgentOutcomesRequest["rows"][number]) =>
+      Effect.gen(function* () {
+        const observe = usableAcceptedCanonicalRef({ type: "subagent", name: row.name });
+        const prepared = row.acceptedCanonical;
+        if (prepared === undefined) return yield* observe;
+        const desired = (yield* (yield* DesiredStateReader).graph()).nodes.find(
+          (node) => node.type === "subagent" && node.name === row.name,
+        );
+        if (desired === undefined || desired !== prepared.desired) return yield* observe;
+        const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+        if (Option.getOrUndefined(accepted) !== prepared.accepted) return yield* observe;
+        return Option.map(yield* usableAcceptedCanonicalFrom(prepared), (usable) => usable.ref);
+      });
     const subagents = yield* SubagentManager;
     const rules = yield* RuleManager;
     const knowledge = yield* KnowledgeManager;
@@ -252,9 +271,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               Effect.gen(function* () {
                 const authored = refs.find((candidate) => candidate.subagent.name === row.name);
                 const accepted =
-                  authored === undefined
-                    ? yield* usableAcceptedCanonicalRef({ type: "subagent", name: row.name })
-                    : Option.none();
+                  authored === undefined ? yield* acceptedSubagentRef(row) : Option.none();
                 const ref =
                   authored ??
                   (Option.isSome(accepted) && accepted.value.type === "subagent"

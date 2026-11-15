@@ -506,7 +506,9 @@ unresolved. Paths are projected to `<ws>`, `<home>`, `<fixture>`,
 `<account-home>` and `<tmp>`, with temporary names, random suffixes, UUIDs and
 `/proc` descriptors replaced by stable tokens. `physical-work-comparison.json`
 lists every differing path counter between baseline and candidate per
-scenario; `report.json` carries its digest and summary counts. This establishes
+scenario; `report.json` carries its digest and summary counts. A recorded
+invocation has a ten-minute process deadline, because recording multiplies the
+cost of every filesystem call. This establishes
 kernel-observed per-path counts for the whole process tree of one untraced
 invocation, independent of product traces, and lets an old and a new binary be
 compared path by path in one run. It is not timing evidence: tracing perturbs

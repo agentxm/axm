@@ -122,6 +122,12 @@ export const physicalWorkConfiguration = (environment: {
   return Effect.succeed("strace");
 };
 
+/**
+ * Process deadline for a recorded invocation. Recording every filesystem call multiplies
+ * their cost, so a recorded sample is not held to the ordinary process deadline.
+ */
+export const recordedProcessDeadlineMillis = 600_000;
+
 /** Command words placed before the observed executable; strace writes only the recording. */
 export const straceCommandPrefix = (
   executable: string,

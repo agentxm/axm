@@ -75,6 +75,7 @@ import {
   physicalWorkConfiguration,
   physicalWorkMethod,
   readPhysicalWorkRecording,
+  recordedProcessDeadlineMillis,
   straceCommandPrefix,
   type PhysicalWorkSampleRecord,
 } from "./observability-physical-work.js";
@@ -1053,7 +1054,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               artifacts,
               ...(physicalRecording === undefined || strace === undefined
                 ? {}
-                : { prefix: straceCommandPrefix(strace.executable, physicalRecording) }),
+                : {
+                    prefix: straceCommandPrefix(strace.executable, physicalRecording),
+                    // Recording every filesystem call multiplies their cost; the largest
+                    // restoration needs several times the ordinary process deadline.
+                    timeoutMillis: recordedProcessDeadlineMillis,
+                  }),
             });
             const endedAtMillis = Date.now();
             if (physicalRecording !== undefined) {

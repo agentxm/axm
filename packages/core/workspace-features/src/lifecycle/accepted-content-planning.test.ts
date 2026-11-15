@@ -32,6 +32,7 @@ import {
   makeInstallWorld,
   type InstallWorld,
 } from "../testing/install-world.js";
+import { applyActivation } from "./activation/test-helpers.js";
 import { InstallExtensions } from "./index.js";
 import { configuredUpdateRequest } from "./update/test-helpers.js";
 import { UpdateExtensions } from "./update/update-extensions.js";
@@ -227,6 +228,29 @@ describe("Pack install planning of an accepted Registry Hook member", () => {
         acquisitions: [`hook:${HOOK}`],
         carriesObservations: false,
         treeHashes: 8,
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  // The Hook preparation leaves a disabled member out, so the Pack plan
+  // observes that member itself, and settlement of a drifted member decides
+  // from that observation: both cases hash the same number of trees.
+  it.effect.each([
+    { label: "an intact", drifted: false, acquisitions: [], treeHashes: 4 },
+    { label: "a drifted", drifted: true, acquisitions: [`hook:${HOOK}`], treeHashes: 4 },
+  ])("observes $label disabled member once for its acquisition decision", (example) =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedPack;
+      const disabled = yield* installed.workspace.provide(
+        applyActivation({ type: "hook", name: HOOK, enabled: false }),
+      );
+      expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe("applied");
+      if (example.drifted) drift(installed);
+
+      expect(yield* reprepare(installed)).toEqual({
+        acquisitions: example.acquisitions,
+        carriesObservations: false,
+        treeHashes: example.treeHashes,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );

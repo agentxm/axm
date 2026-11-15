@@ -284,7 +284,7 @@ describe("Hook configuration hashes the configured package once per boundary", (
             // projection: 4 hashes and 13 script reads in preparation, 2 and 5
             // under the lock.
             expect({ prepared, applied }).toEqual({
-              prepared: { hashes: 3, scriptReads: 12 },
+              prepared: { hashes: 3, scriptReads: 10 },
               applied: { hashes: 1, scriptReads: 4 },
             });
           }),
@@ -327,7 +327,7 @@ describe("Hook configuration hashes the configured package once per boundary", (
             // three projections in preparation and the one under the lock:
             // 22 reads in preparation and 7 in apply. Observations, hashes
             // and tree checks still read it.
-            expect({ prepared, applied }).toEqual({ prepared: 18, applied: 6 });
+            expect({ prepared, applied }).toEqual({ prepared: 15, applied: 6 });
           }),
         )
         .pipe(Effect.provide(recordedNodeServices));

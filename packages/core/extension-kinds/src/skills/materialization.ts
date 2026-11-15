@@ -24,7 +24,7 @@ import {
   captureCopiedDirectory,
   copiedDirectoryReceiptPath,
   copiedDirectoryIsCurrent,
-  copiedDirectoryCanReplace,
+  copiedDirectoryCanReplaceWith,
   readCopiedDirectory,
   retireCopiedDirectory,
 } from "@agentxm/workspace-kernel/locations";
@@ -282,7 +282,8 @@ export const inspectSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
           cause: undefined,
         });
       }
-      if (!(yield* copiedDirectoryCanReplace(address.entryPath)))
+      // Only pure comparisons separate the ownership read from the replacement check.
+      if (!(yield* copiedDirectoryCanReplaceWith(address.entryPath, receipt.value)))
         return yield* new SkillMaterializationFailed({
           detail: `Preserved modified copied skill at ${agentSkillPath}`,
           cause: undefined,

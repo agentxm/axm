@@ -1,3 +1,4 @@
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -9,9 +10,12 @@ import * as PlatformError from "effect/PlatformError";
 import {
   captureCopiedDirectory,
   copiedDirectoryCanReplace,
+  copiedDirectoryCanReplaceWith,
   copiedDirectoryIsCurrent,
+  copiedDirectoryIsCurrentWith,
   copiedDirectoryOwnsPath,
   copiedDirectoryReceiptPath,
+  readCopiedDirectory,
   retireCopiedDirectory,
 } from "./copied-directory.js";
 import { CanonicalNativePathLive } from "./live.js";
@@ -82,6 +86,96 @@ describe("copied link identity failures", () => {
       }).pipe(Effect.provideService(FileSystem.FileSystem, deniedFs));
       expect(yield* fs.readLink(link)).toBe("missing");
       expect(yield* fs.readDirectory(copy)).toEqual(["link"]);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+});
+
+const copiedFixture = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* fs
+    .makeTempDirectoryScoped({ prefix: "axm-copy-receipt-" })
+    .pipe(Effect.flatMap(resolveNativeReferent));
+  const source = path.join(root, "source");
+  const copy = path.join(root, "copy");
+  for (const directory of [source, copy]) {
+    yield* fs.makeDirectory(directory);
+    for (const name of ["a.txt", "b.txt", "c.txt"])
+      yield* fs.writeFileString(path.join(directory, name), `Original ${name}\n`);
+    yield* fs.symlink("a.txt", path.join(directory, "link"));
+  }
+  expect(Option.isSome(yield* captureCopiedDirectory(copy, source))).toBe(true);
+  return { fs, path, source, copy, receiptPath: yield* copiedDirectoryReceiptPath(copy) };
+});
+
+describe("copied receipt consumers", () => {
+  it.effect.each([
+    { name: "an unchanged copy", canReplace: true, isCurrent: true },
+    { name: "a modified file", canReplace: false, isCurrent: false },
+    { name: "a foreign addition", canReplace: false, isCurrent: true },
+    { name: "a retargeted link", canReplace: false, isCurrent: false },
+  ])("decide $name from a receipt the caller already read", (scenario) =>
+    Effect.gen(function* () {
+      const { fs, path, source, copy, receiptPath } = yield* copiedFixture;
+      if (scenario.name === "a modified file")
+        yield* fs.writeFileString(path.join(copy, "b.txt"), "Edited\n");
+      if (scenario.name === "a foreign addition")
+        yield* fs.writeFileString(path.join(copy, "foreign.txt"), "Foreign\n");
+      if (scenario.name === "a retargeted link") {
+        yield* fs.remove(path.join(copy, "link"));
+        yield* fs.symlink("b.txt", path.join(copy, "link"));
+      }
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      const receiptReads = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          recording.reset();
+          const value = yield* effect;
+          return { value, receiptReads: recording.counts(receiptPath).readFile ?? 0 };
+        }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+      const receipt = yield* readCopiedDirectory(copy);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+      expect(yield* receiptReads(copiedDirectoryCanReplace(copy))).toEqual({
+        value: scenario.canReplace,
+        receiptReads: 1,
+      });
+      expect(yield* receiptReads(copiedDirectoryCanReplaceWith(copy, receipt.value))).toEqual({
+        value: scenario.canReplace,
+        receiptReads: 0,
+      });
+      expect(yield* receiptReads(copiedDirectoryIsCurrent(copy, source))).toEqual({
+        value: scenario.isCurrent,
+        receiptReads: 1,
+      });
+      expect(
+        yield* receiptReads(copiedDirectoryIsCurrentWith(copy, receipt.value, source)),
+      ).toEqual({ value: scenario.isCurrent, receiptReads: 0 });
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("distinguishes an absent receipt from a receipt listing no entries", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs
+        .makeTempDirectoryScoped({ prefix: "axm-copy-empty-" })
+        .pipe(Effect.flatMap(resolveNativeReferent));
+      const source = path.join(root, "source");
+      const copy = path.join(root, "copy");
+      yield* fs.makeDirectory(source);
+      yield* fs.makeDirectory(copy);
+      const captured = yield* captureCopiedDirectory(copy, source);
+      if (Option.isNone(captured)) return yield* Effect.die("the empty copy has a receipt");
+      expect(captured.value.files).toEqual([]);
+      const receipt = yield* readCopiedDirectory(copy);
+      if (Option.isNone(receipt)) return yield* Effect.die("the empty copy has a receipt");
+      expect(yield* copiedDirectoryCanReplace(copy)).toBe(true);
+      expect(yield* copiedDirectoryCanReplaceWith(copy, receipt.value)).toBe(true);
+      expect(yield* copiedDirectoryIsCurrent(copy, source)).toBe(true);
+      expect(yield* copiedDirectoryIsCurrentWith(copy, receipt.value, source)).toBe(true);
+      yield* fs.remove(yield* copiedDirectoryReceiptPath(copy));
+      expect(Option.isNone(yield* readCopiedDirectory(copy))).toBe(true);
+      expect(yield* copiedDirectoryCanReplace(copy)).toBe(false);
+      expect(yield* copiedDirectoryIsCurrent(copy, source)).toBe(false);
     }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
   );
 });

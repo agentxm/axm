@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import {
-  copiedDirectoryIsCurrent,
+  copiedDirectoryIsCurrentWith,
   nativeUnitReference,
   readCopiedDirectory,
   captureNativeLocationSet,
@@ -118,7 +118,11 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
             current =
               owned &&
               Option.isSome(receipt) &&
-              (yield* copiedDirectoryIsCurrent(address.entryPath, receipt.value.source));
+              (yield* copiedDirectoryIsCurrentWith(
+                address.entryPath,
+                receipt.value,
+                receipt.value.source,
+              ));
           }
           return {
             path: target,

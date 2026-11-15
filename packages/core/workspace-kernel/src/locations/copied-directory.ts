@@ -212,23 +212,24 @@ export const copiedDirectoryOwnsPath = (directory: string, target: string) =>
     return Option.isSome(identity) && sameIdentity(identity.value, entry.identity);
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
-/** A replacement requires the complete old copy to remain owned, with no foreign additions. */
-export const copiedDirectoryCanReplace = (directory: string) =>
+/**
+ * A replacement requires the complete old copy to remain owned, with no foreign additions.
+ * The receipt is one the caller just read with no filesystem work since; every entry is
+ * observed live here.
+ */
+export const copiedDirectoryCanReplaceWith = (directory: string, receipt: CopiedDirectoryReceipt) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const receipt = yield* readCopiedDirectory(directory);
     if (
-      Option.isNone(receipt) ||
-      (yield* unchangedCopiedFiles(directory, receipt.value)).length !==
-        receipt.value.files.length ||
-      (yield* unchangedCopiedLinks(directory, receipt.value)).length !== receipt.value.links.length
+      (yield* unchangedCopiedFiles(directory, receipt)).length !== receipt.files.length ||
+      (yield* unchangedCopiedLinks(directory, receipt)).length !== receipt.links.length
     )
       return false;
     const expected = new Set([
-      ...receipt.value.files.map((entry) => entry.path),
-      ...receipt.value.links.map((entry) => entry.path),
-      ...receipt.value.directories.map((entry) => entry.path),
+      ...receipt.files.map((entry) => entry.path),
+      ...receipt.links.map((entry) => entry.path),
+      ...receipt.directories.map((entry) => entry.path),
     ]);
     const pending = [""];
     let observed = 0;
@@ -239,7 +240,7 @@ export const copiedDirectoryCanReplace = (directory: string) =>
         const child = path.join(relative, name);
         if (!expected.has(child)) return false;
         observed += 1;
-        const expectedDirectory = receipt.value.directories.find((entry) => entry.path === child);
+        const expectedDirectory = receipt.directories.find((entry) => entry.path === child);
         if (expectedDirectory === undefined) continue;
         const absolute = path.join(directory, child);
         const address = yield* resolveNativeEntry(absolute);
@@ -256,6 +257,15 @@ export const copiedDirectoryCanReplace = (directory: string) =>
     }
     return observed === expected.size;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
+
+/** A replacement requires the complete old copy to remain owned, with no foreign additions. */
+export const copiedDirectoryCanReplace = (directory: string) =>
+  Effect.gen(function* () {
+    const receipt = yield* readCopiedDirectory(directory);
+    return (
+      Option.isSome(receipt) && (yield* copiedDirectoryCanReplaceWith(directory, receipt.value))
+    );
+  });
 
 /** Retire receipt-listed content only; additions and modified files remain foreign. */
 export const retireCopiedDirectory = <E = never, R = never>(
@@ -298,29 +308,34 @@ export const retireCopiedDirectory = <E = never, R = never>(
     return true;
   });
 
-/** Repeated synchronization does not rewrite a current bounded copy or its foreign siblings. */
-export const copiedDirectoryIsCurrent = (directory: string, source: string) =>
+/**
+ * Repeated synchronization does not rewrite a current bounded copy or its foreign siblings.
+ * The receipt is one the caller just read with no filesystem work since; every entry and the
+ * source tree are observed live here.
+ */
+export const copiedDirectoryIsCurrentWith = (
+  directory: string,
+  receipt: CopiedDirectoryReceipt,
+  source: string,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const receipt = yield* readCopiedDirectory(directory);
-    if (Option.isNone(receipt) || receipt.value.source !== source) return false;
-    for (const entry of receipt.value.directories) {
+    if (receipt.source !== source) return false;
+    for (const entry of receipt.directories) {
       const absolute = path.join(directory, entry.path);
       const address = yield* resolveNativeEntry(absolute);
       if (address.kind !== "directory" || address.entryPath !== absolute) return false;
       const identity = identityOf(yield* fs.stat(absolute));
       if (Option.isNone(identity) || !sameIdentity(identity.value, entry.identity)) return false;
     }
-    const currentFiles = yield* unchangedCopiedFiles(directory, receipt.value);
-    if (currentFiles.length !== receipt.value.files.length) return false;
-    if (
-      (yield* unchangedCopiedLinks(directory, receipt.value)).length !== receipt.value.links.length
-    )
+    const currentFiles = yield* unchangedCopiedFiles(directory, receipt);
+    if (currentFiles.length !== receipt.files.length) return false;
+    if ((yield* unchangedCopiedLinks(directory, receipt)).length !== receipt.links.length)
       return false;
-    const expectedFiles = new Map(receipt.value.files.map((file) => [file.path, file]));
-    const expectedLinks = new Map(receipt.value.links.map((link) => [link.path, link.target]));
-    const expectedDirectories = new Set(receipt.value.directories.map((entry) => entry.path));
+    const expectedFiles = new Map(receipt.files.map((file) => [file.path, file]));
+    const expectedLinks = new Map(receipt.links.map((link) => [link.path, link.target]));
+    const expectedDirectories = new Set(receipt.directories.map((entry) => entry.path));
     const pending = [""];
     let seen = 0;
     const total = expectedFiles.size + expectedLinks.size + expectedDirectories.size;
@@ -355,3 +370,13 @@ export const copiedDirectoryIsCurrent = (directory: string, source: string) =>
     }
     return seen === total;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
+
+/** Repeated synchronization does not rewrite a current bounded copy or its foreign siblings. */
+export const copiedDirectoryIsCurrent = (directory: string, source: string) =>
+  Effect.gen(function* () {
+    const receipt = yield* readCopiedDirectory(directory);
+    return (
+      Option.isSome(receipt) &&
+      (yield* copiedDirectoryIsCurrentWith(directory, receipt.value, source))
+    );
+  });

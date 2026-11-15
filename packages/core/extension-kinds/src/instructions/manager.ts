@@ -30,6 +30,7 @@ import {
   computeMaterializedTreeIntegrity,
   MaterializedFileTargetSchema,
   acceptedCanonicalObservation,
+  capturedManifestFor,
   removableAcceptedCanonicalPath,
   stableJson,
   type ProjectionDigest,
@@ -277,6 +278,7 @@ export const RuleManagerLive = Layer.effect(
           type: "rule",
           graph: args.graph,
           accepted: args.locked,
+          captureManifests: true,
         }),
       ).pipe(
         Effect.flatMap((contributors) =>
@@ -284,7 +286,15 @@ export const RuleManagerLive = Layer.effect(
             contributors,
             (contributor) =>
               Effect.gen(function* () {
-                const manifest = yield* readManifest(contributor.packageRoot);
+                // The decode this contributor's observation just made, when it
+                // is this package's rule manifest; otherwise the manifest is read.
+                const manifest = yield* Option.match(
+                  capturedManifestFor(path, contributor.manifest, contributor.packageRoot, "rule"),
+                  {
+                    onSome: Effect.succeed,
+                    onNone: () => readManifest(contributor.packageRoot),
+                  },
+                );
                 const body = yield* readRuleBody(contributor.packageRoot);
                 const marker = Option.match(contributor.identityOwner, {
                   onSome: (owner) =>

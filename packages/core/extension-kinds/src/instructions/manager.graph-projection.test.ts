@@ -30,12 +30,14 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   SourceHostProviders,
@@ -46,6 +48,7 @@ import {
   applyPlannedProjections,
   applyProjectionPlans,
   captureAgentOutputAuthority,
+  observeObservedPlans,
   observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
@@ -212,8 +215,18 @@ describe("RuleManager graph-derived region projection", () => {
   const makeTestLayer = (args: {
     readonly graph: DesiredStateGraph;
     readonly locked: RulesLockMap;
+    /** Replaces the native filesystem every service in the layer uses. */
+    readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
+    const wrapFileSystem = args.fileSystem;
+    const platform =
+      wrapFileSystem === undefined
+        ? NativePlatformTest
+        : Layer.provideMerge(
+            Layer.effect(FileSystem.FileSystem, Effect.map(FileSystem.FileSystem, wrapFileSystem)),
+            NativePlatformTest,
+          );
     return RuleManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
@@ -234,7 +247,7 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), platform),
       ),
     );
   };
@@ -385,6 +398,54 @@ describe("RuleManager graph-derived region projection", () => {
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
       expect(error).toMatchObject({ _tag: "ContributorTreeMismatch" });
       expect(readInstructions()).toBe(acceptedProjection);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("decodes each contributor's manifest once while planning the region", () => {
+    writeRulePackage("acquired-rule", { priority: 10 });
+    writeAuthoredRulePackage("authored-rule");
+    const acquiredRoot = nodePath.join(
+      baseDir,
+      "agent_extensions",
+      "registry.agentxm.ai",
+      OWNER,
+      "rules",
+      "acquired-rule",
+    );
+    const authoredRoot = nodePath.join(baseDir, "rules", "authored-rule");
+    let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+    const layer = makeTestLayer({
+      graph: completeGraph([settingsRuleNode("acquired-rule"), workspaceRuleNode("authored-rule")]),
+      locked: decodeLockMap({ "acquired-rule": registryLock(baseDir, "acquired-rule") }),
+      fileSystem: (native) => {
+        const recorded = makeRecordingFileSystem(native);
+        recording = recorded.recording;
+        return recorded.fileSystem;
+      },
+    });
+    const observed = workObservations(false);
+    return Effect.gen(function* () {
+      const manager = yield* RuleManager;
+      recording?.reset();
+      const observations = yield* manager
+        .observedProjectionPlans(undefined, observeObservedPlans)
+        .pipe(observed.provide);
+
+      expect(observations).toEqual([
+        expect.objectContaining({
+          expectedContributors: ["@acme/rules/acquired-rule", "@acme/rules/authored-rule"],
+        }),
+      ]);
+      // The acquired rule: the observation's manifest read and its tree hash.
+      expect(recording?.contentReads(nodePath.join(acquiredRoot, "rule.json"))).toBe(2);
+      // The authored rule: the observation's manifest read only.
+      expect(recording?.contentReads(nodePath.join(authoredRoot, "rule.json"))).toBe(1);
+      // The body is read once for rendering, plus the acquired tree hash.
+      expect(recording?.contentReads(nodePath.join(acquiredRoot, "src", "RULE.md"))).toBe(2);
+      expect(recording?.contentReads(nodePath.join(authoredRoot, "src", "RULE.md"))).toBe(1);
+      expect(
+        observed.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree"),
+      ).toHaveLength(1);
     }).pipe(Effect.provide(layer));
   });
 

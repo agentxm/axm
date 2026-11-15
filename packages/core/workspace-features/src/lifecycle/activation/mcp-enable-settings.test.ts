@@ -26,7 +26,7 @@ import {
   makeInstallWorld,
   type InstallWorld,
 } from "../../testing/install-world.js";
-import { DisableExtension, EnableExtension } from "./set-activation.js";
+import { EnableExtension } from "./set-activation.js";
 import { applyActivationAcceptingExecutionChanges } from "./test-helpers.js";
 
 const recordedNodeServices = Layer.provideMerge(
@@ -65,7 +65,7 @@ const measureEnableApply = (world: InstallWorld, between: Effect.Effect<void> = 
     const settingsPath = nodePath.join(world.workspace.root, "axm.json");
     recording.reset();
     const work = workObservations(false);
-    const resolution = yield* DisableExtension.previewOrApply(
+    const resolution = yield* EnableExtension.previewOrApply(
       candidate,
       acceptingExecutionChanges,
     ).pipe(work.provide);

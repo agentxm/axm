@@ -920,6 +920,51 @@ describe("HookManager", () => {
         }),
     );
 
+    it.effect("reads a prepared package's fixture receipt afresh in a later preparation", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-prepared-again-"),
+        );
+        try {
+          const configuration = { mode: { type: "string" } };
+          const packageRoot = nodePath.join(workspaceRoot, "source-audit");
+          writeHookPackage(packageRoot, "audit", { configuration });
+          const receiptPath = yield* writeReceipt(workspaceRoot, packageRoot, "corrupt");
+          const counted = yield* withRecordedManager(workspaceRoot, (manager, recording) =>
+            Effect.gen(function* () {
+              const prepare = manager
+                .prepareProjection([makeLocalHookRef("audit", packageRoot)], {
+                  hookConfigurations: new Map([["audit", { mode: "strict" }]]),
+                })
+                .pipe(
+                  Effect.map(({ agentOutcomes }) =>
+                    agentOutcomes.map(({ name, hook }) => ({
+                      name,
+                      state: hook?.fixtureEvidence.state,
+                    })),
+                  ),
+                );
+              const first = yield* prepare;
+              // The receipt changes between two preparations on the same manager.
+              yield* writeReceipt(workspaceRoot, packageRoot, {
+                configuration: { mode: "strict" },
+              });
+              recording.reset();
+              const second = yield* prepare;
+              return { first, second, receiptReads: recording.contentReads(receiptPath) };
+            }),
+          );
+          expect(counted).toEqual({
+            first: [{ name: "audit", state: "invalid" }],
+            second: [{ name: "audit", state: "historical" }],
+            receiptReads: 1,
+          });
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
     it.effect("reads a retained contributor's receipt once when nothing is prepared", () =>
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(

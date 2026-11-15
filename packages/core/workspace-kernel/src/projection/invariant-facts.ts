@@ -41,7 +41,9 @@ import {
   SettingsReader,
   WorkspaceLocation,
   workspaceReadPhaseFor,
+  type CurrentWorkspaceReadPhase,
   type DesiredStateGraph,
+  type WorkspaceLocationService,
 } from "../workspace-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
@@ -221,6 +223,57 @@ export interface WorkspaceInvariantFactsService {
     subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>,
   ) => Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
 }
+
+type ProjectionSubjects = ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>;
+
+/**
+ * The part of a subject selection that decides which facts an evaluation
+ * produces: aggregate participants are chosen by subject type, and subagent
+ * facts by subagent name. Two selections with the same key yield the same
+ * facts from the same graph and observations; fact order follows participant
+ * and graph order, never subject order. An absent selection observes every
+ * participant, so it has no key and its facts are never reused.
+ */
+export const projectionParticipantSelectionKey = (subjects: ProjectionSubjects): string =>
+  JSON.stringify([
+    uniqueSorted(subjects.map(({ type }) => type)),
+    uniqueSorted(subjects.flatMap(({ type, name }) => (type === "subagent" ? [name] : []))),
+  ]);
+
+/**
+ * Facts one owner evaluated inside a read phase, handed to a consumer in the
+ * same phase. The consumer reuses them only while that phase is still active
+ * for the same location, over the same graph and selection key.
+ */
+export interface PreparedProjectionFacts {
+  readonly phase: NonNullable<ServiceMap.Service.Shape<typeof CurrentWorkspaceReadPhase>>;
+  readonly location: WorkspaceLocationService;
+  readonly graph: DesiredStateGraph;
+  readonly selectionKey: string;
+  readonly facts: ReadonlyArray<ProjectionInvariantFact>;
+}
+
+const freezeDeep = (value: unknown, visited: WeakSet<object>): void => {
+  // Facts carry no byte views; a nonempty one cannot be frozen at all.
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    visited.has(value) ||
+    ArrayBuffer.isView(value)
+  )
+    return;
+  visited.add(value);
+  for (const child of Object.values(value)) freezeDeep(child, visited);
+  Object.freeze(value);
+};
+
+/** Freeze evaluated facts so every consumer of a handoff observes the same values. */
+export const freezeProjectionFacts = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): ReadonlyArray<ProjectionInvariantFact> => {
+  freezeDeep(facts, new WeakSet());
+  return facts;
+};
 
 export class WorkspaceInvariantFacts extends ServiceMap.Service<
   WorkspaceInvariantFacts,

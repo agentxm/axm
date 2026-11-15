@@ -55,8 +55,10 @@ import {
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  projectionParticipantSelectionKey,
   WorkspaceInvariantFacts,
   withMcpInspectionReadView,
+  type PreparedProjectionFacts,
   type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
 import {
@@ -68,6 +70,7 @@ import {
   WorkspaceRecords,
   withWorkspaceObservationReadView,
   withFreshWorkspaceObservationReadView,
+  workspaceReadPhaseFor,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { FootprintRecorder } from "@agentxm/workspace-kernel/settlement";
@@ -282,6 +285,28 @@ const planWorkspaceMaterialization = (args: {
   });
 
 /**
+ * Prepared facts stand in for an evaluation only when nothing that decides the
+ * facts can differ: the producing read phase is still the active one for this
+ * location, the graph is the phase's own, and the subject selection chooses
+ * the same participants. An unscoped evaluation is never served from them.
+ */
+const reusablePreparedFacts = (
+  prepared: PreparedProjectionFacts | undefined,
+  graph: DesiredStateGraph,
+  subjects: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }> | undefined,
+) =>
+  Effect.gen(function* () {
+    if (prepared === undefined || subjects === undefined) return undefined;
+    const location = yield* WorkspaceLocation;
+    return location === prepared.location &&
+      (yield* workspaceReadPhaseFor(location)) === prepared.phase &&
+      graph === prepared.graph &&
+      projectionParticipantSelectionKey(subjects) === prepared.selectionKey
+      ? prepared.facts
+      : undefined;
+  });
+
+/**
  * Settle a reconciliation request into the plan it will run.
  *
  * A workspace that already matches its declaration settles as
@@ -298,13 +323,14 @@ const collectSupplementalSyncSteps = (args: {
   readonly subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>;
   readonly collected: CollectedMaterializeSteps;
   readonly conversion: StepFailureConversionService;
+  /** Facts another owner evaluated in this read phase; only local assessment offers them. */
+  readonly prepared?: PreparedProjectionFacts;
 }) =>
   Effect.gen(function* () {
-    const { graph, planningGraph, selection, subjects, collected, conversion } = args;
-    const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(
-      graph,
-      subjects,
-    );
+    const { graph, planningGraph, selection, subjects, collected, conversion, prepared } = args;
+    const projectionFacts =
+      (yield* reusablePreparedFacts(prepared, graph, subjects)) ??
+      (yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph, subjects));
     const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
       subject.unitId.startsWith("hook:"),
     );
@@ -655,7 +681,7 @@ const previewOrApplySyncWorkspace = (
 /** The workspace-reconciliation use case. */
 export const SyncWorkspace = {
   /** Local materialization evidence only; this does not resolve or apply a sync candidate. */
-  assessLocalMaterialization: (selection: SyncSelection) =>
+  assessLocalMaterialization: (selection: SyncSelection, prepared?: PreparedProjectionFacts) =>
     withWorkspaceObservationReadView(
       withMcpInspectionReadView(
         Effect.gen(function* () {
@@ -675,6 +701,7 @@ export const SyncWorkspace = {
             collected,
             conversion: adapter,
             ...(selection.subjects === undefined ? {} : { subjects: selection.subjects }),
+            ...(prepared === undefined ? {} : { prepared }),
           });
           const steps: ReadonlyArray<SyncPlanStep> = [
             ...collected.steps,

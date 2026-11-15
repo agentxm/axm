@@ -11,10 +11,14 @@ import {
   formatDesiredIdentity,
   desiredIdentityFqn,
   observeDesiredCanonical,
+  workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   aggregateOwnershipUnits,
+  freezeProjectionFacts,
+  projectionParticipantSelectionKey,
   WorkspaceInvariantFacts,
+  type PreparedProjectionFacts,
 } from "@agentxm/workspace-kernel/projection";
 import {
   assessOfficialAxmSkill,
@@ -52,13 +56,26 @@ export const captureLocalCheck = <LE, LR, CE, CR>(
           : [{ type: item.identity.type, name: item.identity.name }],
       );
       const declaredScope = expandCheckScope({ selected, graph, units: [] });
-      const projectionFacts =
+      const unfiltered =
+        request.selection.kind === "all" &&
+        (request.types?.length ?? 0) === 0 &&
+        (request.agents?.length ?? 0) === 0;
+      // A scoped convergence assessment may reuse the declared facts. An
+      // unfiltered one must observe every participant, so it never does.
+      const offersFacts =
+        declaredScope.subjects.length > 0 && !unfiltered && request.checks.includes("convergence");
+      // The phase the facts are observed in; convergence reuses them only while
+      // it stays active and its selection chooses the same participants.
+      const factsPhase = offersFacts ? yield* workspaceReadPhaseFor(location) : undefined;
+      const declaredFacts =
         declaredScope.subjects.length === 0
           ? []
           : yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(
               graph,
               declaredScope.subjects,
             );
+      // Frozen before any use when convergence may read these same facts below.
+      const projectionFacts = offersFacts ? freezeProjectionFacts(declaredFacts) : declaredFacts;
       const scope = expandCheckScope({
         selected,
         graph,
@@ -165,17 +182,26 @@ export const captureLocalCheck = <LE, LR, CE, CR>(
             }),
           )
         : undefined;
+      const prepared: PreparedProjectionFacts | undefined =
+        factsPhase === undefined
+          ? undefined
+          : Object.freeze({
+              phase: factsPhase,
+              location,
+              graph,
+              selectionKey: projectionParticipantSelectionKey(declaredScope.subjects),
+              facts: projectionFacts,
+            });
       const convergence = request.checks.includes("convergence")
         ? yield* Effect.result(
-            owners.convergence({
-              target: Option.none(),
-              types: [],
-              ...(request.selection.kind === "all" &&
-              (request.types?.length ?? 0) === 0 &&
-              (request.agents?.length ?? 0) === 0
-                ? {}
-                : { subjects: scope.subjects }),
-            }),
+            owners.convergence(
+              {
+                target: Option.none(),
+                types: [],
+                ...(unfiltered ? {} : { subjects: scope.subjects }),
+              },
+              prepared,
+            ),
           )
         : undefined;
       const changedReads = yield* inspectionReadDiagnostics;

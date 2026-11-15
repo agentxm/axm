@@ -95,6 +95,11 @@ export {
   type ProjectionInvariantFact,
 } from "./invariant-facts.js";
 export {
+  freezeProjectionFacts,
+  projectionParticipantSelectionKey,
+  type PreparedProjectionFacts,
+} from "./invariant-facts.js";
+export {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,

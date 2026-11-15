@@ -108,6 +108,7 @@ import {
   SourceHostProviders,
   WorkspaceCatalog,
   listRemoteRefs,
+  withSharedGitDiscoveryCheckouts,
 } from "@agentxm/workspace-kernel/sources";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -1297,18 +1298,7 @@ export interface WorkspaceUpdatePlanRequest {
   readonly nonInteractive: boolean;
 }
 
-/**
- * Sweep every selected configured entry and fold the surviving steps into one
- * best-effort plan, or report that the selection had nothing configured to
- * advance.
- */
-export const buildWorkspaceUpdatePlan: (
-  request: WorkspaceUpdatePlanRequest,
-) => Effect.Effect<
-  WorkspaceUpdatePlanResult,
-  ConfiguredUpdateFailure,
-  WorkspaceUpdateCollectorContext | ReleaseAgePosture
-> = Effect.fnUntraced(function* (args) {
+const sweepConfiguredEntries = Effect.fnUntraced(function* (args: WorkspaceUpdatePlanRequest) {
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
   const accepted = retainedPackageBindings(yield* (yield* LockfileReader).lockfile);
   const priorGraph = yield* (yield* DesiredStateReader).graph();
@@ -1506,3 +1496,17 @@ export const buildWorkspaceUpdatePlan: (
     ),
   } satisfies WorkspaceUpdatePlanResult;
 });
+
+/**
+ * Sweep every selected configured entry and fold the surviving steps into one
+ * best-effort plan, or report that the selection had nothing configured to
+ * advance. Every entry the sweep resolves from one Git URL and revision is
+ * discovered in one shared checkout.
+ */
+export const buildWorkspaceUpdatePlan = (
+  request: WorkspaceUpdatePlanRequest,
+): Effect.Effect<
+  WorkspaceUpdatePlanResult,
+  ConfiguredUpdateFailure,
+  WorkspaceUpdateCollectorContext | ReleaseAgePosture
+> => withSharedGitDiscoveryCheckouts(sweepConfiguredEntries(request));

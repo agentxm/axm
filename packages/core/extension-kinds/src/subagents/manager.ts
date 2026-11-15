@@ -940,10 +940,16 @@ export const SubagentManagerLive = Layer.effect(
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
         // A caller about to write refuses an unrecorded file first, from the
         // package this call just loaded, as `configuredAgentOutcomesForRef`'s
-        // destination validation does.
-        if (options?.validateDestinations === true) yield* preflight(ref, pkg, configuredAgents);
-        // Observation reports an unrecorded file as not current; only a write refuses it.
-        const prepared = yield* preflight(ref, pkg, configuredAgents, "report");
+        // destination validation does; that preflight's preparation and plan
+        // are the ones a reporting preflight would compute from the same
+        // inputs. Otherwise observation reports an unrecorded file as not
+        // current; only a write refuses it.
+        const prepared = yield* preflight(
+          ref,
+          pkg,
+          configuredAgents,
+          options?.validateDestinations === true ? "refuse" : "report",
+        );
         // The preflight's preparation and plan serve the rest of this call, but
         // never outlive the read phase they observed through: once that phase
         // ends, the call prepares and plans again on live state.

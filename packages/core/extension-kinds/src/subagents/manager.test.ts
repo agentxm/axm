@@ -1164,6 +1164,105 @@ describe("SubagentManager", () => {
       );
     });
 
+    it.effect(
+      "observes a projection with one preparation per configured agent when it validates destinations",
+      () => {
+        const { sourceDir, resource, layer } = resourceFixture();
+        const natives = [".claude/agents/planner.md", ".codex/agents/planner.toml"].map((unit) =>
+          nodePath.join(tmpDir, "project", unit),
+        );
+        const spans = makeSpanCounter();
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const recording = yield* FileSystemRecorder;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          const measure = (options: { readonly validateDestinations?: boolean }) =>
+            Effect.gen(function* () {
+              spans.reset();
+              recording.reset();
+              const observed = yield* manager.projectionObservation(ref, {
+                sourceRoot: sourceDir,
+                ...options,
+              });
+              return {
+                observed,
+                prepare: spans.count("axm.subagent.prepare"),
+                compile: spans.count("axm.subagent.compile"),
+                resourceReads: recording.contentReads(resource),
+                planInspections: natives.map((native) => recording.counts(native).stat ?? 0),
+                destinationReads: natives.map((native) => recording.contentReads(native)),
+              };
+            });
+          const validated = yield* measure({ validateDestinations: true });
+          const unvalidated = yield* measure({});
+          const counts = ({ observed: _observed, ...work }: typeof validated) => work;
+          expect({ validated: counts(validated), unvalidated: counts(unvalidated) }).toEqual({
+            // The refusing preflight's preparation and plan serve the
+            // observation; it still reads each planned file to refuse an
+            // unrecorded one, and the observation reads it to judge the write.
+            validated: {
+              prepare: 2,
+              compile: 2,
+              resourceReads: 1,
+              planInspections: [4, 4],
+              destinationReads: [2, 2],
+            },
+            // Without destination checks the call prepares each agent once, as before.
+            unvalidated: {
+              prepare: 2,
+              compile: 2,
+              resourceReads: 1,
+              planInspections: [4, 4],
+              destinationReads: [1, 1],
+            },
+          });
+          expect(validated.observed).toEqual(unvalidated.observed);
+        }).pipe(
+          Effect.provide(layer),
+          Effect.withTracer(spans.tracer),
+          Effect.withTracerEnabled(true),
+        );
+      },
+    );
+
+    it.effect(
+      "refuses an unrecorded differing file when an observation validates destinations",
+      () => {
+        const sourceDir = nodePath.join(tmpDir, "source", "planner");
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
+        const projectDir = nodePath.join(tmpDir, "project");
+        nodeFs.mkdirSync(nodePath.join(projectDir, ".axm"), { recursive: true });
+        const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+        nodeFs.mkdirSync(nodePath.dirname(native), { recursive: true });
+        nodeFs.writeFileSync(native, "Written by hand\n");
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          const error = yield* manager
+            .projectionObservation(ref, { sourceRoot: sourceDir, validateDestinations: true })
+            .pipe(Effect.flip);
+          expect(error).toMatchObject({
+            _tag: "SubagentNativeConflict",
+            problem: { code: "projection-output-unrecorded", paths: [native] },
+          });
+          expect(describeTestFailure(error)).toContain(
+            `Existing Subagent file has no recorded projection: ${native}`,
+          );
+          // Without destination checks the same file only reads as not current.
+          const observed = yield* manager.projectionObservation(ref, { sourceRoot: sourceDir });
+          expect(observed.current).toBe(false);
+          expect(nodeFs.readFileSync(native, "utf8")).toBe("Written by hand\n");
+        }).pipe(
+          Effect.provide(
+            makeTestLayer({
+              axmDir: nodePath.join(projectDir, ".axm"),
+              agents: [codingAgentForId("claude-code")],
+            }),
+          ),
+        );
+      },
+    );
+
     it.effect("refuses a misconfigured placement through the destination preflight", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");

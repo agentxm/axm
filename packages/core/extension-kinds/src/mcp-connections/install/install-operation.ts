@@ -71,6 +71,23 @@ const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): 
       (value.server.remotes === undefined || value.server.remotes.length === 0),
   });
 
+/** Freeze a decoded value and everything it holds. */
+const freezeDecoded = (value: unknown, visited: WeakSet<object>): void => {
+  if (typeof value !== "object" || value === null || visited.has(value)) return;
+  visited.add(value);
+  for (const child of Object.values(value)) freezeDecoded(child, visited);
+  Object.freeze(value);
+};
+
+/**
+ * The canonical manifest this install decoded, frozen in place: selection,
+ * binding and every name's agent projection read this one value.
+ */
+const frozenManifest = (manifest: McpServerManifest): McpServerManifest => {
+  freezeDecoded(manifest, new WeakSet());
+  return manifest;
+};
+
 interface AgentOutcome {
   readonly agentId: MaterializationTargetId;
   readonly outcome: McpServerSyncOutcome;
@@ -121,6 +138,8 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
   readonly entry: McpServerEntry;
+  /** The canonical manifest this install already decoded, when it read one. */
+  readonly manifest: Option.Option<McpServerManifest>;
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -171,7 +190,11 @@ const syncConfiguredAgentsOnInstall = (args: {
             source: args.entry.source,
             nativeComponent: args.entry.nativeComponent,
           })
-        : syncManifestMcpServerToAgents(syncArgs);
+        : syncManifestMcpServerToAgents(
+            Option.isSome(args.manifest)
+              ? { ...syncArgs, manifest: args.manifest.value }
+              : syncArgs,
+          );
       outcomes = configuredAgentIds.map((agentId, index) => ({
         agentId,
         outcome: synced[index] ?? {
@@ -269,7 +292,7 @@ export const installMcpServer: (
       ref.refType === "local" || ref.refType === "git-hosted" ? ref.nativeComponent : undefined;
     const manifest =
       nativeComponent === undefined
-        ? yield* readMcpServerManifestAt(canonicalPath)
+        ? Option.map(yield* readMcpServerManifestAt(canonicalPath), frozenManifest)
         : Option.none<McpServerManifest>();
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const currentMcpServers = yield* settings.entries("mcp-server");
@@ -403,6 +426,7 @@ export const installMcpServer: (
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
             entry: projectionEntry,
+            manifest,
           });
         }),
       { concurrency: 1 },

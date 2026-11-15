@@ -13,7 +13,9 @@ import { recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import * as FileSystem from "effect/FileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -73,6 +75,12 @@ const DEFAULT_REGISTRY_LOCATION = "file:///tmp/reg";
 
 type AcceptedResolutions = NonNullable<Parameters<typeof WorkspaceReadTest>[0]["lockfile"]>;
 
+/** Declared workspace state a case starts from, in place of an empty workspace. */
+interface DeclaredWorkspace {
+  readonly settings?: NonNullable<Parameters<typeof WorkspaceReadTest>[0]["settings"]>;
+  readonly graph?: NonNullable<Parameters<typeof WorkspaceReadTest>[0]["graph"]>;
+}
+
 /**
  * The accepted resolutions a test workspace holds: one Registry row per
  * canonical MCP tree present under the install root, at the tree's current
@@ -129,7 +137,8 @@ const withServices = (
   },
   agentRepo?: CodingAgentRepositoryService,
   lockfile?: AcceptedResolutions,
-) => makeServices(axmDir, wsOverrides, agentRepo, lockfile).layer;
+  declared?: DeclaredWorkspace,
+) => makeServices(axmDir, wsOverrides, agentRepo, lockfile, declared).layer;
 
 const makeServices = (
   axmDir: string,
@@ -141,6 +150,7 @@ const makeServices = (
   },
   agentRepo?: CodingAgentRepositoryService,
   lockfile?: AcceptedResolutions,
+  declared?: DeclaredWorkspace,
 ) => {
   const setMcpServer = wsOverrides?.setMcpServerFn;
   const setAcceptedMcpServer = wsOverrides?.setAcceptedMcpServerFn;
@@ -180,7 +190,8 @@ const makeServices = (
         WorkspaceReadTest({
           baseDir: path.dirname(axmDir),
           runtimeDir: axmDir,
-          settings: { agents: [] },
+          settings: declared?.settings ?? { agents: [] },
+          ...(declared?.graph === undefined ? {} : { graph: declared.graph }),
           ...(lockfile === undefined
             ? { acceptedResolutions: acceptedCanonicalTrees(path.dirname(axmDir)) }
             : { lockfile }),
@@ -1017,5 +1028,236 @@ describe("installMcpServer", () => {
         });
       }),
     );
+
+    describe("canonical manifest reads", () => {
+      /**
+       * Install with a recording filesystem and a work observer, after the
+       * fixture setup has been forgotten, and count the reads and decodes of
+       * the canonical manifest.
+       */
+      const observeManifestReads = (
+        manifestPath: string,
+        op: InstallMcpServerOperation,
+        layer: ReturnType<typeof withServices>,
+      ) =>
+        Effect.gen(function* () {
+          const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+          const observations = workObservations(false);
+          recording.reset();
+          const result = yield* installMcpServer(op).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            observations.provide,
+            Effect.provide(layer),
+          );
+          return {
+            result,
+            reads: recording.contentReads(manifestPath),
+            decodes: observations.facts.filter(
+              (fact) =>
+                fact.kind === "axm.parse.manifest" &&
+                fact.attributes["axm.manifest.kind"] === "mcp",
+            ).length,
+          };
+        }).pipe(Effect.provide(NativePlatformTest));
+
+      it.effect("decodes the canonical manifest once for selection and agent projection", () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          const canonicalPath = setupRegistryCanonical(base, "@community");
+          getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+          getConfiguredAgentsMock.mockReturnValue(Effect.succeed([stubAgent("claude-code")]));
+
+          const observed = yield* observeManifestReads(
+            path.join(canonicalPath, "mcp.json"),
+            makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+            withServices(axmDir, undefined, mockAgentRepo),
+          );
+
+          expect(observed.result.message).toContain("agent-sync=green");
+          // The other content read is materialization's integrity pass over the tree.
+          expect({ decodes: observed.decodes, reads: observed.reads }).toEqual({
+            decodes: 1,
+            reads: 2,
+          });
+          expect(JSON.parse(fs.readFileSync(path.join(base, ".mcp.json"), "utf8"))).toMatchObject({
+            mcpServers: { "my-server": expect.objectContaining({ command: "npx" }) },
+          });
+        }),
+      );
+
+      it.effect("decodes the canonical manifest once without configured agents", () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          const canonicalPath = setupRegistryCanonical(base, "@community");
+          getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+          getConfiguredAgentsMock.mockReturnValue(Effect.succeed([]));
+
+          const observed = yield* observeManifestReads(
+            path.join(canonicalPath, "mcp.json"),
+            makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+            withServices(axmDir, undefined, mockAgentRepo),
+          );
+
+          expect(observed.result.message).toContain("agent-sync=green");
+          // The other content read is materialization's integrity pass over the tree.
+          expect({ decodes: observed.decodes, reads: observed.reads }).toEqual({
+            decodes: 1,
+            reads: 2,
+          });
+        }),
+      );
+
+      it.effect("keeps the sync's own decode for a native component's preference entry", () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          const packageDir = path.join(base, "plugin-package");
+          fs.mkdirSync(packageDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(packageDir, "mcp.json"),
+            JSON.stringify({
+              owner: "@community",
+              type: "mcp-server",
+              name: "my-server",
+              version: "1.0.0",
+              server: {
+                name: "io.github.community/my-server",
+                description: "Plugin package",
+                version: "1.0.0",
+                packages: [
+                  {
+                    registryType: "npm",
+                    identifier: "@community/my-server",
+                    version: "1.0.0",
+                    transport: { type: "stdio" },
+                  },
+                ],
+              },
+            }),
+          );
+          fs.writeFileSync(
+            path.join(packageDir, "plugin-mcp.json"),
+            JSON.stringify({ mcpServers: { upstream: { command: "node" } } }),
+          );
+          const ref = {
+            type: "mcp-server",
+            refType: "local",
+            source: { type: "local", path: "plugin-package" },
+            owner: decodeHandleSync("@community"),
+            name: decodeExtensionNameSync("my-server"),
+            server: { name: decodeExtensionNameSync("my-server") },
+            location: `file://${packageDir}`,
+            nativeComponent: {
+              format: "agent-plugins",
+              configPath: "plugin-mcp.json",
+              name: "upstream",
+            },
+          } as const satisfies McpServerExtensionRef;
+          getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+          getConfiguredAgentsMock.mockReturnValue(Effect.succeed([stubAgent("claude-code")]));
+          const canonicalPath = path.join(
+            base,
+            "agent_extensions",
+            Result.getOrThrow(acquiredPackageRelativePath(ref, "mcps", ref.name)),
+          );
+
+          const observed = yield* observeManifestReads(
+            path.join(canonicalPath, "mcp.json"),
+            makeOp({ ref }),
+            withServices(axmDir, undefined, mockAgentRepo, undefined, {
+              settings: {
+                agents: [],
+                mcpServers: {
+                  "my-server": {
+                    kind: "configuration",
+                    distribution: {
+                      kind: "package",
+                      registryType: "npm",
+                      identifier: "@community/my-server",
+                      transport: "stdio",
+                    },
+                  },
+                },
+              },
+            }),
+          );
+
+          // The install reads no manifest for a native component; the
+          // preference entry projects through the manifest, which the sync
+          // reads and decodes itself.
+          expect(observed.result.message).toContain("agent-sync=green");
+          expect({ decodes: observed.decodes, reads: observed.reads }).toEqual({
+            decodes: 1,
+            reads: 1,
+          });
+          expect(JSON.parse(fs.readFileSync(path.join(base, ".mcp.json"), "utf8"))).toMatchObject({
+            mcpServers: { "my-server": expect.objectContaining({ command: "npx" }) },
+          });
+        }),
+      );
+
+      it.effect("decodes the updated manifest once for every name sharing its source", () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          const { registryRoot } = setupLocalRegistry({ version: "2.0.0" });
+          const location = `file://${registryRoot}`;
+          const canonicalPath = setupRegistryCanonical(
+            base,
+            "@community",
+            "my-server",
+            true,
+            location,
+          );
+          const accepted = yield* acceptedCanonicalTrees(base, location);
+          const key = McpSourceKey.encode({
+            kind: "registry",
+            endpoint: decodeRegistryEndpointSync(location),
+            owner: "@community",
+            name: "my-server",
+          });
+          // Both names already persist the fixture's one package distribution.
+          const packageDistribution = {
+            kind: "package",
+            registryType: "npm",
+            identifier: "example-server",
+            transport: "stdio",
+          } as const;
+          getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+          getConfiguredAgentsMock.mockReturnValue(Effect.succeed([stubAgent("claude-code")]));
+
+          const observed = yield* observeManifestReads(
+            path.join(canonicalPath, "mcp.json"),
+            makeOp({ ref: makeRegistryRef({ integrity: "", version: "2.0.0", location }) }),
+            withServices(axmDir, undefined, mockAgentRepo, accepted, {
+              settings: {
+                agents: [],
+                mcpServers: {
+                  "my-server": { kind: "configuration", distribution: packageDistribution },
+                  "second-name": { kind: "configuration", distribution: packageDistribution },
+                },
+              },
+              graph: {
+                nodes: [],
+                mcpSourceClosures: [{ key, localNames: ["my-server", "second-name"], origins: [] }],
+                problems: [],
+                packMembership: [],
+              },
+            }),
+          );
+
+          expect(observed.result.message).toContain("agent-sync=green");
+          // The other content reads are the acquisition's integrity passes over the tree.
+          expect({ decodes: observed.decodes, reads: observed.reads }).toEqual({
+            decodes: 1,
+            reads: 3,
+          });
+          expect(JSON.parse(fs.readFileSync(path.join(base, ".mcp.json"), "utf8"))).toMatchObject({
+            mcpServers: {
+              "my-server": expect.objectContaining({ args: ["-y", "example-server@2.0.0"] }),
+              "second-name": expect.objectContaining({ args: ["-y", "example-server@2.0.0"] }),
+            },
+          });
+        }),
+      );
+    });
   });
 });

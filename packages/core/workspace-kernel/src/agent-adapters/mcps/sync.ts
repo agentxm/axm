@@ -152,6 +152,11 @@ export interface SyncManifestMcpServerArgs extends Omit<
   "owner" | "resolvedVersion"
 > {
   readonly agentIds: ReadonlyArray<string>;
+  /**
+   * The frozen manifest the caller decoded from `canonicalPath` within the
+   * same operation; when absent, the sync reads and decodes it itself.
+   */
+  readonly manifest?: McpServerManifest;
 }
 
 export interface ValidateManifestMcpServerTargetsArgs {
@@ -732,7 +737,7 @@ export const validatePluginMcpServerTargets = (args: ValidatePluginMcpServerTarg
 
 export interface SyncPluginMcpServerArgs extends Omit<
   SyncManifestMcpServerArgs,
-  "owner" | "resolvedVersion"
+  "owner" | "resolvedVersion" | "manifest"
 > {
   readonly source: string;
   readonly nativeComponent: NativeMcpComponent;
@@ -787,9 +792,11 @@ export const syncManifestMcpServerToAgents = (
   Effect.gen(function* () {
     if (args.agentIds.length === 0) return [];
     const path = yield* Path.Path;
-    const manifest = yield* decodeMcpServerManifestAt(
-      path.join(args.canonicalPath, manifestFilenameForType("mcp-server")),
-    );
+    const manifest =
+      args.manifest ??
+      (yield* decodeMcpServerManifestAt(
+        path.join(args.canonicalPath, manifestFilenameForType("mcp-server")),
+      ));
     const plan = yield* plannedTargets(
       planMcpServerTargets({
         groups: yield* resolveConfiguredMcpTargets({

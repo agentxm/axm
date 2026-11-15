@@ -63,10 +63,18 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
     ...(previous ?? { kind: "configuration" as const }),
     configuration: request.configuration,
   };
-  const options = { hookConfigurations: new Map([[request.name, request.configuration]]) };
+  const hookConfigurations = new Map([[request.name, request.configuration]]);
+  // Each projection takes the configured package's hash from its own boundary:
+  // preparation's here, and the locked recheck's in the transition.
+  const projectionOptions = (verifiedContentHash: string) => ({
+    hookConfigurations,
+    preparedContentHashes: new Map([
+      [request.name, { packageRoot, contentHash: verifiedContentHash }],
+    ]),
+  });
   // A disabled hook has no native plans to observe.
   const observations = canonical.value.desired.enabled
-    ? yield* hooks.observedProjectionPlans(options, observeObservedPlans)
+    ? yield* hooks.observedProjectionPlans(projectionOptions(contentHash), observeObservedPlans)
     : [];
   const exposureRefs = yield* projectionExposureRefs({
     observations,
@@ -91,12 +99,15 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
         name: request.name,
       });
       const current = (yield* settings.entries("hook"))[request.name];
-      if (
-        Option.isNone(currentCanonical) ||
-        currentCanonical.value.observation.path !== packageRoot ||
-        JSON.stringify(current) !== JSON.stringify(previous) ||
-        (yield* computePackageContentHash(packageRoot)) !== contentHash
-      ) {
+      // The package is hashed under the lock only once the canonical
+      // observation, its path, and the settings entry are all unchanged.
+      const lockedContentHash =
+        Option.isSome(currentCanonical) &&
+        currentCanonical.value.observation.path === packageRoot &&
+        JSON.stringify(current) === JSON.stringify(previous)
+          ? yield* computePackageContentHash(packageRoot)
+          : undefined;
+      if (Option.isNone(currentCanonical) || lockedContentHash !== contentHash) {
         return yield* fail(
           "Hook extension content or configuration changed after preview; prepare the change again",
         );
@@ -105,7 +116,7 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
       // observation is that validation, taken before the settings write. Native
       // plans retain aggregate ownership. A disabled hook has no native plans.
       if (currentCanonical.value.desired.enabled)
-        yield* hooks.observedProjectionPlans(options, (observed) =>
+        yield* hooks.observedProjectionPlans(projectionOptions(lockedContentHash), (observed) =>
           Effect.gen(function* () {
             yield* observeObservedPlans(observed);
             yield* writer.setEntry("hook", request.name, next);

@@ -190,6 +190,22 @@ const configuredHookWriterTargets = (
     return targets;
   });
 
+/** The caller's hash from this same boundary when its root matches exactly; otherwise hashed here. */
+const preparedContentHash = (
+  prepared: NativeProjectionOptions["preparedContentHashes"],
+  name: string,
+  packageRoot: string,
+): Effect.Effect<
+  string,
+  Effect.Error<ReturnType<typeof computePackageContentHash>>,
+  Effect.Services<ReturnType<typeof computePackageContentHash>>
+> => {
+  const entry = prepared?.get(name);
+  return entry !== undefined && entry.packageRoot === packageRoot
+    ? Effect.succeed(entry.contentHash)
+    : computePackageContentHash(packageRoot);
+};
+
 const quoteShell = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
 
 const valueShell = (
@@ -379,6 +395,7 @@ export const HookManagerLive = Layer.effect(
     const selectHookContributors = (args: {
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["accepted"];
+      readonly preparedContentHashes?: NativeProjectionOptions["preparedContentHashes"];
     }) =>
       provideRead(
         activeContributors({
@@ -413,7 +430,11 @@ export const HookManagerLive = Layer.effect(
                     (yield* (yield* planningSettings).entries("hook"))[contributor.node.name]
                       ?.configuration ?? {},
                   root: path.relative(baseDir, contributor.packageRoot),
-                  contentHash: yield* computePackageContentHash(contributor.packageRoot),
+                  contentHash: yield* preparedContentHash(
+                    args.preparedContentHashes,
+                    contributor.node.name,
+                    contributor.packageRoot,
+                  ),
                 };
               }),
             { concurrency: 1 },
@@ -695,6 +716,7 @@ export const HookManagerLive = Layer.effect(
             ),
           },
           locked,
+          preparedContentHashes: options?.preparedContentHashes,
         });
         const disabledNames = new Set(
           graph.nodes

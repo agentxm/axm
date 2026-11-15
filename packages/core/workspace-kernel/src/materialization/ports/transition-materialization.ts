@@ -24,6 +24,14 @@ export interface NativeProjectionOptions {
   /** Prospective values validated and rendered before settings are committed. */
   readonly hookConfigurations?: ReadonlyMap<string, HookConfigurationValues>;
   /**
+   * Package content hashes, by hook name, that the caller computed in this
+   * same boundary; used only when the package root matches exactly.
+   */
+  readonly preparedContentHashes?: ReadonlyMap<
+    string,
+    { readonly packageRoot: string; readonly contentHash: string }
+  >;
+  /**
    * `deferred` when a later step of the same operation reconciles instruction
    * aliases once every contributor region is written.
    */

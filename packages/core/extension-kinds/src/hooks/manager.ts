@@ -34,6 +34,7 @@ import {
   hookConfigurationHash,
   readHookEvidence,
   computeMaterializedTreeIntegrity,
+  computeMaterializedTreeDigests,
   enabledConfiguredEntries,
   computeExtensionPathsForLayout,
   type DesiredStateGraph,
@@ -929,13 +930,14 @@ export const HookManagerLive = Layer.effect(
                   "hooks",
                   ref.hook.name,
                 ).canonicalPath;
+                const { treeIntegrity, contentHash } = yield* computeMaterializedTreeDigests(root);
                 return {
                   name: ref.hook.name,
                   marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
                   manifest,
                   root: path.relative(baseDir, canonicalPath),
-                  treeIntegrity: yield* computeMaterializedTreeIntegrity(root),
-                  contentHash: yield* computePackageContentHash(root),
+                  treeIntegrity,
+                  contentHash,
                   configuration:
                     options?.hookConfigurations?.get(ref.hook.name) ??
                     (yield* (yield* planningSettings).entries("hook"))[ref.hook.name]

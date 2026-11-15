@@ -110,10 +110,15 @@ describe("ForkExtension prepared work", () => {
     },
   } as const;
 
+  // The HookManager frames a prepared hook package's tree integrity and
+  // content hash from one walk and one read of each file.
+  const sharedTreeWalk = { rule: 0, hook: 1 } as const;
+
   for (const type of ["rule", "hook"] as const)
     it.effect(`hashes an enabled ${type} fork's staged package once while preparing`, () => {
       const { created, source } = workspaceWith(type);
       const measured = before[type];
+      const shared = sharedTreeWalk[type];
       return Effect.gen(function* () {
         const { prepare, apply, staged } = yield* forkPhases(type, source, { enable: true });
         expect(deriveOperationOutcome(apply.value)).toBe("applied");
@@ -121,11 +126,15 @@ describe("ForkExtension prepared work", () => {
         // its read of every staged file go; it still reads the manifest.
         expect(stagedCounts(prepare, staged, measured.files)).toEqual({
           hashes: measured.prepare.hashes - 1,
-          rootReadDirectory: measured.prepare.rootReadDirectory - 1,
-          readFile: measured.prepare.readFile.map((count) => count - 1),
+          rootReadDirectory: measured.prepare.rootReadDirectory - 1 - shared,
+          readFile: measured.prepare.readFile.map((count) => count - 1 - shared),
         });
         // Under the lock the preflight reads and hashes the staged package fresh.
-        expect(stagedCounts(apply, staged, measured.files)).toEqual(measured.apply);
+        expect(stagedCounts(apply, staged, measured.files)).toEqual({
+          hashes: measured.apply.hashes,
+          rootReadDirectory: measured.apply.rootReadDirectory - shared,
+          readFile: measured.apply.readFile.map((count) => count - shared),
+        });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
     });
 

@@ -73,6 +73,7 @@ export {
 export { computeSourceHash } from "./workspace/rendered-files.js";
 export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
+  computeMaterializedTreeDigests,
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   TreeIntegritySchema,

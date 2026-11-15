@@ -6,6 +6,9 @@
 
 import {
   UNCONSTRAINED_DESIRED_NODE,
+  computePackageContentHash,
+  hookConfigurationHash,
+  hookReceiptFilename,
   type Settings,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
@@ -19,12 +22,13 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { arch, platform as hostPlatform, tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { makeRecordingFileSystem } from "@agentxm/test-support";
+import * as NodePath from "@effect/platform-node/NodePath";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
 import * as FileSystem from "effect/FileSystem";
 import type * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
@@ -68,6 +72,7 @@ const writeHookPackage = (
     readonly runtime?: "bash" | "node" | "python";
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
     readonly fixtures?: ReadonlyArray<Record<string, unknown>>;
+    readonly configuration?: Record<string, unknown>;
   },
 ) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
@@ -80,6 +85,7 @@ const writeHookPackage = (
         name,
         version: "1.0.0",
         ...(options?.fixtures === undefined ? {} : { fixtures: options.fixtures }),
+        ...(options?.configuration === undefined ? {} : { configuration: options.configuration }),
         implementations: ["claude-code", "codex", "devin"].map((protocol) => ({
           id: protocol,
           protocol,
@@ -726,6 +732,130 @@ describe("HookManager", () => {
           settingsReads: counted.settingsReads,
           nativeParses: counted.nativeParses,
         }).toEqual({ settingsReads: 1, nativeParses: 2 });
+      }),
+    );
+  });
+
+  describe("prepared projection evidence", () => {
+    const canonicalRootOf = (workspaceRoot: string, sourceRoot: string) =>
+      nodePath.join(
+        workspaceRoot,
+        "agent_extensions/_local/project",
+        nodePath.basename(sourceRoot),
+      );
+    const receiptPathOf = (workspaceRoot: string, canonicalRoot: string) =>
+      nodePath.join(workspaceRoot, ".axm/hook-tests", hookReceiptFilename(canonicalRoot));
+    const writeReceipt = (
+      workspaceRoot: string,
+      sourceRoot: string,
+      receipt: "corrupt" | { readonly configuration: Readonly<Record<string, unknown>> },
+    ) =>
+      Effect.gen(function* () {
+        const canonicalRoot = canonicalRootOf(workspaceRoot, sourceRoot);
+        const receiptPath = receiptPathOf(workspaceRoot, canonicalRoot);
+        mkdirSync(nodePath.dirname(receiptPath), { recursive: true });
+        if (receipt === "corrupt") {
+          writeFileSync(receiptPath, "{ not a receipt");
+          return receiptPath;
+        }
+        const contentHash = yield* computePackageContentHash(sourceRoot).pipe(
+          Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)),
+        );
+        writeFileSync(
+          receiptPath,
+          JSON.stringify({
+            kind: "fixture-execution",
+            package: nodePath.basename(sourceRoot),
+            version: "1.0.0",
+            contentHash,
+            configurationHash: hookConfigurationHash(receipt.configuration),
+            startedAt: 0,
+            completedAt: 0,
+            cwd: "package-root",
+            scope: "project",
+            platform: { os: hostPlatform(), architecture: arch() },
+            environment: [],
+            environmentFreshness: "historical-only",
+            nativeInvocation: "not-observed",
+            sandboxed: false,
+            fixtures: [],
+            passed: true,
+            receiptPath,
+          }),
+        );
+        return receiptPath;
+      });
+
+    /** Run `use` against a manager whose filesystem records every call after setup. */
+    const withRecordedManager = <A, E>(
+      workspaceRoot: string,
+      use: (
+        manager: ServiceMap.Service.Shape<typeof HookManager>,
+        recording: FileSystemRecording,
+      ) => Effect.Effect<A, E, ManagerRequirements>,
+    ) =>
+      Effect.gen(function* () {
+        const { fileSystem, recording } = makeRecordingFileSystem(
+          yield* Effect.gen(function* () {
+            return yield* FileSystem.FileSystem;
+          }).pipe(Effect.provide(NodeFileSystem.layer)),
+        );
+        const platform = Layer.provideMerge(
+          Layer.succeed(FileSystem.FileSystem, fileSystem),
+          NativePlatformTest,
+        );
+        return yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          return yield* use(manager, recording);
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { platform })));
+      });
+
+    const receiptAccesses = (recording: FileSystemRecording, receiptPath: string) =>
+      recording.calls({ path: receiptPath }).length;
+
+    /** Prepare one hook ref whose receipt is corrupt, counting the preparation's calls. */
+    const countPreparation = Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-prepared-once-"),
+      );
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit");
+        const receiptPath = yield* writeReceipt(workspaceRoot, packageRoot, "corrupt");
+        const canonicalRoot = canonicalRootOf(workspaceRoot, packageRoot);
+        const entrypoint = nodePath.join(packageRoot, "src/hook.sh");
+        return yield* withRecordedManager(workspaceRoot, (manager, recording) =>
+          Effect.gen(function* () {
+            recording.reset();
+            const prepared = yield* manager.prepareProjection([
+              makeLocalHookRef("audit", packageRoot),
+            ]);
+            return {
+              prepared,
+              entrypointReads: recording.contentReads(entrypoint),
+              entrypointInspections: recording.counts(entrypoint).lstat,
+              receiptReads: recording.contentReads(receiptPath),
+              receiptAccesses: receiptAccesses(recording, receiptPath),
+              canonicalRootExistenceChecks: recording.calls({
+                path: canonicalRoot,
+                method: "access",
+              }).length,
+            };
+          }),
+        );
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    });
+
+    it.effect("hashes a prepared package from one walk and one read of each file", () =>
+      Effect.gen(function* () {
+        const counted = yield* countPreparation;
+        expect(counted.prepared.acquisitions).toMatchObject([{ name: "audit" }]);
+        expect({
+          entrypointReads: counted.entrypointReads,
+          entrypointInspections: counted.entrypointInspections,
+        }).toEqual({ entrypointReads: 1, entrypointInspections: 1 });
       }),
     );
   });

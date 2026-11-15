@@ -102,10 +102,11 @@ describe("authored native preflight inputs", () => {
     subagent: "src/review.md",
   };
   // Content reads of the staged manifest during one preflight: the preflight's
-  // own manifest read and package hash, plus the manager's own reads.
-  const manifestReadsWithoutInputs = { rule: 3, knowledge: 3, hook: 5, subagent: 4 };
+  // own manifest read and package hash, plus the manager's own reads. The
+  // HookManager frames its tree integrity and content hash from one read.
+  const manifestReadsWithoutInputs = { rule: 3, knowledge: 3, hook: 4, subagent: 4 };
   // Content reads of the staged payload during one preflight without inputs.
-  const payloadReadsWithoutInputs = { rule: 2, knowledge: 2, hook: 3, subagent: 3 };
+  const payloadReadsWithoutInputs = { rule: 2, knowledge: 2, hook: 2, subagent: 3 };
   // `axm.hash.package` executions during one preflight without inputs: the
   // preflight's hash, plus the HookManager's own content hash for a hook.
   const hashesWithoutInputs = { rule: 1, knowledge: 1, hook: 2, subagent: 1 };

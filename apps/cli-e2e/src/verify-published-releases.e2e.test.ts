@@ -23,7 +23,7 @@ export const executionBinding = defineExecutionBinding({
 });
 
 const Assessment = Schema.Struct({
-  coverage: Schema.Struct({ state: Schema.String }),
+  coverage: Schema.Struct({ state: Schema.String, reason: Schema.optionalKey(Schema.String) }),
   conclusion: Schema.String,
   finding: Schema.optionalKey(Schema.String),
   failure: Schema.optionalKey(Schema.Struct({ category: Schema.String })),
@@ -301,7 +301,10 @@ describe("verify against an HTTP Registry", () => {
     expect(verified).toMatchObject({
       observed: { integrity: release.integrity },
       presence: satisfied,
-      identity: { conclusion: "not-applicable" },
+      identity: {
+        coverage: { state: "not-applicable", reason: "No expected integrity was supplied." },
+        conclusion: "not-applicable",
+      },
       archive: { ...unobservedArchive, failure: { category: "not_found" } },
     });
     expect(sent().archives).toEqual([]);
@@ -354,8 +357,15 @@ describe("verify against an HTTP Registry", () => {
     expect(unprepared).not.toHaveProperty("expectation");
     expect(unprepared).toMatchObject({
       id: release.id,
+      reported: { participation: "verified-existing" },
       presence: satisfied,
-      identity: { coverage: { state: "not-applicable" }, conclusion: "not-applicable" },
+      identity: {
+        coverage: {
+          state: "not-applicable",
+          reason: "The publish result records no prepared archive.",
+        },
+        conclusion: "not-applicable",
+      },
       archive: satisfied,
     });
   });

@@ -23,8 +23,10 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   CodingAgentRepository,
+  makeProjectionInvariantFact,
   ProjectionParticipants,
   WorkspaceInvariantFacts,
+  type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
@@ -335,11 +337,38 @@ describe("lint agent-output inventory", () => {
   });
 });
 
+/**
+ * A fact that reports nothing and calls `onRead` whenever a consumer reads its
+ * observation. Freezing visits only enumerable properties, so only a rule's
+ * own reading of the facts it was handed triggers it.
+ */
+const factObservedBy = (onRead: () => void): ProjectionInvariantFact => {
+  const fact = makeProjectionInvariantFact(
+    {
+      unitId: "subagent:native-profile",
+      path: "subagent:observed",
+      present: true,
+      current: true,
+      expectedContributors: [],
+    },
+    "project",
+  );
+  const observation = fact.observation;
+  return Object.defineProperty({ ...fact }, "observation", {
+    enumerable: false,
+    get: () => {
+      onRead();
+      return observation;
+    },
+  });
+};
+
 /** Counts projection-fact evaluations and the aggregate participant plans they observe. */
 const countingProjectionFacts = (
   options: {
     readonly onPlans?: (count: number) => void;
-    readonly afterEvaluation?: (count: number) => void;
+    /** Called when a rule reads the facts an evaluation produced. */
+    readonly onFactsRead?: () => void;
   } = {},
 ) => {
   let evaluations = 0;
@@ -365,7 +394,14 @@ const countingProjectionFacts = (
         projectionFacts: Effect.suspend(() => {
           evaluations += 1;
           return facts.projectionFacts;
-        }).pipe(Effect.tap(() => Effect.sync(() => options.afterEvaluation?.(evaluations)))),
+        }).pipe(
+          Effect.map((evaluated) => {
+            const onFactsRead = options.onFactsRead;
+            return onFactsRead === undefined
+              ? evaluated
+              : [...evaluated, factObservedBy(onFactsRead)];
+          }),
+        ),
       })),
     );
   return { participants, count, evaluations: () => evaluations, plans: () => plans };
@@ -411,9 +447,12 @@ describe("lint projection facts", () => {
   it.effect("evaluates afresh for a demand after the read phase ended", () => {
     const fixture = workspaceWith({ files: { "axm.lock": validLock } });
     const end: PhaseEnd = { path: "" };
+    // The first rule's facts settle inside the active phase; its own reading
+    // of them ends the phase before the next rule asks.
     const counting = countingProjectionFacts({
-      afterEvaluation: (count) => {
-        if (count === 1) end.close?.();
+      onFactsRead: () => {
+        end.close?.();
+        delete end.close;
       },
     });
     return Effect.gen(function* () {
@@ -424,6 +463,8 @@ describe("lint projection facts", () => {
         counting.participants,
       );
       expect(exit._tag).toBe("Success");
+      // The phase ended only once the first rule read its settled facts.
+      expect(end.close).toBeUndefined();
       expect(counting.evaluations()).toBe(2);
       expect(counting.plans()).toBe(2);
     });

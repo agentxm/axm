@@ -174,9 +174,10 @@ describe("Adopt reads the adopted package once per validity boundary", () => {
         });
         // Apply: the in-lock preflight and resolution share one read and one
         // hash; the fresh inventory, snapshot and post-write resolution remain.
+        // The materializable listing resolves from its observation's decode.
         expect(measured.apply).toEqual({
           installRootListings: 22,
-          manifestReads: 11,
+          manifestReads: 10,
           packageRootListings: 4,
           packageHashes: 3,
         });

@@ -9,7 +9,11 @@ import {
   type ExtensionType,
   manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import {
+  readExtensionManifest,
+  type ExtensionManifest,
+  type ManifestError,
+} from "@agentxm/extension-content";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { computePackageContentHash } from "../package-hash.js";
 import { WorkspaceSourceInvalid, type PackageContentHashFailed } from "../errors.js";
@@ -54,16 +58,21 @@ export const resolveWorkspaceExtensionRef = (args: {
     readonly root: string;
   };
   /**
-   * The manifest read and tree hash a caller already settled for one package
-   * root inside the same validity boundary. They replace this resolution's own
-   * reads only when they describe the resolved root and the expected type;
-   * path safety, presence and the identity check still run here.
+   * The manifest decode, and optionally the tree hash, a caller already settled
+   * for one package root inside the same validity boundary. They replace this
+   * resolution's own reads only when they describe the resolved root and the
+   * expected type; path safety, presence and the identity check still run
+   * here, and the package is hashed here when no hash is given.
    */
   readonly prepared?: {
     readonly root: string;
     readonly type: ExtensionType;
-    readonly manifest: ReturnType<typeof readExtensionManifest<ExtensionType>>;
-    readonly hash: ReturnType<typeof computePackageContentHash>;
+    readonly manifest: Effect.Effect<
+      { readonly manifest: ExtensionManifest },
+      ManifestError,
+      FileSystem.FileSystem | Path.Path
+    >;
+    readonly hash?: ReturnType<typeof computePackageContentHash>;
   };
 }): Effect.Effect<
   WorkspaceExtensionRef,

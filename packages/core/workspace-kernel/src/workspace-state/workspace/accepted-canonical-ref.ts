@@ -37,6 +37,7 @@ import {
   type LockEntryToRefError,
 } from "./lock-entry.js";
 import {
+  capturedManifestFor,
   observeCanonicalExtensionCapturing,
   type CanonicalObservation,
   type CapturedManifest,
@@ -287,9 +288,19 @@ export const acceptedLockedResolutionRef = (
     return Option.some(yield* refFromAcceptedResolution(args.type, args.name));
   });
 
+/**
+ * The package root an observation in the same call found usable, with the
+ * manifest text it read there.
+ */
+interface ObservedPackage {
+  readonly root: string;
+  readonly manifest: Option.Option<CapturedManifest>;
+}
+
 const refForDesired = (
   desired: DesiredExtensionNode,
   preparedWorkspaceRef?: PreparedWorkspaceRef,
+  observed?: ObservedPackage,
 ): Effect.Effect<
   ExtensionRef,
   AcceptedCanonicalRefError,
@@ -322,12 +333,30 @@ const refForDesired = (
           ? Option.none<ExtensionRef>()
           : preparedWorkspaceRef(desired, { layout, scope: location.scope });
       if (Option.isSome(prepared)) return prepared.value;
+      // The observation already decoded this root's manifest with the same
+      // grammar; the resolution uses that decode only for the root it resolves.
+      const path = yield* Path.Path;
+      const observedManifest =
+        observed === undefined
+          ? Option.none()
+          : Option.map(
+              capturedManifestFor(path, observed.manifest, observed.root, desired.type),
+              (manifest) => ({
+                root: observed.root,
+                type: desired.type,
+                manifest: Effect.succeed({ manifest }),
+              }),
+            );
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
         expectedType: desired.type,
         layout,
         scope: location.scope,
+        ...Option.match(observedManifest, {
+          onNone: () => ({}),
+          onSome: (manifest) => ({ prepared: manifest }),
+        }),
       });
     }
     return yield* refFromAcceptedResolution(desired.type, desired.name);
@@ -454,13 +483,10 @@ export const usableAcceptedCanonicalObservation = (
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > => acceptedCanonicalObservation(args).pipe(Effect.map(Option.flatMap(asUsable)));
 
-/**
- * The usable accepted package an observation already established, with the
- * ref it is restored from. Reading the ref does not observe the package again.
- */
-export const usableAcceptedCanonicalFrom = (
+const usableFrom = (
   canonical: AcceptedCanonicalObservation,
-  preparedWorkspaceRef?: PreparedWorkspaceRef,
+  preparedWorkspaceRef: PreparedWorkspaceRef | undefined,
+  manifest: Option.Option<CapturedManifest>,
 ): Effect.Effect<
   Option.Option<UsableAcceptedCanonical>,
   AcceptedCanonicalRefError,
@@ -469,7 +495,10 @@ export const usableAcceptedCanonicalFrom = (
   Effect.gen(function* () {
     const usable = asUsable(canonical);
     if (Option.isNone(usable)) return Option.none();
-    const ref = yield* refForDesired(usable.value.desired, preparedWorkspaceRef);
+    const ref = yield* refForDesired(usable.value.desired, preparedWorkspaceRef, {
+      root: usable.value.observation.path,
+      manifest,
+    });
     // A usable local acquisition is the accepted copy, even if the original
     // directory has changed or disappeared. Keep sourcePath as its identity.
     const path = yield* Path.Path;
@@ -486,6 +515,19 @@ export const usableAcceptedCanonicalFrom = (
     return Option.some({ ...usable.value, ref: retainedRef });
   });
 
+/**
+ * The usable accepted package an observation already established, with the
+ * ref it is restored from. Reading the ref does not observe the package again.
+ */
+export const usableAcceptedCanonicalFrom = (
+  canonical: AcceptedCanonicalObservation,
+  preparedWorkspaceRef?: PreparedWorkspaceRef,
+): Effect.Effect<
+  Option.Option<UsableAcceptedCanonical>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> => usableFrom(canonical, preparedWorkspaceRef, Option.none());
+
 export const usableAcceptedCanonical = (
   args: UsableAcceptedCanonicalArgs,
 ): Effect.Effect<
@@ -498,11 +540,11 @@ export const usableAcceptedCanonical = (
   | LockfileReader
   | DesiredStateReader
 > =>
-  acceptedCanonicalObservation(args).pipe(
-    Effect.flatMap(
-      Option.match({
+  acceptedCanonicalObservationCapturing(args).pipe(
+    Effect.flatMap(({ observed, manifest }) =>
+      Option.match(observed, {
         onNone: () => Effect.succeed(Option.none()),
-        onSome: (canonical) => usableAcceptedCanonicalFrom(canonical, args.preparedWorkspaceRef),
+        onSome: (canonical) => usableFrom(canonical, args.preparedWorkspaceRef, manifest),
       }),
     ),
   );

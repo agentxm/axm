@@ -1,4 +1,14 @@
-import { NativePlatformTest } from "../../locations/testing.js";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
+import {
+  manifestFilenameForType,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions/common";
+import { NativeEntryRemovalLive } from "../../locations/live.js";
+import { NativePlatformTest, workObservations } from "../../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
@@ -18,7 +28,14 @@ import {
   acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
   prepareAcceptedCanonicalTransition,
+  usableAcceptedCanonicalFrom,
+  usableAcceptedCanonicalRef,
 } from "./accepted-canonical-ref.js";
+import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
+import type { DesiredStateReader } from "./desired-state-reader.js";
+import { WorkspaceLocation } from "./location.js";
+import type { LockfileReader } from "./lockfile-reader.js";
+import type { SettingsReader } from "./settings-reader.js";
 import { UNCONSTRAINED_DESIRED_NODE, type DesiredExtensionNode } from "./desired-state-graph.js";
 import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
 import { WorkspaceStateTest } from "../testing.js";
@@ -184,5 +201,232 @@ describe("accepted canonical observation with manifest text", () => {
       Effect.scoped,
       Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),
     ),
+  );
+});
+
+/** One authored package of each kind whose resolution decodes only its manifest. */
+const authoredPackages = [
+  {
+    type: "pack",
+    name: "reviewers",
+    manifest: { dependencies: { "@acme/skills/review": "^1.0.0" } },
+    payload: false,
+  },
+  { type: "rule", name: "policy", manifest: {}, payload: true },
+  {
+    type: "hook",
+    name: "audit",
+    manifest: {
+      implementations: [
+        {
+          id: "claude",
+          protocol: "claude-code",
+          bindings: [
+            {
+              id: "stop",
+              event: "Stop",
+              handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+            },
+          ],
+        },
+      ],
+    },
+    payload: true,
+  },
+  {
+    type: "knowledge",
+    name: "handbook",
+    manifest: { format: { name: "okf", version: "0.2" }, bundleRoot: "src" },
+    payload: true,
+  },
+] as const;
+
+/** A project owned by `@acme` holding every authored package above, and its services. */
+const authoredProject = Effect.gen(function* () {
+  const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-accepted-authored-"));
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+  );
+  nodeFs.writeFileSync(nodePath.join(root, "axm.json"), '{ "owner": "@acme" }\n');
+  const packages = authoredPackages.map((authored) => {
+    const packageDir = nodePath.join(root, toExtensionTypePlural(authored.type), authored.name);
+    nodeFs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
+    if (authored.payload) nodeFs.writeFileSync(nodePath.join(packageDir, "src", "index.md"), "#\n");
+    const manifestPath = nodePath.join(packageDir, manifestFilenameForType(authored.type));
+    nodeFs.writeFileSync(
+      manifestPath,
+      `${JSON.stringify({
+        owner: "@acme",
+        type: authored.type,
+        name: authored.name,
+        version: "1.0.0",
+        ...authored.manifest,
+      })}\n`,
+    );
+    const desired: DesiredExtensionNode = {
+      type: authored.type,
+      name: authored.name,
+      identity: { authority: "workspace", fqn: `@acme/${authored.type}/${authored.name}` },
+      source: "workspace",
+      enabled: true,
+      constraint: UNCONSTRAINED_DESIRED_NODE,
+      origins: [{ type: "settings", source: "workspace", enabled: true }],
+    };
+    return { ...authored, packageDir, manifestPath, desired };
+  });
+  const state = WorkspaceStateTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) });
+  return { root, packages, state };
+});
+
+/** Run `effect` against the project's services, recording its filesystem calls and work. */
+const recordedRun = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    | FileSystem.FileSystem
+    | Path.Path
+    | WorkspaceLocation
+    | SettingsReader
+    | LockfileReader
+    | DesiredStateReader
+  >,
+  state: ReturnType<typeof WorkspaceStateTest>,
+) =>
+  Effect.gen(function* () {
+    const recording = yield* FileSystemRecorder;
+    const work = workObservations(false);
+    const services = yield* Layer.build(state);
+    recording.reset();
+    const value = yield* effect.pipe(Effect.provideContext(services), work.provide);
+    const hashes = work.facts.filter((fact) => fact.kind === "axm.hash.package").length;
+    return { value, recording, hashes };
+  });
+
+const recordingPlatform = Layer.mergeAll(WorkspaceFileWriteLocksLive, NativeEntryRemovalLive).pipe(
+  Layer.provideMerge(layerRecordingFileSystem(NodeServices.layer)),
+  Layer.provideMerge(NodeServices.layer),
+);
+
+/** The ref the package resolves to on its own, reading and decoding its manifest. */
+const todaysRef = (subject: {
+  readonly type: DesiredExtensionNode["type"];
+  readonly name: string;
+}) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    return yield* resolveWorkspaceExtensionRef({
+      settingsName: subject.name,
+      source: "workspace",
+      expectedType: subject.type,
+      layout: yield* Ref.get(location.layout),
+      scope: location.scope,
+    });
+  });
+
+describe("usable accepted canonical of an authored package", () => {
+  for (const authored of authoredPackages)
+    it.effect(`decodes the ${authored.type} manifest the observation read, once`, () =>
+      Effect.gen(function* () {
+        const { packages, state } = yield* authoredProject;
+        const subject = packages.find((candidate) => candidate.type === authored.type);
+        if (subject === undefined) return yield* Effect.die("fixture package missing");
+        const args = { type: subject.type, name: subject.name, desired: subject.desired };
+
+        const { value, recording, hashes } = yield* recordedRun(
+          usableAcceptedCanonicalRef(args),
+          state,
+        );
+
+        // The observation's read and the package hash's walk; the resolution
+        // decodes nothing again.
+        expect(recording.contentReads(subject.manifestPath)).toBe(2);
+        // Both presence probes still run: the observation's and the resolution's.
+        expect(recording.counts(subject.packageDir).access).toBe(2);
+        expect(hashes).toBe(1);
+        expect(Option.isSome(value)).toBe(true);
+        expect(value).toEqual(Option.some(yield* Effect.provide(todaysRef(subject), state)));
+      }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+    );
+
+  it.effect("keeps reading the manifest for an observation taken elsewhere", () =>
+    Effect.gen(function* () {
+      const { packages, state } = yield* authoredProject;
+      const subject = packages.find((candidate) => candidate.type === "rule");
+      if (subject === undefined) return yield* Effect.die("fixture package missing");
+      const args = { type: subject.type, name: subject.name, desired: subject.desired };
+      const observed = yield* Effect.provide(acceptedCanonicalObservation(args), state);
+      if (Option.isNone(observed)) return yield* Effect.die("observation missing");
+
+      const { value, recording, hashes } = yield* recordedRun(
+        usableAcceptedCanonicalFrom(observed.value),
+        state,
+      );
+
+      expect(Option.isSome(value)).toBe(true);
+      // The resolution's own read and the package hash's walk.
+      expect(recording.contentReads(subject.manifestPath)).toBe(2);
+      expect(recording.counts(subject.packageDir).access).toBe(1);
+      expect(hashes).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+  );
+
+  const unusable = [
+    {
+      label: "names another owner",
+      text: JSON.stringify({ owner: "@other", type: "rule", name: "policy", version: "1.0.0" }),
+      status: "wrong-origin",
+    },
+    { label: "is not valid JSON", text: "{", status: "corrupt" },
+    {
+      label: "fails the rule grammar",
+      text: JSON.stringify({ owner: "@acme", type: "rule", name: "policy" }),
+      status: "corrupt",
+    },
+  ] as const;
+
+  for (const manifest of unusable)
+    it.effect(`resolves nothing when the manifest ${manifest.label}`, () =>
+      Effect.gen(function* () {
+        const { packages, state } = yield* authoredProject;
+        const subject = packages.find((candidate) => candidate.type === "rule");
+        if (subject === undefined) return yield* Effect.die("fixture package missing");
+        nodeFs.writeFileSync(subject.manifestPath, manifest.text);
+        const args = { type: subject.type, name: subject.name, desired: subject.desired };
+
+        const observed = yield* Effect.provide(acceptedCanonicalObservation(args), state);
+        expect(Option.map(observed, (canonical) => canonical.observation.status)).toEqual(
+          Option.some(manifest.status),
+        );
+
+        const { value, recording, hashes } = yield* recordedRun(
+          usableAcceptedCanonicalRef(args),
+          state,
+        );
+
+        expect(value).toEqual(Option.none());
+        expect(recording.contentReads(subject.manifestPath)).toBe(1);
+        expect(hashes).toBe(0);
+      }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+    );
+
+  it.effect("touches no package for an undeclared name", () =>
+    Effect.gen(function* () {
+      const { root, state } = yield* authoredProject;
+
+      const { value, recording, hashes } = yield* recordedRun(
+        usableAcceptedCanonicalRef({ type: "rule", name: "absent" }),
+        state,
+      );
+
+      expect(value).toEqual(Option.none());
+      expect(
+        recording
+          .calls()
+          .filter((call) =>
+            call.path.startsWith(nodePath.join(root, toExtensionTypePlural("rule"))),
+          ),
+      ).toEqual([]);
+      expect(hashes).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
   );
 });

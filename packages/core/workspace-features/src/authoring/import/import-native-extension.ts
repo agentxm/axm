@@ -135,6 +135,7 @@ import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   copyExtensionDirectory,
+  CreateDestinationExists,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
@@ -741,7 +742,11 @@ const prepareImportNativeExtension: (
         "An existing subagent directory must be declared as workspace-authored before importing a runtime implementation",
     });
   }
-  if (!updateExisting) yield* createOnly;
+  // Preparation decides the create-only refusal from the probe it just made;
+  // under the lock `targetPreflight` probes the destination fresh.
+  if (!updateExisting && targetExists) {
+    return yield* new CreateDestinationExists({ subject, path: targetDir });
+  }
   const expectedTargetHash = updateExisting
     ? yield* computePackageContentHash(targetDir)
     : undefined;

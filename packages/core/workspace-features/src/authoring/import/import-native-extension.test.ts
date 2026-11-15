@@ -9,12 +9,14 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { NativeWriteAuthority, NativeWriteRefused } from "@agentxm/workspace-kernel/agent-adapters";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { CreateDestinationExists } from "@agentxm/workspace-kernel/acquisition";
 import { FileSystemRecorder, type RecordedFileSystemCall } from "@agentxm/test-support";
 
 import {
   applyExecution,
   authoringWorkspaceLayer,
   makeAuthoringWorkspace,
+  previewExecution,
 } from "../test-support/authoring-workspace.js";
 import { recordingAuthoringWorkspaceLayer } from "../test-support/recording-authoring-workspace.js";
 import { ImportNativeExtension } from "./import-native-extension.js";
@@ -214,6 +216,164 @@ describe("ImportNativeExtension prepared work", () => {
           ],
         },
       ]);
+    }),
+  );
+
+  /** Existence probes, recorded as `access`, of `directory` in one measured phase. */
+  const probes = (
+    phase: { readonly calls: ReadonlyArray<RecordedFileSystemCall> },
+    directory: string,
+  ) => phase.calls.filter((call) => call.method === "access" && call.path === directory).length;
+
+  const SKILL_DOCUMENT = "---\nname: native-review\ndescription: Review code\n---\n\nNative.\n";
+
+  /** Prepare a request, then resolve it in `execution` when preparation succeeds; each phase measured. */
+  const prepareThenResolve = (
+    created: ReturnType<typeof workspace>,
+    request: Parameters<typeof ImportNativeExtension.prepare>[0],
+    execution = applyExecution,
+  ) =>
+    Effect.gen(function* () {
+      const prepare = yield* measure(ImportNativeExtension.prepare(request).pipe(Effect.result));
+      if (prepare.value._tag === "Failure") return { prepare, resolve: undefined };
+      const resolve = yield* measure(
+        ImportNativeExtension.previewOrApply(prepare.value.success, execution),
+      );
+      return { prepare, resolve };
+    }).pipe(Effect.scoped, Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+
+  /** The target probes of preparing and then resolving one import into an absent target. */
+  const absentTargetProbes = (
+    created: ReturnType<typeof workspace>,
+    directory: string,
+    request: Parameters<typeof ImportNativeExtension.prepare>[0],
+    execution = applyExecution,
+  ) =>
+    Effect.gen(function* () {
+      const { prepare, resolve } = yield* prepareThenResolve(created, request, execution);
+      if (resolve === undefined) throw new Error(`Expected the ${request.type} import to prepare`);
+      return {
+        outcome: deriveOperationOutcome(resolve.value),
+        prepare: probes(prepare, directory),
+        resolve: probes(resolve, directory),
+      };
+    });
+
+  it.effect("probes an absent skill import target once while preparing", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write(".claude/skills/native-review/SKILL.md", SKILL_DOCUMENT);
+      const observed = yield* absentTargetProbes(
+        created,
+        nodePath.join(created.root, "skills/native-review"),
+        {
+          type: "skill",
+          source: nodePath.join(created.root, ".claude/skills/native-review"),
+          target: "@acme/skills/native-review",
+          enable: false,
+        },
+      );
+      // Under the lock the create-only preflight and the canonical directory
+      // creation still probe the target fresh.
+      expect(observed).toEqual({ outcome: "applied", prepare: 1, resolve: 8 });
+    }),
+  );
+
+  it.effect("probes an absent subagent import target once while preparing", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      const observed = yield* absentTargetProbes(
+        created,
+        nodePath.join(created.root, "subagents/custom"),
+        {
+          type: "subagent",
+          source: nodePath.join(created.root, "native/reviewer.md"),
+          sourceAgent: "claude-code",
+          target: "@acme/subagents/custom",
+          enable: false,
+        },
+      );
+      expect(observed).toEqual({ outcome: "applied", prepare: 1, resolve: 7 });
+    }),
+  );
+
+  it.effect("probes an absent hook import target once while preparing", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write("native/hook.sh", "#!/bin/bash\n");
+      created.write(
+        "native/hooks.json",
+        JSON.stringify({
+          hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "bash hook.sh" }] }] },
+        }),
+      );
+      const observed = yield* absentTargetProbes(
+        created,
+        nodePath.join(created.root, "hooks/audit"),
+        {
+          type: "hook",
+          source: nodePath.join(created.root, "native"),
+          protocol: "claude-code",
+          target: "@acme/hooks/audit",
+          enable: false,
+        },
+        previewExecution,
+      );
+      expect(observed).toEqual({ outcome: "previewed", prepare: 1, resolve: 0 });
+    }),
+  );
+
+  it.effect("refuses a skill import into an occupied target while preparing", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write(".claude/skills/native-review/SKILL.md", SKILL_DOCUMENT);
+      created.write("skills/native-review/notes.md", "occupied\n");
+      const directory = nodePath.join(created.root, "skills/native-review");
+      const before = created.snapshot();
+
+      const { prepare } = yield* prepareThenResolve(created, {
+        type: "skill",
+        source: nodePath.join(created.root, ".claude/skills/native-review"),
+        target: "@acme/skills/native-review",
+        enable: false,
+      });
+
+      if (prepare.value._tag !== "Failure") throw new Error("Expected preparation to refuse");
+      expect(prepare.value.failure).toMatchObject({
+        _tag: "CreateDestinationExists",
+        subject: "Import target",
+        path: directory,
+      });
+      expect(prepare.value.failure).toBeInstanceOf(CreateDestinationExists);
+      expect(probes(prepare, directory)).toBe(1);
+      expect(created.snapshot()).toEqual(before);
+    }),
+  );
+
+  it.effect("refuses a skill target that appears after preparation", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write(".claude/skills/native-review/SKILL.md", SKILL_DOCUMENT);
+      const resolution = yield* Effect.gen(function* () {
+        const candidate = yield* ImportNativeExtension.prepare({
+          type: "skill",
+          source: nodePath.join(created.root, ".claude/skills/native-review"),
+          target: "@acme/skills/native-review",
+          enable: false,
+        });
+        created.write("skills/native-review/notes.md", "foreign\n");
+        return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
+      }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
+
+      // The foreign directory stales the candidate before the in-lock
+      // create-only preflight would refuse it; nothing is published either way.
+      expect(deriveOperationOutcome(resolution)).toBe("blocked");
+      expect(resolution.blocking).toMatchObject({
+        class: "stale-candidate",
+        detail: "The execution candidate became stale before apply.",
+      });
+      expect(created.read("skills/native-review/notes.md")).toBe("foreign\n");
+      expect(created.exists(`skills/native-review/SKILL.md`)).toBe(false);
     }),
   );
 

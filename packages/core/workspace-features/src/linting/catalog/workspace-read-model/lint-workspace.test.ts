@@ -2,9 +2,15 @@ import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import * as Layer from "effect/Layer";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import * as Predicate from "effect/Predicate";
 import { buildFixture, type FixtureSpec } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  LOCKFILE_VERSION,
+  type Lockfile,
+  type Settings,
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   buildPackRuleContexts,
   buildSkillRuleContexts,
@@ -438,6 +444,72 @@ it.layer(noNativeRemoval)("buildLintWorkspace manifest JSON population", (it) =>
       expect(findings.flat().map((finding) => finding.ruleId)).not.toContain(
         "workspace/instructions-source-present",
       );
+    }),
+  );
+
+  it.effect("decides against the document cells its caller supplies", () =>
+    Effect.gen(function* () {
+      const deps = yield* buildFixture(fixture(manifestFixtures.pack));
+      const settingsPath = deps.path.join(deps.workspaceRoot, "axm.json");
+      const lockPath = deps.path.join(deps.workspaceRoot, "axm.lock");
+      const documentAccesses: Array<string> = [];
+      const touches = (path: string) => {
+        if (path === settingsPath || path === lockPath) documentAccesses.push(path);
+      };
+      const fs = {
+        ...deps.fs,
+        access: (...params: Parameters<typeof deps.fs.access>) => {
+          touches(params[0]);
+          return deps.fs.access(...params);
+        },
+        exists: (path: string) => {
+          touches(path);
+          return deps.fs.exists(path);
+        },
+        stat: (path: string) => {
+          touches(path);
+          return deps.fs.stat(path);
+        },
+        readFile: (path: string) => {
+          touches(path);
+          return deps.fs.readFile(path);
+        },
+        readFileString: (...params: Parameters<typeof deps.fs.readFileString>) => {
+          touches(params[0]);
+          return deps.fs.readFileString(...params);
+        },
+        open: (...params: Parameters<typeof deps.fs.open>) => {
+          touches(params[0]);
+          return deps.fs.open(...params);
+        },
+      };
+      // Values that differ from the documents on disk, so only the supplied
+      // cells can produce them.
+      const suppliedSettings: Settings = { defaultRegistry: "supplied" };
+      const suppliedLockfile: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
+      const suppliedSettingsRaw = { path: settingsPath, bytes: "{}" };
+      const suppliedLockfileRaw = { path: lockPath, bytes: `version = ${LOCKFILE_VERSION}\n` };
+      const lintWorkspace = yield* buildLintWorkspace({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        platform: { fs, path: deps.path },
+        workspaceRoot: deps.workspaceRoot,
+        userHome: deps.userHome,
+        scope: "project",
+        stateLoaders: {
+          settings: Effect.succeed(Option.some(suppliedSettings)),
+          lockfile: Effect.succeed(Option.some(suppliedLockfile)),
+          settingsRaw: Effect.succeed(Option.some(suppliedSettingsRaw)),
+          lockfileRaw: Effect.succeed(Option.some(suppliedLockfileRaw)),
+        },
+      });
+      const state = lintWorkspace.rule.workspace.state;
+      expect(Option.getOrUndefined(yield* state.settings)).toBe(suppliedSettings);
+      expect(Option.getOrUndefined(yield* state.lockfile)).toBe(suppliedLockfile);
+      expect(Option.getOrUndefined(yield* state.raw("settings"))).toBe(suppliedSettingsRaw);
+      expect(Option.getOrUndefined(yield* state.raw("lockfile"))).toBe(suppliedLockfileRaw);
+      expect(documentAccesses).toEqual([]);
+      // The supplied lockfile, not the one on disk, decides the installed rows.
+      expect(lintWorkspace.view.installedSkills).toEqual([]);
     }),
   );
 });

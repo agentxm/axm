@@ -181,6 +181,12 @@ export interface BuildLintWorkspaceArgs {
    * workspace rules still see its manifest.
    */
   readonly defersExtensionRules?: (type: ExtensionType, name: string) => boolean;
+  /**
+   * The settings and lockfile cells the read model decides against, when the
+   * caller already owns cells for exactly these roots and this scope. The
+   * read model reads its own fresh documents otherwise.
+   */
+  readonly stateLoaders?: NonNullable<Parameters<typeof makeWorkspaceReadModel>[1]>;
 }
 
 /**
@@ -231,7 +237,7 @@ export const buildLintWorkspace = (
     AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
   );
   return Effect.gen(function* () {
-    const readModel = yield* makeWorkspaceReadModel(args.scope);
+    const readModel = yield* makeWorkspaceReadModel(args.scope, args.stateLoaders);
     const axmDir =
       args.scope === "user"
         ? args.platform.path.join(

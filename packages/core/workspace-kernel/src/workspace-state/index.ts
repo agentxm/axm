@@ -266,6 +266,7 @@ export {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "./observed/service.js";
+export { freshStateLoadersFor } from "./workspace/state-cells.js";
 export { SCANNER_IO_CONCURRENCY, makeScannerFileSystem } from "./observed/scanners/fs-helpers.js";
 export { AgentRootResolverLive } from "./observed/agent-root-resolver.js";
 export {

@@ -57,8 +57,10 @@ import {
   SettingsReader,
   WorkspaceLocation,
   acceptedCanonicalObservation,
+  freshStateLoadersFor,
   observeInstallRoot,
   withWorkspaceObservationReadView,
+  workspaceReadPhaseFor,
   type CanonicalObservation,
   type DesiredExtensionNode,
   type AcceptedResolutionWriter,
@@ -69,6 +71,7 @@ import {
   selectOfficialAxmSkill,
 } from "@agentxm/workspace-kernel/resolution";
 import { buildLintWorkspace } from "../catalog/index.js";
+import type { BuildLintWorkspaceArgs } from "../catalog/workspace-read-model/lint-workspace.js";
 import { nodesDeferringToObservation } from "../catalog/workspace/canonical-observation-findings.js";
 import type { WorkspaceHealthFailure } from "../workspace-context.js";
 import type { LintView } from "../catalog-contexts.js";
@@ -242,6 +245,32 @@ export type LintWorkspaceFailure =
   | Effect.Error<ReturnType<typeof acceptedCanonicalObservation>>
   | Effect.Error<ReturnType<typeof applyDeterminedRepairs>>;
 
+type LintStateLoaders = NonNullable<BuildLintWorkspaceArgs["stateLoaders"]>;
+
+/**
+ * The document cells lint's read model decides against while its own
+ * observation phase is active. Each document is bound to one source at its
+ * first demand, so its raw and decoded cells always come from one read: the
+ * phase's cells while the phase is active, lint's own fresh loaders once the
+ * phase has ended. An ended phase is never consulted again.
+ */
+const phaseSharedStateLoaders = (args: {
+  readonly isActive: () => boolean;
+  readonly phaseLoaders: LintStateLoaders;
+  readonly ownLoaders: LintStateLoaders;
+}) =>
+  Effect.gen(function* () {
+    const choose = Effect.sync(() => (args.isActive() ? args.phaseLoaders : args.ownLoaders));
+    const settings = yield* Effect.cached(choose);
+    const lockfile = yield* Effect.cached(choose);
+    return {
+      settings: Effect.flatMap(settings, (loaders) => loaders.settings),
+      settingsRaw: Effect.flatMap(settings, (loaders) => loaders.settingsRaw),
+      lockfile: Effect.flatMap(lockfile, (loaders) => loaders.lockfile),
+      lockfileRaw: Effect.flatMap(lockfile, (loaders) => loaders.lockfileRaw),
+    } satisfies LintStateLoaders;
+  });
+
 const runLint = (selection: LintSelection, options: { readonly strict: boolean }) =>
   withWorkspaceObservationReadView(
     withMcpInspectionReadView(
@@ -318,7 +347,29 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         );
 
         const desiredGraph = yield* desiredState.graph();
+        // The read model shares this run's observation phase's document cells
+        // only when the phase observes exactly the roots, scope and port lint
+        // reads; equal roots name equal documents. Any other run reads its own.
+        const phase = yield* workspaceReadPhaseFor(location);
+        const stateLoaders =
+          phase !== undefined &&
+          phase.observations &&
+          phase.fileSystem === fileSystem &&
+          selection.workspaceRoot === location.projectRoot &&
+          userHome === location.userHome &&
+          selection.scope === location.scope &&
+          !(selection.input.view === "git-index" && selection.scope === "user")
+            ? yield* phaseSharedStateLoaders({
+                isActive: phase.isActive,
+                phaseLoaders: yield* phase.stateLoaders(selection.scope),
+                ownLoaders: yield* freshStateLoadersFor(location, selection.scope).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fileSystem),
+                  Effect.provideService(Path.Path, path),
+                ),
+              })
+            : undefined;
         const { rule: workspaceContext, view } = yield* buildLintWorkspace({
+          ...(stateLoaders === undefined ? {} : { stateLoaders }),
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           platform: { fs: fileSystem, path },
           workspaceRoot: selection.workspaceRoot,

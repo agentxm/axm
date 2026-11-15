@@ -24,9 +24,10 @@ import { discoverConventionRefs } from "./convention-discovery.js";
  *
  * While a caller provides this service, Git discovery checks out each clone
  * URL and revision once and hands every later find of the same pair the same
- * read-only checkout directory. Only successful checkouts are shared: a find
- * that awaits another's checkout and sees it fail makes its own attempt, so
- * every failure belongs to the find that attempted it. Fetches never use it.
+ * read-only checkout directory. Only successful checkouts are shared: each
+ * find that awaited a checkout that failed or was interrupted makes its own
+ * unshared attempt, concurrently with the others, so every failure belongs to
+ * the find that attempted it. Fetches never use it.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -37,15 +38,17 @@ export class GitDiscoveryCheckouts extends Context.Service<
       cloneUrl: string,
       ref: Option.Option<string>,
       acquire: Effect.Effect<string, E, R>,
-    ) => Effect.Effect<string, E, Exclude<R, Scope.Scope>>;
+    ) => Effect.Effect<string, E, R>;
   }
 >()("@agentxm/workspace-kernel/sources/providers/git/GitDiscoveryCheckouts") {}
 
 /**
  * Run `self` with Git discovery checkouts shared across its finds. Shared
- * checkouts are acquired in the scope `self` runs in, so they are released
- * with that scope exactly as an unshared checkout would be; the record of
- * which checkouts exist ends with `self`.
+ * checkouts are acquired in the scope `self` runs in, so they outlive any
+ * narrower scope of the find that made them and are released with that scope
+ * exactly as an unshared checkout would be; the record of which checkouts
+ * exist ends with `self`. A find's own retry after a failed shared attempt is
+ * acquired in the find's own scope, as without sharing.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -62,22 +65,19 @@ export const withSharedGitDiscoveryCheckouts = <A, E, R>(
         cloneUrl: string,
         ref: Option.Option<string>,
         acquire: Effect.Effect<string, E2, R2>,
-      ): Effect.Effect<string, E2, Exclude<R2, Scope.Scope>> => {
+      ): Effect.Effect<string, E2, R2> => {
         const key = JSON.stringify([cloneUrl, Option.getOrNull(ref)]);
-        const attempt: Effect.Effect<
-          string,
-          E2,
-          Exclude<R2, Scope.Scope>
-        > = Effect.uninterruptibleMask((restore) =>
-          Effect.suspend(() => {
+        return Effect.uninterruptibleMask((restore) =>
+          Effect.suspend((): Effect.Effect<string, E2, R2> => {
             const pending = attempts.get(key);
             if (pending !== undefined)
-              // A waiter whose awaited checkout failed makes its own attempt.
+              // A waiter whose awaited checkout failed makes its own attempt
+              // without coalescing, so waiters retry concurrently.
               return restore(
                 Deferred.await(pending).pipe(
                   Effect.flatMap(
                     Option.match({
-                      onNone: () => attempt,
+                      onNone: () => acquire,
                       onSome: (directory) => Effect.succeed(directory),
                     }),
                   ),
@@ -97,7 +97,6 @@ export const withSharedGitDiscoveryCheckouts = <A, E, R>(
             );
           }),
         );
-        return attempt;
       };
       return { checkout };
     }),

@@ -5,8 +5,10 @@ import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -15,7 +17,11 @@ import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 
-import { createGitSourceHostProvider, withSharedGitDiscoveryCheckouts } from "./git.js";
+import {
+  createGitSourceHostProvider,
+  GitDiscoveryCheckouts,
+  withSharedGitDiscoveryCheckouts,
+} from "./git.js";
 
 const writeSkill = (root: string, name: string) => {
   const directory = nodePath.join(root, "skills", name);
@@ -171,6 +177,120 @@ describe("Git discovery checkouts", () => {
       );
       expect(outcome.checkouts).toHaveLength(1);
       expect(outcome.checkouts.filter((directory) => fs.existsSync(directory))).toEqual([]);
+    }),
+  );
+
+  it.effect(
+    "keeps a shared checkout for later finds after an earlier find's own scope closes",
+    () =>
+      Effect.gen(function* () {
+        const outcome = yield* withCountedFinds((find) =>
+          withSharedGitDiscoveryCheckouts(
+            Effect.all([Effect.scoped(find("alpha")), Effect.scoped(find("beta"))]),
+          ),
+        );
+        expect(outcome.value).toEqual([["alpha"], ["beta"]]);
+        expect(outcome.checkouts).toHaveLength(1);
+      }),
+  );
+});
+
+/**
+ * The coalescing of in-flight checkouts, driven through the shared service
+ * with gated acquisitions so that which find waits on which is deterministic.
+ */
+describe("Git discovery checkout coalescing", () => {
+  const cloneUrl = "git://example.invalid/acme/extensions.git";
+
+  /** Run `use` with the checkout operation of one sharing call. */
+  const withCheckout = <A, E>(
+    use: (
+      checkout: (acquire: Effect.Effect<string, string>) => Effect.Effect<string, string>,
+    ) => Effect.Effect<A, E>,
+  ) =>
+    withSharedGitDiscoveryCheckouts(
+      Effect.gen(function* () {
+        const shared = yield* GitDiscoveryCheckouts;
+        return yield* use((acquire) => shared.checkout(cloneUrl, Option.none(), acquire));
+      }),
+    ).pipe(Effect.scoped);
+
+  it.effect("lets the finds that awaited a failed checkout retry concurrently", () =>
+    Effect.gen(function* () {
+      const ownerStarted = yield* Deferred.make<void>();
+      const ownerMayFail = yield* Deferred.make<void>();
+      const firstRetryStarted = yield* Deferred.make<void>();
+      const secondRetryStarted = yield* Deferred.make<void>();
+      // Each retry completes only once both have started, so retries that ran
+      // one after another would never finish.
+      const retry = (started: Deferred.Deferred<void>, directory: string) =>
+        Deferred.succeed(started, undefined).pipe(
+          Effect.andThen(
+            Effect.all([Deferred.await(firstRetryStarted), Deferred.await(secondRetryStarted)]),
+          ),
+          Effect.as(directory),
+        );
+      const outcome = yield* withCheckout((checkout) =>
+        Effect.gen(function* () {
+          const owner = yield* Effect.forkChild(
+            Effect.exit(
+              checkout(
+                Deferred.succeed(ownerStarted, undefined).pipe(
+                  Effect.andThen(Deferred.await(ownerMayFail)),
+                  Effect.andThen(Effect.fail("clone failed")),
+                ),
+              ),
+            ),
+            { startImmediately: true },
+          );
+          yield* Deferred.await(ownerStarted);
+          const waiters = [
+            yield* Effect.forkChild(checkout(retry(firstRetryStarted, "first")), {
+              startImmediately: true,
+            }),
+            yield* Effect.forkChild(checkout(retry(secondRetryStarted, "second")), {
+              startImmediately: true,
+            }),
+          ];
+          yield* Deferred.succeed(ownerMayFail, undefined);
+          return { owner: yield* Fiber.join(owner), waiters: yield* Fiber.joinAll(waiters) };
+        }),
+      );
+      expect(outcome.owner).toEqual(Exit.fail("clone failed"));
+      expect(outcome.waiters).toEqual(["first", "second"]);
+    }),
+  );
+
+  it.effect("lets a find that awaited an interrupted checkout make its own", () =>
+    Effect.gen(function* () {
+      const ownerStarted = yield* Deferred.make<void>();
+      let acquisitions = 0;
+      const acquire = (directory: string) =>
+        Effect.sync(() => {
+          acquisitions += 1;
+          return directory;
+        });
+      const outcome = yield* withCheckout((checkout) =>
+        Effect.gen(function* () {
+          const owner = yield* Effect.forkChild(
+            checkout(Deferred.succeed(ownerStarted, undefined).pipe(Effect.andThen(Effect.never))),
+            { startImmediately: true },
+          );
+          yield* Deferred.await(ownerStarted);
+          const waiter = yield* Effect.forkChild(checkout(acquire("waiter")), {
+            startImmediately: true,
+          });
+          yield* Fiber.interrupt(owner);
+          const awaited = yield* Fiber.join(waiter);
+          // The interrupted attempt no longer holds the key: a later find
+          // checks out afresh, and the find after it shares that checkout.
+          const later = yield* checkout(acquire("later"));
+          const latest = yield* checkout(acquire("latest"));
+          return [awaited, later, latest];
+        }),
+      );
+      expect(outcome).toEqual(["waiter", "later", "later"]);
+      expect(acquisitions).toBe(2);
     }),
   );
 });

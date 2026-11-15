@@ -17,6 +17,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -232,14 +233,30 @@ const syncConfiguredAgentsOnInstall = (args: {
 // Public API
 // -----------------------------------------------------------------------------
 
+/** How a caller that owns the settings entry's publication narrows one install. */
+interface InstallMcpServerOptions {
+  /**
+   * The caller's own settings writer publication of this connection's entry
+   * is the last `axm.json` write before this install, in the same closure
+   * settlement under the workspace transition lock. That publication leaves
+   * `axm.json` at the settings writer's fixed point, so re-setting an entry
+   * equal to the one this install reads live is the writer's no-op and is
+   * skipped. Ordinary install, update, and retained routes never set it: their
+   * `axm.json` need not be at that fixed point, and an unchanged entry still
+   * normalizes it.
+   */
+  readonly entryJustPublished?: boolean;
+}
+
 /** Install a selected, symbolically bound connection and project it to configured hosts. */
 export const installMcpServer: (
   op: InstallMcpServerOperation,
+  options?: InstallMcpServerOptions,
 ) => Effect.Effect<
   Extract<JobStepResult, { readonly result: "success" }>,
   ExtensionManagerFailure,
   McpServerManager | McpConnectionInstallRequirements
-> = (op) =>
+> = (op, options) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -383,11 +400,19 @@ export const installMcpServer: (
                 resolutionKey ?? ref.server.name,
                 lockEntry,
               );
-            yield* settingsWriter.setEntry("mcp-server", localName, {
+            const nextEntry: McpServerEntry = {
               ...(currentEntry ?? { kind: "configuration" as const }),
               ...preferences,
               enabled,
-            });
+            };
+            // Decided from this install's own live read of the entry.
+            if (
+              options?.entryJustPublished === true &&
+              currentEntry !== undefined &&
+              Equal.equals(nextEntry, currentEntry)
+            )
+              return;
+            yield* settingsWriter.setEntry("mcp-server", localName, nextEntry);
           })
         : lockEntry === undefined
           ? settingsWriter.setEntry("mcp-server", localName, {

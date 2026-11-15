@@ -936,6 +936,8 @@ const prepareImportNativeExtension: (
             materializeAuthoredMcpServer({
               ref,
               nonInteractive: request.nonInteractive,
+              // The authored declaration is the last axm.json write before this install.
+              entryJustPublished: true,
             }),
           buildArtifact: ({ materialization }) =>
             Effect.succeed({

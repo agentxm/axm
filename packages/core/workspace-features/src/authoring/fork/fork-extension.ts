@@ -518,6 +518,8 @@ const prepareForkExtension: (
               materializeAuthoredMcpServer({
                 ref,
                 nonInteractive: request.nonInteractive,
+                // The authored declaration is the last axm.json write before this install.
+                entryJustPublished: true,
               }),
             buildArtifact: ({ change, materialization }) =>
               authoredNativeArtifact({

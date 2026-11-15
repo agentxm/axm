@@ -30,20 +30,30 @@ import { installMcpServer } from "./install-operation.js";
 export const materializeAuthoredMcpServer = (args: {
   readonly ref: McpServerExtensionRef;
   readonly nonInteractive: boolean;
+  /**
+   * Set only by a route whose authored declaration published this
+   * connection's settings entry as the closure's last `axm.json` write before
+   * this materialization; the install then skips re-setting an unchanged
+   * entry. See `InstallMcpServerOptions.entryJustPublished`.
+   */
+  readonly entryJustPublished?: boolean;
 }): Effect.Effect<
   Option.Option<McpServerMaterializationFacts>,
   ExtensionManagerFailure,
   McpServerManager | McpConnectionInstallRequirements
 > =>
-  installMcpServer({
-    name: "install-mcp-server",
-    args: {
-      ref: args.ref,
-      authorizeDistributionSelection: true,
-      nonInteractive: args.nonInteractive,
-      force: false,
+  installMcpServer(
+    {
+      name: "install-mcp-server",
+      args: {
+        ref: args.ref,
+        authorizeDistributionSelection: true,
+        nonInteractive: args.nonInteractive,
+        force: false,
+      },
     },
-  }).pipe(
+    { entryJustPublished: args.entryJustPublished === true },
+  ).pipe(
     Effect.map((result) => {
       const nativeLocations = result.artifact?.nativeLocations ?? [];
       return Option.some({

@@ -47,9 +47,11 @@ import {
   observeConfiguredSkillLocations,
   workspaceOwnershipIssues,
   deriveAgentOutputAuthority,
+  freezeProjectionFacts,
   instructionProjectionEffects,
   instructionReconciliationReadiness,
   withMcpInspectionReadView,
+  type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
 import {
   LockfileReader,
@@ -271,6 +273,39 @@ const phaseSharedStateLoaders = (args: {
     } satisfies LintStateLoaders;
   });
 
+/**
+ * The projection facts every rule of one lint run reads. A demand made while
+ * the run's read phase is still active reuses the facts an earlier demand
+ * evaluated entirely inside that same phase; every other demand evaluates
+ * afresh, as an unshared accessor would. Demands never wait on one another,
+ * so an interrupted demand leaves nothing for another to inherit.
+ */
+const phaseSharedProjectionFacts = (args: {
+  readonly location: Parameters<typeof workspaceReadPhaseFor>[0];
+  readonly evaluate: Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
+}) =>
+  Effect.gen(function* () {
+    const phase = yield* workspaceReadPhaseFor(args.location);
+    if (phase === undefined) return args.evaluate;
+    const settled = yield* Ref.make(Option.none<ReadonlyArray<ProjectionInvariantFact>>());
+    const withinPhase = Effect.map(
+      workspaceReadPhaseFor(args.location),
+      (current) => current === phase,
+    );
+    return Effect.gen(function* () {
+      if (!(yield* withinPhase)) return yield* args.evaluate;
+      const reused = yield* Ref.get(settled);
+      if (Option.isSome(reused)) return reused.value;
+      const facts = freezeProjectionFacts(yield* args.evaluate);
+      if (yield* withinPhase) {
+        yield* Ref.update(settled, (current) =>
+          Option.isSome(current) ? current : Option.some(facts),
+        );
+      }
+      return facts;
+    });
+  });
+
 const runLint = (selection: LintSelection, options: { readonly strict: boolean }) =>
   withWorkspaceObservationReadView(
     withMcpInspectionReadView(
@@ -379,7 +414,12 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           gitIndexView: selection.input.view === "git-index",
           officialAxmSkill,
           owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
-          projections: { facts: invariantFacts.projectionFacts },
+          projections: {
+            facts: yield* phaseSharedProjectionFacts({
+              location,
+              evaluate: invariantFacts.projectionFacts,
+            }),
+          },
           defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
         });
         // The settings document lint decides against is the one strict read the

@@ -14,13 +14,18 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { afterEach } from "vitest";
 
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import {
+  CodingAgentRepository,
+  ProjectionParticipants,
+  WorkspaceInvariantFacts,
+} from "@agentxm/workspace-kernel/projection";
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import {
@@ -106,7 +111,12 @@ const endingFileSystem = (end: PhaseEnd | undefined) =>
  * Run one lint over the fixture's services and a recording filesystem,
  * counting only the work the run performs after service construction.
  */
-const recordedLint = <A, E, R>(fixture: Fixture, run: Effect.Effect<A, E, R>, end?: PhaseEnd) =>
+const recordedLint = <A, E, R>(
+  fixture: Fixture,
+  run: Effect.Effect<A, E, R>,
+  end?: PhaseEnd,
+  participants: Layer.Layer<ProjectionParticipants> = NoProjectionParticipants,
+) =>
   Effect.gen(function* () {
     const recording = yield* FileSystemRecorder;
     recording.reset();
@@ -136,7 +146,7 @@ const recordedLint = <A, E, R>(fixture: Fixture, run: Effect.Effect<A, E, R>, en
         Layer.provideMerge(
           Layer.mergeAll(
             NativePlatformTest,
-            NoProjectionParticipants,
+            participants,
             UnusedRegistryClients,
             layerRecordingFileSystem(endingFileSystem(end)),
           ),
@@ -321,6 +331,146 @@ describe("lint agent-output inventory", () => {
           file: ".claude/agents/stray.md",
         },
       ]);
+    });
+  });
+});
+
+/** Counts projection-fact evaluations and the aggregate participant plans they observe. */
+const countingProjectionFacts = (
+  options: {
+    readonly onPlans?: (count: number) => void;
+    readonly afterEvaluation?: (count: number) => void;
+  } = {},
+) => {
+  let evaluations = 0;
+  let plans = 0;
+  const participants = Layer.succeed(ProjectionParticipants, {
+    aggregates: [
+      {
+        units: [],
+        projectionPlans: () =>
+          Effect.sync(() => {
+            plans += 1;
+            options.onPlans?.(plans);
+            return [];
+          }),
+      },
+    ],
+    subagents: Option.none(),
+  });
+  const count = <A, E, R>(run: Effect.Effect<A, E, R>) =>
+    run.pipe(
+      Effect.updateService(WorkspaceInvariantFacts, (facts) => ({
+        ...facts,
+        projectionFacts: Effect.suspend(() => {
+          evaluations += 1;
+          return facts.projectionFacts;
+        }).pipe(Effect.tap(() => Effect.sync(() => options.afterEvaluation?.(evaluations)))),
+      })),
+    );
+  return { participants, count, evaluations: () => evaluations, plans: () => plans };
+};
+
+describe("lint projection facts", () => {
+  it.effect("evaluates the projection facts once for every rule that reads them", () => {
+    const fixture = workspaceWith({ files: { "axm.lock": validLock } });
+    const counting = countingProjectionFacts();
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        counting.count(query(fixture)),
+        undefined,
+        counting.participants,
+      );
+      expect(exit._tag).toBe("Success");
+      expect(counting.evaluations()).toBe(1);
+      expect(counting.plans()).toBe(1);
+    });
+  });
+
+  it.effect("evaluates the projection facts once in a repairing run", () => {
+    const fixture = workspaceWith({ files: { "axm.lock": validLock } });
+    const counting = countingProjectionFacts();
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        counting.count(
+          fixLintWorkspace(selectionFor(fixture.project.root, fixture.home, { fix: true }), {
+            strict: false,
+          }),
+        ),
+        undefined,
+        counting.participants,
+      );
+      expect(exit._tag).toBe("Success");
+      expect(counting.evaluations()).toBe(1);
+      expect(counting.plans()).toBe(1);
+    });
+  });
+
+  it.effect("evaluates afresh for a demand after the read phase ended", () => {
+    const fixture = workspaceWith({ files: { "axm.lock": validLock } });
+    const end: PhaseEnd = { path: "" };
+    const counting = countingProjectionFacts({
+      afterEvaluation: (count) => {
+        if (count === 1) end.close?.();
+      },
+    });
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        counting.count(query(fixture)),
+        end,
+        counting.participants,
+      );
+      expect(exit._tag).toBe("Success");
+      expect(counting.evaluations()).toBe(2);
+      expect(counting.plans()).toBe(2);
+    });
+  });
+
+  it.effect("does not reuse facts whose evaluation outlived the read phase", () => {
+    const fixture = workspaceWith({ files: { "axm.lock": validLock } });
+    const end: PhaseEnd = { path: "" };
+    const counting = countingProjectionFacts({
+      onPlans: (count) => {
+        if (count === 1) end.close?.();
+      },
+    });
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        counting.count(query(fixture)),
+        end,
+        counting.participants,
+      );
+      expect(exit._tag).toBe("Success");
+      expect(counting.evaluations()).toBe(2);
+      expect(counting.plans()).toBe(2);
+    });
+  });
+
+  it.effect("evaluates no projection facts for a view without projection rules", () => {
+    const fixture = workspaceWith({ files: { "axm.lock": validLock } });
+    const counting = countingProjectionFacts();
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        counting.count(
+          queryLintWorkspace(
+            {
+              ...selectionFor(fixture.project.root, fixture.home),
+              input: { view: "git-index", fingerprint: `sha256:${"0".repeat(64)}` },
+            },
+            { strict: false },
+          ),
+        ),
+        undefined,
+        counting.participants,
+      );
+      expect(exit._tag).toBe("Success");
+      expect(counting.evaluations()).toBe(0);
+      expect(counting.plans()).toBe(0);
     });
   });
 });

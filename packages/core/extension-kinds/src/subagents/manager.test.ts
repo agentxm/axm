@@ -1069,6 +1069,69 @@ describe("SubagentManager", () => {
       },
     );
 
+    it.effect("reports unsupported agents alike whether or not destinations are validated", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      // Cline cannot compile a native Subagent; this Codex has no Subagent directory.
+      const unsupported = [
+        codingAgentForId("cline"),
+        makeMockCodingAgent("codex", {
+          resolveEffectiveSubagentsDir: () =>
+            Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+        }),
+      ];
+      const outcomesWith = (agents: ReadonlyArray<CodingAgent>) =>
+        Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          const validated = yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+            sourceRoot: sourceDir,
+            validateDestinations: true,
+          });
+          const unvalidated = yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+            sourceRoot: sourceDir,
+          });
+          expect(validated).toEqual(unvalidated);
+          return validated.map(({ agentId, outcome, reasonCode, reason }) => ({
+            agentId,
+            outcome,
+            reasonCode,
+            reason,
+          }));
+        }).pipe(
+          Effect.provide(
+            makeTestLayer({ axmDir: nodePath.join(tmpDir, "project", ".axm"), agents }),
+          ),
+        );
+      const unsupportedOutcomes = [
+        {
+          agentId: "cline",
+          outcome: "unsupported",
+          reasonCode: "subagent-native-writer-unavailable",
+          reason: "Native Subagent ownership proof is not supported for cline",
+        },
+        {
+          agentId: "codex",
+          outcome: "unsupported",
+          reasonCode: "subagent-placement-unsupported",
+          reason: "no native surface",
+        },
+      ];
+      return Effect.gen(function* () {
+        // No configured agent can realize the Subagent.
+        expect(yield* outcomesWith(unsupported)).toEqual(unsupportedOutcomes);
+        expect(yield* outcomesWith([codingAgentForId("claude-code"), ...unsupported])).toEqual([
+          {
+            agentId: "claude-code",
+            outcome: "projected",
+            reasonCode: "subagent-native-implementation",
+            reason: expect.stringContaining("implementation for"),
+          },
+          ...unsupportedOutcomes,
+        ]);
+      });
+    });
+
     it.effect("observes a projection with one preparation per configured agent", () => {
       const { sourceDir, resource, layer } = resourceFixture();
       const spans = makeSpanCounter();
@@ -1225,9 +1288,11 @@ describe("SubagentManager", () => {
 
     it.effect("prepares again once the read phase the preflight observed through ends", () => {
       const { sourceDir, resource, layer } = resourceFixture();
+      const native = nodePath.join(tmpDir, "project", ".claude/agents/planner.md");
       const spans = makeSpanCounter();
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
         const ref = makeLocalSubagentRef("planner", sourceDir);
         const outcomes = (endsAt?: string) =>
           inEndingReadPhase(
@@ -1246,12 +1311,19 @@ describe("SubagentManager", () => {
         expect(yield* outcomes(resource)).toEqual(held);
         expect(spans.count("axm.subagent.prepare")).toBe(4);
 
+        // Planning inspects each planned native file; a plan made again after
+        // the phase ends shows as further inspections of that file.
+        const planInspections = () => recording.counts(native).stat ?? 0;
         spans.reset();
+        recording.reset();
         const observed = yield* observation();
         expect(spans.count("axm.subagent.prepare")).toBe(2);
+        expect(planInspections()).toBe(4);
         spans.reset();
+        recording.reset();
         expect(yield* observation(resource)).toEqual(observed);
         expect(spans.count("axm.subagent.prepare")).toBe(4);
+        expect(planInspections()).toBe(6);
       }).pipe(
         Effect.provide(layer),
         Effect.withTracer(spans.tracer),

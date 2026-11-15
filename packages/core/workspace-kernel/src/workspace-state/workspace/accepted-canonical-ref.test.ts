@@ -204,15 +204,49 @@ describe("accepted canonical observation with manifest text", () => {
   );
 });
 
-/** One authored package of each kind whose resolution decodes only its manifest. */
+/**
+ * One authored package of each kind, with the payload its observation requires
+ * and how many times one usable lookup reads its manifest: the observation's
+ * read and the package hash's walk, plus the subagent package load's own read.
+ */
 const authoredPackages = [
+  {
+    type: "skill",
+    name: "review",
+    manifest: { description: "Reviews changes" },
+    files: { "src/SKILL.md": "# Review\n" },
+    manifestReads: 2,
+  },
+  {
+    type: "subagent",
+    name: "researcher",
+    manifest: { description: "Research", core: { instructions: "src/instructions.md" } },
+    files: { "src/instructions.md": "Research carefully.\n" },
+    manifestReads: 3,
+  },
+  {
+    type: "mcp-server",
+    name: "browser",
+    manifest: {
+      server: { name: "io.agentxm/browser", description: "Browser MCP", version: "1.0.0" },
+    },
+    files: {},
+    manifestReads: 2,
+  },
   {
     type: "pack",
     name: "reviewers",
     manifest: { dependencies: { "@acme/skills/review": "^1.0.0" } },
-    payload: false,
+    files: {},
+    manifestReads: 2,
   },
-  { type: "rule", name: "policy", manifest: {}, payload: true },
+  {
+    type: "rule",
+    name: "policy",
+    manifest: {},
+    files: { "src/index.md": "#\n" },
+    manifestReads: 2,
+  },
   {
     type: "hook",
     name: "audit",
@@ -231,13 +265,15 @@ const authoredPackages = [
         },
       ],
     },
-    payload: true,
+    files: { "src/index.md": "#\n" },
+    manifestReads: 2,
   },
   {
     type: "knowledge",
     name: "handbook",
     manifest: { format: { name: "okf", version: "0.2" }, bundleRoot: "src" },
-    payload: true,
+    files: { "src/index.md": "#\n" },
+    manifestReads: 2,
   },
 ] as const;
 
@@ -251,7 +287,8 @@ const authoredProject = Effect.gen(function* () {
   const packages = authoredPackages.map((authored) => {
     const packageDir = nodePath.join(root, toExtensionTypePlural(authored.type), authored.name);
     nodeFs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
-    if (authored.payload) nodeFs.writeFileSync(nodePath.join(packageDir, "src", "index.md"), "#\n");
+    for (const [file, content] of Object.entries(authored.files))
+      nodeFs.writeFileSync(nodePath.join(packageDir, file), content);
     const manifestPath = nodePath.join(packageDir, manifestFilenameForType(authored.type));
     nodeFs.writeFileSync(
       manifestPath,
@@ -337,9 +374,8 @@ describe("usable accepted canonical of an authored package", () => {
           state,
         );
 
-        // The observation's read and the package hash's walk; the resolution
-        // decodes nothing again.
-        expect(recording.contentReads(subject.manifestPath)).toBe(2);
+        // The resolution decodes nothing again.
+        expect(recording.contentReads(subject.manifestPath)).toBe(authored.manifestReads);
         // Both presence probes still run: the observation's and the resolution's.
         expect(recording.counts(subject.packageDir).access).toBe(2);
         expect(hashes).toBe(1);

@@ -367,15 +367,24 @@ export const validateMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoption
       yield* validateCandidateTargets(agentIds, location, candidate);
   });
 
-/** Every configured reader is checked before adoption publishes any desired state. */
-export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionCandidate>) =>
+/**
+ * Every configured reader is checked before adoption publishes any desired
+ * state. Each adoption's source document is read again and compared with the
+ * fingerprint discovery took, unless `sources` is `"discovered-in-this-read-phase"`:
+ * the caller then vouches that discovery read those documents in the same
+ * read phase, so their fingerprints already stand for what this phase reads.
+ */
+export const prepareMcpAdoptionTargets = (
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+  sources: "verify" | "discovered-in-this-read-phase" = "verify",
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
     const locations: Array<NativeLocationOutcome> = [];
     for (const candidate of candidates) {
-      for (const adoption of candidate.adoptions) {
+      for (const adoption of sources === "verify" ? candidate.adoptions : []) {
         const raw = yield* readNativeMcpConfig(adoption.filePath).pipe(
           Effect.mapError(readFailureToConfigurationFailed),
         );

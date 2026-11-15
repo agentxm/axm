@@ -34,7 +34,7 @@ const withRecordedFixture = <A, E, R>(
 };
 
 describe("native MCP discovery for import", () => {
-  it.effect("reads the selected native file once fewer than the full adoption preparation", () =>
+  it.effect("reads the selected native file as often as the full adoption preparation", () =>
     withRecordedFixture(
       singleRemoteServer,
       Effect.gen(function* () {
@@ -52,7 +52,24 @@ describe("native MCP discovery for import", () => {
         const prepareReads = recording.contentReads(filePath);
 
         expect(discovered.preflight).toEqual(preparedAgain.preflight);
-        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 4 });
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
+      }),
+    ),
+  );
+
+  it.effect("keeps the source read of the freshness check and of the adoption step", () =>
+    withRecordedFixture(
+      singleRemoteServer,
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const prepared = yield* AdoptMcpServers.prepare(["alpha"]);
+        const filePath = prepared.preflight.candidates[0]?.adoptions[0]?.filePath ?? "";
+
+        recording.reset();
+        yield* AdoptMcpServers.previewOrApply(prepared, preapprovedPlanExecution);
+        const applyReads = recording.contentReads(filePath);
+
+        expect(applyReads).toBe(21);
       }),
     ),
   );

@@ -138,7 +138,10 @@ const prepareAdoptMcpServers = (
       preflight,
       scope: location.scope,
       nativeLocations:
-        preflight.conflicts.length > 0 ? [] : yield* prepareMcpAdoptionTargets(candidates),
+        preflight.conflicts.length > 0
+          ? []
+          : // Discovery read and fingerprinted every source in this read view.
+            yield* prepareMcpAdoptionTargets(candidates, "discovered-in-this-read-phase"),
     } satisfies AdoptMcpServersCandidate;
   }).pipe(withWorkspaceReadView);
 

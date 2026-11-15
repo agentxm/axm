@@ -20,10 +20,32 @@ import * as PlatformError from "effect/PlatformError";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import {
+  AcquiredContent,
+  canonicalMaterializationPaths,
+  sourceRefContentKey,
+} from "@agentxm/workspace-kernel/acquisition";
+import {
+  computeMaterializedTreeIntegrity,
+  computeSkillPathsForLayout,
+  resolveProjectWorkspaceLayout,
+} from "@agentxm/workspace-kernel/workspace-state";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   ensureSkillAgentArtifact,
   inspectSkillAgentArtifact,
+  materializeSkillCanonical,
   removeSkillAgentArtifact,
+  type CanonicalReuseContext,
 } from "./materialization.js";
 
 const fixture = Effect.gen(function* () {
@@ -447,5 +469,179 @@ describe("Skill native materialization", () => {
       Effect.scoped,
       Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
+  );
+});
+
+const REGISTRY = decodeRegistryEndpointSync("https://registry.example.test");
+
+const registrySkillRef = (owner: string, name: string): RegistrySkillRef => ({
+  type: "skill",
+  refType: "registry",
+  owner: handle(owner),
+  name: extensionName(name),
+  version: exactVersion("1.0.0"),
+  integrity: Option.none(),
+  publisherBindingId: "binding-1",
+  packages: [],
+  source: { type: "registry", name: "example", location: REGISTRY, owner: Option.none() },
+  skill: { name: extensionName(name), description: Option.none(), metadata: Option.none() },
+});
+
+/** Registry package bytes: a manifest and the skill payload under `src`. */
+const writeRegistryPackage = (root: string, owner: string, name: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* fs.makeDirectory(path.join(root, "src"), { recursive: true });
+    yield* fs.writeFileString(
+      path.join(root, "skill.json"),
+      JSON.stringify({ owner, type: "skill", name, version: "1.0.0" }),
+    );
+    yield* fs.writeFileString(
+      path.join(root, "src", "SKILL.md"),
+      `---\nname: ${name}\ndescription: ${name} skill\n---\n\nUse ${name}.\n`,
+    );
+  });
+
+/** A workspace whose Registry canonical tree for `owner/name` matches its accepted lock entry. */
+const acceptedRegistryTree = (owner: string, name: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const baseDir = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+    const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, baseDir), {
+      agents: [],
+    });
+    const ref = registrySkillRef(owner, name);
+    const { canonicalPath } = computeSkillPathsForLayout(path.join, layout, ref, name);
+    yield* writeRegistryPackage(canonicalPath, owner, name);
+    const reuse: CanonicalReuseContext = {
+      force: false,
+      accepted: Option.some({
+        source: { type: "registry", url: REGISTRY },
+        identity: { owner: handle(owner), name: extensionName(name) },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-archive",
+          publisherBindingId: "binding-1",
+        },
+        treeIntegrity: yield* computeMaterializedTreeIntegrity(canonicalPath),
+      }),
+    };
+    return { baseDir, layout, ref, canonicalPath, reuse };
+  });
+
+/** Physical content reads of one package's compatibility inputs. */
+const compatibilityReads = (
+  recording: ReturnType<typeof makeRecordingFileSystem>["recording"],
+  packageRoot: string,
+) =>
+  Effect.map(Path.Path, (path) => ({
+    manifest: recording.contentReads(path.join(packageRoot, "skill.json")),
+    skill: recording.contentReads(path.join(packageRoot, "src", "SKILL.md")),
+  }));
+
+const RegistryMaterializationTest = Layer.mergeAll(
+  NativeWriteAuthorityPermissive,
+  Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+);
+
+describe("Registry skill canonical materialization", () => {
+  it.effect("checks a reused accepted tree's compatibility inputs once", () =>
+    Effect.gen(function* () {
+      const { baseDir, layout, ref, canonicalPath, reuse } = yield* acceptedRegistryTree(
+        "@acme",
+        "review",
+      );
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      recording.reset();
+      const materialized = yield* materializeSkillCanonical({
+        ref,
+        sanitizedName: "review",
+        baseDir,
+        layout,
+        reuse,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+
+      expect(materialized).toEqual({
+        skillSrcPath: (yield* Path.Path).join(canonicalPath, "src"),
+        treeIntegrity: reuse.accepted.pipe(
+          Option.map((entry) => entry.treeIntegrity),
+          Option.getOrUndefined,
+        ),
+      });
+      // One read hashes the accepted tree for reuse; one is the compatibility check.
+      expect(yield* compatibilityReads(recording, canonicalPath)).toEqual({
+        manifest: 2,
+        skill: 2,
+      });
+    }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
+  );
+
+  it.effect("still refuses incompatible official bytes in a reused accepted tree", () =>
+    Effect.gen(function* () {
+      const { baseDir, layout, ref, canonicalPath, reuse } = yield* acceptedRegistryTree(
+        "@agentxm",
+        "axm",
+      );
+      const before = yield* computeMaterializedTreeIntegrity(canonicalPath);
+      const refused = yield* materializeSkillCanonical({
+        ref,
+        sanitizedName: "axm",
+        baseDir,
+        layout,
+        reuse,
+      }).pipe(Effect.flip);
+
+      expect(refused).toMatchObject({
+        _tag: "AxmSkillIncompatible",
+        compatibility: {
+          status: "incompatible",
+          reasonCode: "cli-version-unavailable",
+          detail: "The running AXM CLI version is unavailable or invalid.",
+        },
+      });
+      expect(yield* computeMaterializedTreeIntegrity(canonicalPath)).toBe(before);
+    }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
+  );
+
+  it.effect("checks freshly acquired Registry bytes once in staging", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, baseDir), {
+        agents: [],
+      });
+      const ref = registrySkillRef("@acme", "review");
+      const acquired = path.join(baseDir, "acquired");
+      yield* writeRegistryPackage(acquired, "@acme", "review");
+      const { canonicalPath } = computeSkillPathsForLayout(path.join, layout, ref, "review");
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      recording.reset();
+      yield* materializeSkillCanonical({ ref, sanitizedName: "review", baseDir, layout }).pipe(
+        Effect.provideService(AcquiredContent, {
+          requestedKeys: new Set([sourceRefContentKey(ref)]),
+          filesByKey: new Map([[sourceRefContentKey(ref), { directory: acquired }]]),
+          failuresByKey: new Map(),
+        }),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+
+      // One read is the staged compatibility check; one hashes the staged tree.
+      expect(
+        yield* compatibilityReads(
+          recording,
+          canonicalMaterializationPaths(canonicalPath).stagingPath,
+        ),
+      ).toEqual({ manifest: 2, skill: 2 });
+      expect(yield* compatibilityReads(recording, canonicalPath)).toEqual({
+        manifest: 0,
+        skill: 0,
+      });
+      expect(yield* fs.readFileString(path.join(canonicalPath, "src", "SKILL.md"))).toContain(
+        "Use review.",
+      );
+    }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
   );
 });

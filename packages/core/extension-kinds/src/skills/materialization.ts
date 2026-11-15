@@ -121,6 +121,8 @@ const materializeRegistry = (
       );
       yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
+      // Every reuse of the canonical tree runs this validation on canonicalPath
+      // before returning, and every fetch runs it on the staged bytes.
       const acquired = yield* acquireCanonicalForRef({
         ref,
         type: "skill",
@@ -140,14 +142,6 @@ const materializeRegistry = (
             skillSourcePath: pathService.join(stagingPath, "src"),
           }).pipe(Effect.asVoid),
       });
-      if (acquired.reused) {
-        yield* validateAxmSkillCandidate({
-          ref,
-          packageRoot: canonicalPath,
-          skillSourcePath: skillSrcPath,
-        });
-        return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
-      }
       return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
     }),
   );

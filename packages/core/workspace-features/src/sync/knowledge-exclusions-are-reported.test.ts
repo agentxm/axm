@@ -34,7 +34,7 @@ const writeLocalKnowledgePackage = (root: string, name: string): string => {
   );
   fs.writeFileSync(
     nodePath.join(packageRoot, "src", "index.md"),
-    `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${name}\n`,
+    `---\nokf_version: "0.2"\n---\n\n# ${name}\n`,
   );
   return packageRoot;
 };

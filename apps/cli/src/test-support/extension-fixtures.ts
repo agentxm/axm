@@ -107,7 +107,7 @@ export const writeLocalKnowledgePackage = (
   });
   resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", "index.md"),
-    `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n`,
+    `---\nokf_version: "0.2"\n---\n\n# ${fixture.name}\n`,
   );
   return packageRoot;
 };

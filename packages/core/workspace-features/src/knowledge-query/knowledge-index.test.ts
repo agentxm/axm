@@ -26,6 +26,7 @@ const concept = (
   id,
   kind: "concept",
   title: id,
+  titleSource: "heading",
   authoredTitle: id,
   trust: "unverified",
   authoredLinks: [],

@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
+import type { KnowledgeRuleSet } from "@agentxm/extension-content/knowledge";
 import {
   KnowledgeLintQueryResultSchema,
   lintKnowledge,
@@ -20,6 +21,12 @@ import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
 import { knowledgeFailureToAppError } from "./knowledge-errors.js";
+
+const ruleSetLabels = {
+  "okf-conformance": "OKF conformance",
+  "agentxm-profile": "AgentXM profile",
+  "registry-safety": "Registry safety",
+} as const satisfies Record<KnowledgeRuleSet, string>;
 
 export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   name?: string,
@@ -65,7 +72,7 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
             diagnostic.line === undefined
               ? ""
               : `:${diagnostic.line}${diagnostic.column === undefined ? "" : `:${diagnostic.column}`}`;
-          const message = `${diagnostic.bundle}/${diagnostic.relativePath}${coordinate}: ${diagnostic.message}`;
+          const message = `${diagnostic.bundle}/${diagnostic.relativePath}${coordinate}: ${diagnostic.message} (${ruleSetLabels[diagnostic.ruleSet]})`;
           return diagnostic.severity === "error" ? errorDoc(message) : headlineDoc("warn", message);
         }),
         ...(result.errorCount > 0

@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/knowledge/lint/reports-validation-without-mutation",
   title: "Knowledge lint reports source findings without changing content",
   statement:
-    "When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone. Omitted selection shall validate all installed bundles; an installed name shall select only that bundle, while an authored --path shall select that directory.",
+    "When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings that each name the rule set they check without changing workspace content, returning failure for errors and success for warnings alone. Omitted selection shall validate all installed bundles; an installed name shall select only that bundle, while an authored --path shall select that directory.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -22,6 +22,7 @@ export const specification = defineSpecification({
     "apps/cli/src/root/knowledge/json-output.test.ts",
     "apps/cli-e2e/src/knowledge.e2e.test.ts",
     "cli/lint/catalog-is-complete",
+    "knowledge/inspection/diagnostics-name-their-rule-set",
   ],
   supersedes: [],
   assumptions: [],
@@ -85,6 +86,8 @@ describe("Read-only Knowledge validation", () => {
             );
             expect(finding).toMatchObject({
               bundle: "platform",
+              ruleSet: "okf-conformance",
+              conformanceRule: "parseable-frontmatter",
               severity: "error",
               relativePath: "broken.md",
             });
@@ -122,6 +125,7 @@ describe("Read-only Knowledge validation", () => {
             diagnostics: expect.arrayContaining([
               expect.objectContaining({
                 code: "unresolved-resource",
+                ruleSet: "agentxm-profile",
                 severity: "warning",
                 relativePath: "resource.md",
               }),
@@ -135,7 +139,11 @@ describe("Read-only Knowledge validation", () => {
           expect(refused.document).toMatchObject({
             valid: false,
             diagnostics: expect.arrayContaining([
-              expect.objectContaining({ code: "escaping-resource", severity: "error" }),
+              expect.objectContaining({
+                code: "escaping-resource",
+                ruleSet: "registry-safety",
+                severity: "error",
+              }),
             ]),
           });
         }),

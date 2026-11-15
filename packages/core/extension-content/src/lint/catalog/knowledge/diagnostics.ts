@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
 
 import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
-import { type KnowledgeDiagnosticCode } from "../../../knowledge/index.js";
+import {
+  KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS,
+  type KnowledgeDiagnosticCode,
+} from "../../../knowledge/index.js";
 import type { KnowledgeRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, Severity } from "../../rule.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
@@ -11,13 +14,26 @@ interface DiagnosticRuleDefinition {
   readonly severity: Severity;
 }
 
+/** The rule set a diagnostic code checks, as its lint rule states it. */
+const ruleSetClause = (code: KnowledgeDiagnosticCode): string => {
+  const classification = KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS[code];
+  switch (classification.ruleSet) {
+    case "okf-conformance":
+      return `an OKF conformance check of ${classification.conformanceRule}`;
+    case "agentxm-profile":
+      return "an AgentXM profile check";
+    case "registry-safety":
+      return "a Registry safety check";
+  }
+};
+
 const makeDiagnosticRule = (
   definition: DiagnosticRuleDefinition,
 ): AdvisoryRule<KnowledgeRuleContext> => {
   const ruleId = `knowledge/${definition.code}`;
   return {
     id: ruleId,
-    description: `Knowledge packages satisfy the ${definition.code} diagnostic invariant.`,
+    description: `Knowledge packages satisfy the ${definition.code} diagnostic invariant, ${ruleSetClause(definition.code)}.`,
     kind: "advisory",
     severity: definition.severity,
     check: (context) => {
@@ -87,6 +103,12 @@ export const knowledgeDiagnosticRuleDefinitions = [
   { code: "invalid-status", severity: "error" },
   { code: "invalid-stale-after", severity: "error" },
   { code: "invalid-attestation", severity: "error" },
+  { code: "missing-frontmatter", severity: "error" },
+  { code: "superseded-timestamp", severity: "error" },
+  { code: "superseded-citations", severity: "error" },
+  { code: "missing-index-heading", severity: "error" },
+  { code: "unexpected-log-frontmatter", severity: "error" },
+  { code: "unordered-log-dates", severity: "error" },
 ] as const satisfies ReadonlyArray<DiagnosticRuleDefinition>;
 
 export const knowledgeDiagnosticRules: ReadonlyArray<AdvisoryRule<KnowledgeRuleContext>> =

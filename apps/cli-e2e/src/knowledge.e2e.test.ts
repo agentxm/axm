@@ -164,6 +164,8 @@ describe("axm knowledge lifecycle", () => {
         (diagnostic: { code: string }) => diagnostic.code === "invalid-frontmatter",
       );
       expect(directDiagnostic).toMatchObject({
+        ruleSet: "okf-conformance",
+        conformanceRule: "parseable-frontmatter",
         relativePath: "architecture.md",
         line: 3,
         column: 14,

@@ -116,7 +116,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       const inspected = yield* inspectKnowledgeBundle(root);
       expect(inspected.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
         "missing-root-index",
-        "missing-type",
+        "missing-frontmatter",
         "missing-description",
         "missing-tags",
       ]);
@@ -150,6 +150,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       ).toEqual([
         {
           code: "invalid-frontmatter",
+          ruleSet: "okf-conformance",
+          conformanceRule: "parseable-frontmatter",
           severity: "error",
           relativePath: "collection.md",
           line: 5,
@@ -163,6 +165,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         },
         {
           code: "invalid-frontmatter",
+          ruleSet: "okf-conformance",
+          conformanceRule: "parseable-frontmatter",
           severity: "error",
           relativePath: "mapping.md",
           line: 3,
@@ -175,6 +179,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         },
         {
           code: "invalid-frontmatter",
+          ruleSet: "okf-conformance",
+          conformanceRule: "parseable-frontmatter",
           severity: "error",
           relativePath: "quote.md",
           line: 5,
@@ -195,6 +201,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       ),
     ).toEqual({
       code: "invalid-frontmatter",
+      ruleSet: "okf-conformance",
+      conformanceRule: "parseable-frontmatter",
       severity: "error",
       relativePath: "broken.md",
       message: "Invalid YAML frontmatter: YAML frontmatter could not be parsed",
@@ -219,6 +227,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
 
       expect(inspected.diagnostics).toContainEqual({
         code: "empty-bundle",
+        ruleSet: "agentxm-profile",
         severity: "warning",
         relativePath: "index.md",
         message: "Knowledge bundle contains no concept documents to discover.",
@@ -274,7 +283,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       expect(codes.has("dangerous-uri")).toBe(true);
       expect(codes.has("detected-secret")).toBe(true);
       expect(codes.has("invalid-resource")).toBe(true);
-      expect(codes.has("invalid-frontmatter")).toBe(true);
+      expect(codes.has("superseded-timestamp")).toBe(true);
       expect(codes.has("invalid-log")).toBe(true);
       expect(codes.has("inconsistent-type")).toBe(true);
       expect(
@@ -604,7 +613,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
     }),
   );
 
-  it.effect("rejects fields and sections outside the 0.2 contract", () =>
+  it.effect("rejects the forms OKF 0.2 supersedes as profile errors", () =>
     Effect.gen(function* () {
       const contents = new Map([
         ["index.md", '---\nokf_version: "0.2"\n---\n# Removed forms\n\n- [Old](old.md)\n'],
@@ -621,17 +630,14 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         })),
         (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
       );
-      const errors = new Set(
-        inspected.diagnostics
-          .filter(({ severity }) => severity === "error")
-          .map(({ code }) => code),
-      );
-      expect(errors.has("invalid-frontmatter")).toBe(true);
       expect(
         inspected.diagnostics
-          .filter(({ code }) => code === "invalid-frontmatter")
-          .every(({ details }) => details === undefined),
-      ).toBe(true);
+          .filter(({ severity }) => severity === "error")
+          .map(({ code, ruleSet }) => ({ code, ruleSet })),
+      ).toEqual([
+        { code: "superseded-timestamp", ruleSet: "agentxm-profile" },
+        { code: "superseded-citations", ruleSet: "agentxm-profile" },
+      ]);
     }),
   );
 

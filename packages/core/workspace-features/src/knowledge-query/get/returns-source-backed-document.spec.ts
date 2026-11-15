@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/knowledge/concepts/get/returns-source-backed-document",
   title: "Get preserves source content and revision identity",
   statement:
-    "When retrieving an installed Knowledge concept, AXM shall return its complete frontmatter and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.",
+    "When retrieving an installed Knowledge concept, AXM shall return its display title, complete frontmatter, and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.",
   class: "functional",
   role: "interface",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -22,6 +22,7 @@ export const specification = defineSpecification({
     "apps/cli/help/topics/knowledge.md",
     "apps/cli-e2e/src/knowledge.e2e.test.ts",
     "packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts",
+    "knowledge/inspection/titles-prefer-frontmatter",
   ],
   supersedes: [],
   assumptions: [],
@@ -36,7 +37,7 @@ describe("Source-backed concept retrieval", () => {
       tags: ["identity"],
       producer: { name: "AgentXM", flags: [true, 2, null] },
     };
-    const body = "# Sign in\n\nUse the canonical account.\n";
+    const body = "# Sessions\n\nUse the canonical account.\n";
     const raw = knowledgeDocument(body, frontmatter);
     const workspace = makeKnowledgeFixtureWorkspace({
       bundles: [{ name: "platform", documents: { "auth/session.md": raw } }],
@@ -49,6 +50,7 @@ describe("Source-backed concept retrieval", () => {
           if (requested.outcome !== "ready") throw new Error("Expected the concept");
           expect(requested.document.outcome).toBe("found");
           expect(requested.document.concept).toMatchObject({
+            title: "Sign in",
             body,
             raw,
             relativePath: "auth/session.md",

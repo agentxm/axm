@@ -469,6 +469,42 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     group: "knowledge",
     views: bothViews,
   },
+  {
+    id: "knowledge/missing-frontmatter",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
+  {
+    id: "knowledge/superseded-timestamp",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
+  {
+    id: "knowledge/superseded-citations",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
+  {
+    id: "knowledge/missing-index-heading",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
+  {
+    id: "knowledge/unexpected-log-frontmatter",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
+  {
+    id: "knowledge/unordered-log-dates",
+    defaultSeverity: "error",
+    group: "knowledge",
+    views: bothViews,
+  },
   { id: "workspace/initialized", defaultSeverity: "error", group: "workspace", views: bothViews },
   {
     id: "workspace/settings-schema-valid",

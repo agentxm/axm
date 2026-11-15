@@ -648,7 +648,7 @@ export const prepareTypedObservabilityFixtures = Effect.fnUntraced(function* (op
       write(
         corpus,
         "knowledge/bench-authored/src/index.md",
-        '---\nokf_version: "0.2"\ndescription: Synthetic benchmark concepts.\n---\n\n# Benchmark knowledge\n\n- [Architecture](architecture.md): Benchmark architecture guidance.\n',
+        '---\nokf_version: "0.2"\n---\n\n# Benchmark knowledge\n\n- [Architecture](architecture.md): Benchmark architecture guidance.\n',
       );
       write(
         corpus,

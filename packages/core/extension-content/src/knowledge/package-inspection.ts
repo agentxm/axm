@@ -5,17 +5,19 @@ import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledg
 import { readExtensionManifest } from "../packaging/manifest-file.js";
 import {
   inspectKnowledgeBundle,
+  knowledgeDiagnostic,
   type KnowledgeDiagnostic,
   type KnowledgeInspection,
 } from "./okf.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
-const missingManifestDescription = (): KnowledgeDiagnostic => ({
-  code: "missing-manifest-description",
-  severity: "warning",
-  relativePath: manifestFilenameForType("knowledge"),
-  message: `${manifestFilenameForType("knowledge")} should include a concise bundle description for discovery.`,
-});
+const missingManifestDescription = (): KnowledgeDiagnostic =>
+  knowledgeDiagnostic({
+    code: "missing-manifest-description",
+    severity: "warning",
+    relativePath: manifestFilenameForType("knowledge"),
+    message: `${manifestFilenameForType("knowledge")} should include a concise bundle description for discovery.`,
+  });
 
 /** Read and decode one Knowledge package manifest without inspecting its bundle body. */
 export const readKnowledgePackageManifest = Effect.fnUntraced(function* (packageRoot: string) {

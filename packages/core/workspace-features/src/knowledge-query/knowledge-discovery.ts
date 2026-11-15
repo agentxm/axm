@@ -52,7 +52,7 @@ const conceptDocument = (
     ref: indexed.ref,
     projectionRevision: indexed.projectionRevision,
     kind: source.kind,
-    ...(source.authoredTitle === undefined ? {} : { title: source.authoredTitle }),
+    ...(source.titleSource === "concept-id" ? {} : { title: source.title }),
     ...(source.type === undefined ? {} : { type: source.type }),
     ...(source.description === undefined ? {} : { description: source.description }),
     ...(source.tags === undefined ? {} : { tags: source.tags }),

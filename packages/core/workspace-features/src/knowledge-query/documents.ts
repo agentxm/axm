@@ -19,6 +19,10 @@ import {
   ResolvedConceptRefSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
 
+import {
+  KNOWLEDGE_CONFORMANCE_RULES,
+  KNOWLEDGE_RULE_SETS,
+} from "@agentxm/extension-content/knowledge";
 import { KnowledgeDiscoveryCapabilitiesSchema } from "./knowledge-capabilities.js";
 import { KnowledgeQuerySchema } from "./knowledge-query.js";
 
@@ -168,6 +172,10 @@ export type KnowledgeConceptCapabilitiesOutput =
 const KnowledgeLintDiagnosticSchema = Schema.Struct({
   bundle: Schema.String,
   code: Schema.String,
+  ruleSet: Schema.Literals(KNOWLEDGE_RULE_SETS),
+  conformanceRule: Schema.optional(
+    Schema.Literals(KNOWLEDGE_CONFORMANCE_RULES.map(({ id }) => id)),
+  ),
   severity: Schema.String,
   relativePath: Schema.String,
   line: Schema.optional(Schema.Number),

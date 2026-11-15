@@ -9913,6 +9913,19 @@
             "properties": {
               "bundle": { "type": "string" },
               "code": { "type": "string" },
+              "ruleSet": {
+                "type": "string",
+                "enum": ["okf-conformance", "agentxm-profile", "registry-safety"]
+              },
+              "conformanceRule": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["parseable-frontmatter", "non-empty-type", "reserved-file-structure"]
+                  },
+                  { "type": "null" }
+                ]
+              },
               "severity": { "type": "string" },
               "relativePath": { "type": "string" },
               "line": {
@@ -9945,7 +9958,7 @@
                 ]
               }
             },
-            "required": ["bundle", "code", "severity", "relativePath", "message"],
+            "required": ["bundle", "code", "ruleSet", "severity", "relativePath", "message"],
             "additionalProperties": false
           }
         }
@@ -20196,6 +20209,23 @@
                 "properties": {
                   "bundle": { "type": "string" },
                   "code": { "type": "string" },
+                  "ruleSet": {
+                    "type": "string",
+                    "enum": ["okf-conformance", "agentxm-profile", "registry-safety"]
+                  },
+                  "conformanceRule": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "parseable-frontmatter",
+                          "non-empty-type",
+                          "reserved-file-structure"
+                        ]
+                      },
+                      { "type": "null" }
+                    ]
+                  },
                   "severity": { "type": "string" },
                   "relativePath": { "type": "string" },
                   "line": {
@@ -20228,7 +20258,7 @@
                     ]
                   }
                 },
-                "required": ["bundle", "code", "severity", "relativePath", "message"],
+                "required": ["bundle", "code", "ruleSet", "severity", "relativePath", "message"],
                 "additionalProperties": false
               }
             }

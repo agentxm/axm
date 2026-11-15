@@ -1,4 +1,8 @@
-/** Open Knowledge Format discovery and AgentXM-profile validation (v0.2). */
+/**
+ * Open Knowledge Format discovery and validation (v0.2). Every diagnostic names
+ * the rule set it checks: base OKF conformance, the AgentXM profile, or
+ * Registry safety.
+ */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -6,7 +10,11 @@ import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import * as Result from "effect/Result";
 import * as Predicate from "effect/Predicate";
-import { FrontmatterParseFailure, parseFrontmatterEffect } from "../content/frontmatter.js";
+import {
+  FrontmatterParseFailure,
+  findFrontmatterBoundaries,
+  parseFrontmatterEffect,
+} from "../content/frontmatter.js";
 import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
 /** OKF dialect versions this inspector understands. */
@@ -35,11 +43,20 @@ export interface KnowledgeAuthoredLink {
   readonly resolvedConceptId?: string;
 }
 
+/**
+ * Where a concept's `title` came from: a non-empty frontmatter `title`, else
+ * the body's first level-one heading, else the concept ID (OKF 0.2 §4.1 lets
+ * consumers derive a display name when `title` is omitted).
+ */
+export type KnowledgeTitleSource = "frontmatter" | "heading" | "concept-id";
+
 export interface KnowledgeConcept {
   readonly id: string;
   readonly kind: KnowledgeDocumentKind;
+  /** Display name: frontmatter `title`, else the first level-one heading, else the concept ID. */
   readonly title: string;
-  /** The authored level-one heading, absent when `title` fell back to the concept ID. */
+  readonly titleSource: KnowledgeTitleSource;
+  /** The body's first level-one heading, absent when the body has none. */
   readonly authoredTitle?: string;
   readonly frontmatter?: Readonly<Record<string, unknown>>;
   readonly type?: string;
@@ -98,9 +115,135 @@ export const KNOWLEDGE_DIAGNOSTIC_CODES = [
   "invalid-status",
   "invalid-stale-after",
   "invalid-attestation",
+  "missing-frontmatter",
+  "superseded-timestamp",
+  "superseded-citations",
+  "missing-index-heading",
+  "unexpected-log-frontmatter",
+  "unordered-log-dates",
 ] as const;
 
 export type KnowledgeDiagnosticCode = (typeof KNOWLEDGE_DIAGNOSTIC_CODES)[number];
+
+/**
+ * The rule sets a Knowledge diagnostic checks, exactly one per diagnostic.
+ * `okf-conformance` is base OKF 0.2 conformance: only the three rules of §11.
+ * `agentxm-profile` is the AgentXM producer profile applied beyond base OKF,
+ * including every check OKF leaves soft (SHOULD, MAY, or unstated).
+ * `registry-safety` protects the Registry and the people and agents consuming
+ * a bundle (limits, containment, active content, secrets) rather than
+ * describing knowledge quality.
+ */
+export const KNOWLEDGE_RULE_SETS = [
+  "okf-conformance",
+  "agentxm-profile",
+  "registry-safety",
+] as const;
+
+export type KnowledgeRuleSet = (typeof KNOWLEDGE_RULE_SETS)[number];
+
+/** The three OKF 0.2 §11 conformance rules, in specification order. */
+export const KNOWLEDGE_CONFORMANCE_RULES = [
+  {
+    id: "parseable-frontmatter",
+    description: "Every non-reserved Markdown file contains a parseable YAML frontmatter block.",
+  },
+  {
+    id: "non-empty-type",
+    description: "Every frontmatter block contains a non-empty type field.",
+  },
+  {
+    id: "reserved-file-structure",
+    description: "Every index.md and log.md follows the index and log file structure.",
+  },
+] as const;
+
+export type KnowledgeConformanceRule = (typeof KNOWLEDGE_CONFORMANCE_RULES)[number]["id"];
+
+/** The rule set one diagnostic code checks, and the §11 rule an OKF-conformance code fails. */
+export type KnowledgeDiagnosticClassification =
+  | { readonly ruleSet: "okf-conformance"; readonly conformanceRule: KnowledgeConformanceRule }
+  | { readonly ruleSet: "agentxm-profile" | "registry-safety"; readonly conformanceRule?: never };
+
+const profile = { ruleSet: "agentxm-profile" } as const;
+const safety = { ruleSet: "registry-safety" } as const;
+const conformance = (conformanceRule: KnowledgeConformanceRule) =>
+  ({ ruleSet: "okf-conformance", conformanceRule }) as const;
+
+/**
+ * The classification of every diagnostic code, read from OKF 0.2. Only a
+ * failure of a §11 rule is `okf-conformance`; a check OKF marks SHOULD or MAY,
+ * or leaves to producers, is `agentxm-profile`. The annotation makes a new
+ * code fail to compile until it is classified here.
+ */
+export const KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS: {
+  readonly [Code in KnowledgeDiagnosticCode]: KnowledgeDiagnosticClassification;
+} = {
+  "bundle-too-large": safety,
+  "file-too-large": safety,
+  // §4.1 recommends `tags` as a list of strings.
+  "invalid-tags": profile,
+  // §3 and §8: `index.md` is optional, including at the bundle root.
+  "missing-root-index": profile,
+  // §12: a bundle MAY declare `okf_version`; consumers SHOULD read undeclared or
+  // unknown versions best-effort.
+  "missing-okf-version": profile,
+  "unsupported-okf-version": profile,
+  // §4.1: `title`, `description`, and `tags` are recommended, not required.
+  "missing-title": profile,
+  "missing-description": profile,
+  "missing-manifest-description": profile,
+  "empty-bundle": profile,
+  "missing-tags": profile,
+  "symbolic-link": safety,
+  "too-many-files": safety,
+  // §11 rule 2. A missing frontmatter block is `missing-frontmatter` instead.
+  "missing-type": conformance("non-empty-type"),
+  // §11 rule 1: the block is present but its YAML does not parse.
+  "invalid-frontmatter": conformance("parseable-frontmatter"),
+  "missing-frontmatter": conformance("parseable-frontmatter"),
+  "case-collision": safety,
+  "dangerous-uri": safety,
+  "detected-secret": safety,
+  "unsafe-path": safety,
+  // §11 rule 3 with §8: an index carries no frontmatter except a bundle-root
+  // `okf_version` key, and its body groups entries under section headings. A
+  // reserved index whose frontmatter does not parse fails this rule, not rule 1.
+  "invalid-index": conformance("reserved-file-structure"),
+  // §8 permits a section heading at any level; a level-one heading is profile.
+  "missing-index-heading": profile,
+  // §11 rule 3 with §9: date headings MUST use ISO 8601 `YYYY-MM-DD`.
+  "invalid-log": conformance("reserved-file-structure"),
+  // §9 states no frontmatter rule and orders entries newest first without a
+  // MUST, so a log that carries frontmatter or misorders its dates is profile.
+  "unexpected-log-frontmatter": profile,
+  "unordered-log-dates": profile,
+  // §6.2 path-valued fields and §5 families are SHOULD guidance under §11.
+  "invalid-resource": profile,
+  "escaping-resource": safety,
+  "unresolved-resource": profile,
+  // §6.1: consumers MUST tolerate broken links.
+  "broken-internal-link": profile,
+  "escaping-link": safety,
+  "unreachable-concept": profile,
+  "missing-index-entry": profile,
+  "stale-index-entry": profile,
+  "embedded-html": safety,
+  "duplicate-resource": profile,
+  "inconsistent-type": profile,
+  "large-concept": profile,
+  "large-index": profile,
+  "unreferenced-asset": profile,
+  "invalid-sources": profile,
+  "invalid-generated": profile,
+  "invalid-verified": profile,
+  "invalid-status": profile,
+  "invalid-stale-after": profile,
+  "invalid-attestation": profile,
+  // §13.1: consumers MAY still read the v0.1 forms.
+  "superseded-timestamp": profile,
+  "superseded-citations": profile,
+};
 
 export interface KnowledgeFrontmatterParseDetails {
   readonly kind: "frontmatter-parse";
@@ -109,6 +252,10 @@ export interface KnowledgeFrontmatterParseDetails {
 
 export interface KnowledgeDiagnostic {
   readonly code: KnowledgeDiagnosticCode;
+  /** The rule set `code` checks, from `KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS`. */
+  readonly ruleSet: KnowledgeRuleSet;
+  /** The §11 rule failed; present exactly when `ruleSet` is `okf-conformance`. */
+  readonly conformanceRule?: KnowledgeConformanceRule;
   readonly severity: "error" | "warning";
   readonly relativePath: string;
   readonly line?: number;
@@ -117,19 +264,46 @@ export interface KnowledgeDiagnostic {
   readonly details?: KnowledgeFrontmatterParseDetails;
 }
 
-/** Convert a typed frontmatter failure into the stable Knowledge diagnostic contract. */
+/** Build a diagnostic whose rule set is always the classification of its code. */
+export const knowledgeDiagnostic = ({
+  code,
+  ...fields
+}: Omit<KnowledgeDiagnostic, "ruleSet" | "conformanceRule">): KnowledgeDiagnostic => ({
+  code,
+  ...KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS[code],
+  ...fields,
+});
+
+const fileBaseName = (relativePath: string): string =>
+  (relativePath.replace(/\\/g, "/").split("/").at(-1) ?? relativePath).toLowerCase();
+
+/**
+ * Convert a typed frontmatter failure into the stable Knowledge diagnostic
+ * contract. OKF 0.2 §11 rule 1 covers only concept documents, so a reserved
+ * index reports the failure against the index structure of §8 and a reserved
+ * log, which §9 gives no frontmatter, against the profile.
+ */
 export const frontmatterParseDiagnostic = (
   relativePath: string,
   failure: FrontmatterParseFailure,
-): KnowledgeDiagnostic => ({
-  code: "invalid-frontmatter",
-  severity: "error",
-  relativePath,
-  ...(failure.line === undefined ? {} : { line: failure.line }),
-  ...(failure.column === undefined ? {} : { column: failure.column }),
-  message: `Invalid YAML frontmatter: ${failure.reason}`,
-  details: { kind: "frontmatter-parse", reason: failure.reason },
-});
+): KnowledgeDiagnostic => {
+  const baseName = fileBaseName(relativePath);
+  const [code, prefix] =
+    baseName === "index.md"
+      ? (["invalid-index", "Invalid YAML frontmatter in a reserved index"] as const)
+      : baseName === "log.md"
+        ? (["unexpected-log-frontmatter", "Invalid YAML frontmatter in a reserved log"] as const)
+        : (["invalid-frontmatter", "Invalid YAML frontmatter"] as const);
+  return knowledgeDiagnostic({
+    code,
+    severity: "error",
+    relativePath,
+    ...(failure.line === undefined ? {} : { line: failure.line }),
+    ...(failure.column === undefined ? {} : { column: failure.column }),
+    message: `${prefix}: ${failure.reason}`,
+    details: { kind: "frontmatter-parse", reason: failure.reason },
+  });
+};
 
 export interface KnowledgeInspection {
   readonly concepts: ReadonlyArray<KnowledgeConcept>;
@@ -199,12 +373,83 @@ export const collectKnowledgeBundleEntries = (
   FileSystem.FileSystem | Path.Path
 > => bundleEntries(sourceRoot, sourceRoot);
 
-const firstHeading = (body: string): string | undefined => {
-  for (const line of body.split(/\r?\n/)) {
-    const match = /^#\s+(.+?)\s*$/.exec(line);
-    if (match?.[1] !== undefined) return match[1];
-  }
-  return undefined;
+interface MarkdownHeading {
+  readonly level: number;
+  readonly text: string;
+  /** One-based line of the heading's first line within the scanned body. */
+  readonly line: number;
+}
+
+/**
+ * The non-empty ATX and setext headings of a Markdown body in order. Lines in
+ * fenced or indented code are not headings, and a setext underline makes the
+ * paragraph above it a heading, as CommonMark renders them.
+ */
+const markdownHeadings = (body: string): ReadonlyArray<MarkdownHeading> => {
+  const headings: MarkdownHeading[] = [];
+  let fence: { readonly marker: string; readonly length: number } | undefined;
+  let paragraph: { readonly lines: string[]; readonly line: number } | undefined;
+  const push = (level: number, text: string, line: number): void => {
+    if (text.length > 0) headings.push({ level, text, line });
+  };
+  body.split(/\r?\n/).forEach((text, index) => {
+    const line = index + 1;
+    if (fence !== undefined) {
+      const closing = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(text)?.[1];
+      if (
+        closing !== undefined &&
+        closing.charAt(0) === fence.marker &&
+        closing.length >= fence.length
+      ) {
+        fence = undefined;
+      }
+      return;
+    }
+    const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text);
+    const openingFence = opening?.[1];
+    if (
+      openingFence !== undefined &&
+      !(openingFence.startsWith("`") && (opening?.[2] ?? "").includes("`"))
+    ) {
+      fence = { marker: openingFence.charAt(0), length: openingFence.length };
+      paragraph = undefined;
+      return;
+    }
+    if (paragraph !== undefined) {
+      const underline = /^ {0,3}(=+|-+)[ \t]*$/.exec(text)?.[1];
+      if (underline !== undefined) {
+        push(underline.startsWith("=") ? 1 : 2, paragraph.lines.join(" "), paragraph.line);
+        paragraph = undefined;
+        return;
+      }
+    }
+    const atx = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/.exec(text);
+    const marker = atx?.[1];
+    if (marker !== undefined) {
+      push(marker.length, (atx?.[2] ?? "").replace(/(?:^|[ \t]+)#+$/, "").trim(), line);
+      paragraph = undefined;
+      return;
+    }
+    if (text.trim().length === 0) {
+      paragraph = undefined;
+      return;
+    }
+    if (
+      /^ {0,3}(?:[*+>-]|\d{1,9}[.)])(?:[ \t]|$)/.test(text) ||
+      /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(text) ||
+      /^ {0,3}[<|]/.test(text)
+    ) {
+      paragraph = undefined;
+      return;
+    }
+    if (paragraph !== undefined) {
+      paragraph.lines.push(text.trim());
+      return;
+    }
+    if (/^(?: {4}|\t)/.test(text)) return;
+    paragraph = { lines: [text.trim()], line };
+  });
+  return headings;
 };
 
 const conceptId = (relativePath: string): string => relativePath.replace(/\.md$/i, "");
@@ -580,10 +825,8 @@ const secretLine = (raw: string): number | undefined => {
   return index === -1 ? undefined : index + 1;
 };
 
-const isReserved = (relativePath: string): boolean => {
-  const baseName = relativePath.replace(/\\/g, "/").split("/").at(-1)?.toLowerCase();
-  return baseName !== undefined && RESERVED_BASENAMES.has(baseName);
-};
+const isReserved = (relativePath: string): boolean =>
+  RESERVED_BASENAMES.has(fileBaseName(relativePath));
 
 const documentKind = (relativePath: string): KnowledgeDocumentKind => {
   const baseName = relativePath.replace(/\\/g, "/").split("/").at(-1)?.toLowerCase();
@@ -695,12 +938,62 @@ export const inspectKnowledgeEntries = <E>(
       entries.filter((entry) => entry.type === "File").map((entry) => entry.relativePath),
     );
     const diagnostics: KnowledgeDiagnostic[] = [];
+    const report = (fields: Parameters<typeof knowledgeDiagnostic>[0]): void => {
+      diagnostics.push(knowledgeDiagnostic(fields));
+    };
+    // §8: an index groups its entries under section headings; this profile
+    // further requires a level-one heading.
+    const inspectIndexBody = (relativePath: string, body: string): void => {
+      const headings = markdownHeadings(body);
+      if (headings.length === 0) {
+        report({
+          code: "invalid-index",
+          severity: "error",
+          relativePath,
+          message: `${relativePath} must group its entries under at least one section heading.`,
+        });
+      } else if (!headings.some(({ level }) => level === 1)) {
+        report({
+          code: "missing-index-heading",
+          severity: "error",
+          relativePath,
+          message: `${relativePath} must contain at least one level-one section heading.`,
+        });
+      }
+    };
+    // §9: date headings MUST use ISO 8601 `YYYY-MM-DD`; this profile further
+    // requires them newest first.
+    const inspectLogBody = (relativePath: string, body: string): void => {
+      const dateHeadings = markdownHeadings(body).filter(({ level }) => level === 2);
+      const invalid = dateHeadings.find(
+        ({ text }) =>
+          !/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(Date.parse(`${text}T00:00:00Z`)),
+      );
+      if (invalid !== undefined) {
+        report({
+          code: "invalid-log",
+          severity: "error",
+          relativePath,
+          line: invalid.line,
+          message: `${relativePath} date headings must use valid ISO 8601 YYYY-MM-DD dates.`,
+        });
+      }
+      const dates = dateHeadings.map(({ text }) => text);
+      if (dates.some((date, index) => index > 0 && date > (dates[index - 1] ?? date))) {
+        report({
+          code: "unordered-log-dates",
+          severity: "error",
+          relativePath,
+          message: `${relativePath} date headings must be newest first.`,
+        });
+      }
+    };
     const concepts: KnowledgeConcept[] = [];
     const linksByPath = new Map<string, ReadonlyArray<KnowledgeAuthoredLink>>();
     const resources = new Map<string, string[]>();
     const types = new Map<string, Set<string>>();
     if (entries.length > MAX_BUNDLE_FILES) {
-      diagnostics.push({
+      report({
         code: "too-many-files",
         severity: "error",
         relativePath: ".",
@@ -709,7 +1002,7 @@ export const inspectKnowledgeEntries = <E>(
     }
     const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0n);
     if (totalBytes > MAX_BUNDLE_BYTES) {
-      diagnostics.push({
+      report({
         code: "bundle-too-large",
         severity: "error",
         relativePath: ".",
@@ -725,7 +1018,7 @@ export const inspectKnowledgeEntries = <E>(
         entry.relativePath.includes("\0") ||
         segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")
       ) {
-        diagnostics.push({
+        report({
           code: "unsafe-path",
           severity: "error",
           relativePath: entry.relativePath,
@@ -737,7 +1030,7 @@ export const inspectKnowledgeEntries = <E>(
       colliding.push(entry.relativePath);
       pathsByCase.set(folded, colliding);
       if (entry.type === "SymbolicLink") {
-        diagnostics.push({
+        report({
           code: "symbolic-link",
           severity: "error",
           relativePath: entry.relativePath,
@@ -745,7 +1038,7 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
       if (entry.size > MAX_FILE_BYTES) {
-        diagnostics.push({
+        report({
           code: "file-too-large",
           severity: "error",
           relativePath: entry.relativePath,
@@ -759,7 +1052,7 @@ export const inspectKnowledgeEntries = <E>(
         entry.relativePath.toLowerCase().endsWith("index.md") &&
         entry.size > LARGE_INDEX_BYTES
       ) {
-        diagnostics.push({
+        report({
           code: "large-index",
           severity: "warning",
           relativePath: entry.relativePath,
@@ -770,7 +1063,7 @@ export const inspectKnowledgeEntries = <E>(
         entry.relativePath.toLowerCase().endsWith(".md") &&
         entry.size > LARGE_CONCEPT_BYTES
       ) {
-        diagnostics.push({
+        report({
           code: "large-concept",
           severity: "warning",
           relativePath: entry.relativePath,
@@ -780,7 +1073,7 @@ export const inspectKnowledgeEntries = <E>(
     }
     for (const colliding of pathsByCase.values()) {
       if (new Set(colliding).size > 1) {
-        diagnostics.push({
+        report({
           code: "case-collision",
           severity: "error",
           relativePath: colliding[0] ?? ".",
@@ -789,7 +1082,7 @@ export const inspectKnowledgeEntries = <E>(
       }
     }
     if (!files.includes("index.md")) {
-      diagnostics.push({
+      report({
         code: "missing-root-index",
         severity: "error",
         relativePath: "index.md",
@@ -808,7 +1101,7 @@ export const inspectKnowledgeEntries = <E>(
       linksByPath.set(relativePath, links);
       const foundSecretLine = secretLine(raw);
       if (foundSecretLine !== undefined) {
-        diagnostics.push({
+        report({
           code: "detected-secret",
           severity: "error",
           relativePath,
@@ -818,7 +1111,7 @@ export const inspectKnowledgeEntries = <E>(
       }
       for (const link of links) {
         if (activeScheme(link.target)) {
-          diagnostics.push({
+          report({
             code: "dangerous-uri",
             severity: "error",
             relativePath,
@@ -829,7 +1122,7 @@ export const inspectKnowledgeEntries = <E>(
       }
       const activeHtmlUri = /\b(?:href|src)\s*=\s*["']\s*(?:javascript|vbscript|data):/i.exec(raw);
       if (activeHtmlUri !== null) {
-        diagnostics.push({
+        report({
           code: "dangerous-uri",
           severity: "error",
           relativePath,
@@ -838,7 +1131,7 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
       if (/<\/?(?:script|iframe|object|embed|form|style|video|audio|svg|math)\b[^>]*>/i.test(raw)) {
-        diagnostics.push({
+        report({
           code: "embedded-html",
           severity: "warning",
           relativePath,
@@ -846,75 +1139,59 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
       const parsed = yield* parseFrontmatterEffect(raw).pipe(Effect.result);
+      const baseName = fileBaseName(relativePath);
       if (Result.isFailure(parsed)) {
         diagnostics.push(frontmatterParseDiagnostic(relativePath, parsed.failure));
+        // A reserved file still has its body structure checked.
+        const body = raw.slice(findFrontmatterBoundaries(raw)?.bodyStart ?? 0);
+        if (baseName === "index.md") inspectIndexBody(relativePath, body);
+        if (baseName === "log.md") inspectLogBody(relativePath, body);
         continue;
       }
       const parsedValue = parsed.success;
-      const baseName = (
-        relativePath.replace(/\\/g, "/").split("/").at(-1) ?? relativePath
-      ).toLowerCase();
       const metadata = parsedValue.frontmatter;
       const isMetadata = typeof metadata === "object" && metadata !== null;
       if (baseName === "index.md") {
-        if (relativePath !== "index.md" && metadata !== undefined) {
-          diagnostics.push({
+        if (relativePath === "index.md") {
+          // §8 and §12: the bundle-root index may carry only `okf_version`.
+          if (metadata !== undefined && (!isMetadata || Array.isArray(metadata))) {
+            report({
+              code: "invalid-index",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} frontmatter must be a mapping that declares only okf_version.`,
+            });
+          } else if (isMetadata) {
+            const extraKeys = Object.keys(metadata).filter((key) => key !== "okf_version");
+            if (extraKeys.length > 0) {
+              report({
+                code: "invalid-index",
+                severity: "error",
+                relativePath,
+                message: `${relativePath} frontmatter may declare only okf_version; found ${extraKeys.join(", ")}.`,
+              });
+            }
+          }
+        } else if (findFrontmatterBoundaries(raw) !== undefined) {
+          report({
             code: "invalid-index",
             severity: "error",
             relativePath,
             message: `${relativePath} is a reserved index and must not contain frontmatter.`,
           });
         }
-        if (firstHeading(parsedValue.body) === undefined) {
-          diagnostics.push({
-            code: "invalid-index",
-            severity: "error",
-            relativePath,
-            message: `${relativePath} must contain at least one level-one section heading.`,
-          });
-        }
+        inspectIndexBody(relativePath, parsedValue.body);
       }
       if (baseName === "log.md") {
-        if (metadata !== undefined) {
-          diagnostics.push({
-            code: "invalid-log",
+        if (findFrontmatterBoundaries(raw) !== undefined) {
+          report({
+            code: "unexpected-log-frontmatter",
             severity: "error",
             relativePath,
             message: `${relativePath} is a reserved log and must not contain frontmatter.`,
           });
         }
-        const dateHeadings = parsedValue.body
-          .split(/\r?\n/)
-          .map((line, index) => ({ line, number: index + 1 }))
-          .filter(({ line }) => /^##\s+/.test(line));
-        if (
-          dateHeadings.some(({ line }) => !/^##\s+\d{4}-\d{2}-\d{2}\s*$/.test(line)) ||
-          dateHeadings.some(({ line }) => {
-            const value = line.replace(/^##\s+/, "").trim();
-            const parsedDate = Date.parse(`${value}T00:00:00Z`);
-            return Number.isNaN(parsedDate);
-          })
-        ) {
-          const invalid = dateHeadings.find(
-            ({ line }) => !/^##\s+\d{4}-\d{2}-\d{2}\s*$/.test(line),
-          );
-          diagnostics.push({
-            code: "invalid-log",
-            severity: "error",
-            relativePath,
-            ...(invalid === undefined ? {} : { line: invalid.number }),
-            message: `${relativePath} date headings must use valid ISO 8601 YYYY-MM-DD dates.`,
-          });
-        }
-        const dates = dateHeadings.map(({ line }) => line.replace(/^##\s+/, "").trim());
-        if (dates.some((date, index) => index > 0 && date > (dates[index - 1] ?? date))) {
-          diagnostics.push({
-            code: "invalid-log",
-            severity: "error",
-            relativePath,
-            message: `${relativePath} date headings must be newest first.`,
-          });
-        }
+        inspectLogBody(relativePath, parsedValue.body);
       }
       const type =
         isMetadata &&
@@ -946,7 +1223,7 @@ export const inspectKnowledgeEntries = <E>(
             });
       const timestampValue = metadataField(metadata, "timestamp");
       if (isMetadata && "tags" in metadata && metadata.tags !== undefined && tags === undefined) {
-        diagnostics.push({
+        report({
           code: "invalid-tags",
           severity: "error",
           relativePath,
@@ -957,14 +1234,14 @@ export const inspectKnowledgeEntries = <E>(
         const declaredVersion =
           isMetadata && "okf_version" in metadata ? String(metadata.okf_version) : undefined;
         if (declaredVersion === undefined) {
-          diagnostics.push({
+          report({
             code: "missing-okf-version",
             severity: "error",
             relativePath,
             message: `src/index.md requires okf_version: ${OKF_VERSION} in YAML frontmatter.`,
           });
         } else if (declaredVersion !== OKF_VERSION) {
-          diagnostics.push({
+          report({
             code: "unsupported-okf-version",
             severity: "error",
             relativePath,
@@ -984,14 +1261,14 @@ export const inspectKnowledgeEntries = <E>(
             severity: "error",
             message: `${relativePath} resource must be a safe absolute URI or contained path.`,
           } satisfies ResourceIssue);
-        diagnostics.push({ ...issue, relativePath });
+        report({ ...issue, relativePath });
       }
       if (!RESERVED_BASENAMES.has(baseName) && timestampValue !== undefined) {
-        diagnostics.push({
-          code: "invalid-frontmatter",
+        report({
+          code: "superseded-timestamp",
           severity: "error",
           relativePath,
-          message: `${relativePath} timestamp is not part of OKF 0.2; use generated.at.`,
+          message: `${relativePath} timestamp is superseded in OKF 0.2; use generated.at.`,
         });
       }
       const statusValue = metadataField(metadata, "status");
@@ -1028,7 +1305,7 @@ export const inspectKnowledgeEntries = <E>(
       if (!RESERVED_BASENAMES.has(baseName)) {
         if (sourcesValue !== undefined) {
           for (const issue of sourcesIssues(sourcesValue, relativePath, allFilePaths)) {
-            diagnostics.push({
+            report({
               code: issue.code,
               severity: issue.severity,
               relativePath,
@@ -1038,7 +1315,7 @@ export const inspectKnowledgeEntries = <E>(
         }
         if (usageWindowValue !== undefined) {
           for (const issue of usageWindowIssues(usageWindowValue)) {
-            diagnostics.push({
+            report({
               code: "invalid-sources",
               severity: "error",
               relativePath,
@@ -1048,7 +1325,7 @@ export const inspectKnowledgeEntries = <E>(
         }
         if (generatedValue !== undefined) {
           for (const issue of actorRecordIssues(generatedValue, "generated")) {
-            diagnostics.push({
+            report({
               code: "invalid-generated",
               severity: "error",
               relativePath,
@@ -1061,7 +1338,7 @@ export const inspectKnowledgeEntries = <E>(
           records.forEach((record, index) => {
             const label = Array.isArray(verifiedValue) ? `verified[${index}]` : "verified";
             for (const issue of actorRecordIssues(record, label)) {
-              diagnostics.push({
+              report({
                 code: "invalid-verified",
                 severity: "error",
                 relativePath,
@@ -1074,7 +1351,7 @@ export const inspectKnowledgeEntries = <E>(
           statusValue !== undefined &&
           (typeof statusValue !== "string" || !CONCEPT_STATUSES.has(statusValue))
         ) {
-          diagnostics.push({
+          report({
             code: "invalid-status",
             severity: "error",
             relativePath,
@@ -1084,7 +1361,7 @@ export const inspectKnowledgeEntries = <E>(
         if (staleAfterValue !== undefined) {
           const issue = dateIssue(staleAfterValue, "stale_after");
           if (issue !== undefined) {
-            diagnostics.push({
+            report({
               code: "invalid-stale-after",
               severity: "error",
               relativePath,
@@ -1094,7 +1371,7 @@ export const inspectKnowledgeEntries = <E>(
         }
         if (type !== undefined && type.toLocaleLowerCase() === ATTESTED_COMPUTATION_TYPE) {
           for (const issue of attestationIssues(metadata, parsedValue.body)) {
-            diagnostics.push({
+            report({
               code: "invalid-attestation",
               severity: "error",
               relativePath,
@@ -1103,25 +1380,38 @@ export const inspectKnowledgeEntries = <E>(
           }
         }
       }
-      if (!RESERVED_BASENAMES.has(baseName) && type === undefined) {
-        diagnostics.push({
+      if (!RESERVED_BASENAMES.has(baseName) && findFrontmatterBoundaries(raw) === undefined) {
+        report({
+          code: "missing-frontmatter",
+          severity: "error",
+          relativePath,
+          message: `${relativePath} is an OKF concept and requires a YAML frontmatter block with a non-empty type.`,
+        });
+      } else if (!RESERVED_BASENAMES.has(baseName) && type === undefined) {
+        report({
           code: "missing-type",
           severity: "error",
           relativePath,
           message: `${relativePath} is an OKF concept and requires a non-empty frontmatter type.`,
         });
       }
-      const title = firstHeading(parsedValue.body);
-      if (title === undefined) {
-        diagnostics.push({
+      const titleValue = metadataField(metadata, "title");
+      const frontmatterTitle =
+        typeof titleValue === "string" && titleValue.trim().length > 0
+          ? titleValue.trim()
+          : undefined;
+      const bodyHeadings = markdownHeadings(parsedValue.body);
+      const authoredTitle = bodyHeadings.find(({ level }) => level === 1)?.text;
+      if (frontmatterTitle === undefined && authoredTitle === undefined) {
+        report({
           code: "missing-title",
           severity: "warning",
           relativePath,
-          message: `${relativePath} should include one level-one heading for a stable display title.`,
+          message: `${relativePath} should include a frontmatter title or one level-one heading for a stable display title.`,
         });
       }
       if (!RESERVED_BASENAMES.has(baseName) && description === undefined) {
-        diagnostics.push({
+        report({
           code: "missing-description",
           severity: "warning",
           relativePath,
@@ -1129,7 +1419,7 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
       if (!RESERVED_BASENAMES.has(baseName) && tags === undefined) {
-        diagnostics.push({
+        report({
           code: "missing-tags",
           severity: "warning",
           relativePath,
@@ -1152,21 +1442,29 @@ export const inspectKnowledgeEntries = <E>(
         spellings.add(type);
         types.set(type.toLocaleLowerCase(), spellings);
       }
-      const citationHeading = parsedValue.body.search(/^#\s+Citations\s*$/im);
-      if (citationHeading >= 0 && !RESERVED_BASENAMES.has(baseName)) {
-        diagnostics.push({
-          code: "invalid-frontmatter",
+      const citationHeading = bodyHeadings.find(
+        ({ level, text }) => level === 1 && text.toLowerCase() === "citations",
+      );
+      if (citationHeading !== undefined && !RESERVED_BASENAMES.has(baseName)) {
+        report({
+          code: "superseded-citations",
           severity: "error",
           relativePath,
-          line: parsedValue.body.slice(0, citationHeading).split(/\r?\n/).length,
-          message: `${relativePath} # Citations is not part of OKF 0.2; use sources frontmatter.`,
+          line: citationHeading.line,
+          message: `${relativePath} # Citations is superseded in OKF 0.2; use sources frontmatter.`,
         });
       }
       concepts.push({
         id: conceptId(relativePath),
         kind: documentKind(relativePath),
-        title: title ?? conceptId(relativePath),
-        ...(title === undefined ? {} : { authoredTitle: title }),
+        title: frontmatterTitle ?? authoredTitle ?? conceptId(relativePath),
+        titleSource:
+          frontmatterTitle !== undefined
+            ? "frontmatter"
+            : authoredTitle !== undefined
+              ? "heading"
+              : "concept-id",
+        ...(authoredTitle === undefined ? {} : { authoredTitle }),
         ...(Predicate.isReadonlyObject(metadata) ? { frontmatter: metadata } : {}),
         ...(type === undefined ? {} : { type }),
         ...(description === undefined ? {} : { description }),
@@ -1198,7 +1496,7 @@ export const inspectKnowledgeEntries = <E>(
             break;
           case "escaped":
             authoredLinks.push(link);
-            diagnostics.push({
+            report({
               code: "escaping-link",
               severity: "warning",
               relativePath: sourcePath,
@@ -1208,7 +1506,7 @@ export const inspectKnowledgeEntries = <E>(
             break;
           case "missing":
             authoredLinks.push(link);
-            diagnostics.push({
+            report({
               code: sourcePath.toLowerCase().endsWith("index.md")
                 ? "stale-index-entry"
                 : "broken-internal-link",
@@ -1248,7 +1546,7 @@ export const inspectKnowledgeEntries = <E>(
         !isReserved(concept.relativePath) &&
         !reachable.has(concept.relativePath)
       ) {
-        diagnostics.push({
+        report({
           code: "unreachable-concept",
           severity: "warning",
           relativePath: concept.relativePath,
@@ -1262,7 +1560,7 @@ export const inspectKnowledgeEntries = <E>(
           markdownPaths.has(nearestIndex) &&
           !(outgoing.get(nearestIndex) ?? new Set<string>()).has(concept.relativePath)
         ) {
-          diagnostics.push({
+          report({
             code: "missing-index-entry",
             severity: "warning",
             relativePath: nearestIndex,
@@ -1277,7 +1575,7 @@ export const inspectKnowledgeEntries = <E>(
         !entry.relativePath.toLowerCase().endsWith(".md") &&
         !referencedFiles.has(entry.relativePath)
       ) {
-        diagnostics.push({
+        report({
           code: "unreferenced-asset",
           severity: "warning",
           relativePath: entry.relativePath,
@@ -1288,7 +1586,7 @@ export const inspectKnowledgeEntries = <E>(
     for (const [resource, matching] of resources) {
       if (matching.length > 1) {
         for (const relativePath of matching) {
-          diagnostics.push({
+          report({
             code: "duplicate-resource",
             severity: "warning",
             relativePath,
@@ -1299,7 +1597,7 @@ export const inspectKnowledgeEntries = <E>(
     }
     for (const spellings of types.values()) {
       if (spellings.size > 1) {
-        diagnostics.push({
+        report({
           code: "inconsistent-type",
           severity: "warning",
           relativePath: ".",
@@ -1308,7 +1606,7 @@ export const inspectKnowledgeEntries = <E>(
       }
     }
     if (!concepts.some((concept) => !isReserved(concept.relativePath))) {
-      diagnostics.push({
+      report({
         code: "empty-bundle",
         severity: "warning",
         relativePath: "index.md",

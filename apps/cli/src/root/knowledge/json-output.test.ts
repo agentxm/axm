@@ -120,6 +120,8 @@ describe("knowledge JSON output", () => {
               {
                 bundle: "platform",
                 code: "invalid-frontmatter",
+                ruleSet: "okf-conformance",
+                conformanceRule: "parseable-frontmatter",
                 severity: "error",
                 relativePath: "auth.md",
                 line: 3,
@@ -165,7 +167,7 @@ describe("knowledge JSON output", () => {
         yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
         expect(logs.error).toContain(
-          "platform/auth.md:5:1: Invalid YAML frontmatter: Missing closing quote",
+          "platform/auth.md:5:1: Invalid YAML frontmatter: Missing closing quote (OKF conformance)",
         );
         expect(logs.error.join("\n")).not.toContain("auth.md: auth.md");
       }),

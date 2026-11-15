@@ -189,10 +189,7 @@ const contentFiles = (
       return [[nodePath.join("src", "hook.sh"), `#!/usr/bin/env bash\necho "${fixture.name}"\n`]];
     case "knowledge":
       return [
-        [
-          nodePath.join("src", "index.md"),
-          `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n`,
-        ],
+        [nodePath.join("src", "index.md"), `---\nokf_version: "0.2"\n---\n\n# ${fixture.name}\n`],
       ];
     case "mcp-server":
     case "pack":

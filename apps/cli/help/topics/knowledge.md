@@ -79,8 +79,9 @@ when changing login, session, or token behavior.
   boundaries.
 ```
 
-`index.md` and `log.md` are reserved names. Nested `index.md` files are section
-indexes and must not carry frontmatter; `log.md` records change history under
+`index.md` and `log.md` are reserved names. The root `index.md` frontmatter
+declares only `okf_version`, and nested `index.md` files are section indexes
+that carry no frontmatter. `log.md` records change history under
 `## YYYY-MM-DD` headings, newest first.
 
 ## Progressive discovery
@@ -136,7 +137,9 @@ below.
 
 - `type` is required — a concept without a non-empty frontmatter `type` fails
   validation.
-- A level-one heading supplies the display title.
+- The display title is the frontmatter `title` when present, else the first
+  level-one heading, else the concept ID. Lint warns only when both the
+  frontmatter `title` and the heading are missing.
 - `description` and `tags` drive search and are strongly recommended; lint
   warns when they are missing. Make the description distinguish this concept
   from its neighbors rather than repeat its title. Use tags for stable domain
@@ -170,10 +173,24 @@ axm knowledge lint --path ./knowledge/platform
 ```
 
 Lint reports errors (missing root index, missing concept `type`, invalid
-frontmatter, escaping resource paths, unsafe paths, broken internal links,
-detected secrets) and warnings (missing resource targets, missing description
+frontmatter, escaping resource paths, unsafe paths, detected secrets) and
+warnings (broken internal links, missing resource targets, missing description
 or tags, concepts unreachable from an index). Errors exit non-zero; warnings do
 not.
+
+Every finding names the rule set it checks, as `ruleSet` in `--json` output:
+
+| Rule set          | Checks                                                                 |
+| ----------------- | ---------------------------------------------------------------------- |
+| `okf-conformance` | The three OKF 0.2 conformance rules, named by `conformanceRule`        |
+| `agentxm-profile` | AgentXM authoring requirements, including guidance OKF leaves optional |
+| `registry-safety` | Size and file limits, bundle containment, active content, and secrets  |
+
+The conformance rules are `parseable-frontmatter` (every concept has a
+parseable YAML frontmatter block), `non-empty-type` (every frontmatter block has
+a non-empty `type`), and `reserved-file-structure` (`index.md` and `log.md`
+follow the OKF index and log structure). A bundle with no `okf-conformance`
+finding is OKF conformant even when profile findings remain.
 
 ## Install and update
 

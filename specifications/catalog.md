@@ -2261,14 +2261,14 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/knowledge/lint/reports-validation-without-mutation`
 - Owner: `workspace-features`
-- Statement: When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone. Omitted selection shall validate all installed bundles; an installed name shall select only that bundle, while an authored --path shall select that directory.
+- Statement: When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings that each name the rule set they check without changing workspace content, returning failure for errors and success for warnings alone. Omitted selection shall validate all installed bundles; an installed name shall select only that bundle, while an authored --path shall select that directory.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/json-output.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
+- Derived from: `apps/cli/src/root/knowledge/json-output.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`, `knowledge/inspection/diagnostics-name-their-rule-set`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace-features/src/knowledge-query/lint/reports-validation-without-mutation.spec.ts`](../packages/core/workspace-features/src/knowledge-query/lint/reports-validation-without-mutation.spec.ts)
 
@@ -6446,14 +6446,14 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/knowledge/concepts/get/returns-source-backed-document`
 - Owner: `workspace-features`
-- Statement: When retrieving an installed Knowledge concept, AXM shall return its complete frontmatter and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.
+- Statement: When retrieving an installed Knowledge concept, AXM shall return its display title, complete frontmatter, and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
-- Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`
+- Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`, `knowledge/inspection/titles-prefer-frontmatter`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace-features/src/knowledge-query/get/returns-source-backed-document.spec.ts`](../packages/core/workspace-features/src/knowledge-query/get/returns-source-backed-document.spec.ts)
 
@@ -6510,6 +6510,34 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: contract, example
 - Derived from: `cli/command-help-is-complete`
 - Source: [`apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts`](../apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts)
+
+##### Knowledge diagnostics separate OKF conformance from profile and safety checks
+
+- Requirement: `knowledge/inspection/diagnostics-name-their-rule-set`
+- Owner: `extension-content`
+- Statement: When inspecting a Knowledge bundle, AXM shall name on every diagnostic exactly one rule set, reporting OKF conformance, with the failed rule, only for a failure of one of the three OKF 0.2 §11 conformance rules, the AgentXM profile for every other knowledge-quality check including guidance OKF leaves soft, and Registry safety for limits, containment, active content, and secrets.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, model
+- Derived from: `agent_extensions/registry.agentxm.ai/@craigsmitham/skills/okf/src/references/SPEC.md`, `packages/core/extension-content/src/knowledge/okf.test.ts`
+- Assumptions: OKF 0.2 §11 is the complete base conformance contract; every other OKF constraint is soft guidance.; Rule 3 holds an index to §8 (no frontmatter beyond a bundle-root okf_version, entries grouped under headings) and a log to the one §9 MUST (ISO 8601 date headings); log frontmatter and newest-first ordering, which §9 does not require, are profile.
+- Source: [`packages/core/extension-content/src/knowledge/diagnostics-name-their-rule-set.spec.ts`](../packages/core/extension-content/src/knowledge/diagnostics-name-their-rule-set.spec.ts)
+
+##### Concept titles prefer the authored frontmatter title
+
+- Requirement: `knowledge/inspection/titles-prefer-frontmatter`
+- Owner: `extension-content`
+- Statement: When inspecting a Knowledge document, AXM shall take its display title from a non-empty frontmatter title, else its first level-one heading outside code, else its concept ID, and shall report a missing title only when the document has neither a frontmatter title nor a level-one heading.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `agent_extensions/registry.agentxm.ai/@craigsmitham/skills/okf/src/references/SPEC.md`, `apps/cli/help/topics/knowledge.md`
+- Assumptions: OKF 0.2 §4.1 names frontmatter title as the display name and lets consumers derive one when it is omitted.
+- Source: [`packages/core/extension-content/src/knowledge/titles-prefer-frontmatter.spec.ts`](../packages/core/extension-content/src/knowledge/titles-prefer-frontmatter.spec.ts)
 
 ### Goal: machine-automation
 

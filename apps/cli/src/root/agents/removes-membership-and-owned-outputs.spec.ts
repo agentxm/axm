@@ -310,8 +310,7 @@ describe("Removing a coding agent", () => {
       format: { name: "okf", version: "0.2" },
       bundleRoot: "src",
     }),
-    "knowledge/reference/src/index.md":
-      '---\nokf_version: "0.2"\ndescription: Reference knowledge\n---\n\n# Reference\n',
+    "knowledge/reference/src/index.md": '---\nokf_version: "0.2"\n---\n\n# Reference\n',
   };
 
   it.effect.each([

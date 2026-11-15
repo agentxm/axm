@@ -1,7 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { KNOWLEDGE_DIAGNOSTIC_CODES } from "@agentxm/extension-content/knowledge";
+import {
+  KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS,
+  KNOWLEDGE_DIAGNOSTIC_CODES,
+} from "@agentxm/extension-content/knowledge";
 import {
   knowledgeRules,
   knowledgeDiagnosticRuleDefinitions,
@@ -16,7 +19,7 @@ describe("Knowledge diagnostic lint rules", () => {
     expect(knowledgeDiagnosticRules.map(({ id }) => id)).toEqual(
       KNOWLEDGE_DIAGNOSTIC_CODES.map((code) => `knowledge/${code}`),
     );
-    expect(new Set(knowledgeDiagnosticRules.map(({ id }) => id)).size).toBe(41);
+    expect(new Set(knowledgeDiagnosticRules.map(({ id }) => id)).size).toBe(47);
   });
 
   it("preserves the amended resource diagnostic severities", () => {
@@ -50,6 +53,8 @@ describe("Knowledge diagnostic lint rules", () => {
             diagnostics: [
               {
                 code: "invalid-frontmatter",
+                ruleSet: "okf-conformance",
+                conformanceRule: "parseable-frontmatter",
                 severity: "error",
                 relativePath: "broken.md",
                 line: 3,
@@ -101,6 +106,7 @@ describe("Knowledge diagnostic lint rules", () => {
                 ? [
                     {
                       code,
+                      ...KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS[code],
                       severity,
                       relativePath: "concept.md",
                       message: `Observed ${code}`,

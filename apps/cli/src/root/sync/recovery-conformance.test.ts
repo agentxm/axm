@@ -156,6 +156,12 @@ const packageLintErrorIds = [
   "knowledge/invalid-status",
   "knowledge/invalid-stale-after",
   "knowledge/invalid-attestation",
+  "knowledge/missing-frontmatter",
+  "knowledge/superseded-timestamp",
+  "knowledge/superseded-citations",
+  "knowledge/missing-index-heading",
+  "knowledge/unexpected-log-frontmatter",
+  "knowledge/unordered-log-dates",
 ] as const;
 
 const packageLintEntries = packageLintErrorIds.map((id) =>

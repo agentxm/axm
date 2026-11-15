@@ -11,6 +11,7 @@ const concept = (
 ): KnowledgeConcept => ({
   kind: "concept",
   title: values.id,
+  titleSource: "concept-id",
   trust: "unverified",
   authoredLinks: [],
   ...values,
@@ -23,6 +24,7 @@ describe("Knowledge discovery projection", () => {
       relativePath: "guides/source.md",
       body: "# Source\n\nOpening.\n\n## Details\n\nExact body text.\n",
       title: "Source",
+      titleSource: "heading",
       authoredTitle: "Source",
       description: "A source document",
       tags: ["source-of-truth", "design"],
@@ -96,6 +98,23 @@ describe("Knowledge discovery projection", () => {
     ]);
     expect(projectedTarget).not.toHaveProperty("title");
     expect(projectedTarget?.searchableUnits.some(({ field }) => field === "title")).toBe(false);
+  });
+
+  it("projects a frontmatter title as the display and searchable title", () => {
+    const [projected] = projectKnowledgeConcepts("@example/knowledge/platform", [
+      concept({
+        id: "guides/session",
+        relativePath: "guides/session.md",
+        body: "# Sessions\n\nBody.\n",
+        title: "Session lifecycle",
+        titleSource: "frontmatter",
+        authoredTitle: "Sessions",
+      }),
+    ]);
+    expect(projected?.title).toBe("Session lifecycle");
+    expect(projected?.searchableUnits.filter(({ field }) => field === "title")).toEqual([
+      { field: "title", text: "Session lifecycle" },
+    ]);
   });
 
   it("resolves escaped JSON Pointer tokens over producer-defined frontmatter", () => {

@@ -191,7 +191,7 @@ const projectionBase = (
 
   addUnit("bundle", bundle);
   addUnit("conceptId", concept.id);
-  addUnit("title", concept.authoredTitle);
+  addUnit("title", concept.titleSource === "concept-id" ? undefined : concept.title);
   addUnit("description", concept.description);
   for (const tag of concept.tags ?? []) addUnit("tag", tag);
   addUnit("type", concept.type);
@@ -209,7 +209,7 @@ const projectionBase = (
     bundle,
     conceptId: concept.id,
     kind: concept.kind,
-    ...(concept.authoredTitle === undefined ? {} : { title: concept.authoredTitle }),
+    ...(concept.titleSource === "concept-id" ? {} : { title: concept.title }),
     ...(concept.description === undefined ? {} : { description: concept.description }),
     ...(concept.tags === undefined ? {} : { tags: concept.tags }),
     ...(concept.type === undefined ? {} : { type: concept.type }),

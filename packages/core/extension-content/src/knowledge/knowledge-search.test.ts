@@ -16,6 +16,7 @@ const concept = (args: {
 }): KnowledgeConcept => ({
   ...args,
   kind: "concept",
+  titleSource: "frontmatter",
   authoredLinks: [],
   relativePath: `${args.id}.md`,
   body: args.body ?? "",

@@ -213,12 +213,7 @@ export const writeAuthoredKnowledge = (
       format: { name: "okf", version: "0.2" },
       bundleRoot: "src",
     },
-    [
-      [
-        path.join("src", "index.md"),
-        `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n`,
-      ],
-    ],
+    [[path.join("src", "index.md"), `---\nokf_version: "0.2"\n---\n\n# ${fixture.name}\n`]],
   );
 };
 

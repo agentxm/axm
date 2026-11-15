@@ -293,7 +293,7 @@ export const minimalPackageFiles = (
           format: { name: "okf", version: "0.2" },
           bundleRoot: KNOWLEDGE_SOURCE_DIR,
         }),
-        [`${KNOWLEDGE_SOURCE_DIR}/index.md`]: `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${name}\n${options.body === undefined ? "" : `\n${options.body}\n`}`,
+        [`${KNOWLEDGE_SOURCE_DIR}/index.md`]: `---\nokf_version: "0.2"\n---\n\n# ${name}\n${options.body === undefined ? "" : `\n${options.body}\n`}`,
       };
     case "mcp-server":
       return {

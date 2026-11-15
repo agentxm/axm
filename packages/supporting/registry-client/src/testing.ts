@@ -597,7 +597,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
                 null,
                 2,
               )}\n`,
-              "src/index.md": `---\nokf_version: "0.2"\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n\n${body}\n`,
+              "src/index.md": `---\nokf_version: "0.2"\n---\n\n# ${name}\n\n${body}\n`,
             }),
           ),
         }),

@@ -628,7 +628,9 @@ describe("KnowledgeManager", () => {
           yield* manager.materializeInstall({ ref: localRef("invalid-handbook", sourceRoot) });
         }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
 
-        expect(describeTestFailure(error)).toContain("requires a non-empty frontmatter type");
+        expect(describeTestFailure(error)).toContain(
+          "requires a YAML frontmatter block with a non-empty type",
+        );
         expect(
           existsSync(
             nodePath.join(workspaceRoot, "agent_extensions", "_local", "project", "source"),

@@ -11,10 +11,12 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
   inspectKnowledgePackage,
+  inspectKnowledgePackageWithManifest,
   type KnowledgeDiagnostic,
 } from "@agentxm/extension-content/knowledge";
 import {
@@ -22,6 +24,7 @@ import {
   selectInstalledKnowledgeBundles,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  capturedManifestFor,
   WorkspaceLocation,
   withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -66,11 +69,13 @@ const inspectAuthored = Effect.fnUntraced(function* (packagePath: string) {
 });
 
 const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
+  const path = yield* Path.Path;
   // The desired graph and the accepted resolutions read one document phase;
   // bundle content is inspected after it ends.
-  const selected = yield* selectInstalledKnowledgeBundles(
-    bundle === undefined ? undefined : { name: bundle },
-  ).pipe(
+  const selected = yield* selectInstalledKnowledgeBundles({
+    ...(bundle === undefined ? {} : { name: bundle }),
+    captureManifests: true,
+  }).pipe(
     Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
       Effect.fail(
         new KnowledgeCorpusUnavailable({
@@ -85,7 +90,12 @@ const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
   return yield* Effect.forEach(
     selected,
     (entry) =>
-      inspectKnowledgePackage(entry.packageRoot).pipe(
+      // The decode the selection's observation made of this package's
+      // manifest; otherwise the inspection reads it.
+      Option.match(capturedManifestFor(path, entry.manifest, entry.packageRoot, "knowledge"), {
+        onSome: (manifest) => inspectKnowledgePackageWithManifest(entry.packageRoot, manifest),
+        onNone: () => inspectKnowledgePackage(entry.packageRoot),
+      }).pipe(
         Effect.map((inspected) => ({ ...inspected, name: entry.name })),
         Effect.mapError(
           (cause) =>

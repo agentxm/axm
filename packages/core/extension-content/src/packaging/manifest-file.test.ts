@@ -219,14 +219,18 @@ const recordingFileSystem = (base: FileSystem.FileSystem, target: string) => {
 };
 
 /** The calls one read performs on the manifest path, and how it reports the outcome. */
-const recordedRead = (directory: string, type: ExtensionType) =>
+const recordedRead = (
+  directory: string,
+  type: ExtensionType,
+  options?: Parameters<typeof readExtensionManifest>[2],
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const { fileSystem, calls } = recordingFileSystem(
       yield* FileSystem.FileSystem,
       path.join(directory, manifestFilenameForType(type)),
     );
-    const result = yield* readExtensionManifest(directory, type).pipe(
+    const result = yield* readExtensionManifest(directory, type, options).pipe(
       Effect.provideService(FileSystem.FileSystem, fileSystem),
       Effect.result,
     );
@@ -451,3 +455,87 @@ layer(NodeServices.layer, { excludeTestServices: true })("manifest text capture"
     }).pipe(Effect.scoped),
   );
 });
+
+layer(NodeServices.layer, { excludeTestServices: true })(
+  "manifest content from the caller",
+  (it) => {
+    const encoder = new TextEncoder();
+    const contents = [
+      { name: "a valid manifest", bytes: encoder.encode(JSON.stringify(manifests.skill)) },
+      {
+        name: "a manifest with a byte-order mark",
+        bytes: new Uint8Array([
+          0xef,
+          0xbb,
+          0xbf,
+          ...encoder.encode(JSON.stringify(manifests.skill)),
+        ]),
+      },
+      {
+        name: "a manifest holding bytes that are not UTF-8",
+        bytes: (() => {
+          const text = JSON.stringify({ ...manifests.skill, description: "marker" });
+          const bytes = encoder.encode(text);
+          bytes[text.indexOf("marker")] = 0xff;
+          return bytes;
+        })(),
+      },
+      { name: "invalid JSON", bytes: encoder.encode("{not json") },
+      {
+        name: "a schema-invalid manifest",
+        bytes: encoder.encode(JSON.stringify({ owner: "@acme", type: "skill", version: "1.0.0" })),
+      },
+    ];
+
+    for (const row of contents) {
+      it.effect(`decodes ${row.name} exactly as reading the file does`, () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const file = path.join(root, "skill.json");
+          yield* fs.writeFile(file, row.bytes);
+          const read = yield* readExtensionManifest(root, "skill").pipe(Effect.result);
+
+          const received: Array<Uint8Array> = [];
+          const fromBytes = yield* recordedRead(root, "skill", {
+            receiveBytes: (bytes) => {
+              received.push(bytes);
+            },
+          });
+          expect(fromBytes.result).toEqual(read);
+          expect(fromBytes.calls).toEqual(["readFile:success"]);
+          expect(received.map((bytes) => Array.from(bytes))).toEqual([Array.from(row.bytes)]);
+
+          const fromText = yield* recordedRead(root, "skill", {
+            text: yield* fs.readFileString(file),
+          });
+          expect(fromText.result).toEqual(read);
+          expect(fromText.calls).toEqual([]);
+        }).pipe(Effect.scoped),
+      );
+    }
+
+    it.effect("reports a failed byte read exactly as a failed text read", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        let received = 0;
+        const receiveBytes = () => {
+          received += 1;
+        };
+
+        const missing = yield* recordedRead(root, "skill", { receiveBytes });
+        expect(missing).toEqual(yield* recordedRead(root, "skill"));
+        expect(failureOf(missing.result)?.code).toBe("manifest_missing");
+
+        yield* fs.makeDirectory(path.join(root, "skill.json"));
+        const unreadable = yield* recordedRead(root, "skill", { receiveBytes });
+        expect(unreadable).toEqual(yield* recordedRead(root, "skill"));
+        expect(failureOf(unreadable.result)?.code).toBe("manifest_unreadable");
+        expect(received).toBe(0);
+      }).pipe(Effect.scoped),
+    );
+  },
+);

@@ -3,6 +3,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as Option from "effect/Option";
@@ -22,6 +23,16 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
 
 interface ReadManifestOptions {
   readonly defaultOwner?: Handle;
+  /**
+   * The manifest file's text as the caller has just read it, decoded in place
+   * of reading the file again.
+   */
+  readonly text?: string;
+  /**
+   * Read the manifest file's bytes, hand them to this callback, and decode
+   * the text from them exactly as `readFileString` would.
+   */
+  readonly receiveBytes?: (bytes: Uint8Array) => void;
 }
 
 /** The manifest a package of `T` declares. */
@@ -46,22 +57,23 @@ const withDefaultOwner = (raw: unknown, defaultOwner: Handle | undefined): unkno
     : raw;
 
 /**
- * Read the manifest text. Absence is judged from the read itself; only another
- * failure probes the path, to tell an uninspectable location from an
+ * Read the manifest content. Absence is judged from the read itself; only
+ * another failure probes the path, to tell an uninspectable location from an
  * unreadable file exactly as an existence check before the read would.
  */
-const readManifestText = (
+const readManifestContent = <A>(
   fs: FileSystem.FileSystem,
+  read: Effect.Effect<A, PlatformError>,
   directory: string,
   fileName: string,
   manifestPath: string,
-): Effect.Effect<string, ManifestError> => {
+): Effect.Effect<A, ManifestError> => {
   const missing = () =>
     new ManifestError({
       code: "manifest_missing",
       detail: `Expected manifest file "${fileName}" not found in ${directory}.`,
     });
-  return fs.readFileString(manifestPath).pipe(
+  return read.pipe(
     Effect.catch((readError) =>
       readError.reason._tag === "NotFound"
         ? Effect.fail(missing())
@@ -87,6 +99,33 @@ const readManifestText = (
             ),
           ),
     ),
+  );
+};
+
+/** The manifest text: supplied by the caller, decoded from bytes it receives, or read. */
+const manifestText = (
+  fs: FileSystem.FileSystem,
+  directory: string,
+  fileName: string,
+  manifestPath: string,
+  options: ReadManifestOptions | undefined,
+): Effect.Effect<string, ManifestError> => {
+  if (options?.text !== undefined) return Effect.succeed(options.text);
+  const receiveBytes = options?.receiveBytes;
+  if (receiveBytes === undefined)
+    return readManifestContent(
+      fs,
+      fs.readFileString(manifestPath),
+      directory,
+      fileName,
+      manifestPath,
+    );
+  return readManifestContent(fs, fs.readFile(manifestPath), directory, fileName, manifestPath).pipe(
+    Effect.map((bytes) => {
+      const text = new TextDecoder().decode(bytes);
+      receiveBytes(bytes);
+      return text;
+    }),
   );
 };
 
@@ -164,7 +203,7 @@ export const readExtensionManifestCapture = <T extends ExtensionType>(
     const path = yield* Path.Path;
     const fileName = manifestFilenameForType(type);
     const manifestPath = path.join(directory, fileName);
-    const content = yield* readManifestText(fs, directory, fileName, manifestPath).pipe(
+    const content = yield* manifestText(fs, directory, fileName, manifestPath, options).pipe(
       Effect.result,
     );
     if (Result.isFailure(content)) {

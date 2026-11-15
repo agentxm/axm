@@ -25,14 +25,32 @@ import type { SourceHash } from "@agentxm/extension-model/unstable/sources/sourc
  * reporting, never a tamper seal — installed content is workspace-owned and
  * may be rewritten by content-preserving tools after install.
  *
+ * A caller that has just read the bytes of one root-level file passes them as
+ * `rootFile`: when the walk finds a regular file under that name it frames
+ * those bytes instead of reading the file again, with mode bits still taken
+ * from the walk's own `lstat`; any other entry kind is framed as usual. A
+ * caller that needs the text of some package-relative regular files names
+ * them in `decodeText`; the walk hands each one's bytes, decoded as UTF-8
+ * exactly as `readFileString` decodes them, to `receive` as it frames them.
+ * Neither option changes the hash.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const computePackageContentHash = (
   packageDir: string,
+  options?: {
+    readonly rootFile?: { readonly name: string; readonly bytes: Uint8Array };
+    readonly decodeText?: {
+      readonly entries: ReadonlyArray<string>;
+      readonly receive: (relative: string, text: string) => void;
+    };
+  },
 ): Effect.Effect<SourceHash, PackageContentHashFailed, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const decoded = new Set(options?.decodeText?.entries ?? []);
+    const rootFile = options?.rootFile;
     const hash = crypto.createHash("sha256");
     let byteCount = 0;
     let entryCount = 0;
@@ -62,7 +80,13 @@ export const computePackageContentHash = (
             frame("directory", relative, new Uint8Array());
             yield* walk(absolute, relative);
           } else if (info.type === "File") {
-            frame(`file:${info.mode & 0o111}`, relative, yield* fs.readFile(absolute));
+            const bytes =
+              rootFile !== undefined && prefix === "" && entry === rootFile.name
+                ? rootFile.bytes
+                : yield* fs.readFile(absolute);
+            frame(`file:${info.mode & 0o111}`, relative, bytes);
+            if (decoded.has(relative))
+              options?.decodeText?.receive(relative, new TextDecoder().decode(bytes));
           }
         }
       });

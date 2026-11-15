@@ -12,6 +12,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import type * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import type * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
@@ -37,6 +38,8 @@ import {
   CurrentWorkspaceReadPhase,
   DesiredStateReader,
   LOCKFILE_VERSION,
+  LockfileIoError,
+  LockfileReader,
   WorkspaceLocation,
   withWorkspaceObservationReadView,
   withWorkspaceReadView,
@@ -536,9 +539,10 @@ describe("lint projection facts", () => {
 
 /**
  * A synced project with one acquired Rule, Hook and Knowledge bundle, and one
- * workspace-authored Rule, whose agents' instruction files AXM does not manage.
+ * workspace-authored Rule, whose agents' instruction files AXM does not manage
+ * unless `settings` says so.
  */
-const syncedContributors = () => {
+const syncedContributors = (settings: Readonly<Record<string, unknown>> = {}) => {
   const registry = makeFileRegistry();
   cleanups.push(registry.cleanup);
   registry.writeRule("guide", [{ version: "1.0.0", body: "Follow the guide.\n" }]);
@@ -554,6 +558,7 @@ const syncedContributors = () => {
       rules: { guide: "test:@acme/rules/guide@^1.0.0", conventions: "workspace" },
       hooks: { audit: "test:@acme/hooks/audit@^1.0.0" },
       knowledge: { handbook: "test:@acme/knowledge/handbook@^1.0.0" },
+      ...settings,
     },
   });
   cleanups.push(workspace.cleanup);
@@ -609,6 +614,23 @@ const expectSameDocument = (
   );
 };
 
+type ObservationHandoff = Parameters<
+  NonNullable<Context.Service.Shape<typeof WorkspaceInvariantFacts>["withCanonicalObservations"]>
+>[0];
+
+/** Run `lint` with every handover of its observations passed through `wrap`. */
+const wrappingHandoffs =
+  (wrap: (handoff: ObservationHandoff) => ObservationHandoff) =>
+  <A, E, R>(lint: Effect.Effect<A, E, R>) =>
+    lint.pipe(
+      Effect.updateService(WorkspaceInvariantFacts, (facts) => {
+        const handOver = facts.withCanonicalObservations;
+        return handOver === undefined
+          ? facts
+          : { ...facts, withCanonicalObservations: (handoff) => handOver(wrap(handoff)) };
+      }),
+    );
+
 describe("lint contributor observations", () => {
   it.effect(
     "selects acquired Rule and Hook contributors from the run's own canonical observation",
@@ -657,6 +679,97 @@ describe("lint contributor observations", () => {
         // Each rule's demand evaluates its own facts after the phase ended, and
         // every selection in them observes for itself.
         expect(counted.digests).toBe(9);
+        expectSameDocument(counted, reference);
+      }),
+    );
+  });
+
+  it.effect("takes no observation once the phase ends between two contributor selections", () => {
+    const workspace = syncedContributors();
+    const taken = { whileActive: 0, afterEnd: 0, handoffs: 0 };
+    // A mutation through the observation port during the facts evaluation ends
+    // the phase as soon as the first contributor selection takes lint's
+    // observation; the facts still read through the ended phase's port.
+    const endingAfterFirstSelection = wrappingHandoffs((handoff) => {
+      taken.handoffs += 1;
+      return {
+        ...handoff,
+        observed: (desired) => {
+          if (handoff.phase.isActive()) taken.whileActive += 1;
+          else taken.afterEnd += 1;
+          handoff.phase.close("mutation");
+          return handoff.observed(desired);
+        },
+      };
+    });
+    return withContributorServices(
+      workspace,
+      Effect.gen(function* () {
+        const reference = yield* countedDigests(withWorkspaceReadView(contributorLint(workspace)));
+        const counted = yield* countedDigests(
+          endingAfterFirstSelection(contributorLint(workspace)),
+        );
+        // Only the selection that ran while the phase was active took lint's
+        // observation; every later selection observed for itself.
+        expect(taken).toEqual({ whileActive: 1, afterEnd: 0, handoffs: 1 });
+        expectSameDocument(counted, reference);
+      }),
+    );
+  });
+
+  it.effect("observes for itself when the phase ends before the facts are evaluated", () => {
+    // Managing the agents' instruction files makes the run's alias probe write
+    // through the observation port, ending the phase before any contributor
+    // selection, so every selection observes for itself.
+    const workspace = syncedContributors({ instructionFiles: { fileName: "AGENTS.md" } });
+    return withContributorServices(
+      workspace,
+      Effect.gen(function* () {
+        const reference = yield* countedDigests(withWorkspaceReadView(contributorLint(workspace)));
+        expect(reference.digests).toBe(6);
+        const counted = yield* countedDigests(contributorLint(workspace));
+        // Lint's own 3, then each of two demands evaluates afresh.
+        expect(counted.digests).toBe(3 + 2 * 3);
+        expectSameDocument(counted, reference);
+      }),
+    );
+  });
+
+  it.effect("hands over no observations when lint's own observation failed", () => {
+    const workspace = syncedContributors();
+    let handoffs = 0;
+    // Inside an outer phase, lint's own observation reads accepted rows through
+    // this reader, which cannot read the Hook's row; the facts read through the
+    // phase's own readers and observe every contributor successfully.
+    const countingHandoffs = wrappingHandoffs((handoff) => {
+      handoffs += 1;
+      return handoff;
+    });
+    const failingLintObservation = <A, E, R>(lint: Effect.Effect<A, E, R>) =>
+      countingHandoffs(lint).pipe(
+        Effect.updateService(LockfileReader, (reader) => ({
+          ...reader,
+          acceptedEntry: (type, name) =>
+            type === "hook"
+              ? Effect.fail(
+                  new LockfileIoError({
+                    path: nodePath.join(workspace.root, "axm.lock"),
+                    cause: "unreadable",
+                  }),
+                )
+              : reader.acceptedEntry(type, name),
+        })),
+      );
+    return withContributorServices(
+      workspace,
+      Effect.gen(function* () {
+        const reference = yield* countedDigests(
+          withWorkspaceReadView(failingLintObservation(contributorLint(workspace))),
+        );
+        const counted = yield* countedDigests(
+          withWorkspaceObservationReadView(failingLintObservation(contributorLint(workspace))),
+        );
+        expect(handoffs).toBe(0);
         expectSameDocument(counted, reference);
       }),
     );

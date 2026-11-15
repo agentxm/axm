@@ -1,6 +1,7 @@
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { createHash } from "node:crypto";
 import { platform } from "node:os";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
@@ -37,6 +38,7 @@ import {
 import { SourceHostProviders } from "../../sources/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
+  CurrentWorkspaceReadPhase,
   DesiredStateReader,
   resolveConfiguredExtensionObservations,
   acceptedLockedCanonicalPath,
@@ -46,6 +48,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  WorkspaceReadViews,
   type TreeIntegrity,
 } from "../../workspace-state/index.js";
 
@@ -159,6 +162,19 @@ export const executionExposureRisks = Effect.fn("executionExposureRisks")(functi
     )
   )
     return [];
+  // The review reads the workspace documents as one stable observation. Planning's
+  // phase has retired, so this document-only phase is captured fresh through the
+  // live port and ends with the review; physical observations stay live.
+  const views = yield* Effect.serviceOption(WorkspaceReadViews);
+  if (Option.isNone(views)) return yield* reviewExposure(plan);
+  const readers = yield* views.value.capture({ observations: false });
+  return yield* reviewExposure(plan).pipe(
+    Effect.provideContext(readers),
+    Effect.ensuring(Effect.sync(() => Context.get(readers, CurrentWorkspaceReadPhase)?.close())),
+  );
+});
+
+const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>) {
   const changes: ExecutionChange[] = [];
   const seenChanges = new Set<string>();
   const observer = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);

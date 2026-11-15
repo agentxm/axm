@@ -10,8 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import {
@@ -29,9 +30,11 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import {
   contributorSetBlockers,
   contributorSetComplete,
+  CurrentWorkspaceReadPhase,
   desiredStateProblemsText,
   observeCanonicalExtensionCapturing,
   unresolvedPackRoutesText,
+  type CanonicalObservation,
   type CapturedManifest,
   type DesiredContributorBlockers,
   type LockEntry,
@@ -84,6 +87,73 @@ export const requireCompleteContributors = (
     : new DesiredStateIncomplete({ problems: contributorBlockersText(blockers) });
 };
 
+/**
+ * Canonical observations one caller made of desired nodes inside one
+ * observation read phase, through that phase's own observation port.
+ */
+export interface CanonicalObservationHandoff {
+  readonly phase: NonNullable<Context.Service.Shape<typeof CurrentWorkspaceReadPhase>>;
+  readonly fileSystem: FileSystem.FileSystem;
+  /**
+   * The observation of exactly this desired node object, with the accepted
+   * row and layout it was made against; `None` when the caller made none.
+   */
+  readonly observed: (desired: DesiredExtensionNode) => Option.Option<{
+    readonly accepted: LockEntry | undefined;
+    readonly layout: WorkspaceLayout;
+    readonly observation: CanonicalObservation;
+    readonly manifest: Option.Option<CapturedManifest>;
+  }>;
+}
+
+/** The handoff contributor selection may take observations from; none by default. */
+export const CurrentCanonicalObservationHandoff = Context.Reference<
+  CanonicalObservationHandoff | undefined
+>("@agentxm/workspace-kernel/projection/contributors/CurrentCanonicalObservationHandoff", {
+  defaultValue: () => undefined,
+});
+
+/**
+ * The handed-over observation of `node`, only while the phase it was made in
+ * is still the active observation phase, the caller reads through that
+ * phase's own port, and the observation was made against the identical
+ * accepted row and layout. The caller receives its own copy; anything else
+ * observes for itself.
+ */
+const handedOverObservation = (args: {
+  readonly layout: WorkspaceLayout;
+  readonly node: DesiredExtensionNode;
+  readonly accepted: LockEntry | undefined;
+}) =>
+  Effect.gen(function* () {
+    const handoff = yield* CurrentCanonicalObservationHandoff;
+    if (handoff === undefined) return Option.none();
+    const phase = yield* CurrentWorkspaceReadPhase;
+    const fileSystem = yield* FileSystem.FileSystem;
+    if (
+      phase === undefined ||
+      phase !== handoff.phase ||
+      !phase.isActive() ||
+      !phase.observations ||
+      fileSystem !== phase.fileSystem ||
+      fileSystem !== handoff.fileSystem
+    ) {
+      return Option.none();
+    }
+    return Option.flatMap(handoff.observed(args.node), (prior) =>
+      prior.accepted === args.accepted && prior.layout === args.layout
+        ? Option.some({
+            observation: structuredClone(prior.observation),
+            manifest: Option.map(prior.manifest, ({ path, text, decode }) => ({
+              path,
+              text,
+              decode,
+            })),
+          })
+        : Option.none(),
+    );
+  });
+
 /** Enabled desired nodes of one extension type. */
 const activeNodesOfType = (
   graph: DesiredStateGraph,
@@ -131,11 +201,10 @@ const contributorForNode = (args: {
         identity: formatDesiredIdentity(node.identity),
       });
     }
-    const { observation, manifest } = yield* observeCanonicalExtensionCapturing({
-      layout,
-      desired: node,
-      accepted,
-    });
+    const handedOver = yield* handedOverObservation({ layout, node, accepted });
+    const { observation, manifest } = Option.isSome(handedOver)
+      ? handedOver.value
+      : yield* observeCanonicalExtensionCapturing({ layout, desired: node, accepted });
     if (observation.status === "missing-resolution") {
       return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }

@@ -59,6 +59,7 @@ import {
   SettingsReader,
   WorkspaceLocation,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   freshStateLoadersFor,
   observeInstallRoot,
   withWorkspaceObservationReadView,
@@ -322,30 +323,30 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         const invariantFacts = yield* WorkspaceInvariantFacts;
         const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
         // Every rule that reports a canonical observation reads this one
-        // observation of each desired node for the run.
-        const canonicalObservations: Effect.Effect<
-          ReadonlyArray<{
-            readonly desired: DesiredExtensionNode;
-            readonly observation: CanonicalObservation;
-          }>,
-          WorkspaceHealthFailure
-        > = yield* Effect.cached(
+        // observation of each desired node for the run. The accepted row and
+        // the manifest each observation read stay with this run.
+        const canonicalCaptures = yield* Effect.cached(
           Effect.gen(function* () {
             const graph = yield* desiredState.graph();
             return yield* Effect.forEach(
               graph.nodes,
               (node) =>
-                acceptedCanonicalObservation({
+                acceptedCanonicalObservationCapturing({
                   type: node.type,
                   name: node.name,
                 }).pipe(
-                  Effect.flatMap((accepted) =>
-                    Option.isNone(accepted)
+                  Effect.flatMap(({ observed, manifest }) =>
+                    Option.isNone(observed)
                       ? new LintStagingFailed({
                           category: "internal",
                           detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
                         })
-                      : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+                      : Effect.succeed({
+                          desired: node,
+                          observation: observed.value.observation,
+                          accepted: observed.value.accepted,
+                          manifest,
+                        }),
                   ),
                 ),
               { concurrency: 16 },
@@ -358,13 +359,22 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             Effect.provideService(DesiredStateReader, desiredState),
           ),
         );
+        const canonicalObservations: Effect.Effect<
+          ReadonlyArray<{
+            readonly desired: DesiredExtensionNode;
+            readonly observation: CanonicalObservation;
+          }>,
+          WorkspaceHealthFailure
+        > = Effect.map(canonicalCaptures, (captures) =>
+          captures.map(({ desired, observation }) => ({ desired, observation })),
+        );
         // A node whose canonical tree is absent has nothing for its own artifact
         // and content rules to inspect, so they defer to the one finding the
         // observation router names. Unavailable observations defer nothing.
-        const observed = yield* Effect.result(canonicalObservations);
-        const deferred = Result.isFailure(observed)
+        const captured = yield* Effect.result(canonicalCaptures);
+        const deferred = Result.isFailure(captured)
           ? new Set<string>()
-          : nodesDeferringToObservation(observed.success);
+          : nodesDeferringToObservation(captured.success);
 
         // The official AXM skill is the desired node its identity selects, judged
         // from that node's canonical observation; no other copy on disk counts.
@@ -403,6 +413,33 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
                 ),
               })
             : undefined;
+        // Aggregate contributor selection inside the projection facts takes this
+        // run's own observation of the identical desired node, only while this
+        // observation phase is active and read through the port lint observed
+        // through; every other selection observes for itself.
+        const handOverObservations =
+          phase !== undefined &&
+          phase.observations &&
+          phase.fileSystem === fileSystem &&
+          Result.isSuccess(captured) &&
+          invariantFacts.withCanonicalObservations !== undefined
+            ? invariantFacts.withCanonicalObservations({
+                phase,
+                fileSystem,
+                observed: (desired) =>
+                  Option.map(
+                    Option.fromUndefinedOr(
+                      captured.success.find((capture) => capture.desired === desired),
+                    ),
+                    ({ accepted, observation, manifest }) => ({
+                      accepted,
+                      layout,
+                      observation,
+                      manifest,
+                    }),
+                  ),
+              })
+            : undefined;
         const { rule: workspaceContext, view } = yield* buildLintWorkspace({
           ...(stateLoaders === undefined ? {} : { stateLoaders }),
           nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -417,7 +454,10 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           projections: {
             facts: yield* phaseSharedProjectionFacts({
               location,
-              evaluate: invariantFacts.projectionFacts,
+              evaluate:
+                handOverObservations === undefined
+                  ? invariantFacts.projectionFacts
+                  : invariantFacts.projectionFacts.pipe(handOverObservations),
             }),
           },
           defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),

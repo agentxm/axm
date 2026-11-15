@@ -9,15 +9,18 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import type * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { afterEach } from "vitest";
 
+import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
@@ -36,11 +39,26 @@ import {
   LOCKFILE_VERSION,
   WorkspaceLocation,
   withWorkspaceObservationReadView,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
+
+import {
+  applySyncAcceptingExecutionChanges,
+  makeFileRegistry,
+  makeSyncFixture,
+  writeAuthoredRule,
+  type SyncFixture,
+} from "../../testing/sync-fixture.js";
 import { makeLintWorkspace } from "../testing.js";
 import { lintSelectedSubjects } from "./lint-selected-subjects.js";
-import { fixLintWorkspace, queryLintWorkspace, type LintSelection } from "./lint-workspace.js";
+import {
+  fixLintWorkspace,
+  queryLintWorkspace,
+  type LintSelection,
+  type LintWorkspaceResult,
+} from "./lint-workspace.js";
 
 const validLock = `version = ${LOCKFILE_VERSION}\n`;
 
@@ -513,5 +531,134 @@ describe("lint projection facts", () => {
       expect(counting.evaluations()).toBe(0);
       expect(counting.plans()).toBe(0);
     });
+  });
+});
+
+/**
+ * A synced project with one acquired Rule, Hook and Knowledge bundle, and one
+ * workspace-authored Rule, whose agents' instruction files AXM does not manage.
+ */
+const syncedContributors = () => {
+  const registry = makeFileRegistry();
+  cleanups.push(registry.cleanup);
+  registry.writeRule("guide", [{ version: "1.0.0", body: "Follow the guide.\n" }]);
+  registry.writeHook("audit", [{ version: "1.0.0" }]);
+  registry.writeKnowledge("handbook", [
+    { version: "1.0.0", body: "# Handbook\n\nTeam knowledge.\n" },
+  ]);
+  const workspace = makeSyncFixture({
+    settings: {
+      owner: "@acme",
+      agents: ["claude-code"],
+      sources: [registry.source],
+      rules: { guide: "test:@acme/rules/guide@^1.0.0", conventions: "workspace" },
+      hooks: { audit: "test:@acme/hooks/audit@^1.0.0" },
+      knowledge: { handbook: "test:@acme/knowledge/handbook@^1.0.0" },
+    },
+  });
+  cleanups.push(workspace.cleanup);
+  writeAuthoredRule(workspace.root, "conventions", "Follow the conventions.");
+  return workspace;
+};
+
+const contributorLint = (workspace: SyncFixture) =>
+  queryLintWorkspace(selectionFor(workspace.root, workspace.home), { strict: false });
+
+/**
+ * Run `lint`, counting the canonical tree digests it computes. `afterDigests`
+ * runs once that many digests have been recorded.
+ */
+const countedDigests = <A, E, R>(
+  lint: Effect.Effect<A, E, R>,
+  afterDigests?: { readonly count: number; readonly run: () => void },
+) =>
+  Effect.gen(function* () {
+    let digests = 0;
+    const exit = yield* lint.pipe(
+      Effect.provideService(CurrentWorkObserver, {
+        record: (fact) => {
+          if (fact.kind !== "axm.hash.materialized-tree") return;
+          digests += 1;
+          if (digests === afterDigests?.count) afterDigests.run();
+        },
+        detailSelected: () => false,
+      }),
+      Effect.exit,
+    );
+    return { exit, digests };
+  });
+
+const withContributorServices = <A, E, R>(workspace: SyncFixture, effect: Effect.Effect<A, E, R>) =>
+  workspace
+    .provide(Effect.andThen(applySyncAcceptingExecutionChanges(), effect))
+    .pipe(
+      Effect.provide(
+        Layer.merge(NodeServices.layer, makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
+      ),
+    );
+
+const expectSameDocument = (
+  counted: { readonly exit: Exit.Exit<LintWorkspaceResult, unknown> },
+  reference: { readonly exit: Exit.Exit<LintWorkspaceResult, unknown> },
+) => {
+  expect(counted.exit._tag).toBe("Success");
+  expect(reference.exit._tag).toBe("Success");
+  if (counted.exit._tag !== "Success" || reference.exit._tag !== "Success") return;
+  expect(JSON.stringify(counted.exit.value.document)).toBe(
+    JSON.stringify(reference.exit.value.document),
+  );
+};
+
+describe("lint contributor observations", () => {
+  it.effect(
+    "selects acquired Rule and Hook contributors from the run's own canonical observation",
+    () => {
+      const workspace = syncedContributors();
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          // Outside an observation phase, the facts observe every contributor
+          // for themselves: one digest per acquired root for lint, one more per
+          // acquired root for the facts. The authored Rule has no accepted tree.
+          const reference = yield* countedDigests(
+            withWorkspaceReadView(contributorLint(workspace)),
+          );
+          expect(reference.digests).toBe(6);
+          // Inside its own observation phase, the Rule and Hook selections take
+          // lint's observation; the Knowledge selection still observes its own.
+          const counted = yield* countedDigests(contributorLint(workspace));
+          expect(counted.digests).toBe(4);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect("observes for itself once lint's observation phase has ended", () => {
+    const workspace = syncedContributors();
+    return withContributorServices(
+      workspace,
+      Effect.gen(function* () {
+        const reference = yield* countedDigests(withWorkspaceReadView(contributorLint(workspace)));
+        // End the phase lint reuses as soon as lint's own three observations
+        // are digested, before any rule asks for the projection facts.
+        let close: (() => void) | undefined;
+        const counted = yield* countedDigests(
+          withWorkspaceObservationReadView(
+            Effect.gen(function* () {
+              const phase = yield* CurrentWorkspaceReadPhase;
+              close = () => phase?.close("mutation");
+              return yield* contributorLint(workspace);
+            }),
+          ),
+          { count: 3, run: () => close?.() },
+        );
+        // Each rule's demand evaluates its own facts after the phase ended, and
+        // every selection in them observes for itself.
+        expect(counted.digests).toBe(9);
+        expectSameDocument(counted, reference);
+      }),
+    );
   });
 });

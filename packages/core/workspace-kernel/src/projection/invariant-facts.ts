@@ -27,6 +27,10 @@ import { observeProjectionPlans } from "./planning.js";
 import { isProjectionError, type ProjectionParticipantFailure } from "./errors.js";
 import { projectionErrorToStepFailure } from "./step-failure.js";
 import {
+  CurrentCanonicalObservationHandoff,
+  type CanonicalObservationHandoff,
+} from "./contributors.js";
+import {
   aggregateUnitSubject,
   ProjectionParticipants,
   type ProjectionParticipant,
@@ -222,6 +226,17 @@ export interface WorkspaceInvariantFactsService {
     graph: DesiredStateGraph,
     subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>,
   ) => Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
+  /**
+   * Evaluate facts inside `effect` letting each aggregate contributor's
+   * selection take the caller's own canonical observation of the identical
+   * desired node, made against the identical accepted row and layout, while
+   * the observation phase that observation was made in is still active and
+   * read through its own port. Every other selection observes for itself. A
+   * service without it lets every selection observe for itself.
+   */
+  readonly withCanonicalObservations?: (
+    handoff: CanonicalObservationHandoff,
+  ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
 }
 
 type ProjectionSubjects = ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>;
@@ -471,6 +486,8 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     return {
       projectionFacts: evaluate(),
       projectionFactsForGraph: (graph, subjects) => evaluate(graph, subjects),
+      withCanonicalObservations: (handoff) => (effect) =>
+        Effect.provideService(effect, CurrentCanonicalObservationHandoff, handoff),
     };
   }),
 );

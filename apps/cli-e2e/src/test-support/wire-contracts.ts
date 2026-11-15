@@ -146,6 +146,13 @@ const variantsOf = (
     ...(family === "local-check" && output["result"] !== undefined
       ? [output["ok"] === true ? "local-check:satisfied" : "local-check:attention-required"]
       : []),
+    ...(family === "release-verification" && output["result"] !== undefined
+      ? [
+          output["ok"] === true
+            ? "release-verification:satisfied"
+            : "release-verification:attention-required",
+        ]
+      : []),
     ...(output["type"] === "help" ? ["formatter:help"] : []),
     ...(output["type"] === "version" ? ["formatter:version"] : []),
     ...(output["ok"] === false && output["result"] === undefined ? ["generic-error"] : []),

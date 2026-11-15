@@ -217,10 +217,63 @@ downloaded Registry archive bytes before extraction. Extracted canonical files
 are mutable observed materialization, so local formatter changes are drift and
 are not continuously compared with the published ZIP digest.
 
+## Verify published releases
+
+Publish reports how the Registry acknowledged each upload. Its readback only
+settles an ambiguous upload, and it adds no separate release verification
+afterwards. When you want separate confirmation of what a Registry holds, run
+`axm verify`. It changes no workspace or Registry state.
+
+```bash
+axm verify @acme/skills/review@1.2.0
+axm verify --publish-result publish.json --json
+```
+
+Name each release as an exact reference, `@owner/<plural-type>/<name>@<version>`.
+Ranges, tags, and names without a version are usage errors. Every release gets
+three separate assessments:
+
+- **Presence** — the Registry currently lists that exact version, according to
+  metadata read during this invocation. A yanked version is still present, and
+  its yank facts are reported. No metadata for the extension means it is absent
+  or not visible to you, and the Registry does not say which.
+- **Identity** — the Registry's recorded integrity equals an integrity you
+  expect. This is assessed only when you supply an expectation. It does not
+  establish that your expectation is correct.
+- **Archive** — after a fresh admission, AXM read an archive whose bytes match
+  the Registry's recorded integrity. A verified copy already in the local
+  archive cache can satisfy the read. A successful read does not establish that
+  the release installs or projects correctly in a workspace.
+
+There are two ways to supply expectations. Pass `--integrity` with exactly one
+exact reference. Alternatively, pass `--publish-result` with a saved
+`axm publish --json` result: AXM then verifies that result's admitted
+publication set, and each archive it prepared supplies an expectation. Versions
+the result skipped as already published have no prepared archive, so their
+identity is not assessed. A preview result works the same way. Saved before
+publishing, it records the integrity that the current source produces, so
+verifying it after publication compares the published release with that
+source.
+
+With exact references, AXM reads the Registry named by `--registry`, or the
+default Registry. With `--publish-result`, it reads the Registry named by
+`--registry`, or else the Registry that the result recorded. It never falls
+back to the default Registry. A result that records no Registry requires
+`--registry`. The result names the Registry that answered.
+
+Exit 0 means every applicable assessment of every release is complete and
+satisfied. A release that needs attention, or whose evidence is incomplete,
+produces a completed result with `ok: false` and exit 1. Failures that leave
+no Registry observation for any release are not a negative verdict: a usage
+error, an unusable publish result, a Registry selection failure, `--offline`
+with an HTTP Registry, rejected credentials, or an unreachable Registry keeps
+its ordinary error and exit code.
+
 ## Where to go next
 
 - `axm publish --help` — root selectors, filters, preview, and Registry options
 - `axm <type> publish --help` — type-specific selectors and options
+- `axm verify --help` — presence, intended identity, and archive evidence for exact releases
 - `axm help environment` — trusted publishing setup, workflow permissions, and credential selection
 - `axm help workspace-state` — desired, accepted-resolution, and observed state
 - `axm help packs` — authored dependency inclusion and Registry validation

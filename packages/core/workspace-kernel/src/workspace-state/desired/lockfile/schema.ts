@@ -98,7 +98,8 @@ const GitAcceptedResolutionSchema = Schema.Union([
   Schema.Struct({ commit: GitSha256ObjectIdSchema, tree: GitSha256ObjectIdSchema }),
 ]);
 
-const ArchiveIntegritySchema = Schema.String.check(
+/** One canonical SRI SHA-512 archive integrity token: `sha512-` and a 64-byte base64 digest. */
+export const ArchiveIntegritySchema = Schema.String.check(
   Schema.isPattern(/^sha512-[A-Za-z0-9+/]{85}[AQgw]==(?![\s\S])/u, {
     message: "Expected one canonical SHA-512 archive integrity token",
   }),

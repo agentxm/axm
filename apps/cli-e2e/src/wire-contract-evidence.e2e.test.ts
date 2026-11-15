@@ -332,8 +332,8 @@ describe("Partitioned wire evidence", () => {
       missingExternalDocuments: [],
       schemaHashes: ["one-schema"],
     });
-    expect(combined.observedResults).toHaveLength(44);
-    expect(combined.requiredVariants).toHaveLength(17);
+    expect(combined.observedResults).toHaveLength(45);
+    expect(combined.requiredVariants).toHaveLength(19);
   });
 
   it("rejects missing, duplicate, failed and filtered partitions even when their union covers every route", () => {

@@ -536,6 +536,20 @@ const localCheckFamily = defineResultFamily({
     "Selected local assessments report bounded coverage and a verdict without mutation, acquisition, or runtime execution.",
 });
 
+const releaseVerificationFamily = defineResultFamily({
+  id: "release-verification",
+  assessment: {
+    kind: "standalone",
+    evidence:
+      "ReleaseVerificationDocument requests, per-release expectation and its source, observed Registry facts, presence, identity and archive coverage and conclusions, and verdict.",
+  },
+  liveness: "progress",
+  schemaNames: ["ReleaseVerificationDocumentSchema"],
+  requiredTopLevelKeys: ["contract", "registry", "selection", "releases", "verdict"],
+  rationale:
+    "Release verification reports whether exact published releases are present, are the intended releases, and have archives matching the Registry's record, with coverage kept separate from conclusions and without upload or workspace change.",
+});
+
 const extensionShowFamily = defineResultFamily({
   id: "local-inspection",
   assessment: queryAssessment,
@@ -1021,6 +1035,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(shareFamily, ["axm share"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),
+  ...rowsFor(releaseVerificationFamily, ["axm verify"]),
   ...rowsFor(visibilityEvaluationFamily, ["axm visibility status"]),
 ];
 

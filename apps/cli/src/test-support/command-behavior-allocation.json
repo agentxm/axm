@@ -12307,6 +12307,42 @@
           ]
         }
       ]
+    },
+    "verify": {
+      "flags": [
+        { "name": "registry", "rawHelp": { "aliases": [], "type": "string", "required": false } },
+        { "name": "integrity", "rawHelp": { "aliases": [], "type": "string", "required": false } },
+        {
+          "name": "publish-result",
+          "rawHelp": { "aliases": [], "type": "string", "required": false }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": { "type": "string", "required": false, "variadic": { "min": 0 } }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/verify/is-read-only",
+        "cli/verify/evidence-levels-are-independent",
+        "cli/verify/verdict-requires-complete-evidence"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:extension", "flag:integrity", "flag:publish-result"],
+          "requirements": ["cli/verify/selection-is-exact-and-explicit"]
+        },
+        {
+          "parameters": ["flag:publish-result"],
+          "requirements": ["cli/verify/publish-result-supplies-expectations-only"]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
+        }
+      ]
     }
   }
 }

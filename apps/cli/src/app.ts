@@ -79,6 +79,7 @@ import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
 import { makeHelpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
+import { verifyCommand } from "./root/verify/command.js";
 import { versionCommand } from "./root/version/command.js";
 import { publishCommand } from "./root/publish/command.js";
 import { shareCommand } from "./root/share/command.js";
@@ -178,6 +179,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       // each inverse directly follows its forward command.
       group: "PUBLISHED EXTENSIONS",
       commands: [
+        verifyCommand,
         visibilityCommand,
         yankCommand,
         unyankCommand,

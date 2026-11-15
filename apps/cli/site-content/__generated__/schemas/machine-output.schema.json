@@ -43,6 +43,7 @@
     { "$ref": "#/$defs/family.workspace-share" },
     { "$ref": "#/$defs/family.upgrade" },
     { "$ref": "#/$defs/family.registry-view" },
+    { "$ref": "#/$defs/family.release-verification" },
     { "$ref": "#/$defs/family.visibility-evaluation" }
   ],
   "$defs": {
@@ -6119,6 +6120,199 @@
       "title": "Registry transition",
       "description": "The acknowledged before/after state and revision of a non-restorable Registry write, discriminated by action."
     },
+    "ReleaseVerificationExpectation": {
+      "type": "object",
+      "properties": {
+        "integrity": { "type": "string" },
+        "source": { "type": "string", "enum": ["flag", "publish-result"] }
+      },
+      "required": ["integrity", "source"],
+      "additionalProperties": false,
+      "title": "Release Verification Expectation",
+      "description": "The caller's expected integrity and where it came from. A claim, not evidence."
+    },
+    "ReleaseVerificationReported": {
+      "type": "object",
+      "properties": {
+        "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+        "action": { "$ref": "#/$defs/PublishAction" },
+        "status": { "$ref": "#/$defs/PublishStatus" },
+        "settlement": { "type": "string", "enum": ["response", "readback", "replay", "unresolved"] }
+      },
+      "required": ["participation"],
+      "additionalProperties": false,
+      "title": "Release Verification Reported Input",
+      "description": "What the supplied publish result claimed for this release, carried as input and never restated as an observation."
+    },
+    "ReleaseVerificationObserved": {
+      "type": "object",
+      "properties": {
+        "integrity": { "type": "string" },
+        "publisherBindingId": { "type": "string" },
+        "published": { "$ref": "#/$defs/IsoDateTimeString" },
+        "yanked": { "type": "boolean" },
+        "yankedAt": { "$ref": "#/$defs/IsoDateTimeString" },
+        "yankCategory": { "type": "string" },
+        "yankMessage": { "type": "string" }
+      },
+      "required": ["integrity", "publisherBindingId", "published", "yanked"],
+      "additionalProperties": false,
+      "title": "Release Verification Observed Facts",
+      "description": "The Registry's current record of this exact version, observed in this invocation."
+    },
+    "ReleaseVerificationCoverage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": { "state": { "type": "string", "enum": ["complete"] } },
+          "required": ["state"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": { "type": "string", "enum": ["incomplete"] },
+            "reasons": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["state", "reasons"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": { "type": "string", "enum": ["not-applicable"] },
+            "reason": { "type": "string" }
+          },
+          "required": ["state", "reason"],
+          "additionalProperties": false
+        }
+      ],
+      "title": "Release Verification Coverage",
+      "description": "Whether the assessment ran to completion; evidence about execution, not the condition of the release."
+    },
+    "ReleaseVerificationAssessment": {
+      "type": "object",
+      "properties": {
+        "coverage": { "$ref": "#/$defs/ReleaseVerificationCoverage" },
+        "conclusion": {
+          "type": "string",
+          "enum": ["satisfied", "attention-required", "unknown", "not-applicable"]
+        },
+        "finding": {
+          "type": "string",
+          "enum": ["extension-unavailable", "version-missing", "integrity-mismatch"]
+        },
+        "failure": {
+          "type": "object",
+          "properties": { "category": { "type": "string" }, "message": { "type": "string" } },
+          "required": ["category", "message"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["coverage", "conclusion"],
+      "additionalProperties": false,
+      "title": "Release Verification Assessment",
+      "description": "One evidence level for one release: its coverage, conclusion, and finding."
+    },
+    "ReleaseVerificationRelease": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner": { "$ref": "#/$defs/Handle" },
+        "type": { "$ref": "#/$defs/ExtensionType" },
+        "name": { "$ref": "#/$defs/ExtensionName" },
+        "version": { "$ref": "#/$defs/Version" },
+        "requestRefs": { "type": "array", "items": { "type": "string" } },
+        "expectation": { "$ref": "#/$defs/ReleaseVerificationExpectation" },
+        "reported": { "$ref": "#/$defs/ReleaseVerificationReported" },
+        "observed": { "$ref": "#/$defs/ReleaseVerificationObserved" },
+        "presence": { "$ref": "#/$defs/ReleaseVerificationAssessment" },
+        "identity": { "$ref": "#/$defs/ReleaseVerificationAssessment" },
+        "archive": { "$ref": "#/$defs/ReleaseVerificationAssessment" }
+      },
+      "required": [
+        "id",
+        "owner",
+        "type",
+        "name",
+        "version",
+        "requestRefs",
+        "presence",
+        "identity",
+        "archive"
+      ],
+      "additionalProperties": false,
+      "title": "Release Verification Release",
+      "description": "One distinct selected release and its three assessments."
+    },
+    "ReleaseVerificationCheck": {
+      "type": "string",
+      "enum": ["presence", "identity", "archive"],
+      "title": "Release Verification Check",
+      "description": "One evidence level every selected release is assessed at."
+    },
+    "ReleaseVerificationVerdict": {
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "check": { "$ref": "#/$defs/ReleaseVerificationCheck" },
+              "code": { "type": "string", "enum": ["attention-required", "incomplete-assessment"] },
+              "refs": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["check", "code", "refs"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["ok", "reasons"],
+      "additionalProperties": false,
+      "title": "Release Verification Verdict",
+      "description": "Positive only when every applicable assessment is complete and satisfied."
+    },
+    "ReleaseVerificationDocument": {
+      "type": "object",
+      "properties": {
+        "contract": { "type": "string", "enum": ["release-verification-v1"] },
+        "registry": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "selectedBy": { "type": "string", "enum": ["flag", "publish-result", "default"] }
+          },
+          "required": ["name", "endpoint", "selectedBy"],
+          "additionalProperties": false
+        },
+        "selection": {
+          "type": "object",
+          "properties": {
+            "mode": { "type": "string", "enum": ["references", "publish-result"] },
+            "requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "id": { "type": "string" }, "input": { "type": "string" } },
+                "required": ["id", "input"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["mode", "requests"],
+          "additionalProperties": false
+        },
+        "releases": { "type": "array", "items": { "$ref": "#/$defs/ReleaseVerificationRelease" } },
+        "verdict": { "$ref": "#/$defs/ReleaseVerificationVerdict" }
+      },
+      "required": ["contract", "registry", "selection", "releases", "verdict"],
+      "additionalProperties": false,
+      "title": "Release Verification Document",
+      "description": "Presence, intended identity, and archive evidence for explicitly selected published releases, observed in one read-only invocation."
+    },
     "ExtensionVisibility_1": {
       "type": "string",
       "enum": ["public", "private"],
@@ -11274,6 +11468,7 @@
     "PlanResolutionDocumentSchema": { "$ref": "#/$defs/PlanResolutionDocument" },
     "PublishResultSchema": { "$ref": "#/$defs/PublishResult" },
     "RegistryTransitionSchema": { "$ref": "#/$defs/RegistryTransition" },
+    "ReleaseVerificationDocumentSchema": { "$ref": "#/$defs/ReleaseVerificationDocument" },
     "RevokeTokenDocumentSchema": {
       "type": "object",
       "properties": {
@@ -23190,6 +23385,100 @@
         { "$ref": "#/$defs/JsonVersionDocSchema" }
       ]
     },
+    "payload.release-verification": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "contract": { "type": "string", "enum": ["release-verification-v1"] },
+            "registry": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "endpoint": { "type": "string" },
+                "selectedBy": { "type": "string", "enum": ["flag", "publish-result", "default"] }
+              },
+              "required": ["name", "endpoint", "selectedBy"],
+              "additionalProperties": false
+            },
+            "selection": {
+              "type": "object",
+              "properties": {
+                "mode": { "type": "string", "enum": ["references", "publish-result"] },
+                "requests": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": { "id": { "type": "string" }, "input": { "type": "string" } },
+                    "required": ["id", "input"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["mode", "requests"],
+              "additionalProperties": false
+            },
+            "releases": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ReleaseVerificationRelease" }
+            },
+            "verdict": { "$ref": "#/$defs/ReleaseVerificationVerdict" }
+          },
+          "required": ["contract", "registry", "selection", "releases", "verdict"],
+          "additionalProperties": false,
+          "title": "Release Verification Document",
+          "description": "Presence, intended identity, and archive evidence for explicitly selected published releases, observed in one read-only invocation."
+        }
+      ]
+    },
+    "family.release-verification": {
+      "anyOf": [
+        {
+          "title": "JSON Success Envelope",
+          "description": "Structured JSON success envelope for machine-readable CLI output.",
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean", "enum": [true] },
+            "mode": { "enum": ["query"] },
+            "outcome": { "$ref": "#/$defs/SettledOutcome" },
+            "result": { "$ref": "#/$defs/payload.release-verification" },
+            "summary": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "suggestions": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/$defs/SuggestedAction" } },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["ok", "mode", "outcome", "result"],
+          "additionalProperties": false
+        },
+        {
+          "title": "JSON Operation Failure Envelope",
+          "description": "Structured result for an operation that completed its plan but reported failed or partial work.",
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean", "enum": [false] },
+            "mode": { "enum": ["query"] },
+            "outcome": { "$ref": "#/$defs/SettledOutcome" },
+            "diagnosticId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "result": { "$ref": "#/$defs/payload.release-verification" },
+            "summary": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "suggestions": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/$defs/SuggestedAction" } },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["ok", "mode", "outcome", "result"],
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/JsonErrorEnvelopeSchema" },
+        { "$ref": "#/$defs/JsonHelpDocSchema" },
+        { "$ref": "#/$defs/JsonVersionDocSchema" }
+      ]
+    },
     "payload.visibility-evaluation": {
       "anyOf": [
         {
@@ -24365,6 +24654,13 @@
       "meaning": "Registry view returns either the full extension document or one selected field.",
       "schemaCommand": "axm schema view"
     },
+    "axm verify": {
+      "class": "structured-result",
+      "modes": ["query"],
+      "effects": "Default: read only.",
+      "meaning": "Release verification reports whether exact published releases are present, are the intended releases, and have archives matching the Registry's record, with coverage kept separate from conclusions and without upload or workspace change.",
+      "schemaCommand": "axm schema verify"
+    },
     "axm visibility status": {
       "class": "structured-result",
       "modes": ["query"],
@@ -24530,6 +24826,7 @@
     "axm share": { "$ref": "#/$defs/family.workspace-share" },
     "axm upgrade": { "$ref": "#/$defs/family.upgrade" },
     "axm view": { "$ref": "#/$defs/family.registry-view" },
+    "axm verify": { "$ref": "#/$defs/family.release-verification" },
     "axm visibility status": { "$ref": "#/$defs/family.visibility-evaluation" }
   },
   "x-axm-error-envelope": { "$ref": "#/$defs/JsonErrorEnvelopeSchema" },

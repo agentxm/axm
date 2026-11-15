@@ -1,9 +1,10 @@
 /**
  * Extension-publish feature: publish selection policy, publication
  * validation, archive planning, authentication requirements, upload
- * settlement, and recovery. Authentication is expressed as typed
- * precondition data and consumed as structural grant values; the application
- * sequences the Registry access capability to satisfy it.
+ * settlement, recovery, and read-only verification of published releases.
+ * Authentication is expressed as typed precondition data and consumed as
+ * structural grant values; the application sequences the Registry access
+ * capability to satisfy it.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
@@ -64,3 +65,15 @@ export { RetirePublishedVersion } from "./lifecycle/retirement.js";
 export { ArchivePublishedExtension } from "./lifecycle/archival.js";
 export { DeprecatePublishedExtension } from "./lifecycle/deprecation.js";
 export { ManagePublishedVisibility } from "./lifecycle/visibility.js";
+
+// Read-only verification of published releases (`release-verification-v1`)
+export {
+  VerifyPublishedReleases,
+  type ReleaseVerificationRequest,
+} from "./verification/verify-releases.js";
+export {
+  ReleaseVerificationDocumentSchema,
+  type ReleaseVerificationDocument,
+} from "./verification/document.js";
+export { parseReleaseReference } from "./verification/reference.js";
+export { decideReleaseVerdict } from "./verification/verdict.js";

@@ -18,30 +18,31 @@ the CLI easier to predict and invalid workspaces easier to recover.
 
 ## Responsibilities
 
-| Responsibility                 | Commands                                                                                                | Result                                                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Initialize a workspace         | `setup`                                                                                                 | An uninitialized scope receives explicit starting configuration.                                                 |
-| Configure coding agents        | `agents add` and `agents remove`                                                                        | The durable target set and affected owned outputs change together.                                               |
-| Configure instruction files    | `instructions`                                                                                          | Instruction-file management is inspected, enabled, or disabled explicitly.                                       |
-| Assess a selected local scope  | `check` and typed `check`                                                                               | Bounded compatibility, ownership, lint, and convergence evidence with explicit coverage; no mutation.            |
-| Diagnose invariant violations  | [`axm lint`](lint.md)                                                                                   | Facts about invalid extension or workspace state; bounded offline instruction-alias normalization under `--fix`. |
-| Realize desired state          | [`axm sync`](sync.md)                                                                                   | Managed installed state and projections agree with desired state.                                                |
-| Add extension configuration    | [`axm install`](install.md)                                                                             | The extension becomes directly desired and required managed state is realized.                                   |
-| Change an installed resolution | [`axm update`](update.md)                                                                               | A resolution advances, a constraint changes, or accepted content is reinstalled.                                 |
-| Remove extension configuration | [`axm uninstall`](uninstall.md)                                                                         | Direct reachability is removed; other desired routes remain.                                                     |
-| Change activation              | `enable` and `disable`                                                                                  | Leaf projections or a Pack dependency route follow the desired activation.                                       |
-| Change pack membership         | [`axm packs add` and `axm packs remove`](packs.md)                                                      | The authored pack manifest changes.                                                                              |
-| Inspect extensions             | `list`, `list --outdated`, and `view`                                                                   | Inventory, update availability, or extension information; no state change.                                       |
-| Discover extensions            | `discover`                                                                                              | Project packages produce recommendations without changing intent.                                                |
-| Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.                                      |
-| Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.                                             |
-| Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                                                 |
-| Migrate deprecated extensions  | `migrate`                                                                                               | Superseded extensions are replaced or obsolete entries removed from desired state.                               |
-| Share repository installation  | `share`                                                                                                 | Repository install commands or package metadata are printed without changing content.                            |
-| Manage published lifecycle     | `archive` / `unarchive`, `deprecate` / `undeprecate`, `yank` / `unyank`, and `visibility`               | Publisher-controlled Registry availability, guidance, or visibility changes.                                     |
-| Authenticate Registry access   | `login`, `logout`, `whoami`, and `token`                                                                | Registry credentials and access-token records are managed explicitly.                                            |
-| Inspect local operational data | `cache` and `diagnostics`                                                                               | Local caches and sanitized failure evidence are inspected or managed.                                            |
-| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.                                             |
+| Responsibility                 | Commands                                                                                                | Result                                                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Initialize a workspace         | `setup`                                                                                                 | An uninitialized scope receives explicit starting configuration.                                                    |
+| Configure coding agents        | `agents add` and `agents remove`                                                                        | The durable target set and affected owned outputs change together.                                                  |
+| Configure instruction files    | `instructions`                                                                                          | Instruction-file management is inspected, enabled, or disabled explicitly.                                          |
+| Assess a selected local scope  | `check` and typed `check`                                                                               | Bounded compatibility, ownership, lint, and convergence evidence with explicit coverage; no mutation.               |
+| Diagnose invariant violations  | [`axm lint`](lint.md)                                                                                   | Facts about invalid extension or workspace state; bounded offline instruction-alias normalization under `--fix`.    |
+| Realize desired state          | [`axm sync`](sync.md)                                                                                   | Managed installed state and projections agree with desired state.                                                   |
+| Add extension configuration    | [`axm install`](install.md)                                                                             | The extension becomes directly desired and required managed state is realized.                                      |
+| Change an installed resolution | [`axm update`](update.md)                                                                               | A resolution advances, a constraint changes, or accepted content is reinstalled.                                    |
+| Remove extension configuration | [`axm uninstall`](uninstall.md)                                                                         | Direct reachability is removed; other desired routes remain.                                                        |
+| Change activation              | `enable` and `disable`                                                                                  | Leaf projections or a Pack dependency route follow the desired activation.                                          |
+| Change pack membership         | [`axm packs add` and `axm packs remove`](packs.md)                                                      | The authored pack manifest changes.                                                                                 |
+| Inspect extensions             | `list`, `list --outdated`, and `view`                                                                   | Inventory, update availability, or extension information; no state change.                                          |
+| Discover extensions            | `discover`                                                                                              | Project packages produce recommendations without changing intent.                                                   |
+| Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.                                         |
+| Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.                                                |
+| Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                                                    |
+| Verify published releases      | `verify`                                                                                                | Presence, intended identity, and archive evidence for exact published releases with explicit coverage; no mutation. |
+| Migrate deprecated extensions  | `migrate`                                                                                               | Superseded extensions are replaced or obsolete entries removed from desired state.                                  |
+| Share repository installation  | `share`                                                                                                 | Repository install commands or package metadata are printed without changing content.                               |
+| Manage published lifecycle     | `archive` / `unarchive`, `deprecate` / `undeprecate`, `yank` / `unyank`, and `visibility`               | Publisher-controlled Registry availability, guidance, or visibility changes.                                        |
+| Authenticate Registry access   | `login`, `logout`, `whoami`, and `token`                                                                | Registry credentials and access-token records are managed explicitly.                                               |
+| Inspect local operational data | `cache` and `diagnostics`                                                                               | Local caches and sanitized failure evidence are inspected or managed.                                               |
+| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.                                                |
 
 ## Non-responsibilities
 
@@ -88,9 +89,11 @@ command groups expose the same lifecycle behavior and add only capabilities
 unique to that extension type, such as skill installation modes, inline MCP
 configuration, Knowledge concept retrieval, or Pack membership editing.
 
-`view` reads the Registry record by FQN. Root and typed `show` inspect explicit
-local identities, paths, or all local subjects. `check` uses the same selection
-semantics to assess those subjects and their required contributors.
+`view` reads the Registry record by FQN. Root-only `verify` assesses exact
+published releases named by versioned Registry identity, or the admitted set of
+a saved publish result; it has no typed forms. Root and typed `show` inspect
+explicit local identities, paths, or all local subjects. `check` uses the same
+selection semantics to assess those subjects and their required contributors.
 `token show` and `diagnostics show` read non-extension records.
 
 Cross-type authoring commands own shared conversion, authority, and version
@@ -180,6 +183,18 @@ remote availability. It is not a Git-index check or an atomic snapshot, and does
 not authorize a later write. Existing workspace construction prerequisites still
 apply. Help and version retain their independent prerequisites.
 
+Local assessment, upload acknowledgement, and release verification answer
+different questions. `check` assesses local subjects and makes no Registry
+request. `publish` reports the Registry's acknowledgement of each upload; that
+settlement belongs to the publish invocation and cannot be observed again
+later. `verify` is a later, explicit, read-only observation of a Registry that
+assesses presence, intended identity, and archive evidence for each selected
+release with explicit coverage. It never uploads, settles, reads back, or
+replays a publication and is not a synthetic postflight for publish;
+[publish](publish.md) states what verification does and does not establish. A
+verdict needs at least one Registry observation; a failure that leaves none
+keeps its existing error contract.
+
 Mutation commands use their operation-specific preflight and postconditions.
 They do not run every standalone assessment around every action. Authoring a
 package does not require workspace convergence; an unrelated lint finding does
@@ -197,8 +212,13 @@ verification through the operation's completion owner. A timeout after remote
 dispatch remains indeterminate unless the protocol establishes settlement.
 
 AXM still has no generic health verdict, workspace `prune`, or `repair` workflow.
-Use `check` for a bounded local answer, lint for invariant findings, list for
-inventory, sync preview for proposed reconciliation, and lifecycle commands for
-configuration changes. The scoped cache operations remain distinct:
+Use `check` for a bounded local answer, `verify` for an explicit answer about
+published releases, lint for invariant findings, list for inventory, sync
+preview for proposed reconciliation, and lifecycle commands for configuration
+changes. The scoped cache operations remain distinct:
 `cache status` reports usage, `cache verify` checks integrity and removes corrupt
-archives, and `cache prune` applies retention policy.
+archives, and `cache prune` applies retention policy. Root `verify` is not a
+cache operation and runs no sweep of its own: it reads archives through the
+ordinary admitted path, which uses the archive cache as install does. A read may
+add a verified download, discard a cached copy that no longer matches its
+digest, or trigger automatic retention.

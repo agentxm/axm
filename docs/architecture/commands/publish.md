@@ -119,6 +119,25 @@ Versions that uploaded are then already published, so repeating recovery
 converges to successful skips. Publish writes no local receipt, lockfile,
 baseline, or manifest after a successful upload.
 
+Publish gains no verification step after upload; its bounded readback settles
+only an ambiguous upload. Upload acknowledgement is a settlement of the publish
+invocation, not a verification finding, and a publication-set item with
+`participation: "verified-existing"` records only that the version was present
+at preview. Neither is archive verification. A caller who needs a durable
+record of what a Registry holds runs `axm verify` and keeps its result; AXM
+writes no receipt file for it.
+
+Verification is a separate, read-only observation. It establishes presence
+from the Registry's current selection metadata, intended identity only against
+an expected integrity the caller supplies, directly or through a saved publish
+result, and archive bytes against the Registry's recorded integrity through an
+admitted read. A locally cached verified copy of those bytes may satisfy the
+archive read after fresh admission. Verification does not establish what was
+uploaded, that the caller's expectation is right, or that a release installs
+and projects correctly in a consumer workspace. The
+[command overview](overview.md) places it beside local `check` and the
+`cache verify` maintenance operation.
+
 ## Specifications
 
 The `cli/publish/*` specifications own publish's binding obligations — pure

@@ -4294,6 +4294,49 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Open questions: The automatic Homebrew reinstall used after a successful but unchanged upgrade remains subordinate recovery logic; its exact retry policy is not an independently accepted experience obligation.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-package-manager-upgrades.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-package-manager-upgrades.spec.ts)
 
+##### Release verification keeps presence, identity and archive evidence independent
+
+- Requirement: `cli/verify/evidence-levels-are-independent`
+- Owner: `workspace-features`
+- Statement: For each selected release, verify shall assess presence from current Registry metadata, intended identity by comparing the recorded integrity with the caller's expectation, and archive integrity through an admitted archive read against the recorded integrity, keeping an unavailable extension, a missing version, an integrity mismatch, an unreadable archive and unavailable Registry evidence distinct, and shall verify a release named more than once only once while attributing it to every request.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production Registry client reads a native file Registry, and over a controlled HTTP Registry admits and downloads archives through the real archive cache in an isolated user home; the compiled command and a deployed Registry need separate evidence.
+- Methods: example
+- Limitation: The controlled HTTP Registry decides admission and serves bytes from fixtures, so whether a deployed Registry refuses or serves a given release is not observed here. Retires when: Process evidence against a Registry service records the same distinctions for a published release.
+- Additional evidence: process via [`apps/cli-e2e/src/verify-published-releases.e2e.test.ts`](../apps/cli-e2e/src/verify-published-releases.e2e.test.ts) — The built CLI verifies releases it published through its own publish command against an independent HTTP Registry and a file Registry; wire contracts validate every captured document against the published schema while the Registry journal records selection, admission and download traffic.
+- Source: [`packages/core/workspace-features/src/publishing/verification/evidence-levels-are-independent.spec.ts`](../packages/core/workspace-features/src/publishing/verification/evidence-levels-are-independent.spec.ts)
+
+##### A publish result supplies the verified set and its expected integrity only
+
+- Requirement: `cli/verify/publish-result-supplies-expectations-only`
+- Owner: `workspace-features`
+- Statement: When given a publish result, verify shall take the admitted publication set as its selection, each prepared archive integrity as that release's caller-supplied expectation and, when no Registry is named, the recorded Registry as the one to read, report identity as not applicable for a release the result did not prepare, carry reported status and settlement only as reported input, and refuse a document with another contract, without an admitted set or without a usable Registry before any Registry request.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Saved documents are read from an in-memory file system and the Registry is a recording port; the production Registry client and the compiled command reading a file from disk need separate evidence.
+- Methods: decision-table, example
+- Additional evidence: process via [`apps/cli-e2e/src/verify-published-releases.e2e.test.ts`](../apps/cli-e2e/src/verify-published-releases.e2e.test.ts) — The built CLI verifies releases it published through its own publish command against an independent HTTP Registry and a file Registry; wire contracts validate every captured document against the published schema while the Registry journal records selection, admission and download traffic.
+- Source: [`packages/core/workspace-features/src/publishing/verification/publish-result-supplies-expectations-only.spec.ts`](../packages/core/workspace-features/src/publishing/verification/publish-result-supplies-expectations-only.spec.ts)
+
+##### Release verification passes only on complete satisfied evidence
+
+- Requirement: `cli/verify/verdict-requires-complete-evidence`
+- Owner: `workspace-features`
+- Statement: Verify shall return a positive verdict only when every applicable assessment of every selected release is complete and satisfied, treat a yanked version as present, report a negative or incomplete verification as a completed result that is not ok, and fail with the existing error contract instead of a verdict when no selected release yields any Registry observation.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The verdict is a pure decision over assessments, and the use case runs over a recording Registry port; the production Registry client, archive cache, process exit and envelope need separate evidence.
+- Methods: decision-table, example
+- Additional evidence: process via [`apps/cli-e2e/src/verify-published-releases.e2e.test.ts`](../apps/cli-e2e/src/verify-published-releases.e2e.test.ts) — The built CLI verifies releases it published through its own publish command against an independent HTTP Registry and a file Registry; wire contracts validate every captured document against the published schema while the Registry journal records selection, admission and download traffic.
+- Source: [`packages/core/workspace-features/src/publishing/verification/verdict-requires-complete-evidence.spec.ts`](../packages/core/workspace-features/src/publishing/verification/verdict-requires-complete-evidence.spec.ts)
+
 #### Constraints
 
 ##### Installer availability gates upgrade mutation
@@ -7185,6 +7228,34 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/publishing/publish/use-case.ts`
 - Source: [`packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
+
+##### Release verification reads the Registry without changing any state
+
+- Requirement: `cli/verify/is-read-only`
+- Owner: `cli-e2e`
+- Statement: Verify shall send only Registry selection, content admission and archive download requests, and shall not upload, preview or settle a publication, change Registry lifecycle state, or write workspace content, settings, lockfile or native agent state.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: process; selection: per-change
+- Boundary rationale: Separate CLI processes verify releases from a native workspace while an independent HTTP Registry journals every request and keeps its stored versions, and protected-state snapshots detect workspace, settings and credential writes.
+- Methods: example
+- Derived from: `docs/architecture/commands/overview.md`
+- Assumptions: Startup update checks and telemetry are disabled in this isolated fixture; their separately owned delivery does not read the Registry on behalf of verify.; The local archive cache may receive a verified copy; it is reusable acquisition state, not workspace, settings or Registry state.
+- Source: [`apps/cli-e2e/src/verify-is-read-only.spec.ts`](../apps/cli-e2e/src/verify-is-read-only.spec.ts)
+
+##### Verify selects only exact releases or one publish result
+
+- Requirement: `cli/verify/selection-is-exact-and-explicit`
+- Owner: `cli`
+- Statement: Verify shall select releases only from exact versioned references or from one publish result, accept an expected integrity only with a single exact reference, show contextual usage when nothing is selected, and refuse a range, tag, bare name, unknown type or mixed selection as a usage error before any Registry request.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Additional evidence: process via [`apps/cli-e2e/src/verify-published-releases.e2e.test.ts`](../apps/cli-e2e/src/verify-published-releases.e2e.test.ts) — The built CLI verifies releases it published through its own publish command against an independent HTTP Registry and a file Registry; wire contracts validate every captured document against the published schema while the Registry journal records selection, admission and download traffic.
+- Source: [`apps/cli/src/root/verify/selection-is-exact-and-explicit.spec.ts`](../apps/cli/src/root/verify/selection-is-exact-and-explicit.spec.ts)
 
 ##### Publication policy distinguishes inherited, empty, and explicit selection
 

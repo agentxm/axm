@@ -9863,6 +9863,60 @@
         "subcommands": []
       },
       {
+        "name": "verify",
+        "aliases": [],
+        "description": "Verify that exact published releases are present, intended, and have matching archives",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exact release in @owner/<plural-type>/<name>@<version> form",
+            "variadic": { "min": 0 }
+          }
+        ],
+        "options": [
+          {
+            "name": "integrity",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Expected SHA-512 SRI integrity of the one selected release"
+          },
+          {
+            "name": "publish-result",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Saved axm publish --json result, verified in its recorded Registry unless --registry"
+          },
+          {
+            "name": "registry",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Registry name or absolute URL; defaults to axm.json defaultRegistry"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm verify @acme/skills/code-review@1.2.3",
+            "description": "Verify presence and archive integrity of one release"
+          },
+          {
+            "command": "axm verify @acme/skills/code-review@1.2.3 --integrity sha512-AayA7dZvjjWgu8W0ypIl6/MwRxMSqy0+JhStKyKL5L+5snqgRxPqmQ2grXeWGnNm8x2xeMIIQevwE3PAU0BgxA==",
+            "description": "Also compare the recorded integrity with the one you expect"
+          },
+          {
+            "command": "axm verify --publish-result publish.json --json",
+            "description": "Verify the admitted set of a saved axm publish --json result"
+          }
+        ],
+        "subcommands": []
+      },
+      {
         "name": "visibility",
         "aliases": [],
         "description": "Inspect and manage whole-extension registry visibility",

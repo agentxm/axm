@@ -1,5 +1,8 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+import * as Schema from "effect/Schema";
 import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { publishSkill } from "./test-support/registry-workspace.js";
 import { createBinaryRunner } from "@agentxm/client-e2e-utils";
@@ -49,7 +52,11 @@ it.each([
           const local = await fixture.run(["list", "--offline", "--json"], environment);
           expect(local.exitCode, local.stdout + local.stderr).toBe(0);
           expect(() => JSON.parse(local.stdout)).not.toThrow();
-          for (const command of [["view", "@acme/skills/missing"], ["login"]]) {
+          for (const command of [
+            ["view", "@acme/skills/missing"],
+            ["verify", "@acme/skills/missing@1.0.0"],
+            ["login"],
+          ]) {
             const result = await fixture.run(
               [...command, "--registry", origin, "--offline", "--json"],
               environment,
@@ -71,6 +78,49 @@ it.each([
     }
   },
 );
+
+it("offline release verification completes against a file Registry", async () => {
+  const storage = fs.mkdtempSync(path.join(os.tmpdir(), "axm-offline-registry-"));
+  const fixture = makeEnvironmentProcessFixture();
+  try {
+    const location = pathToFileURL(storage).href;
+    await publishSkill({
+      registryLocation: location,
+      owner: "@test",
+      name: "offline-verified",
+      body: "Verified without a network.",
+    });
+    const index: unknown = JSON.parse(
+      fs.readFileSync(
+        path.join(storage, "extensions", "@test", "skills", "offline-verified", "index.json"),
+        "utf8",
+      ),
+    );
+    const version = Schema.decodeUnknownSync(
+      Schema.Struct({ versions: Schema.Tuple([Schema.Struct({ version: Schema.String })]) }),
+    )(index).versions[0].version;
+    fixture.writeProjectSettings({
+      agents: [],
+      sources: [{ name: "test", type: "registry", location }],
+      defaultRegistry: "test",
+    });
+    const result = await fixture.run([
+      "verify",
+      `@test/skills/offline-verified@${version}`,
+      "--offline",
+      "--json",
+    ]);
+    expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      outcome: "completed",
+      result: { verdict: { ok: true } },
+    });
+  } finally {
+    fixture.cleanup();
+    fs.rmSync(storage, { recursive: true, force: true });
+  }
+});
 
 it("offline restore refuses a warm remote archive while an independent local skill converges", async () => {
   const registry = await startHttpRegistry();

@@ -6,8 +6,9 @@
  * before any handler runs, so the sentinel guarantees the invocation stops at
  * parsing while the probed flag's own recognition is read from the same
  * failure. Help is not requested: the help action exits before parse errors
- * are reported and would hide an unsupported flag. Nothing here performs
- * workspace work or touches the developer's real configuration.
+ * are reported and would hide an unsupported flag. The probes perform no
+ * workspace work and never touch the developer's real configuration;
+ * `runInvocation` is the exception, described where it is defined.
  */
 
 import * as Console from "effect/Console";
@@ -31,8 +32,13 @@ export type FlagProbeOutcome = "accepted" | "unrecognized";
 
 const SENTINEL = "--axm-specification-probe-sentinel";
 
-const parserLayer = () => {
-  const context = makeCliTestContext({ machine: true, flags: { json: true } });
+type InvocationContextOptions = Pick<
+  NonNullable<Parameters<typeof makeCliTestContext>[0]>,
+  "httpClient" | "fileSystemLayer"
+>;
+
+const parserLayer = (options: InvocationContextOptions = {}) => {
+  const context = makeCliTestContext({ machine: true, flags: { json: true }, ...options });
   // The product registers help as its only built-in flag; the parser default
   // would add a version flag whose alias collides with the verbose flag. The
   // remaining services satisfy the tree's static requirements; parsing never
@@ -90,6 +96,30 @@ export const parserRejection = (argv: ReadonlyArray<string>): Effect.Effect<unkn
     }
     return outcome.failure;
   });
+
+/**
+ * Run one invocation through the registered tree and its real handler, over a
+ * test context whose transport and file system the caller may observe. The
+ * outcome is returned as it settled: a refusal decided before the runtime is
+ * the handler's own failure. An invocation that gets past its handler's own
+ * checks enters the production runtime, which composes live services over
+ * the caller's file system; a caller keeps that from reaching native state or
+ * the network by supplying a file system that refuses the runtime's first
+ * access.
+ */
+export const runInvocation = (
+  argv: ReadonlyArray<string>,
+  options: InvocationContextOptions = {},
+): Effect.Effect<Result.Result<unknown, unknown>> =>
+  Command.runWith(rootCommand, {
+    version: TEST_VERSION,
+    renderErrors: false,
+  })([...argv]).pipe(
+    Effect.provide(parserLayer(options)),
+    Effect.provideService(Console.Console, silentConsole),
+    Effect.provideService(CliOutput.Formatter, silentFormatter),
+    Effect.result,
+  );
 
 /** The options the parser reported as unrecognized for one invocation. */
 export const unrecognizedOptions = (

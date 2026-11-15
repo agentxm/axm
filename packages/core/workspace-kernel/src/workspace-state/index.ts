@@ -42,7 +42,7 @@ export {
   portableGitSourceLockFields,
   registrySourceLockFields,
 } from "./desired/lockfile/entry-fields.js";
-export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./desired/lockfile/schema.js";
+export { ArchiveIntegritySchema, LOCK_ENTRY_SCHEMA_BY_TYPE } from "./desired/lockfile/schema.js";
 export {
   retainedPackageKeyForRef,
   retainedPackageBindings,

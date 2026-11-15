@@ -13,14 +13,8 @@
 
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 
-import {
-  parseFqn,
-  splitExtensionReference,
-  toExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions";
-import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
+import { parseFqn, toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
@@ -30,8 +24,7 @@ import { registryTransition } from "./remote-outcome.js";
 import { selectedLifecycleRegistry } from "./registry.js";
 import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { publishRefused } from "../errors.js";
-
-const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
+import { parseExactReleaseParts } from "../exact-reference.js";
 
 const validation = (detail: string, suggestions?: ReadonlyArray<{ description: string }>) =>
   publishRefused({
@@ -69,26 +62,36 @@ const parseExactVersionReference = (
   input: string,
 ): Effect.Effect<RegistryExtensionVersionReference, OperationRefused> =>
   Effect.gen(function* () {
-    const { name, constraint } = splitExtensionReference(input);
-    if (constraint === undefined) {
-      return yield* Effect.fail(
-        validation(`Expected an exact version in ${input}`, [
-          { description: "Use @owner/<plural-type>/name@1.2.3." },
-        ]),
-      );
+    const parsed = parseExactReleaseParts(input);
+    if (Result.isSuccess(parsed)) {
+      const { owner, type, name, version } = parsed.success;
+      return { owner, type: toExtensionTypePlural(type), name, version };
     }
-    const ref = yield* parseExtensionReference(name);
-    const decodedVersion = decodeVersion(constraint);
-    if (Result.isFailure(decodedVersion)) {
-      return yield* Effect.fail(
-        publishRefused({
-          category: "validation",
-          detail: `Expected an exact semantic version in ${input}`,
-          cause: decodedVersion.failure,
-        }),
-      );
+    const issue = parsed.failure;
+    switch (issue.reason) {
+      case "missing-version":
+        return yield* Effect.fail(
+          validation(`Expected an exact version in ${input}`, [
+            { description: "Use @owner/<plural-type>/name@1.2.3." },
+          ]),
+        );
+      case "invalid-name":
+        return yield* Effect.fail(
+          publishRefused({
+            category: "validation",
+            detail: `Invalid fully qualified name: ${issue.name}`,
+            cause: issue.cause,
+          }),
+        );
+      case "inexact-version":
+        return yield* Effect.fail(
+          publishRefused({
+            category: "validation",
+            detail: `Expected an exact semantic version in ${input}`,
+            cause: issue.cause,
+          }),
+        );
     }
-    return { ...ref, version: decodedVersion.success };
   });
 
 export interface YankRequest {

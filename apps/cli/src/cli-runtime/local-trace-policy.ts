@@ -275,6 +275,7 @@ export const traceSpanNames = new Set([
   "ListKnowledge.query",
   "RenderSubagent.query",
   "ViewExtension.read",
+  "VerifyPublishedReleases.verify",
   "ExportAcceptedResolutions.query",
   "InstallExtensions.select",
   "InstallExtensions.plan",

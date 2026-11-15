@@ -33,6 +33,13 @@ selections remain in that assessment. Workspace construction and unexpected
 execution failures keep their normal error codes; they are not negative
 assessment verdicts.
 
+`axm verify` is also a query. A release verification that needs attention or
+is incomplete completes with `outcome: "completed"`, `ok: false`, and exit 1.
+A failure that leaves no Registry observation for any selected release, such
+as a usage error, an unusable publish result, a Registry selection failure, an
+`--offline` refusal, rejected credentials, or an unreachable Registry, keeps its
+normal error code; it is not a negative verification verdict.
+
 A verification or output-delivery failure after a write does not imply that no
 change occurred. Inspect the reported effects and settlement before retrying.
 

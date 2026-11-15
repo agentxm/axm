@@ -177,8 +177,9 @@ contract family, expressed as `<family>-v<N>`; the CLI release number does not
 identify a machine contract.
 
 The ordinary `result-envelope-v1` contract is detected by shape and adds no
-top-level contract key. Plan, publish, Registry transition, and upgrade results
-declare their payload family under `result.contract`. Knowledge queries declare
+top-level contract key. Plan, publish, release verification
+(`release-verification-v1`), Registry transition, and upgrade results declare
+their payload family under `result.contract`. Knowledge queries declare
 `query.contract: "knowledge-query-v1"`; discovery capabilities declare
 `capabilities.contract: "knowledge-discovery-capabilities-v1"` and refer to the
 query contract with `queryContract`.

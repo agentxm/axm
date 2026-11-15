@@ -20,6 +20,15 @@ export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled):
   });
 
 /**
+ * The recovery a signed-out reader is offered when a Registry answers as if an
+ * extension were absent: it hides what the caller may not see behind absence.
+ */
+export const signInIfPrivateSuggestion = {
+  description: "Sign in if this extension is private.",
+  cmd: "axm login",
+} as const;
+
+/**
  * `offerSignIn` decides one thing: whether a miss suggests signing in.
  *
  * A read hides an extension the caller may not see behind the same not-found
@@ -62,9 +71,7 @@ export const publishedMetadataUnavailableToAppError = (
         detail: failure.detail,
         ...(offerSignIn
           ? {
-              suggestions: [
-                { description: "Sign in if this extension is private.", cmd: "axm login" },
-              ],
+              suggestions: [signInIfPrivateSuggestion],
             }
           : {}),
       });

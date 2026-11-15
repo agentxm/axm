@@ -60,6 +60,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   route("show"),
   route("check"),
   route("view"),
+  route("verify"),
   route("visibility"),
   route("visibility status"),
   route("visibility set"),

@@ -31,7 +31,8 @@ requires a new affected contract-family version; consumers do not infer the
 contract from the CLI release number. `result-envelope-v1` is detected by shape
 and adds no top-level contract key. Result payloads declare their family under
 `result.contract`, including `plan-result-v4`, `publish-result-v3`,
-`registry-transition-v1`, and `upgrade-assessment-v1`. Knowledge queries use
+`release-verification-v1`, `registry-transition-v1`, and
+`upgrade-assessment-v1`. Knowledge queries use
 `query.contract: "knowledge-query-v1"`; capabilities use
 `capabilities.contract: "knowledge-discovery-capabilities-v1"` and
 `queryContract` to refer to the query contract.
@@ -262,6 +263,17 @@ when a Registry request policy ran, `attemptCount`, `maxAttempts`,
 and `problemCode` are included when the Registry supplied them. Opaque response
 bodies are not included. Automation should use these fields rather than matching
 error messages.
+
+`axm verify` results declare `result.contract: "release-verification-v1"`.
+They name the Registry that answered and how it was selected, keep each request
+in `selection.requests`, and list each distinct release once with the requests
+that named it. Each release reports `presence`, `identity`, and `archive` with
+coverage separate from conclusion, plus the observed Registry facts and any
+caller-supplied expectation with its source. A publish result's reported
+statuses are input, not observations. The result is a query: when
+`verdict.reasons` is not empty, it still completes with `outcome: "completed"`,
+`ok: false`, and exit 1. A failure that leaves no Registry observation
+emits the ordinary error document instead of a verdict.
 
 `axm mcps list --json` keeps connection, source, and resolution identities
 separate. Each item includes `localName`, a discriminated `source` object, and

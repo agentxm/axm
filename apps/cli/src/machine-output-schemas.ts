@@ -22,6 +22,7 @@ import {
 import {
   PublishResultSchema,
   RegistryTransitionSchema,
+  ReleaseVerificationDocumentSchema,
 } from "@agentxm/workspace-features/publishing";
 import { VisibilityEvaluationSchema } from "@agentxm/registry-protocol/unstable/publish";
 import { ExtensionInventoryDocumentSchema } from "@agentxm/workspace-features/inspection";
@@ -114,6 +115,7 @@ export const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> 
   PlanResolutionDocumentSchema,
   PublishResultSchema,
   RegistryTransitionSchema,
+  ReleaseVerificationDocumentSchema,
   RevokeTokenDocumentSchema,
   ShareWorkspaceDocumentSchema,
   SetupDocumentSchema,

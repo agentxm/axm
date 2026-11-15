@@ -40,6 +40,7 @@ const REQUIRED_WIRE_RESULTS = [
   "publish:apply",
   "registry-transition:apply",
   "registry-view:query",
+  "release-verification:query",
   "setup:preview",
   "setup:apply",
   "subagent-show:query",
@@ -72,6 +73,8 @@ const REQUIRED_WIRE_VARIANTS = [
   "publish:no-op",
   "local-check:satisfied",
   "local-check:attention-required",
+  "release-verification:satisfied",
+  "release-verification:attention-required",
   "credential-refusal",
 ] as const;
 

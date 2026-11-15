@@ -17,6 +17,8 @@ import {
   acceptedCanonicalObservation,
   acceptedResolutionRef,
   computeMaterializedTreeIntegrity,
+  DesiredStateReader,
+  LockfileReader,
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders, observeGitIgnoreInputs } from "@agentxm/workspace-kernel/sources";
@@ -408,37 +410,56 @@ export const withSourceSwitches = <R, O>(
           steps.push(step);
           continue;
         }
-        const current = yield* acceptedCanonicalObservation({
-          type: proposal.extensionType,
-          name: proposal.target,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: `The accepted source for ${proposal.target} could not be inspected`,
-              cause,
-            }),
-          ),
+        const target = { type: proposal.extensionType, name: proposal.target };
+        const inspectionRefused = (cause: unknown) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for ${proposal.target} could not be inspected`,
+            cause,
+          });
+        const reconstructionRefused = (cause: unknown) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for ${proposal.target} could not be reconstructed`,
+            cause,
+          });
+        const observeCurrent = acceptedCanonicalObservation(target).pipe(
+          Effect.mapError(inspectionRefused),
         );
-        const previous = yield* acceptedResolutionRef({
-          type: proposal.extensionType,
-          name: proposal.target,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: `The accepted source for ${proposal.target} could not be reconstructed`,
-              cause,
-            }),
-          ),
+        const reconstructPrevious = acceptedResolutionRef(target).pipe(
+          Effect.mapError(reconstructionRefused),
         );
+        // Only an accepted row of a desired node can be switched away from.
+        // Its presence is read from the phase's documents, so the accepted
+        // content is observed only once the proposal leaves its locator.
+        const desired = (yield* (yield* DesiredStateReader)
+          .graph()
+          .pipe(Effect.mapError(inspectionRefused))).nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
+        const acceptedRow =
+          desired === undefined
+            ? Option.none()
+            : yield* (yield* LockfileReader)
+                .acceptedEntry(desired.type, desired.name)
+                .pipe(Effect.mapError(inspectionRefused));
+        if (desired === undefined || Option.isNone(acceptedRow)) {
+          yield* observeCurrent;
+          yield* reconstructPrevious;
+          steps.push(step);
+          continue;
+        }
+        const previous = yield* reconstructPrevious;
         if (
-          Option.isNone(current) ||
-          current.value.accepted === undefined ||
           Option.isNone(previous) ||
           sourceLocator(previous.value, path, location.baseDir) ===
             sourceLocator(proposal.ref, path, location.baseDir)
         ) {
+          steps.push(step);
+          continue;
+        }
+        const current = yield* observeCurrent;
+        if (Option.isNone(current) || current.value.accepted === undefined) {
           steps.push(step);
           continue;
         }

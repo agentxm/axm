@@ -12,8 +12,14 @@ import {
   computeSourceHash,
   type KnowledgeLockEntry,
   AcceptedResolutionWriter,
+  CurrentWorkspaceReadPhase,
+  DesiredStateReader,
   DesiredStateWriter,
+  LockfileReader,
+  SettingsReader,
   SettingsWriter,
+  WorkspaceLocation,
+  WorkspaceRecords,
   type AcceptedResolutionWriterService,
   type ProjectionUnitPath,
   type RecordedProjectionRow,
@@ -1087,6 +1093,90 @@ describe("KnowledgeManager", () => {
               },
             ],
           ]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    it.effect("excludes the same invalid bundle from an inspection shared in one phase", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const { canonicalRootOf, read } = acquiredBundles(
+            workspaceRoot,
+            [{ name: "playbook", enabled: true }],
+            new Set(["playbook"]),
+          );
+          const concept = nodePath.join(canonicalRootOf("playbook"), "src", "concept.md");
+          let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+          const selected = yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            const exclusions = manager
+              .projectionPlans()
+              .pipe(Effect.map((plans) => plans.map((plan) => plan.exclusions)));
+            const alone = yield* exclusions;
+            const fileSystem = yield* FileSystem.FileSystem;
+            // One observation phase whose port is the manager's filesystem.
+            const inPhase = exclusions.pipe(
+              Effect.provideService(CurrentWorkspaceReadPhase, {
+                location: yield* WorkspaceLocation,
+                observations: true,
+                stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+                fileSystem,
+                readers: {
+                  desired: yield* DesiredStateReader,
+                  settings: yield* SettingsReader,
+                  locks: yield* LockfileReader,
+                },
+                records: yield* WorkspaceRecords,
+                packDocuments: new Map(),
+                knowledgeInspections: new Map(),
+                isActive: () => true,
+                endedBy: () => undefined,
+                close: () => undefined,
+              }),
+            );
+            // The observation's tree check reads each document on every
+            // selection; the package inspection reads it once more.
+            const reads = () => recording?.contentReads(concept);
+            recording?.reset();
+            const first = yield* inPhase;
+            const firstReads = reads();
+            recording?.reset();
+            const second = yield* inPhase;
+            return { alone, first, second, reads: [firstReads, reads()] };
+          }).pipe(
+            Effect.provide(
+              managerLayer(workspaceRoot, {
+                read,
+                fileSystem: (native) => {
+                  const recorded = makeRecordingFileSystem(native);
+                  recording = recorded.recording;
+                  return recorded.fileSystem;
+                },
+              }),
+            ),
+          );
+
+          expect(selected.alone).toEqual([
+            [
+              {
+                contributor: "playbook",
+                reason: "package-invalid",
+                detail: expect.stringContaining(
+                  "requires a YAML frontmatter block with a non-empty type",
+                ),
+              },
+            ],
+          ]);
+          // The later selection receives the earlier one's failed inspection
+          // and maps it to the same exclusion.
+          expect(selected.first).toEqual(selected.alone);
+          expect(selected.second).toEqual(selected.alone);
+          expect(selected.reads).toEqual([2, 1]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

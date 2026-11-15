@@ -4,15 +4,20 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
+import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
 import type { WorkFact } from "@agentxm/host-primitives/work-observation";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import { StepFailureConversionTest } from "@agentxm/workspace-kernel/reconciliation/testing";
+import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { LocalInspection } from "../index.js";
+import { buildInventoryDocument } from "../inventory-document.js";
+import { inspectInventory } from "../inventory-inspection.js";
 import { ListKnowledge } from "../knowledge/list-knowledge.js";
 import { makeInstalledWorkspace } from "../test-support/installed-workspace.js";
 import { knowledgeDocument } from "../testing.js";
-import { withLocalAssessmentReadView } from "./content-read-view.js";
+import { withLocalAssessmentReadView, withLocalInspectionReadView } from "./content-read-view.js";
 
 /**
  * Requested and executed text decodes through the shared observation port.
@@ -107,6 +112,19 @@ const documents = {
 
 const showKnowledge = LocalInspection.query({ selection: { kind: "all" }, types: ["knowledge"] });
 
+/**
+ * The inventory document a local inspection builds for its Knowledge rows:
+ * native inspection, where discovery selection inspects each enabled
+ * bundle's package, then the document's own counts, in one observation
+ * phase.
+ */
+const inspectedKnowledgeDocument = withLocalInspectionReadView(
+  Effect.gen(function* () {
+    const raw = yield* (yield* WorkspaceRecords).getInventory({ types: ["knowledge"] });
+    return yield* buildInventoryDocument(yield* inspectInventory(raw));
+  }),
+);
+
 const measure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const observations = workObservations(false);
@@ -157,7 +175,9 @@ describe("Local inspection of Knowledge bundles", () => {
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
-  it.effect("counts an invalid concept that leaves the bundle out of discovery", () => {
+  // The bundle's own exclusion from discovery is not part of the show result;
+  // the Knowledge manager's tests pin it for a shared inspection.
+  it.effect("counts an invalid concept that discovery selection's inspection found", () => {
     const workspace = makeKnowledgeWorkspace({
       agents: ["claude-code"],
       bundles: [
@@ -180,19 +200,59 @@ describe("Local inspection of Knowledge bundles", () => {
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
-  it.effect("omits an uninspectable package's counts after one failed inspection", () => {
+  it.effect("reports an uninspectable package after one failed inspection", () => {
     const workspace = makeKnowledgeWorkspace({
       agents: ["claude-code"],
       bundles: [{ name: "platform", documents }],
     });
-    fs.chmodSync(workspace.documentPath("platform", "guide.md"), 0o000);
     return workspace
       .provide(
         Effect.gen(function* () {
-          const { result, decodes } = yield* measure(showKnowledge);
-          expect(result.items).toHaveLength(1);
-          expect(result.items[0]).not.toHaveProperty("knowledge");
-          expect(decodes).toEqual({ requested: 5, executed: 3 });
+          const base = yield* FileSystem.FileSystem;
+          // The content view reads each file by its resolved path; a direct
+          // inspection reads it by the spelling it was given.
+          const guide = workspace.documentPath("platform", "guide.md");
+          const unreadable = new Set([guide, fs.realpathSync(guide)]);
+          const denied = FileSystem.make({
+            ...base,
+            readFile: (file) =>
+              unreadable.has(file)
+                ? Effect.fail(
+                    PlatformError.systemError({
+                      _tag: "PermissionDenied",
+                      module: "FileSystem",
+                      method: "readFile",
+                      pathOrDescriptor: file,
+                    }),
+                  )
+                : base.readFile(file),
+          });
+          const failure = yield* inspectKnowledgePackage(
+            path.join(workspace.root, "knowledge", "platform"),
+          ).pipe(Effect.flip, Effect.provideService(FileSystem.FileSystem, denied));
+          expect(String(failure)).toContain("PermissionDenied");
+
+          const show = yield* measure(showKnowledge).pipe(
+            Effect.provideService(FileSystem.FileSystem, denied),
+          );
+          expect(show.result.items).toHaveLength(1);
+          expect(show.result.items[0]).not.toHaveProperty("knowledge");
+          expect(show.decodes).toEqual({ requested: 5, executed: 3 });
+
+          // The inventory document states the failure the earlier inspection
+          // met, exactly as its own inspection would.
+          const inventory = yield* measure(inspectedKnowledgeDocument).pipe(
+            Effect.provideService(FileSystem.FileSystem, denied),
+          );
+          const inspection = inventory.result.items[0]?.inspection;
+          expect(inspection).not.toHaveProperty("knowledge");
+          expect(inspection?.state).toBe("partial");
+          expect(
+            inspection !== undefined && "diagnostics" in inspection
+              ? inspection.diagnostics
+              : undefined,
+          ).toEqual([`Knowledge contents could not be inspected: ${String(failure)}`]);
+          expect(inventory.decodes).toEqual({ requested: 3, executed: 3 });
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));

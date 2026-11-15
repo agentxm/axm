@@ -159,7 +159,8 @@ export interface InstructionProjectionSnapshot {
   /**
    * The observation's strict `.gitignore` admission and the referent its early
    * read admitted, for a readiness check that directly follows it with no
-   * write between. Absent from a hand-built snapshot, which is checked live.
+   * write between, and for a disable's region removal when no alias removal
+   * wrote between them. Absent from a hand-built snapshot, which is checked live.
    */
   readonly gitignoreAdmission?: {
     readonly gitManaged: boolean;
@@ -2786,10 +2787,39 @@ const writeGitignoreRegion = (args: {
       : authority.withExclusiveWrite(filePath, run).pipe(Effect.mapError(insertionFailure));
   });
 
+/**
+ * Whether `observed` found a complete alias region in the working tree of
+ * `workspaceRoot`, its strict admission selecting the referent its early read
+ * admitted.
+ */
+const observedCompleteGitignoreRegion = (
+  observed: Pick<InstructionProjectionSnapshot, "gitignoreAdmission"> | undefined,
+  workspaceRoot: string,
+): boolean => {
+  const admission = observed?.gitignoreAdmission;
+  return (
+    admission !== undefined &&
+    admission.view === "working-tree" &&
+    admission.workspaceRoot === workspaceRoot &&
+    admission.gitManaged &&
+    admission.regionState === "complete" &&
+    Result.isSuccess(admission.strict) &&
+    Option.isSome(admission.earlyReferent) &&
+    admission.earlyReferent.value === admission.strict.success
+  );
+};
+
 export const removeInstructionsGitignore = (args: {
   readonly workspaceRoot: string;
   readonly rows: InstructionProjectionRows;
   readonly dryRun: boolean;
+  /**
+   * The observation this removal directly follows with no write between,
+   * under the same transition lock. When it found a complete region its
+   * `.gitignore` facts stand in for the unlocked Git walk, admission and read;
+   * the region write still walks, admits and reads under its file lock.
+   */
+  readonly observed?: Pick<InstructionProjectionSnapshot, "gitignoreAdmission">;
 }): Effect.Effect<
   {
     readonly path: Option.Option<string>;
@@ -2806,15 +2836,17 @@ export const removeInstructionsGitignore = (args: {
         ? Option.some(withdrawRow(GITIGNORE_UNIT))
         : Option.none<ProjectionRowChange>(),
     };
-    if (!(yield* isGitManaged(args.workspaceRoot))) return unchanged;
-    const lexical = yield* instructionGitignorePath(args.workspaceRoot);
-    const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
-    const filePath = address.referentPath ?? address.entryPath;
-    const content = yield* readFileOption(filePath, args.workspaceRoot);
-    if (Option.isNone(content)) return unchanged;
-    const state = managedGitignoreRegionState(content.value);
-    if (state === "absent") return unchanged;
-    if (args.dryRun && state === "complete") return { ...unchanged, path: Option.some(filePath) };
+    if (args.dryRun || !observedCompleteGitignoreRegion(args.observed, args.workspaceRoot)) {
+      if (!(yield* isGitManaged(args.workspaceRoot))) return unchanged;
+      const lexical = yield* instructionGitignorePath(args.workspaceRoot);
+      const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
+      const filePath = address.referentPath ?? address.entryPath;
+      const content = yield* readFileOption(filePath, args.workspaceRoot);
+      if (Option.isNone(content)) return unchanged;
+      const state = managedGitignoreRegionState(content.value);
+      if (state === "absent") return unchanged;
+      if (args.dryRun && state === "complete") return { ...unchanged, path: Option.some(filePath) };
+    }
     const written = yield* writeGitignoreRegion({
       workspaceRoot: args.workspaceRoot,
       patterns: [],

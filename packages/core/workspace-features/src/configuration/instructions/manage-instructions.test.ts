@@ -278,3 +278,136 @@ describe("Instruction management reads the workspace documents once per call", (
     { timeout: 30_000 },
   );
 });
+
+/**
+ * Disabling instruction management under the transition lock removes the
+ * alias region with the observation's own `.gitignore` admission when no
+ * alias removal wrote between them; the region write keeps its own Git walk,
+ * admission and locked read. Any removed alias, an absent region or a
+ * workspace outside Git keeps every live check. Counts cover the locked
+ * apply only, after planning.
+ */
+describe("Instruction management disable removes the alias region once observed", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  const cases = [
+    {
+      name: "removes the region observed when no alias is left to remove",
+      git: true,
+      gitignoreAliases: true,
+      removeAlias: true,
+      expected: {
+        // Before: 11 reads, 4 Git walks, and one more unlocked admission and
+        // read of the file (readLink 39, realPath 36, stat 47).
+        gitignoreReads: 10,
+        gitignore: {
+          access: 2,
+          copy: 1,
+          readFile: 10,
+          readLink: 37,
+          realPath: 34,
+          stat: 45,
+          writeFile: 1,
+        },
+        git: 3,
+      },
+    },
+    {
+      name: "re-reads the region live after removing an owned alias",
+      git: true,
+      gitignoreAliases: true,
+      removeAlias: false,
+      expected: {
+        gitignoreReads: 11,
+        gitignore: {
+          access: 2,
+          copy: 1,
+          readFile: 11,
+          readLink: 39,
+          realPath: 36,
+          stat: 47,
+          writeFile: 1,
+        },
+        git: 4,
+      },
+    },
+    {
+      name: "keeps the live checks behind a disable that finds no region",
+      git: true,
+      gitignoreAliases: false,
+      removeAlias: true,
+      expected: {
+        gitignoreReads: 4,
+        gitignore: { readFile: 4, readLink: 13, realPath: 12, stat: 15 },
+        git: 3,
+      },
+    },
+    {
+      name: "keeps the live Git walk outside a Git checkout",
+      git: false,
+      gitignoreAliases: true,
+      removeAlias: true,
+      expected: {
+        gitignoreReads: 2,
+        gitignore: { readFile: 2, readLink: 8, realPath: 7, stat: 10 },
+        git: 3,
+      },
+    },
+  ] as const;
+
+  for (const scenario of cases)
+    it.effect(
+      scenario.name,
+      () => {
+        const world = makeConfigurationFixture({
+          settings: { agents: ["claude-code"] },
+          files: { "AGENTS.md": "# Authored instructions\n", ".gitignore": "dist/\n" },
+        });
+        cleanups.push(world.cleanup);
+        if (scenario.git) fs.mkdirSync(nodePath.join(world.root, ".git"));
+        const gitignore = nodePath.join(world.root, ".gitignore");
+        const alias = nodePath.join(world.root, "CLAUDE.md");
+        return world
+          .provide(
+            Effect.gen(function* () {
+              const recording = yield* FileSystemRecorder;
+              yield* applyInstructionsRequest({
+                action: "enable",
+                fileName: "AGENTS.md",
+                gitignoreAliases: scenario.gitignoreAliases,
+              });
+              const regionWritten = scenario.git && scenario.gitignoreAliases;
+              expect(world.readFile(".gitignore").includes("axm:instruction-aliases")).toBe(
+                regionWritten,
+              );
+              if (scenario.removeAlias) fs.rmSync(alias);
+              const candidate = yield* ManageInstructions.prepare({ action: "disable" });
+              if (candidate._tag === "Unchanged") throw new Error("Expected a planned disable");
+              recording.reset();
+              const resolution = yield* ManageInstructions.previewOrApply(
+                candidate,
+                preapprovedPlanExecution,
+              );
+              const counts = {
+                gitignoreReads: recording.contentReads(gitignore),
+                gitignore: recording.counts(gitignore),
+                git: recording.calls({ path: nodePath.join(world.root, ".git") }).length,
+              };
+              expect(deriveOperationOutcome(resolution)).toBe("applied");
+              expect(world.readFile(".gitignore")).toBe("dist/\n");
+              expect(fs.existsSync(alias)).toBe(false);
+              expect(JSON.parse(world.readFile("axm.json"))).toMatchObject({
+                instructionFiles: false,
+              });
+              expect(world.readFile("axm.lock")).not.toContain(".gitignore");
+              expect(counts).toEqual(scenario.expected);
+            }),
+          )
+          .pipe(Effect.provide(recordedNodeServices));
+      },
+      { timeout: 30_000 },
+    );
+});

@@ -836,6 +836,9 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
     workspaceRoot: location.baseDir,
     rows: snapshot.rows,
     dryRun: false,
+    // Removing an alias writes to the observed workspace; only a disable that
+    // removed none may decide the region removal from the observation.
+    ...(removals.removed.length === 0 ? { observed: snapshot } : {}),
   });
   yield* stageInstructionRows([...removals.rowChanges, ...Option.toArray(gitignore.rowChange)]);
   yield* settingsWriter.setInstructionsConfig(false);

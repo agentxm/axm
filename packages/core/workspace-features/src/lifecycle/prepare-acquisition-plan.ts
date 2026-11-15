@@ -4,6 +4,8 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import {
   installRefused,
@@ -19,6 +21,7 @@ import {
 import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
+  DesiredStateReader,
   usableAcceptedCanonical,
   WorkspaceLocation,
   AcceptedResolutionWriter,
@@ -29,6 +32,13 @@ import {
 } from "@agentxm/workspace-kernel/reconciliation";
 import { withPublisherTrust } from "./publisher-binding.js";
 import { withSourceSwitches } from "./source-switch.js";
+
+/** Authorities whose accepted ref is reconstructed from the accepted row alone. */
+const restoresAcceptedRow = (identity: { readonly authority: string }) =>
+  identity.authority === "registry" ||
+  identity.authority === "git" ||
+  identity.authority === "http" ||
+  identity.authority === "path";
 
 /** Install and update settle external acquisitions through the same planner path. */
 export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
@@ -73,23 +83,42 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                   // Only immutable Registry selections may reuse accepted content.
                   // Path, Git, and HTTP sources must still acquire what they offer now.
                   if (reinstall || ref.refType !== "registry") return true;
-                  const canonical = yield* usableAcceptedCanonical({
+                  const target = {
                     type: ref.type,
                     name: ref.type === "mcp-server" ? ref.server.name : ref.name,
-                  }).pipe(
-                    Effect.mapError((cause) =>
-                      installRefused({
-                        category: "internal",
-                        detail: `Accepted content for ${ref.name} could not be inspected`,
-                        cause,
-                      }),
-                    ),
+                  };
+                  const inspectionRefused = (cause: unknown) =>
+                    installRefused({
+                      category: "internal",
+                      detail: `Accepted content for ${ref.name} could not be inspected`,
+                      cause,
+                    });
+                  const offersOtherContent = (accepted: Option.Option<ExtensionRef>) =>
+                    Option.isNone(accepted) ||
+                    sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref);
+                  const observeUsable = usableAcceptedCanonical(target).pipe(
+                    Effect.mapError(inspectionRefused),
                   );
+                  // A sourced Registry, Git, HTTP, or path node restores exactly
+                  // the ref its accepted row records. When that ref already
+                  // offers other content, the proposal acquires whatever the
+                  // accepted copy holds, so the copy is observed only for the
+                  // accepted content itself.
+                  const desired = (yield* (yield* DesiredStateReader)
+                    .graph()
+                    .pipe(Effect.mapError(inspectionRefused))).nodes.find(
+                    (node) => node.type === target.type && node.name === target.name,
+                  );
+                  if (desired?.source !== undefined && restoresAcceptedRow(desired.identity)) {
+                    const recorded = yield* Effect.result(acceptedLockedResolutionRef(target));
+                    if (Result.isSuccess(recorded)) {
+                      if (offersOtherContent(recorded.success)) return true;
+                      return Option.isNone(yield* observeUsable);
+                    }
+                  }
+                  const canonical = yield* observeUsable;
                   if (Option.isNone(canonical)) return true;
-                  const accepted = yield* acceptedLockedResolutionRef({
-                    type: ref.type,
-                    name: ref.type === "mcp-server" ? ref.server.name : ref.name,
-                  }).pipe(
+                  const accepted = yield* acceptedLockedResolutionRef(target).pipe(
                     Effect.mapError((cause) =>
                       installRefused({
                         category: "internal",
@@ -98,10 +127,7 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                       }),
                     ),
                   );
-                  return (
-                    Option.isNone(accepted) ||
-                    sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
-                  );
+                  return offersOtherContent(accepted);
                 }),
               );
               return {

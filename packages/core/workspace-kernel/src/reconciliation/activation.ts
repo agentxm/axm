@@ -29,6 +29,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import {
   SettingsReader,
   WorkspaceLocation,
+  settingsEntries,
   type AcceptedCanonicalObservation,
   type AcceptedResolutionWriter,
   type DesiredExtensionNode,
@@ -201,6 +202,23 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
   ),
 );
 
+/**
+ * The MCP connections whose settings entry publishing this proposal sets, as
+ * `publishDesiredState` does, when nothing else it publishes removes an entry:
+ * realizing the change then runs the materialize steps with each of those
+ * entries as the closure's last settings writer publication.
+ */
+const publishedMcpEntries = (proposal: DesiredStateProposal): ReadonlyArray<string> =>
+  proposal.changes.every((change) => change.kind === "activation")
+    ? proposal.changes.flatMap((change) =>
+        change.kind === "activation" &&
+        change.type === "mcp-server" &&
+        Option.isSome(settingsEntries["mcp-server"].entry(proposal.settings, change.name))
+          ? [change.name]
+          : [],
+      )
+    : [];
+
 /** Enabling collects acquisition and materialization under the release-age policy. */
 export const prepareEnabledRealization = Effect.fnUntraced(function* (
   args: ActivationRealizationInput & {
@@ -218,6 +236,7 @@ export const prepareEnabledRealization = Effect.fnUntraced(function* (
       // Activation never rechecks the collection's inventories.
       inventories: "presence",
       ...(args.settledSubject === undefined ? {} : { settledSubject: args.settledSubject }),
+      publishedMcpEntries: publishedMcpEntries(args.proposal),
       adapter: args.adapter,
     },
   );

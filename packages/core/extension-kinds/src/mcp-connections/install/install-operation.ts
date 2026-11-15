@@ -407,7 +407,7 @@ export const installMcpServer: (
             };
             // Decided from this install's own live read of the entry.
             if (
-              options?.entryJustPublished === true &&
+              (options?.entryJustPublished === true || op.args.entryJustPublished === true) &&
               currentEntry !== undefined &&
               Equal.equals(nextEntry, currentEntry)
             )

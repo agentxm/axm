@@ -399,6 +399,7 @@ const buildMcpServerSyncOperation = ({
   nativeLocations,
   scope,
   adapter,
+  entryJustPublished,
 }: {
   readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
@@ -408,6 +409,8 @@ const buildMcpServerSyncOperation = ({
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly scope: WorkspaceLocationService["scope"];
   readonly adapter: StepFailureConversionService;
+  /** The caller published this connection's entry just before running the step. */
+  readonly entryJustPublished: boolean;
 }): PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements> => {
   const target = targetFromRef(ref);
   const lifecycleWarnings = extensionRefLifecycleWarnings(ref);
@@ -435,6 +438,7 @@ const buildMcpServerSyncOperation = ({
           ...Option.match(sourceKey, { onNone: () => ({}), onSome: (key) => ({ sourceKey: key }) }),
           nonInteractive: true,
           force,
+          ...(entryJustPublished ? { entryJustPublished: true } : {}),
         },
       })
       .pipe(Effect.mapError(adapter.toStepFailure)),
@@ -608,6 +612,14 @@ export const collectMaterializeSteps = (args: {
    * which judges its tree again. It stands in for observing that Hook here.
    */
   readonly settledSubject?: AcceptedCanonicalObservation;
+  /**
+   * The MCP connections whose settings entry the caller's settings writer
+   * publishes, under the connection's own name, as the last `axm.json` write
+   * before it runs these steps in the same closure settlement under the
+   * workspace transition lock. Their install does not set again an entry
+   * equal to the one it reads live.
+   */
+  readonly publishedMcpEntries?: ReadonlyArray<string>;
   readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   CollectedMaterializeSteps,
@@ -1104,7 +1116,10 @@ export const collectMaterializeSteps = (args: {
     const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
     const packRefs: Array<Reconciled<PackRef>> = [];
     const mcpServerRefs: Array<
-      Reconciled<McpServerExtensionRef> & { readonly sourceKey: Option.Option<McpSourceKey> }
+      Reconciled<McpServerExtensionRef> & {
+        readonly sourceKey: Option.Option<McpSourceKey>;
+        readonly entryJustPublished: boolean;
+      }
     > = [];
     const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
     const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
@@ -1126,6 +1141,10 @@ export const collectMaterializeSteps = (args: {
           mcpServerRefs.push({
             ref: item.ref,
             sourceKey: desiredMcpSourceKey(item.node.identity),
+            // The install sets the entry under the ref's server name.
+            entryJustPublished:
+              item.ref.server.name === item.node.name &&
+              args.publishedMcpEntries?.includes(item.node.name) === true,
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
@@ -1660,24 +1679,26 @@ export const collectMaterializeSteps = (args: {
           ...skillSteps,
           ...mcpServerRefs
             .filter(({ materialize }) => materialize)
-            .map(({ ref, sourceKey, force, transitionLabel, nativeLocations }) =>
-              desiredActivation(ref)
-                ? buildMcpServerSyncOperation({
-                    manager: mcpManager,
-                    ref,
-                    sourceKey,
-                    nativeLocations,
-                    scope: location.scope,
-                    force,
-                    transitionLabel,
-                    adapter: args.adapter,
-                  })
-                : buildMaterializeOperation(mcpManager, {
-                    ref,
-                    force,
-                    desiredActivation: false,
-                    toStepFailure: args.adapter.toStepFailure,
-                  }),
+            .map(
+              ({ ref, sourceKey, force, transitionLabel, nativeLocations, entryJustPublished }) =>
+                desiredActivation(ref)
+                  ? buildMcpServerSyncOperation({
+                      manager: mcpManager,
+                      ref,
+                      sourceKey,
+                      entryJustPublished,
+                      nativeLocations,
+                      scope: location.scope,
+                      force,
+                      transitionLabel,
+                      adapter: args.adapter,
+                    })
+                  : buildMaterializeOperation(mcpManager, {
+                      ref,
+                      force,
+                      desiredActivation: false,
+                      toStepFailure: args.adapter.toStepFailure,
+                    }),
             ),
           ...inlineMcpServerSteps,
           ...disabledMcpSteps,

@@ -13,6 +13,8 @@ import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
 import {
   proposeDesiredState,
   prepareUninstallArtifact,
@@ -26,12 +28,22 @@ import {
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
+  CodingAgentRepository,
+  WorkspaceInvariantFacts,
   captureAgentOutputAuthority,
   expectedProjectionNames,
+  freezeProjectionFacts,
+  observeAgentOutputs,
+  type AgentOutputAuthority,
+  type AgentOutputInventory,
+  type AgentOutputObservation,
 } from "@agentxm/workspace-kernel/projection";
 import {
   AcceptedResolutionWriter,
+  SettingsReader,
+  WorkspaceLocation,
   withWorkspaceReadView,
+  type CanonicalObservationStatus,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -133,6 +145,18 @@ export type PrepareUninstallRequirements = PrepareInstallRequirements | PackUnin
 interface PlannedUninstall {
   readonly names: ReadonlyArray<string>;
   readonly plan: Plan<PackUninstallRequirements>;
+  /** Canonical observations the planner already made for its targets over the current graph. */
+  readonly canonical?: ReadonlyArray<PlannedCanonical>;
+}
+
+/** What a removal artifact describes of one target's canonical observation. */
+interface PlannedCanonical {
+  readonly name: string;
+  readonly canonical: Option.Option<{
+    readonly path: string | undefined;
+    readonly status: CanonicalObservationStatus;
+    readonly sharedPackage: boolean;
+  }>;
 }
 
 const planForType = (
@@ -183,9 +207,11 @@ const planForType = (
     case "knowledge":
       return Effect.gen(function* () {
         const intent = yield* parseKnowledgeUninstallRequest(selector);
+        const planned = yield* planKnowledgeUninstall(intent);
         return {
           names: intent.targets.map((target) => target.name),
-          plan: yield* planKnowledgeUninstall(intent),
+          plan: planned.plan,
+          canonical: planned.canonical,
         };
       });
     case "pack":
@@ -203,6 +229,50 @@ const planForType = (
 // -----------------------------------------------------------------------------
 // prepare
 // -----------------------------------------------------------------------------
+
+/**
+ * Independent copies of one native output observation, so every consumer a
+ * preparation hands it to holds its own arrays, sets and records.
+ */
+const copyAgentOutputAuthority = (authority: AgentOutputAuthority): AgentOutputAuthority => ({
+  expectedHooks: authority.expectedHooks.map((hook) => ({ ...hook })),
+  expectedRegions: {
+    rule: authority.expectedRegions.rule.map((region) => ({ ...region })),
+    knowledge: authority.expectedRegions.knowledge.map((region) => ({ ...region })),
+  },
+  declaredMcpNames: new Set(authority.declaredMcpNames),
+  expectedSkillSources: Object.fromEntries(
+    Object.entries(authority.expectedSkillSources).map(([name, sources]) => [name, [...sources]]),
+  ),
+  expectedSubagentNames: new Set(authority.expectedSubagentNames),
+});
+
+const copyAgentOutputInventory = (inventory: AgentOutputInventory): AgentOutputInventory => {
+  const copyOutput = (output: AgentOutputObservation): AgentOutputObservation => ({
+    ...output,
+    claimantAgentIds: [...output.claimantAgentIds],
+    ...(output.nativeAddress === undefined
+      ? {}
+      : { nativeAddress: structuredClone(output.nativeAddress) }),
+    ...(output.nativeEntry === undefined
+      ? {}
+      : { nativeEntry: Result.map(output.nativeEntry, (entry) => ({ ...entry })) }),
+  });
+  // Residue and footprints name outputs by identity, so they name the copies.
+  const copies = new Map(inventory.outputs.map((output) => [output, copyOutput(output)]));
+  const copyOf = (output: AgentOutputObservation) => copies.get(output) ?? copyOutput(output);
+  return {
+    diagnostics: inventory.diagnostics.map((diagnostic) => ({
+      ...diagnostic,
+      address: structuredClone(diagnostic.address),
+      aliases: [...diagnostic.aliases],
+      claimantAgentIds: [...diagnostic.claimantAgentIds],
+    })),
+    outputs: inventory.outputs.map(copyOf),
+    ownedResidue: inventory.ownedResidue.map(copyOf),
+    unownedFootprints: inventory.unownedFootprints.map(copyOf),
+  };
+};
 
 /** How a planned removal is settled: as its own candidate, or as a composite's child plan. */
 type SealUninstallPlan<Execution> = (
@@ -262,6 +332,37 @@ const settleUninstallExtensions: <Execution>(
           (next) => next.type === node.type && next.name === node.name && next.enabled,
         )),
   );
+  // Every removal below is described from this one read phase, so native
+  // output authority, the agent-output inventory and the projection facts are
+  // each observed once, where a description first needs them, and every
+  // consumer receives values of its own. Applying observes live again.
+  const outputAuthority = yield* Effect.cached(captureAgentOutputAuthority());
+  const agentOutputs = yield* Effect.cached(
+    Effect.gen(function* () {
+      const location = yield* WorkspaceLocation;
+      const settings = yield* SettingsReader;
+      const layout = yield* Ref.get(location.layout);
+      // The cleanup's desired agents: no artifact reads which outputs remain desired.
+      const desiredAgentIds = new Set(
+        (yield* (yield* CodingAgentRepository).getMaterializationAgents()).map(({ id }) => id),
+      );
+      const authority = yield* outputAuthority;
+      const inventory = yield* observeAgentOutputs({
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        workspaceRoot: location.baseDir,
+        scope: location.scope,
+        desiredAgentIds,
+        expectedNames: expectedProjectionNames(proposal.after),
+        ...authority,
+        authoredSkills: { layout, entries: yield* settings.entries("skill") },
+      });
+      return { authority, inventory };
+    }),
+  );
+  const invariantFacts = yield* WorkspaceInvariantFacts;
+  const projectionFacts = yield* Effect.cached(
+    invariantFacts.projectionFacts.pipe(Effect.map(freezeProjectionFacts)),
+  );
   const removedHookNames = new Set(
     projectionSubjects
       .filter(
@@ -276,7 +377,8 @@ const settleUninstallExtensions: <Execution>(
   const hookWithdrawals =
     removedHookNames.size === 0
       ? []
-      : (yield* captureAgentOutputAuthority().pipe(
+      : (yield* outputAuthority.pipe(
+          Effect.map(copyAgentOutputAuthority),
           Effect.mapError((cause) =>
             installRefused({
               category: "conflict",
@@ -299,9 +401,16 @@ const settleUninstallExtensions: <Execution>(
   const artifacts =
     leafType === undefined
       ? []
-      : yield* Effect.forEach(planned.names, (name) =>
-          prepareUninstallArtifact({ type: leafType, name }, proposal),
-        ).pipe(
+      : yield* Effect.forEach(planned.names, (name) => {
+          const canonical = planned.canonical?.find((entry) => entry.name === name)?.canonical;
+          return prepareUninstallArtifact({ type: leafType, name }, proposal, {
+            ...(canonical === undefined ? {} : { canonical }),
+            agentOutputs: agentOutputs.pipe(
+              Effect.map(({ inventory }) => copyAgentOutputInventory(inventory)),
+            ),
+            projectionFacts,
+          });
+        }).pipe(
           Effect.mapError((cause) =>
             installRefused({
               category: "conflict",
@@ -362,11 +471,18 @@ const settleUninstallExtensions: <Execution>(
             const cleanup =
               leafType === "mcp-server" || leafType === "hook"
                 ? Option.none()
-                : yield* collectCleanupStep({
-                    expectedNames: expectedProjectionNames(proposal.after),
-                    subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
-                    adapter: conversion,
-                  }).pipe(
+                : yield* agentOutputs.pipe(
+                    Effect.flatMap(({ authority, inventory }) =>
+                      collectCleanupStep({
+                        expectedNames: expectedProjectionNames(proposal.after),
+                        prepared: {
+                          authority: copyAgentOutputAuthority(authority),
+                          inventory: copyAgentOutputInventory(inventory),
+                        },
+                        subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
+                        adapter: conversion,
+                      }),
+                    ),
                     Effect.mapError((cause) =>
                       installRefused({
                         category: "conflict",

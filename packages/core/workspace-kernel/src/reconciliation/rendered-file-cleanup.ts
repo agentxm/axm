@@ -66,6 +66,12 @@ export interface ReconcileAgentOutputsArgs {
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
   /** Delete recorded Subagent files even when they were modified since AXM wrote them. */
   readonly discardModified?: boolean;
+  /**
+   * The inventory a dry run describes, when its caller observed it in the same
+   * read phase with these desired agents, expected names and authority. A run
+   * that removes outputs ignores it and inventories live, before and after.
+   */
+  readonly preparedInventory?: AgentOutputInventory;
 }
 
 /**
@@ -191,7 +197,10 @@ export const reconcileAgentOutputs = (
         ),
       ));
     const authorizedArgs = { ...args, authority };
-    const before = yield* inventory(authorizedArgs);
+    const before =
+      args.dryRun === true && args.preparedInventory !== undefined
+        ? args.preparedInventory
+        : yield* inventory(authorizedArgs);
     const location = yield* WorkspaceLocation;
     const selected = (output: AgentOutputObservation) =>
       args.subjects === undefined ||

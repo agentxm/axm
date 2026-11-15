@@ -98,7 +98,11 @@ import {
   captureRequiredNativeOutputs,
   validateNativeOutputPostconditions,
 } from "./native-output-postconditions.js";
-import type { NativeRetentionWitness } from "../projection/index.js";
+import type {
+  AgentOutputAuthority,
+  AgentOutputInventory,
+  NativeRetentionWitness,
+} from "../projection/index.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import { type WorkspaceSyncCleanupFailure, syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
@@ -550,9 +554,19 @@ export const collectKnowledgeStep: (args: {
  * unless the caller names the set itself: a membership change that removes
  * an agent reconciles against the membership the workspace holds once the
  * change settles, which is not yet what the repository reports.
+ *
+ * A caller that already derived the native output authority and inventoried
+ * the agent outputs in the same read phase, against these expected names and
+ * the materialization agents, may hand both over as `prepared`: the sweep's
+ * dry run describes that inventory, and its run keeps that authority and
+ * inventories live under the transition.
  */
 export const collectCleanupStep: (args: {
   readonly expectedNames: ExpectedProjectionNames;
+  readonly prepared?: {
+    readonly authority: AgentOutputAuthority;
+    readonly inventory: AgentOutputInventory;
+  };
   /** Passive assessment needs proposed changes, not an apply-time retention verification step. */
   readonly includeRetentionOnlyStep?: boolean;
   readonly desiredAgentIds?: ReadonlySet<string>;
@@ -578,15 +592,17 @@ export const collectCleanupStep: (args: {
   const desiredAgentIds =
     args.desiredAgentIds ??
     new Set((yield* agentRepo.getMaterializationAgents()).map(({ id }) => id));
-  const authority = yield* captureAgentOutputAuthority().pipe(
-    Effect.mapError((cause) =>
-      syncRefused({
-        category: "internal",
-        detail: "Cannot establish native output ownership",
-        cause,
-      }),
-    ),
-  );
+  const authority =
+    args.prepared?.authority ??
+    (yield* captureAgentOutputAuthority().pipe(
+      Effect.mapError((cause) =>
+        syncRefused({
+          category: "internal",
+          detail: "Cannot establish native output ownership",
+          cause,
+        }),
+      ),
+    ));
   const { discardModified } = yield* ProjectionOutputPosture;
   const preview = yield* reconcileAgentOutputs({
     authority,
@@ -595,6 +611,7 @@ export const collectCleanupStep: (args: {
     dryRun: true,
     discardModified: discardModified === true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+    ...(args.prepared === undefined ? {} : { preparedInventory: args.prepared.inventory }),
   });
   const retainedNativeLocations = Effect.gen(function* () {
     if (args.desiredAgentIds === undefined) return [];

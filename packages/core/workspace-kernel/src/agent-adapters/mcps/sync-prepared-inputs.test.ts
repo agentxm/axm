@@ -181,9 +181,9 @@ describe("MCP sync writes from a validated proposal", () => {
         expect(observed.recording.contentReads(file)).toBe(4);
         expect(observed.recording.writes(file)).toBe(1);
         // Parses recorded before each read and in total: discovery parses the
-        // preimage twice, validation the preimage and its proposal, the writer
+        // preimage once, validation the preimage and its proposal, the writer
         // nothing more, readback the published document.
-        expect([...phases, observed.parses]).toEqual([0, 2, 4, 4, 5]);
+        expect([...phases, observed.parses]).toEqual([0, 1, 3, 3, 4]);
         expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
           mcpServers: { foreign, review: { command: "node" } },
         });
@@ -209,7 +209,7 @@ describe("MCP sync writes from a validated proposal", () => {
           { tag: "success", targets: [{ path: file, change: "updated", state: "updated" }] },
         ]);
         // The writer adds no parse between its locked read and readback.
-        expect([...phases, observed.parses]).toEqual([0, 2, 4, 4, 5]);
+        expect([...phases, observed.parses]).toEqual([0, 1, 3, 3, 4]);
         expect(observed.recording.writes(file)).toBe(1);
         expect(observed.authority.records.map(({ path, change }) => ({ path, change }))).toEqual([
           { path: file, change: "modified" },
@@ -240,7 +240,7 @@ describe("MCP sync writes from a validated proposal", () => {
         ]);
         // Validation parses the preimage once, as its proposal is the same text;
         // the writer adds no parse before readback.
-        expect([...phases, observed.parses]).toEqual([0, 2, 3, 3, 4]);
+        expect([...phases, observed.parses]).toEqual([0, 1, 2, 2, 3]);
         expect(observed.recording.writes(file)).toBe(0);
         expect(observed.authority.protectedPaths).toEqual([]);
         expect(observed.authority.records).toEqual([]);
@@ -269,7 +269,7 @@ describe("MCP sync writes from a validated proposal", () => {
           },
         ]);
         // The writer parses the fresh preimage and its new proposal.
-        expect([...phases, observed.parses]).toEqual([0, 2, 4, 6, 7]);
+        expect([...phases, observed.parses]).toEqual([0, 1, 3, 5, 6]);
         expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
           mcpServers: { foreign, review: { command: "node" } },
           extra: true,
@@ -304,7 +304,7 @@ describe("MCP sync writes from a validated proposal", () => {
           { path: file, change: "modified" },
         ]);
         // The locked preimage equals the validated one, so the proposal is reused.
-        expect(observed.parses).toBe(5);
+        expect(observed.parses).toBe(4);
       }),
     ),
   );
@@ -333,7 +333,7 @@ describe("MCP sync writes from a validated proposal", () => {
         expect(observed.result._tag).toBe("Success");
         // The writer resolves the other file and parses it and its proposal;
         // readback of the planned file finds no reader routed to it.
-        expect([...phases, observed.parses]).toEqual([0, 2, 6, 6]);
+        expect([...phases, observed.parses]).toEqual([0, 1, 5, 5]);
         expect(JSON.parse(readFileSync(other, "utf8"))).toMatchObject({
           mcpServers: { foreign, review: { command: "node" } },
         });
@@ -418,16 +418,16 @@ describe("MCP sync writes from a validated proposal", () => {
         expect([...phases, { path: "end", parses: observed.parses }]).toEqual([
           // Discovery of each file, then validation of each.
           { path: ".mcp.json", parses: 0 },
-          { path: ".cursor/mcp.json", parses: 2 },
-          { path: ".mcp.json", parses: 4 },
-          { path: ".cursor/mcp.json", parses: 6 },
+          { path: ".cursor/mcp.json", parses: 1 },
+          { path: ".mcp.json", parses: 2 },
+          { path: ".cursor/mcp.json", parses: 4 },
           // The first writer reuses its proposal before its readback.
-          { path: ".mcp.json", parses: 6 },
-          { path: ".mcp.json", parses: 6 },
+          { path: ".mcp.json", parses: 4 },
+          { path: ".mcp.json", parses: 4 },
           // The second writer renders its changed preimage again before readback.
+          { path: ".cursor/mcp.json", parses: 5 },
           { path: ".cursor/mcp.json", parses: 7 },
-          { path: ".cursor/mcp.json", parses: 9 },
-          { path: "end", parses: 10 },
+          { path: "end", parses: 8 },
         ]);
         expect(JSON.parse(readFileSync(cursor, "utf8"))).toMatchObject({
           mcpServers: { foreign, review: { command: "node" } },
@@ -537,10 +537,10 @@ describe("MCP removal planning reads each container once per co-reader step", ()
             dryRun: false,
             outcomes: outcome,
             reads: 5,
-            parses: 8,
+            parses: 7,
             raw: json({ mcpServers: { foreign } }),
           },
-          { dryRun: true, outcomes: outcome, reads: 5, parses: 8, raw: before },
+          { dryRun: true, outcomes: outcome, reads: 5, parses: 7, raw: before },
         ]);
       }),
     ),

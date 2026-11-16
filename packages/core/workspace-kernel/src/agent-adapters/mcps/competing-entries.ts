@@ -142,13 +142,16 @@ export const readCompetingMcpEntries = (
           );
         if (physical === args.target.path) {
           // The same named entries under the same container are one declaration.
-          // Both grammars must accept the actual bytes, including strict JSON readers.
-          yield* readNativeMcpValues({
-            ...location,
-            configPath: location.path,
-            format: args.target.format,
-            raw: raw.value,
-          });
+          // Both grammars must accept the actual bytes, including strict JSON
+          // readers; the location's grammar has already accepted them, so only a
+          // different target grammar checks them again.
+          if (location.format !== args.target.format)
+            yield* readNativeMcpValues({
+              ...location,
+              configPath: location.path,
+              format: args.target.format,
+              raw: raw.value,
+            });
           continue;
         }
       }

@@ -27,6 +27,7 @@ import { emitLockfileToml } from "../desired/lockfile/toml.js";
 import { exactVersion, extensionName, handle, storedLockfileFixture } from "../testing.js";
 import { WorkspaceLayerTest } from "../testing.js";
 import { DesiredStateWriter, type DesiredStateWriterService } from "./desired-state-writer.js";
+import { DesiredStateReader } from "./desired-state-reader.js";
 import { withWorkspaceReadView } from "./read-view.js";
 import { McpSourceKey } from "./mcp-source-identity.js";
 import { TEST_TREE_INTEGRITY, makeRegistryMcpServerLockEntry } from "./test-stubs.js";
@@ -51,6 +52,16 @@ const declareRule = (writer: DesiredStateWriterService, name = "style", url?: st
     lockEntry: ruleEntry(name, url),
     versionRange: Option.none(),
   });
+
+const declareMcp = (writer: DesiredStateWriterService) => {
+  const lockEntry = makeRegistryMcpServerLockEntry({ owner: handle("@acme"), name: "docs" });
+  return writer.declare("mcp-server", {
+    name: "docs",
+    resolutionKey: McpSourceKey.fromLockEntry(lockEntry),
+    lockEntry,
+    versionRange: Option.none(),
+  });
+};
 
 const fixture = (documents: { readonly project: string; readonly user?: unknown }) =>
   Effect.gen(function* () {
@@ -189,31 +200,54 @@ describe("DesiredStateWriter.declare settings reads", () => {
     ),
   );
 
-  it.effect("keeps the desired graph read before the settings an MCP declaration consults", () =>
+  it.effect("shares one decode per scope between an MCP declaration's graph and its settings", () =>
     recorded(
       Effect.gen(function* () {
         const paths = yield* fixture({ project: '{\n  "agents": []\n}\n' });
         const services = yield* workspace(paths);
         const writer = Context.get(services, DesiredStateWriter);
-        const lockEntry = makeRegistryMcpServerLockEntry({ owner: handle("@acme"), name: "docs" });
-        const { work, parses } = yield* observe(
-          paths,
-          writer.declare("mcp-server", {
-            name: "docs",
-            resolutionKey: McpSourceKey.fromLockEntry(lockEntry),
-            lockEntry,
-            versionRange: Option.none(),
-          }),
-        );
-        // The desired graph's own read, then one read per scope for the call.
-        expect(work).toMatchObject({ settingsParses: 2, projectContentReads: 5, userAccess: 2 });
-        // The graph decodes its settings and lockfile before the call's intent read.
+        const { work, parses } = yield* observe(paths, declareMcp(writer));
+        // The call's own read of each scope also feeds the desired graph,
+        // which keeps its own lockfile read.
+        expect(work).toEqual({
+          settingsParses: 1,
+          roundTripParses: 2,
+          lockfileParses: 3,
+          projectContentReads: 4,
+          userAccess: 1,
+          userContentReads: 0,
+          lockContentReads: 5,
+        });
+        // The intent read still precedes the graph's lockfile decode.
         expect(parses.slice(0, 4)).toEqual([
           "axm.parse.settings",
           "axm.parse.lockfile",
           "axm.parse.lockfile-decode",
-          "axm.parse.settings",
+          "axm.parse.settings-round-trip",
         ]);
+      }),
+    ),
+  );
+
+  it.effect("keeps the read phase's work for an MCP declaration inside an active read phase", () =>
+    recorded(
+      Effect.gen(function* () {
+        const paths = yield* fixture({ project: '{\n  "agents": []\n}\n' });
+        const services = yield* workspace(paths);
+        const writer = Context.get(services, DesiredStateWriter);
+        const work = yield* measure(
+          paths,
+          withWorkspaceReadView(declareMcp(writer)).pipe(Effect.provideContext(services)),
+        );
+        expect(work).toEqual({
+          settingsParses: 1,
+          roundTripParses: 2,
+          lockfileParses: 3,
+          projectContentReads: 4,
+          userAccess: 1,
+          userContentReads: 0,
+          lockContentReads: 5,
+        });
       }),
     ),
   );
@@ -274,6 +308,33 @@ describe("DesiredStateWriter.declare settings inputs", () => {
       }),
     ),
   );
+
+  for (const corrupt of ["project", "user"] as const)
+    it.effect(`fails an MCP declaration over corrupt ${corrupt} settings without writing`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const recording = yield* FileSystemRecorder;
+          const paths = yield* fixture({ project: '{\n  "agents": []\n}\n', user: {} });
+          const services = yield* workspace(paths);
+          const writer = Context.get(services, DesiredStateWriter);
+          const target = corrupt === "project" ? paths.settings : paths.userSettings;
+          yield* fs.writeFileString(target, "{");
+          recording.reset();
+          const failure = yield* declareMcp(writer).pipe(Effect.flip);
+          expect(recording.contentReads(target)).toBe(1);
+          expect(recording.contentReads(paths.lock)).toBe(0);
+          expect(recording.writes(paths.settings)).toBe(0);
+          expect(recording.writes(paths.lock)).toBe(0);
+          expect(yield* fs.readFileString(target)).toBe("{");
+          // Exactly the failure the desired graph's own decode of that scope reports.
+          expect(failure).toMatchObject({ _tag: "SettingsParseError", path: target });
+          expect(failure).toEqual(
+            yield* Effect.flip(Context.get(services, DesiredStateReader).graph()),
+          );
+        }),
+      ),
+    );
 
   it.effect("fails corrupt project settings at the caller's read without writing", () =>
     recorded(

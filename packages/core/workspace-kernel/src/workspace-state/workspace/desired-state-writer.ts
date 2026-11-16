@@ -58,7 +58,9 @@ import type {
   SetSubagentArgs,
   WorkspaceSettingsReadFailure,
   WorkspaceStateMutationFailure,
+  WorkspaceStateReadFailure,
 } from "./contracts.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { WorkspaceStateShared, withWorkspaceStateWrite } from "./shared.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import { desiredReachability } from "./desired-state-queries.js";
@@ -78,10 +80,12 @@ type Write = Effect.Effect<void, WorkspaceStateMutationFailure>;
 
 /**
  * The settings one declaration consults before its first write: its intent
- * document and the Registry source its resolution is declared under.
+ * document, the desired graph over it, and the Registry source its resolution
+ * is declared under.
  */
 interface DeclareInputs {
   readonly settings: Effect.Effect<Settings, WorkspaceSettingsReadFailure>;
+  readonly graph: Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
   readonly sourceFor: (
     type: InstallableExtensionType,
     lockEntry: LockEntry,
@@ -163,13 +167,18 @@ const makeDesiredStateWriter = (
   const writeSettings = documents.writeSettings;
   const commit = documents.commitAcceptedResolutions;
   const serialized = withWorkspaceStateWrite(mutex, "desired-state");
-  const phaseInputs: DeclareInputs = { settings, sourceFor: sourceFrom(settingsReader) };
+  const phaseInputs: DeclareInputs = {
+    settings,
+    graph: desiredState.graph(),
+    sourceFor: sourceFrom(settingsReader),
+  };
 
   /**
    * One declaration's settings inputs. An active read phase already shares its
    * documents. Outside one, the call decodes each scope's document once and
-   * releases it on return: every use precedes the call's first write, and the
-   * settings owner still performs its own live read when it publishes.
+   * releases it on return, and the desired graph is evaluated over those same
+   * decodes, selected scope first: every use precedes the call's first write,
+   * and the settings owner still performs its own live read when it publishes.
    */
   const declareInputs: Effect.Effect<DeclareInputs> = Effect.gen(function* () {
     if ((yield* workspaceReadPhaseFor(location)) !== undefined) return phaseInputs;
@@ -179,8 +188,15 @@ const makeDesiredStateWriter = (
       ...documents,
       settings: (scope) => ((scope ?? location.scope) === "user" ? user : project),
     };
+    const selected = callDocuments.settings();
+    const inherited = callDocuments.settings(location.scope === "project" ? "user" : "project");
     return {
-      settings: callDocuments.settings(),
+      settings: selected,
+      graph: Effect.gen(function* () {
+        const current = yield* selected;
+        const inheritedSettings = yield* inherited;
+        return yield* desiredState.graph({ settings: current, inheritedSettings });
+      }),
       sourceFor: sourceFrom(makeSettingsReader(location, callDocuments)),
     };
   });
@@ -316,7 +332,7 @@ const makeDesiredStateWriter = (
     });
 
   const declareMcpServer = (
-    { settings, sourceFor }: DeclareInputs,
+    { settings, graph, sourceFor }: DeclareInputs,
     {
       name,
       nativeComponent,
@@ -331,8 +347,7 @@ const makeDesiredStateWriter = (
   ): Write =>
     Effect.gen(function* () {
       const roundTrip =
-        desiredReachability(yield* desiredState.graph(), { type: "mcp-server", name }).decision ===
-        "not-reached";
+        desiredReachability(yield* graph, { type: "mcp-server", name }).decision === "not-reached";
       const current = yield* settings;
       const existing = settingsEntries["mcp-server"].entries(current)[name];
       const selected = distribution ?? existing?.distribution;

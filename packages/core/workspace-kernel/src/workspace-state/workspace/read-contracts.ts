@@ -132,6 +132,11 @@ export interface AcceptedEntryOptions {
 /** Explicit immutable document inputs for evaluating a proposal. */
 interface DesiredStateCandidateInputs {
   readonly settings?: Settings;
+  /**
+   * The other scope's settings document exactly as the caller read it in the
+   * same call, in place of reading it again.
+   */
+  readonly inheritedSettings?: Settings;
   readonly acceptedResolutions?: Lockfile;
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }

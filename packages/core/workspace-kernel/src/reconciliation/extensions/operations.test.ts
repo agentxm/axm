@@ -1496,6 +1496,235 @@ describe("buildUninstallOperation", () => {
       }),
   );
 
+  describe("configured-source reads", () => {
+    /** Run one uninstall of an installed skill and count each configuration query. */
+    const countConfigurationQueries = (options: { readonly withIsConfigured: boolean }) =>
+      Effect.gen(function* () {
+        let configured = true;
+        let installed = true;
+        const queries = { getConfiguredSource: 0, isConfigured: 0 };
+        const writes: RecipeWriteFaults = {
+          removeEntry: () =>
+            Effect.sync(() => {
+              configured = false;
+            }),
+        };
+        const manager = {
+          isInstalled: () => Effect.sync(() => installed),
+          getConfiguredSource: () =>
+            Effect.sync(() => {
+              queries.getConfiguredSource += 1;
+              return configured ? Option.some("@acme/skills/review") : Option.none();
+            }),
+          ...(options.withIsConfigured
+            ? {
+                isConfigured: () =>
+                  Effect.sync(() => {
+                    queries.isConfigured += 1;
+                    return configured;
+                  }),
+              }
+            : {}),
+          materializeUninstall: () =>
+            Effect.sync(() => {
+              installed = false;
+            }).pipe(Effect.as(NO_FACTS)),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
+        } satisfies UninstallMaterialization<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >;
+        const operation = buildUninstallOperation<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >(
+          manager,
+          { isRequiredByInstalledPack: () => Effect.succeed(false) },
+          { target: { type: "skill", name: "review" }, toStepFailure },
+        );
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const result = yield* grounded(operation.run, writes);
+        return { queries, message: result.message };
+      });
+
+    it.effect("reads the configured source once before the transaction and once to verify", () =>
+      Effect.gen(function* () {
+        const counted = yield* countConfigurationQueries({ withIsConfigured: false });
+        // Before the transaction the step reads the configured source once and
+        // derives whether the target is configured from that read; the
+        // post-write check reads it again.
+        expect(counted).toEqual({
+          queries: { getConfiguredSource: 2, isConfigured: 0 },
+          message: "Removed skills/review",
+        });
+      }),
+    );
+
+    it.effect("keeps a manager's own configured query before and after the transaction", () =>
+      Effect.gen(function* () {
+        const counted = yield* countConfigurationQueries({ withIsConfigured: true });
+        expect(counted).toEqual({
+          queries: { getConfiguredSource: 1, isConfigured: 2 },
+          message: "Removed skills/review",
+        });
+      }),
+    );
+
+    it.effect("keeps a configured target without a package removed and its package absent", () =>
+      Effect.gen(function* () {
+        let configured = true;
+        const getConfiguredSource = vi.fn(() =>
+          Effect.sync(() => (configured ? Option.some("@acme/skills/review") : Option.none())),
+        );
+        const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
+        const manager = {
+          isInstalled: () => Effect.succeed(false),
+          getConfiguredSource,
+          materializeUninstall,
+          materializeRetained: () => Effect.succeed(NO_FACTS),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
+        } satisfies UninstallMaterialization<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >;
+        const operation = buildUninstallOperation<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >(
+          manager,
+          { isRequiredByInstalledPack: () => Effect.succeed(false) },
+          { target: { type: "skill", name: "review" }, toStepFailure },
+        );
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const result = yield* grounded(operation.run, {
+          removeEntry: () =>
+            Effect.sync(() => {
+              configured = false;
+            }),
+        });
+        expect(result.message).toBe("Unconfigured skills/review; no canonical package was present");
+        expect(materializeUninstall).toHaveBeenCalledTimes(1);
+        expect(getConfiguredSource).toHaveBeenCalledTimes(2);
+      }),
+    );
+
+    it.effect("keeps an installed target without a configured source preserved", () =>
+      Effect.gen(function* () {
+        let installed = true;
+        const manager = {
+          isInstalled: () => Effect.sync(() => installed),
+          getConfiguredSource: () => Effect.succeed(Option.none()),
+          materializeUninstall: () =>
+            Effect.sync(() => {
+              installed = false;
+            }).pipe(Effect.as(NO_FACTS)),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
+        } satisfies UninstallMaterialization<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >;
+        const operation = buildUninstallOperation<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >(
+          manager,
+          { isRequiredByInstalledPack: () => Effect.succeed(false) },
+          { target: { type: "skill", name: "review" }, toStepFailure },
+        );
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const result = yield* grounded(operation.run);
+        expect(result.message).toBe(
+          "Unconfigured skills/review; preserved canonical content without an accepted source owner",
+        );
+      }),
+    );
+
+    it.effect("reports a target without configuration queries as already absent", () =>
+      Effect.gen(function* () {
+        const manager = {
+          isInstalled: () => Effect.succeed(false),
+          materializeUninstall: () => Effect.succeed(NO_FACTS),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
+        } satisfies UninstallMaterialization<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >;
+        const operation = buildUninstallOperation<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >(
+          manager,
+          { isRequiredByInstalledPack: () => Effect.succeed(false) },
+          { target: { type: "skill", name: "review" }, toStepFailure },
+        );
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const before = snapshotTree(transactionDir);
+        const result = yield* grounded(operation.run);
+        expect(result).toMatchObject({
+          disposition: "unchanged",
+          message: "skills/review is already absent",
+        });
+        expect(snapshotTree(transactionDir)).toEqual(before);
+      }),
+    );
+
+    it.effect("fails with the configured-source read failure before any write", () =>
+      Effect.gen(function* () {
+        const unreadable = new LockfileIoError({ path: "axm.json", cause: "EIO" });
+        const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
+        const removeEntry = vi.fn(() => Effect.void);
+        const manager = {
+          isInstalled: () => Effect.succeed(true),
+          getConfiguredSource: () => Effect.fail(unreadable),
+          materializeUninstall,
+          materializeRetained: () => Effect.succeed(NO_FACTS),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
+        } satisfies UninstallMaterialization<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >;
+        const operation = buildUninstallOperation<
+          SkillExtensionTarget,
+          void,
+          ExtensionManagerFailure,
+          ManagerRequirements
+        >(
+          manager,
+          { isRequiredByInstalledPack: () => Effect.succeed(false) },
+          { target: { type: "skill", name: "review" }, toStepFailure },
+        );
+        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const failure = yield* Effect.flip(grounded(operation.run, { removeEntry }));
+        expect(failure).toEqual(
+          new StepFailure({ category: "internal", detail: String(unreadable) }),
+        );
+        expect(materializeUninstall).not.toHaveBeenCalled();
+        expect(removeEntry).not.toHaveBeenCalled();
+      }),
+    );
+  });
+
   it.effect("preserves an accepted resolution while a desired pack retains the extension", () =>
     Effect.gen(function* () {
       const removeLockfileEntry = vi.fn(() => Effect.void);

@@ -1185,7 +1185,12 @@ const runUninstallOperation = Effect.fnUntraced(
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
-    const configured = yield* isConfigured(manager, args.target);
+    // Without a configured query of its own, a target is configured exactly
+    // when the source just read is present; nothing writes in between.
+    const configured =
+      manager.isConfigured === undefined
+        ? Option.isSome(configuredSource)
+        : yield* manager.isConfigured({ target: args.target });
     const sharedCanonical = Option.exists(
       yield* acceptedCanonicalObservation(args.target).pipe(
         Effect.mapError(

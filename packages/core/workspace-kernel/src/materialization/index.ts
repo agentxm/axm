@@ -82,6 +82,7 @@ export {
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
   skillArtifactFromTargets,
+  skillArtifactFromLocations,
   type InstallableSkillTarget,
 } from "./skill-artifact.js";
 

@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -30,7 +30,7 @@ const detectInTempDir = (opts?: {
         yield* fs.writeFileString(path.join(tmpDir, spec.name), spec.content);
       }
     }
-    return yield* gemDetector.detect(tmpDir);
+    return yield* detectIn(gemDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("gemDetector", () => {

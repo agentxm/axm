@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -24,7 +24,7 @@ const detectInTempDir = (files?: Record<string, string>) =>
         yield* fs.writeFileString(path.join(tmpDir, name), content);
       }
     }
-    return yield* conanDetector.detect(tmpDir);
+    return yield* detectIn(conanDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("conanDetector", () => {

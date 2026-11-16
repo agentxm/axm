@@ -19,7 +19,7 @@ import {
   sharedPerKey,
 } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const hackageType = Schema.decodeUnknownSync(PackageTypeSchema)("hackage");
@@ -203,9 +203,8 @@ const parseStackYaml = (content: string, source: string): ReadonlyArray<Detected
 export const hackageDetector: PackageDetector = {
   type: hackageType,
   detect: Effect.fn("detect.hackage")(
-    function* (projectDir: string) {
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
 
       const allDeps: Array<DetectedPackage> = [];
       const seenNames = new Set<string>();
@@ -220,7 +219,7 @@ export const hackageDetector: PackageDetector = {
       };
 
       // Scan for *.cabal files
-      const entries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const entries = yield* projectEntries;
       if (Option.isSome(entries)) {
         const cabalFiles = entries.value.filter((e) => e.endsWith(".cabal"));
         for (const cabalFile of cabalFiles) {

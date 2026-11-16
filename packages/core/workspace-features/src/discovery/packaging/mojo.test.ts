@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,7 @@ const detectInTempDir = (files?: { pixi?: string }) =>
     if (files?.pixi !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "pixi.toml"), files.pixi);
     }
-    return yield* mojoDetector.detect(tmpDir);
+    return yield* detectIn(mojoDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("mojoDetector", () => {

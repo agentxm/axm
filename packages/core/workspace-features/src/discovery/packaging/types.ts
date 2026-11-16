@@ -39,6 +39,15 @@ export interface DetectedPackage {
 }
 
 /**
+ * The entry names of the project directory, listed at most once for every
+ * detector of one detection and frozen; `none` when the directory cannot be
+ * listed. Nothing lists it until a detector asks.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ProjectEntries = Effect.Effect<Option.Option<ReadonlyArray<string>>>;
+
+/**
  * Scans a project directory for packages of a specific type.
  *
  * @experimental This API is unstable and may change without notice.
@@ -47,6 +56,7 @@ export interface PackageDetector {
   readonly type: PackageType;
   readonly detect: (
     projectDir: string,
+    projectEntries: ProjectEntries,
   ) => Effect.Effect<
     ReadonlyArray<DetectedPackage>,
     PlatformError.PlatformError,

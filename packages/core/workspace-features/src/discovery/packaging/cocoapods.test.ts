@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -23,7 +23,7 @@ const detectInTempDir = (files?: Record<string, string>) =>
         yield* fs.writeFileString(path.join(tmpDir, name), content);
       }
     }
-    return yield* cocoapodsDetector.detect(tmpDir);
+    return yield* detectIn(cocoapodsDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("cocoapodsDetector", () => {

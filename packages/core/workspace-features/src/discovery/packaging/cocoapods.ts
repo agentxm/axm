@@ -6,14 +6,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 
 const cocoapodsType = Schema.decodeUnknownSync(PackageTypeSchema)("cocoapods");
 
@@ -147,8 +146,7 @@ const parsePodspec = (content: string, source: string): ReadonlyArray<DetectedPa
 export const cocoapodsDetector: PackageDetector = {
   type: cocoapodsType,
   detect: Effect.fn("detect.cocoapods")(
-    function* (projectDir: string) {
-      const fs = yield* FileSystem.FileSystem;
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
       const results: Array<DetectedPackage> = [];
 
@@ -161,7 +159,7 @@ export const cocoapodsDetector: PackageDetector = {
       }
 
       // Parse *.podspec files
-      const dirEntries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const dirEntries = yield* projectEntries;
       if (Option.isSome(dirEntries)) {
         const podspecFiles = dirEntries.value.filter((f) => f.endsWith(".podspec"));
         for (const podspecFile of podspecFiles) {

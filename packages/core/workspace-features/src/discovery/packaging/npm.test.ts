@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,7 @@ const detectInTempDir = (packageJson?: string) =>
     if (packageJson !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "package.json"), packageJson);
     }
-    return yield* npmDetector.detect(tmpDir);
+    return yield* detectIn(npmDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("npmDetector", () => {
@@ -353,7 +353,7 @@ const readInTempDir = (
       );
     }
 
-    const [detected] = yield* npmDetector.detect(tmpDir);
+    const [detected] = yield* detectIn(npmDetector, tmpDir);
     if (detected === undefined) throw new Error("Expected the declared dependency");
     expect(detected.resolution?.state).toBe(
       nodeModulesPackageJson === undefined ? "unavailable" : "resolved",
@@ -556,7 +556,7 @@ describe("npmReader", () => {
             agentExtensions: [{ ref: "@acme/skills/react-review" }],
           }),
         );
-        const detected = yield* npmDetector.detect(root);
+        const detected = yield* detectIn(npmDetector, root);
         const observed = detected[0];
         expect(observed).toMatchObject({
           purl: { name: "react", version: "18.3.1" },
@@ -599,7 +599,7 @@ describe("npmReader", () => {
             agentExtensions: [{ ref: "@acme/skills/react-review" }],
           }),
         );
-        const [observed] = yield* npmDetector.detect(root);
+        const [observed] = yield* detectIn(npmDetector, root);
         if (observed === undefined) throw new Error("Expected an observed dependency");
         // A rewrite after resolution is not observed within the same discovery.
         yield* fs.writeFileString(

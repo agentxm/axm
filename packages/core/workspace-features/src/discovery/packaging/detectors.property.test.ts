@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { describe, expect, it } from "@effect/vitest";
@@ -63,7 +63,7 @@ describe("package detectors", () => {
           for (const manifest of manifestNames) {
             yield* fs.writeFileString(path.join(dir, manifest), content);
           }
-          yield* Effect.forEach(packageDetectors, (detector) => detector.detect(dir), {
+          yield* Effect.forEach(packageDetectors, (detector) => detectIn(detector, dir), {
             concurrency: 8,
             discard: true,
           });
@@ -98,7 +98,7 @@ describe("package detectors", () => {
 
         const results = yield* Effect.forEach(
           [npmDetector, composerDetector, golangDetector, mavenDetector, nugetDetector],
-          (detector) => detector.detect(dir),
+          (detector) => detectIn(detector, dir),
         );
         expect(results.flat()).toEqual([]);
       }).pipe(Effect.scoped),

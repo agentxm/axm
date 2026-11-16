@@ -6,14 +6,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const luarocksType = Schema.decodeUnknownSync(PackageTypeSchema)("luarocks");
@@ -95,11 +94,10 @@ const parseRockspecDeps = (content: string, source: string): ReadonlyArray<Detec
 export const luarocksDetector: PackageDetector = {
   type: luarocksType,
   detect: Effect.fn("detect.luarocks")(
-    function* (projectDir: string) {
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
 
-      const entries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const entries = yield* projectEntries;
       if (Option.isNone(entries)) return [];
 
       const rockspecFiles = entries.value.filter((e) => e.endsWith(".rockspec"));

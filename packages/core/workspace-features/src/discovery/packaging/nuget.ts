@@ -6,7 +6,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -18,7 +17,7 @@ import {
   readAgentExtensions,
   readFileOptional,
 } from "./reader-io.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
 
@@ -190,13 +189,12 @@ const deduplicatePackages = (
 export const nugetDetector: PackageDetector = {
   type: nugetType,
   detect: Effect.fn("detect.nuget")(
-    function* (projectDir: string) {
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
       const allPackages: Array<DetectedPackage> = [];
 
       // Find and parse project files (*.csproj, *.fsproj, *.vbproj)
-      const entries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const entries = yield* projectEntries;
       if (Option.isSome(entries)) {
         const projectFiles = entries.value.filter(
           (e) => e.endsWith(".csproj") || e.endsWith(".fsproj") || e.endsWith(".vbproj"),

@@ -18,7 +18,7 @@ import {
   sharedListing,
 } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
@@ -197,9 +197,8 @@ const parseDuneProjectDepends = (
 export const opamDetector: PackageDetector = {
   type: opamType,
   detect: Effect.fn("detect.opam")(
-    function* (projectDir: string) {
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
 
       const allDeps: Array<DetectedPackage> = [];
       const seenNames = new Set<string>();
@@ -214,7 +213,7 @@ export const opamDetector: PackageDetector = {
       };
 
       // Scan for *.opam files
-      const entries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const entries = yield* projectEntries;
       if (Option.isSome(entries)) {
         const opamFiles = entries.value.filter((e) => e.endsWith(".opam"));
         for (const opamFile of opamFiles) {

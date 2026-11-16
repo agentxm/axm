@@ -5,7 +5,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
  * @packageDocumentation
  */
 
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -54,7 +54,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("django");
             expect(names).toContain("requests");
@@ -74,7 +74,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("pytest");
             expect(names).toContain("black");
@@ -93,7 +93,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const flask = result.find((p) => p.purl.name === "flask");
             const requests = result.find((p) => p.purl.name === "requests");
             expect(flask).toBeDefined();
@@ -114,7 +114,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("flask");
             expect(names).toContain("pytest");
@@ -131,7 +131,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("flask");
             expect(names).not.toContain("missing");
@@ -155,7 +155,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("sqlalchemy");
             expect(names).toContain("alembic");
@@ -174,7 +174,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("django");
             expect(names).toContain("requests");
@@ -193,7 +193,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.name).toBe("flask");
             const first = result[0];
             expect(first).toBeDefined();
@@ -213,7 +213,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.name).toBe("flask-restful");
           }),
       ),
@@ -228,7 +228,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.name).toBe("zope-interface");
           }),
       ),
@@ -245,7 +245,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.version).toBe("2.31.0");
           }),
       ),
@@ -260,7 +260,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.version).toBeUndefined();
           }),
       ),
@@ -275,7 +275,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.version).toBeUndefined();
           }),
       ),
@@ -290,7 +290,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.version).toBeUndefined();
           }),
       ),
@@ -305,7 +305,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.version).toBeUndefined();
           }),
       ),
@@ -323,7 +323,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             const requestsPkgs = result.filter((p) => p.purl.name === "requests");
             // First occurrence wins (pyproject.toml has priority)
             expect(requestsPkgs).toHaveLength(1);
@@ -338,7 +338,7 @@ describe("pypiDetector", () => {
     withPackagingContext(
       withProjectDir({}, (dir) =>
         Effect.gen(function* () {
-          const result = yield* pypiDetector.detect(dir);
+          const result = yield* detectIn(pypiDetector, dir);
           expect(result).toEqual([]);
         }),
       ),
@@ -355,7 +355,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result).toEqual([]);
           }),
       ),
@@ -378,7 +378,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result).toHaveLength(2);
             const names = result.map((p) => p.purl.name);
             expect(names).toContain("flask");
@@ -398,7 +398,7 @@ describe("pypiDetector", () => {
         },
         (dir) =>
           Effect.gen(function* () {
-            const result = yield* pypiDetector.detect(dir);
+            const result = yield* detectIn(pypiDetector, dir);
             expect(result[0]?.purl.name).toBe("requests");
             expect(result[0]?.purl.version).toBe("2.31.0");
           }),

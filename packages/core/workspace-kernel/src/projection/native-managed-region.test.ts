@@ -1,3 +1,4 @@
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -132,6 +133,103 @@ describe("native region withdrawal receipts", () => {
       expect(yield* fs.readFileString(file)).not.toContain("axm:knowledge");
       expect(yield* units).toEqual([regionUnit(root, "rules")]);
       expect(authority.count(path.join(root, ".axm", "projection-containers.json"))).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+/**
+ * Per-path route work of one region run over a real temporary workspace. The
+ * recording filesystem stands in for the run's own filesystem only; the
+ * insertion authority keeps its live one.
+ */
+const routeWork = Effect.gen(function* () {
+  const base = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* base.realPath(yield* base.makeTempDirectoryScoped());
+  const { fileSystem, recording } = makeRecordingFileSystem(base);
+  const authority = countedAuthority(root);
+  const run = (args: NativeManagedRegionArgs) =>
+    Effect.gen(function* () {
+      recording.reset();
+      const result = yield* reconcileNativeManagedRegion(args).pipe(
+        Effect.provide(authority.layer),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+      const work = (target: string) => {
+        const counts = recording.counts(target);
+        return {
+          readLink: counts.readLink ?? 0,
+          stat: counts.stat ?? 0,
+          realPath: counts.realPath ?? 0,
+        };
+      };
+      return { result, work };
+    });
+  return { root, path, base, run };
+});
+
+describe("native region route admissions", () => {
+  it.effect("admits the planned target once in a dry run and rechecks it under apply", () =>
+    Effect.gen(function* () {
+      const { root, path, base, run } = yield* routeWork;
+      const file = path.join(root, "AGENTS.md");
+      yield* base.writeFileString(file, FOREIGN);
+      const withdrawal = regionArgs(root, "rules", "");
+
+      const dryRun = yield* run({ ...withdrawal, dryRun: true });
+      expect(dryRun.result.nativeLocation.state).toBe("absent");
+      // One admission of the target, its alias recheck and the reader refresh.
+      expect({ file: dryRun.work(file), root: dryRun.work(root) }).toEqual({
+        file: { readLink: 4, stat: 4, realPath: 4 },
+        root: { readLink: 3, stat: 4, realPath: 5 },
+      });
+
+      const applied = yield* run(withdrawal);
+      expect(applied.result.nativeLocation.state).toBe("absent");
+      // Apply also rechecks the target under the exclusive write.
+      expect({ file: applied.work(file), root: applied.work(root) }).toEqual({
+        file: { readLink: 5, stat: 5, realPath: 7 },
+        root: { readLink: 4, stat: 5, realPath: 6 },
+      });
+      expect(yield* base.readFileString(file)).toBe(FOREIGN);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("rechecks a symlinked display path against the planned physical file", () =>
+    Effect.gen(function* () {
+      const { root, path, base, run } = yield* routeWork;
+      const physical = path.join(root, "original.md");
+      const alias = path.join(root, "AGENTS.md");
+      yield* base.writeFileString(physical, FOREIGN);
+      yield* base.symlink("original.md", alias);
+      const withdrawal = { ...regionArgs(root, "rules", ""), targetPath: physical };
+
+      const dryRun = yield* run({ ...withdrawal, dryRun: true });
+      expect(dryRun.result.nativeLocation).toMatchObject({
+        address: { kind: "region", path: physical, region: "rules" },
+        state: "absent",
+      });
+      expect(dryRun.result.nativeLocation.aliases).toContain(alias);
+      expect({
+        physical: dryRun.work(physical),
+        alias: dryRun.work(alias),
+        root: dryRun.work(root),
+      }).toEqual({
+        physical: { readLink: 3, stat: 3, realPath: 3 },
+        alias: { readLink: 3, stat: 2, realPath: 2 },
+        root: { readLink: 3, stat: 4, realPath: 6 },
+      });
+
+      const applied = yield* run(withdrawal);
+      expect({
+        physical: applied.work(physical),
+        alias: applied.work(alias),
+        root: applied.work(root),
+      }).toEqual({
+        physical: { readLink: 4, stat: 4, realPath: 6 },
+        alias: { readLink: 3, stat: 2, realPath: 2 },
+        root: { readLink: 4, stat: 5, realPath: 7 },
+      });
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

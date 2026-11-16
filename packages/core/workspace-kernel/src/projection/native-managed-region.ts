@@ -196,8 +196,12 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
         detail: `Managed region cannot use comment fences in ${args.displayPath}`,
       });
     const kind = regionKind(args.region);
+    // A dry run takes no write lock, so the admission above stands as its
+    // target's route check and only the alias is rechecked against it; apply
+    // rechecks both routes under the exclusive write.
+    const routes = args.dryRun === true ? [alias] : [args.targetPath, alias];
     const run = Effect.gen(function* () {
-      for (const route of [args.targetPath, alias]) {
+      for (const route of routes) {
         const { address: current } = yield* assertNativeMutationWithinRoots(
           roots,
           route,

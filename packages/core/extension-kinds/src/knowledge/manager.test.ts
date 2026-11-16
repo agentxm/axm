@@ -2015,7 +2015,7 @@ describe("KnowledgeManager", () => {
             // the source's overlap check and the plan, the overlap check
             // itself, then the region dry run's own fresh route checks.
             expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
-              8,
+              7,
             );
             // The projection inputs are read once for the source checks and
             // the plan; the plan and its dry run read the rest for themselves.
@@ -2045,7 +2045,7 @@ describe("KnowledgeManager", () => {
           expect(outcome).toMatchObject({ _tag: "Success", success: [[]] });
           // One route resolution, then the region dry run's own route checks:
           // the same calls a standing plan makes.
-          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(5);
           expect(reads.settings).toBe(5);
           expect(reads.acceptedResolutions).toBe(2);
         } finally {
@@ -2098,7 +2098,7 @@ describe("KnowledgeManager", () => {
               // An ended phase hands nothing on: the plan resolves the route
               // and the documents again, exactly as when nothing was shared.
               expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
-                phaseEnds ? 9 : 8,
+                phaseEnds ? 8 : 7,
               );
               expect(reads.settings).toBe(phaseEnds ? 8 : 5);
               expect(reads.acceptedResolutions).toBe(phaseEnds ? 3 : 2);
@@ -2121,7 +2121,7 @@ describe("KnowledgeManager", () => {
           const { outcome, recording, reads } = yield* recordedPreparation(workspaceRoot, []);
 
           expect(outcome).toMatchObject({ _tag: "Success", success: [[]] });
-          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(7);
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
           expect(reads.settings).toBe(8);
           expect(reads.acceptedResolutions).toBe(3);
         } finally {
@@ -2164,7 +2164,7 @@ describe("KnowledgeManager", () => {
 
           expect(contributors).toEqual([[]]);
           // The plan's own route resolution, then the dry run's own route checks.
-          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(5);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

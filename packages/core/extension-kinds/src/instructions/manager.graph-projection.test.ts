@@ -574,8 +574,9 @@ describe("RuleManager graph-derived region projection", () => {
         // Resolving the target probes the absent instruction file twice; the
         // plan observation and each input's overlap check probe it too.
         // Measured before one preparation shared its resolution: 11, 11, 17
-        // and 23.
-        expect(counted).toEqual({ nothingPrepared: 11, noRefs: 11, oneRef: 15, twoRefs: 19 });
+        // and 23; before the eager observation's dry run took its admission
+        // for the target route: 11, 11, 15 and 19.
+        expect(counted).toEqual({ nothingPrepared: 9, noRefs: 9, oneRef: 13, twoRefs: 17 });
       }).pipe(Effect.provide(layer));
     });
 

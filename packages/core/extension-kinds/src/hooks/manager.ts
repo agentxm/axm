@@ -27,6 +27,7 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
@@ -221,6 +222,11 @@ class IssuedHookWriterRoutes implements PreparedHookWriterRoutes {
     Object.freeze(this);
   }
 }
+
+/** One desired-state evaluation, as this manager's reader returns it. */
+type DesiredStateEvaluation = Effect.Success<
+  ReturnType<Context.Service.Shape<typeof DesiredStateReader>["evaluate"]>
+>;
 
 /** What a caller hands a configured-agent outcome evaluation from its own call. */
 type ConfiguredOutcomeOptions = NonNullable<
@@ -907,6 +913,11 @@ export const HookManagerLive = Layer.effect(
         prospectiveEvidence: ReadonlyArray<FixtureEvidenceReading>,
         projected: ProjectedEvaluation,
       ) => Effect.Effect<A, E, R>,
+      /**
+       * The live evaluation the same owner call took through this manager's
+       * own reader, with nothing written since; it stands for the plan's own.
+       */
+      preparedEvaluation?: DesiredStateEvaluation,
     ) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
@@ -928,7 +939,7 @@ export const HookManagerLive = Layer.effect(
           options?.desiredGraph === undefined &&
           phase === undefined &&
           (yield* DesiredStateReader) === desiredState
-            ? Option.some(yield* desiredState.evaluate())
+            ? Option.some(preparedEvaluation ?? (yield* desiredState.evaluate()))
             : Option.none();
         const graph =
           options?.desiredGraph ??
@@ -1378,15 +1389,35 @@ export const HookManagerLive = Layer.effect(
       treeIntegrity: Option.none(),
       acquired: Option.none(),
     };
+    /**
+     * Withdraw the native registrations the current output authority expects
+     * for `name`, re-rendering every other contributor. Read live through this
+     * manager's own reader, the desired state is evaluated once for both the
+     * withdrawal and its projection run; nothing is written between them.
+     */
+    const withdrawNativeRegistrations = (name: string) =>
+      Effect.gen(function* () {
+        const evaluation =
+          (yield* workspaceReadPhaseFor(location)) === undefined &&
+          (yield* DesiredStateReader) === desiredState
+            ? Option.some(yield* desiredState.evaluate())
+            : Option.none();
+        const hookWithdrawals = (yield* Option.match(evaluation, {
+          onNone: () => captureAgentOutputAuthority(),
+          onSome: (evaluated) => agentOutputAuthorityFrom(Effect.succeed(evaluated)),
+        })).expectedHooks.filter((declaration) => declaration.name === name);
+        yield* observedHookProjectionPlans(
+          [],
+          { hookWithdrawals },
+          (observed) => Effect.succeed(observed.plans),
+          Option.getOrUndefined(evaluation),
+        ).pipe(Effect.flatMap(applyProjectionPlans));
+      });
+
     const materializeUninstall: HookManagerService["materializeUninstall"] = Effect.fn(
       "HookManager.materializeUninstall",
     )(function* ({ target, nativeCleanup }) {
-      if (nativeCleanup !== "retain") {
-        const hookWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
-          ({ name }) => name === target.name,
-        );
-        yield* projectionPlans({ hookWithdrawals }).pipe(Effect.flatMap(applyProjectionPlans));
-      }
+      if (nativeCleanup !== "retain") yield* withdrawNativeRegistrations(target.name);
       const canonical = yield* provide(
         acceptedCanonicalObservation({
           type: "hook",
@@ -1412,10 +1443,7 @@ export const HookManagerLive = Layer.effect(
     const materializeDeactivate: HookManagerService["materializeDeactivate"] = Effect.fn(
       "HookManager.materializeDeactivate",
     )(function* ({ target }) {
-      const hookWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
-        ({ name }) => name === target.name,
-      );
-      yield* projectionPlans({ hookWithdrawals }).pipe(Effect.flatMap(applyProjectionPlans));
+      yield* withdrawNativeRegistrations(target.name);
       return withdrawn;
     });
 

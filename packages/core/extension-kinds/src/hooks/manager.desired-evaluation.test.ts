@@ -223,4 +223,39 @@ describe("HookManager desired-state evaluation", () => {
       ),
     );
   });
+
+  describe("withdrawing a Hook's native registrations", () => {
+    const target = { type: "hook", name: "audit" } as const;
+
+    it.effect("evaluates the desired state once while deactivating", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          yield* workspace.manager.materializeDeactivate({ target });
+          // Measured before the withdrawal handed its evaluation to its own
+          // projection run: inherited 3, lock 4.
+          expect(evaluations(workspace)).toEqual({ inherited: 1, lock: 2 });
+        }),
+      ),
+    );
+
+    it.effect("evaluates the desired state once while withdrawing before uninstall", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          yield* workspace.manager.materializeUninstall({ target, nativeCleanup: "selected" });
+          // The removal's own observation of the package evaluates once more.
+          // Measured before: inherited 4, lock 6.
+          expect(evaluations(workspace)).toEqual({ inherited: 2, lock: 4 });
+        }),
+      ),
+    );
+
+    it.effect("evaluates nothing more when the uninstall retains native registrations", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          yield* workspace.manager.materializeUninstall({ target, nativeCleanup: "retain" });
+          expect(evaluations(workspace)).toEqual({ inherited: 1, lock: 2 });
+        }),
+      ),
+    );
+  });
 });

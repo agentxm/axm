@@ -103,7 +103,7 @@ const planRecovery = (workspace: SyncFixture) =>
           return {
             recovered: recovery !== undefined,
             readiness: step?.readiness,
-            errorMessage: step?.errorMessage,
+            errorMessage: step?.readiness === "error" ? step.errorMessage : undefined,
             acquisitionRefs: (step?.acquisitionRefs ?? []).map(
               (ref) => `${ref.type}:${ref.type === "pack" ? ref.pack.name : ref.refType}`,
             ),

@@ -182,7 +182,7 @@
     "@agentxm/registry-protocol": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "ignore": "7.0.12",
+    "ignore": "7.0.14",
     "jsonc-parser": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",

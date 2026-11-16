@@ -80,9 +80,15 @@ const writeHookPackage = (
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
     readonly fixtures?: ReadonlyArray<Record<string, unknown>>;
     readonly configuration?: Record<string, unknown>;
+    /** Shared runtime files the manifest declares, each written with placeholder content. */
+    readonly assets?: ReadonlyArray<string>;
   },
 ) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
+  for (const asset of options?.assets ?? []) {
+    mkdirSync(nodePath.dirname(nodePath.join(packageRoot, asset)), { recursive: true });
+    writeFileSync(nodePath.join(packageRoot, asset), `${asset}\n`);
+  }
   writeFileSync(
     nodePath.join(packageRoot, "hook.json"),
     JSON.stringify(
@@ -93,6 +99,7 @@ const writeHookPackage = (
         version: "1.0.0",
         ...(options?.fixtures === undefined ? {} : { fixtures: options.fixtures }),
         ...(options?.configuration === undefined ? {} : { configuration: options.configuration }),
+        ...(options?.assets === undefined ? {} : { assets: options.assets }),
         implementations: ["claude-code", "codex", "devin"].map((protocol) => ({
           id: protocol,
           protocol,
@@ -258,6 +265,42 @@ describe("HookManager", () => {
           });
           expect(existsSync(nodePath.join(workspaceRoot, ".claude/settings.json"))).toBe(false);
         }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"] })));
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+  it.effect("contains every runtime file in the resolved root of a symlinked package", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-linked-root-"),
+      );
+      try {
+        const writeLinkedPackage = (name: string, entrypointTarget: string) => {
+          const realRoot = nodePath.join(workspaceRoot, `real-${name}`);
+          writeHookPackage(realRoot, name, { assets: ["assets/a.txt"] });
+          const entrypoint = nodePath.join(realRoot, "src/hook.sh");
+          rmSync(entrypoint);
+          symlinkSync(entrypointTarget, entrypoint);
+          const linkedRoot = nodePath.join(workspaceRoot, `linked-${name}`);
+          symlinkSync(realRoot, linkedRoot);
+          return makeLocalHookRef(name, linkedRoot);
+        };
+        writeFileSync(nodePath.join(workspaceRoot, "outside.sh"), "echo must-not-run\n");
+        // The asset is checked first; the entrypoint after it links inside or outside the package.
+        const inside = writeLinkedPackage("inside", "../assets/a.txt");
+        const escaping = writeLinkedPackage("escaping", "../../outside.sh");
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          const prepared = yield* manager.prepareProjection([inside]);
+          expect(prepared.acquisitions).toMatchObject([{ name: "inside" }]);
+          const failure = yield* manager.prepareProjection([escaping]).pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "HookDefinitionInvalid",
+            detail: "Hook runtime resources must be readable files contained in the package",
+            cause: { _tag: "PathTraversalDetected" },
+          });
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)));
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -886,6 +929,61 @@ describe("HookManager", () => {
           entrypointReads: counted.entrypointReads,
           entrypointInspections: counted.entrypointInspections,
         }).toEqual({ entrypointReads: 1, entrypointInspections: 1 });
+      }),
+    );
+
+    it.effect("resolves a prepared package's root once while checking each runtime file", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-runtime-files-"),
+        );
+        try {
+          const singleRoot = nodePath.join(workspaceRoot, "source-single");
+          const assetsRoot = nodePath.join(workspaceRoot, "source-assets");
+          writeHookPackage(singleRoot, "single");
+          writeHookPackage(assetsRoot, "assets", { assets: ["assets/a.txt", "assets/b.txt"] });
+          const runtimeFiles = ["assets/a.txt", "assets/b.txt", "src/hook.sh"].map((file) =>
+            nodePath.join(assetsRoot, file),
+          );
+          const counted = yield* withRecordedManager(workspaceRoot, (manager, recording) =>
+            Effect.gen(function* () {
+              const rootResolutions = (packageRoot: string) =>
+                recording.calls({ path: packageRoot, method: "realPath" }).length;
+              recording.reset();
+              const single = yield* manager.prepareProjection([
+                makeLocalHookRef("single", singleRoot),
+              ]);
+              const singleCounts = rootResolutions(singleRoot);
+              recording.reset();
+              const assets = yield* manager.prepareProjection([
+                makeLocalHookRef("assets", assetsRoot),
+              ]);
+              return {
+                prepared: [...single.acquisitions, ...assets.acquisitions].map(({ name }) => name),
+                rootResolutions: { single: singleCounts, assets: rootResolutions(assetsRoot) },
+                runtimeFileChecks: runtimeFiles.map((file) => ({
+                  realPath: recording.calls({ path: file, method: "realPath" }).length,
+                  stat: recording.calls({ path: file, method: "stat" }).length,
+                })),
+              };
+            }),
+          );
+          // One resolution checks the runtime files and one the input's
+          // overlap with the native target, however many files the package
+          // declares. Measured before the root was resolved once per runtime
+          // file: 2 and 4.
+          expect(counted).toEqual({
+            prepared: ["single", "assets"],
+            rootResolutions: { single: 2, assets: 2 },
+            runtimeFileChecks: [
+              { realPath: 1, stat: 1 },
+              { realPath: 1, stat: 1 },
+              { realPath: 1, stat: 1 },
+            ],
+          });
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
       }),
     );
 

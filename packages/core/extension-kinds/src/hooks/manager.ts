@@ -458,36 +458,42 @@ export const HookManagerLive = Layer.effect(
       );
 
     const validatePackageFiles = (packageRoot: string, manifest: HookManifest) =>
-      Effect.forEach(
-        requiredHookRuntimeFiles(manifest),
-        (entry) =>
-          Effect.gen(function* () {
-            const absolute = path.resolve(packageRoot, entry);
-            yield* validatePathSafety(path, packageRoot, absolute);
-            const exists = yield* fs.exists(absolute).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new HookDefinitionInvalid({
-                    detail: `Cannot inspect Hook extension file: ${entry}`,
-                    cause,
-                  }),
-              ),
-            );
-            if (!exists)
-              return yield* new HookDefinitionInvalid({
-                detail: `Hook extension file does not exist: ${entry}`,
-              });
-            const canonicalRoot = yield* fs.realPath(packageRoot);
-            const canonicalFile = yield* fs.realPath(absolute);
-            yield* validatePathSafety(path, canonicalRoot, canonicalFile);
-            const stat = yield* fs.stat(canonicalFile);
-            if (stat.type !== "File")
-              return yield* new HookDefinitionInvalid({
-                detail: `Hook extension resource is not a file: ${entry}`,
-              });
-          }),
-        { discard: true },
-      ).pipe(
+      Effect.gen(function* () {
+        // The package root's real path, resolved when the first file needs it
+        // and held for the rest of this call; each file is still resolved,
+        // contained and inspected on its own.
+        const resolvedRoot = yield* Effect.cached(fs.realPath(packageRoot));
+        return yield* Effect.forEach(
+          requiredHookRuntimeFiles(manifest),
+          (entry) =>
+            Effect.gen(function* () {
+              const absolute = path.resolve(packageRoot, entry);
+              yield* validatePathSafety(path, packageRoot, absolute);
+              const exists = yield* fs.exists(absolute).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new HookDefinitionInvalid({
+                      detail: `Cannot inspect Hook extension file: ${entry}`,
+                      cause,
+                    }),
+                ),
+              );
+              if (!exists)
+                return yield* new HookDefinitionInvalid({
+                  detail: `Hook extension file does not exist: ${entry}`,
+                });
+              const canonicalRoot = yield* resolvedRoot;
+              const canonicalFile = yield* fs.realPath(absolute);
+              yield* validatePathSafety(path, canonicalRoot, canonicalFile);
+              const stat = yield* fs.stat(canonicalFile);
+              if (stat.type !== "File")
+                return yield* new HookDefinitionInvalid({
+                  detail: `Hook extension resource is not a file: ${entry}`,
+                });
+            }),
+          { discard: true },
+        );
+      }).pipe(
         Effect.mapError(
           (cause) =>
             new HookDefinitionInvalid({

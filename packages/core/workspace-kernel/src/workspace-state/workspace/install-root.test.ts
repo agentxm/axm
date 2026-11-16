@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema";
 import * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 
 import { handle } from "../testing.js";
 import { observeInstallRoot } from "./install-root.js";
@@ -260,6 +261,80 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
       write("agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json", "{}");
       const observed = yield* observe(graph([], false));
       expect(observed.leftovers).toEqual([]);
+    }),
+  );
+
+  /** One inventory through a recording port, with the calls that name the install root itself. */
+  const observeRecorded = (desired: DesiredStateGraph, locks = noLocks) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, root), {
+        owner: handle("@acme"),
+      });
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      const inventory = yield* observeInstallRoot({ layout, graph: desired, locks }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+      const rootCalls = recording.calls({ path: layout.acquiredRoot });
+      return {
+        packages: inventory.packages.map((entry) => nodePath.relative(root, entry.path)),
+        leftovers: inventory.leftovers.map((entry) => nodePath.relative(root, entry.path)),
+        unrecognized: inventory.unrecognized.map((entry) => nodePath.relative(root, entry.path)),
+        rootCalls: rootCalls.map((call) => [call.method, call.outcome]),
+      };
+    });
+  const reviewLocks = {
+    lockfile: Effect.succeed({
+      lockfileVersion: LOCKFILE_VERSION,
+      skills: { review: makeRegistrySkillLockEntry({ owner: handle("@acme"), name: "review" }) },
+    } satisfies Lockfile),
+  };
+
+  it.effect("lists a present install root without probing it first", () =>
+    Effect.gen(function* () {
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
+      expect(yield* observeRecorded(graph([node("review")]), reviewLocks)).toEqual({
+        packages: ["agent_extensions/registry.agentxm.ai/@acme/skills/review"],
+        leftovers: [],
+        unrecognized: [],
+        rootCalls: [["readDirectory", "success"]],
+      });
+    }),
+  );
+
+  it.effect("lists an install root reached through a link without probing it first", () =>
+    Effect.gen(function* () {
+      write("elsewhere/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
+      nodeFs.symlinkSync(nodePath.join(root, "elsewhere"), nodePath.join(root, "agent_extensions"));
+      expect(yield* observeRecorded(graph([node("review")]), reviewLocks)).toEqual({
+        packages: ["agent_extensions/registry.agentxm.ai/@acme/skills/review"],
+        leftovers: [],
+        unrecognized: [],
+        rootCalls: [["readDirectory", "success"]],
+      });
+    }),
+  );
+
+  it.effect("observes an absent install root with one failed listing and no probe", () =>
+    Effect.gen(function* () {
+      expect(yield* observeRecorded(graph([]))).toEqual({
+        packages: [],
+        leftovers: [],
+        unrecognized: [],
+        rootCalls: [["readDirectory", "failure"]],
+      });
+    }),
+  );
+
+  it.effect("observes an install root that is a file as empty without probing it", () =>
+    Effect.gen(function* () {
+      write("agent_extensions", "not a directory");
+      expect(yield* observeRecorded(graph([]))).toEqual({
+        packages: [],
+        leftovers: [],
+        unrecognized: [],
+        rootCalls: [["readDirectory", "failure"]],
+      });
     }),
   );
 

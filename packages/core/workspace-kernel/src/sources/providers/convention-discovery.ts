@@ -68,11 +68,38 @@ const relativeDir = (basePath: string, directory: string) =>
     return path.relative(basePath, directory);
   });
 
-const gitTreeShaFor = (
-  basePath: string,
-  directory: string,
-): Effect.Effect<string, GitOperationFailed, Path.Path> =>
-  relativeDir(basePath, directory).pipe(Effect.flatMap((dir) => getTreeSha(basePath, dir)));
+/**
+ * The Git metadata one discovery reads from one checkout: its checked-out
+ * commit, and the tree of each package directory, each read the first time a
+ * discovered extension needs it and reused by the others of that discovery.
+ */
+interface CheckoutMetadata {
+  readonly commitSha: Effect.Effect<string, GitOperationFailed>;
+  readonly treeShaFor: (directory: string) => Effect.Effect<string, GitOperationFailed, Path.Path>;
+}
+
+const checkoutMetadata = (basePath: string) =>
+  Effect.gen(function* () {
+    const commitSha = yield* Effect.cached(getCommitSha(basePath));
+    // Only successful reads are kept, as strings, for this one discovery.
+    const trees = new Map<string, string>();
+    const treeShaFor = (directory: string) =>
+      relativeDir(basePath, directory).pipe(
+        Effect.flatMap((dir) => {
+          const known = trees.get(dir);
+          return known !== undefined
+            ? Effect.succeed(known)
+            : getTreeSha(basePath, dir).pipe(
+                Effect.tap((sha) =>
+                  Effect.sync(() => {
+                    trees.set(dir, sha);
+                  }),
+                ),
+              );
+        }),
+      );
+    return { commitSha, treeShaFor } satisfies CheckoutMetadata;
+  });
 
 const subPathForSource = (source: ExternalSource): Option.Option<string> => {
   switch (source.type) {
@@ -99,6 +126,7 @@ const sourceRefDetails = (
   directory: string,
   packageDirectory: string,
   standing: SourceStanding,
+  metadata: CheckoutMetadata,
 ) =>
   Effect.gen(function* () {
     const sourcePath = yield* relativeDir(basePath, directory);
@@ -120,8 +148,8 @@ const sourceRefDetails = (
           source,
           sourcePath: sourcePath.split((yield* Path.Path).sep).join("/") || ".",
           location,
-          gitTreeSha: yield* gitTreeShaFor(basePath, packageDirectory),
-          gitCommitSha: yield* getCommitSha(basePath),
+          gitTreeSha: yield* metadata.treeShaFor(packageDirectory),
+          gitCommitSha: yield* metadata.commitSha,
           ...held,
         } satisfies GitSourceRefDetails;
     }
@@ -131,6 +159,7 @@ const refForCandidate = (
   source: ExternalSource,
   basePath: string,
   candidate: DiscoveredExtensionPackage,
+  metadata: CheckoutMetadata,
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -150,6 +179,7 @@ const refForCandidate = (
       candidate.directory,
       packageDirectory,
       candidate.standing,
+      metadata,
     );
     if (candidate.kind === "plugin-mcp") {
       const packagePath =
@@ -345,9 +375,10 @@ export const discoverConventionRefs = (
           }
         : discoveryOptions,
     );
+    const metadata = yield* checkoutMetadata(basePath);
     const refs = yield* Effect.forEach(
       candidates,
-      (candidate) => refForCandidate(source, basePath, candidate),
+      (candidate) => refForCandidate(source, basePath, candidate, metadata),
       { concurrency: GIT_METADATA_CONCURRENCY },
     );
     const discovered = refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));

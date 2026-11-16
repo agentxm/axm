@@ -321,7 +321,7 @@ export const observeAcceptedCanonicalReuse = (
   });
 
 /** A tree reuse kept, with the text of the files its integrity walk read. */
-export interface ReusedCanonicalTree {
+interface ReusedCanonicalTree {
   readonly treeIntegrity: TreeIntegrity;
   readonly read: WalkedFileText;
 }

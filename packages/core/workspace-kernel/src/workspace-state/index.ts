@@ -224,7 +224,6 @@ export {
   observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
   observeAcceptedCanonicalReuseReading,
-  type ReusedCanonicalTree,
   type RequestedCanonicalRef,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,

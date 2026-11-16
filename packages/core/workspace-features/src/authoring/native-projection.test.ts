@@ -673,6 +673,27 @@ describe("authored native preflight documents", () => {
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
 
+  it.effect("reads a planned native Subagent file once while enabling it", () => {
+    const { workspace, packageRoot } = stage("subagent");
+    const native = nodePath.join(workspace.root, ".claude/agents/review.md");
+    return Effect.gen(function* () {
+      const identity = yield* Effect.fromResult(parseFqn("@acme/subagents/review"));
+      const recording = yield* FileSystemRecorder;
+      const preflight = preflightAuthoredNativeProjection({
+        identity,
+        packageRoot,
+        enabled: true,
+      }).pipe(withLiveWorkspaceObservations);
+      recording.reset();
+      const absent = yield* preflight;
+      // The refusing destination check's read also judges the planned write.
+      expect(recording.contentReads(native)).toBe(1);
+      expect(absent.targets).toEqual([
+        { path: ".claude/agents/review.md", change: "created", agentIds: ["claude-code"] },
+      ]);
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+  });
+
   it.effect("sees configured agents edited between two preflight runs", () => {
     const { workspace, packageRoot } = stage("subagent");
     return Effect.gen(function* () {

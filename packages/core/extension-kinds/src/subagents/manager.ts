@@ -967,12 +967,17 @@ export const SubagentManagerLive = Layer.effect(
         // are the ones a reporting preflight would compute from the same
         // inputs. Otherwise observation reports an unrecorded file as not
         // current; only a write refuses it.
-        const prepared = yield* preflight(
-          ref,
-          pkg,
-          configuredAgents,
-          options?.validateDestinations === true ? "refuse" : "report",
-        );
+        // The bytes the refusing preflight read at each planned destination,
+        // kept for this call's write judgment; a reporting preflight reads none.
+        const preflightBytes = new Map<string, Option.Option<string>>();
+        const prepared =
+          options?.validateDestinations === true
+            ? yield* preflight(ref, pkg, configuredAgents, "refuse", (destination) =>
+                readDestination(destination).pipe(
+                  Effect.tap((bytes) => Effect.sync(() => preflightBytes.set(destination, bytes))),
+                ),
+              )
+            : yield* preflight(ref, pkg, configuredAgents, "report");
         // The preflight's preparation and plan serve the rest of this call, but
         // never outlive the read phase they observed through: once that phase
         // ends, the call prepares and plans again on live state.
@@ -1093,10 +1098,17 @@ export const SubagentManagerLive = Layer.effect(
             )
           )
             continue;
+          // The refusing preflight's bytes judge the write while its read phase
+          // holds and it read through the port this judgment reads through;
+          // otherwise the file is read again.
+          const kept =
+            phase?.isActive() !== false && readFs === fs
+              ? preflightBytes.get(destination)
+              : undefined;
           const decision = yield* decideWholeFileWrite({
             recorded,
             gen: file.gen,
-            bytes: yield* readFs.readFileString(destination).pipe(Effect.option),
+            bytes: kept ?? (yield* readFs.readFileString(destination).pipe(Effect.option)),
             rendered: file.content,
             replaceUnrecorded: replaceUnrecorded === true,
           });

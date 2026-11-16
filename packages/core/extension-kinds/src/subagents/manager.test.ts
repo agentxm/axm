@@ -1202,15 +1202,15 @@ describe("SubagentManager", () => {
           const unvalidated = yield* measure({});
           const counts = ({ observed: _observed, ...work }: typeof validated) => work;
           expect({ validated: counts(validated), unvalidated: counts(unvalidated) }).toEqual({
-            // The refusing preflight's preparation and plan serve the
-            // observation; it still reads each planned file to refuse an
-            // unrecorded one, and the observation reads it to judge the write.
+            // The refusing preflight's preparation, plan and the bytes it read
+            // to refuse an unrecorded file serve the observation, which judges
+            // each write from those bytes.
             validated: {
               prepare: 2,
               compile: 2,
               resourceReads: 1,
               planInspections: [4, 4],
-              destinationReads: [2, 2],
+              destinationReads: [1, 1],
             },
             // Without destination checks the call prepares each agent once, as before.
             unvalidated: {
@@ -1229,6 +1229,55 @@ describe("SubagentManager", () => {
         );
       },
     );
+
+    it.effect("judges a validated observation's writes from the bytes its preflight read", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const measure = (validateDestinations: boolean) =>
+          Effect.gen(function* () {
+            recording.reset();
+            const observed = yield* manager.projectionObservation(ref, {
+              sourceRoot: sourceDir,
+              validateDestinations,
+            });
+            return { observed, reads: recording.contentReads(native) };
+          });
+        yield* manager.materializeInstall({ ref });
+
+        // A current recorded row is read only to refuse an unrecorded file.
+        const current = { validated: yield* measure(true), unvalidated: yield* measure(false) };
+        expect([current.validated.reads, current.unvalidated.reads]).toEqual([1, 0]);
+        expect(current.validated.observed).toEqual(current.unvalidated.observed);
+        expect(current.validated.observed.targets).toBeUndefined();
+
+        // A stale row over a hand edit is judged modified from one read.
+        writeSubagentPackage(sourceDir, "planner", "Plans work carefully");
+        nodeFs.writeFileSync(native, "Edited by hand\n");
+        const stale = { validated: yield* measure(true), unvalidated: yield* measure(false) };
+        expect([stale.validated.reads, stale.unvalidated.reads]).toEqual([1, 1]);
+        expect(stale.validated.observed).toEqual(stale.unvalidated.observed);
+        expect(stale.validated.observed.targets).toEqual([
+          { path: ".claude/agents/planner.md", change: "updated", lastWrite: "modified" },
+        ]);
+
+        // A read phase whose port is not the preflight's judges through its own port.
+        recording.reset();
+        const phased = yield* inEndingReadPhase(
+          manager.projectionObservation(ref, { sourceRoot: sourceDir, validateDestinations: true }),
+        );
+        expect(phased).toEqual(stale.validated.observed);
+        expect(recording.contentReads(native)).toBe(2);
+        expect(nodeFs.readFileSync(native, "utf8")).toBe("Edited by hand\n");
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] })));
+    });
 
     it.effect("hashes an authored package itself once its install writes inside it", () => {
       const projectDir = nodePath.join(tmpDir, "project");

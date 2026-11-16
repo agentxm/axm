@@ -86,6 +86,7 @@ type SubagentResidueDecision =
 
 const inventory = (
   args: ReconcileAgentOutputsArgs,
+  options: { readonly retainSkillLocations?: boolean } = {},
 ): Effect.Effect<
   AgentOutputInventory,
   OperationRefused | Config.ConfigError,
@@ -125,6 +126,7 @@ const inventory = (
           ),
       },
       ...authority,
+      ...(options.retainSkillLocations === true ? { retainSkillLocations: true } : {}),
     });
   });
 
@@ -197,10 +199,11 @@ export const reconcileAgentOutputs = (
         ),
       ));
     const authorizedArgs = { ...args, authority };
-    const before =
-      args.dryRun === true && args.preparedInventory !== undefined
-        ? args.preparedInventory
-        : yield* inventory(authorizedArgs);
+    // Only an inventory this call made lends its skill resolutions to the
+    // classification below; a prepared inventory's read phase is not extended.
+    const prepared = args.dryRun === true ? args.preparedInventory : undefined;
+    const before = prepared ?? (yield* inventory(authorizedArgs, { retainSkillLocations: true }));
+    const observedSkillLocations = prepared === undefined ? before.skillLocations : undefined;
     const location = yield* WorkspaceLocation;
     const selected = (output: AgentOutputObservation) =>
       args.subjects === undefined ||
@@ -355,10 +358,18 @@ export const reconcileAgentOutputs = (
             agents,
             configuredAgentIds: args.desiredAgentIds,
             sharedSkillPolicy: extensionType === "skill",
+            ...(extensionType === "skill" && observedSkillLocations !== undefined
+              ? { locationSet: observedSkillLocations }
+              : {}),
             targets: outputs.map((output) => ({
               path: output.path,
               kind: output.proof === "copied-directory-receipt" ? "skill" : extensionType,
               state: candidates.includes(output) ? "removed" : "retained",
+              // The inventory just read this directory's receipt and matched its source.
+              ...(output.proof === "copied-directory-receipt" &&
+              observedSkillLocations !== undefined
+                ? { copyReceipt: { directory: output.path, present: true } }
+                : {}),
             })),
           });
           return facts.map((fact): NativeLocationOutcome => {

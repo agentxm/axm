@@ -363,8 +363,8 @@ describe("native MCP discovery of a file several configured agents declare", () 
 
         expect(discovered.preflight).toEqual(prepared.preflight);
         expect(prepared.preflight.candidates.map((candidate) => candidate.name)).toEqual(["alpha"]);
-        // Discovery's one read, and the competing-entry read of each agent's target.
-        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
+        // Discovery's one read, and one competing-entry read of the target both agents declare.
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 2, prepareReads: 2 });
       }),
     ),
   );

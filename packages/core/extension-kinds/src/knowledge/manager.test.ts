@@ -1451,9 +1451,10 @@ describe("KnowledgeManager", () => {
 
             expect(outcome).toMatchObject({ _tag: "Success", success: { changed: true } });
             // One resolution of the declared target, then the dry run's own
-            // target and alias checks.
+            // admission of the target, which stands as its route check, and its
+            // alias checks.
             expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
-              7,
+              6,
             );
           }),
         ),

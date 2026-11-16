@@ -139,8 +139,11 @@ describe("Materialization planning's desired-state evaluation", () => {
               evaluations: 1,
               // Each removed evaluation read the settings, probed the absent user settings, and
               // read the lockfile and the authored Pack manifest; the settings were also read
-              // once more for the prior agent set (23, 9, 26 and 11 before).
-              reads: { settings: 19, inherited: 6, lockfile: 23, pack: 8 },
+              // once more for the prior agent set (23, 9, 26 and 11 before). Six more lockfile
+              // reads are gone: two with the accepted-row lookup that hands its lockfile to the
+              // shared-package verdict, four with the records calls that take their evaluation's
+              // accepted resolutions.
+              reads: { settings: 19, inherited: 6, lockfile: 17, pack: 8 },
             });
           }),
         )
@@ -179,8 +182,11 @@ describe("Materialization planning's desired-state evaluation", () => {
               // One lazy evaluation serves the MCP and Hook comparisons and the output authority
               // (three before).
               evaluations: 1,
-              // Two evaluations and one prior agent-set read fewer (11, 5, 15 and 7 before).
-              reads: { settings: 8, inherited: 3, lockfile: 13, pack: 5 },
+              // Two evaluations and one prior agent-set read fewer (11, 5, 15 and 7 before). Six
+              // more lockfile reads are gone with the accepted-row lookup's handed-over lockfile
+              // (two) and the records calls' reuse of their evaluation's accepted resolutions
+              // (four).
+              reads: { settings: 8, inherited: 3, lockfile: 7, pack: 5 },
             });
           }),
         )

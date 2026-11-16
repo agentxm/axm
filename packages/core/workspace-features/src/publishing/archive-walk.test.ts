@@ -233,18 +233,21 @@ describe("archive walk", () => {
     ).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("refuses an unsupported entry the ignore inputs observed", () =>
-    withRoot((root) =>
-      Effect.gen(function* () {
-        writePackage(root);
-        childProcess.execFileSync("mkfifo", [path.join(root, "docs", "pipe")]);
+  // Named pipes are not filesystem entries on Windows.
+  it.effect.skipIf(process.platform === "win32")(
+    "refuses an unsupported entry the ignore inputs observed",
+    () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          writePackage(root);
+          childProcess.execFileSync("mkfifo", [path.join(root, "docs", "pipe")]);
 
-        const failure = yield* planZipArchive(root).pipe(Effect.flip);
+          const failure = yield* planZipArchive(root).pipe(Effect.flip);
 
-        expect(expectPublishRefused(failure).detail).toBe(
-          "Cannot archive unsupported filesystem entry: docs/pipe",
-        );
-      }),
-    ).pipe(Effect.provide(NodeServices.layer)),
+          expect(expectPublishRefused(failure).detail).toBe(
+            "Cannot archive unsupported filesystem entry: docs/pipe",
+          );
+        }),
+      ).pipe(Effect.provide(NodeServices.layer)),
   );
 });

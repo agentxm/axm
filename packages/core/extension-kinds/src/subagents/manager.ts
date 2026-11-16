@@ -1052,7 +1052,9 @@ export const SubagentManagerLive = Layer.effect(
                 entries: targets.flatMap(({ directory, compiled }) => {
                   if (directory._tag !== "supported" || compiled._tag !== "Compiled") return [];
                   const { dir } = directory;
-                  return compiled.outputs.map((planned) => path.resolve(dir, planned.path));
+                  return compiled.outputs.map((compiledOutput) =>
+                    path.resolve(dir, compiledOutput.path),
+                  );
                 }),
               });
             const captured = phase?.isActive() !== false ? locations : undefined;

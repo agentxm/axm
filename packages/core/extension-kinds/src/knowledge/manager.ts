@@ -101,6 +101,7 @@ import {
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
+import { withSharedGitDiscoveryCheckouts } from "@agentxm/workspace-kernel/sources";
 import {
   KNOWLEDGE_SOURCE_DIR,
   type KnowledgeManifest,
@@ -1057,38 +1058,45 @@ export const KnowledgeManagerLive = Layer.effect(
         const locked = yield* lockfile.entries("knowledge");
         const prepared: Array<PreparedKnowledgePackage> = [];
         const usable: Array<ObservedKnowledgeNode> = [];
-        for (const node of desired) {
-          const { name } = node;
-          const entry = locked[name];
-          const layout = currentLayout();
-          const port = yield* currentReadPort;
-          const capture = yield* observeDesiredKnowledgeLive(layout, node, entry);
-          const { observation } = capture;
-          if (observation.status === "usable") {
-            if (
-              observation.path !== undefined &&
-              (port.phase === undefined || port.phase.isActive())
-            )
-              usable.push({ layout, port, node, accepted: entry, capture });
-            continue;
-          }
-          if (node.identity.authority === "workspace") {
-            return yield* new KnowledgeDefinitionInvalid({
-              detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
-            });
-          }
-          if (entry === undefined) {
-            return yield* new KnowledgeResolutionMissing({ name });
-          }
-          const restored = yield* Effect.result(restoreLockedPackage(name, entry));
-          if (Result.isFailure(restored)) {
-            const restoreFailure = restored.failure;
-            return yield* new KnowledgeUnavailable({
-              detail: `Active Knowledge bundle could not be restored: ${name}. ${describeKnowledgeFailure(restoreFailure)}`,
-              cause: restoreFailure,
-            });
-          } else prepared.push(restored.success);
-        }
+        // Bundles this call restores from one Git repository revision find
+        // their packages in one read-only discovery checkout, held in this
+        // call's scope; each still checks its own commit and tree.
+        yield* withSharedGitDiscoveryCheckouts(
+          Effect.gen(function* () {
+            for (const node of desired) {
+              const { name } = node;
+              const entry = locked[name];
+              const layout = currentLayout();
+              const port = yield* currentReadPort;
+              const capture = yield* observeDesiredKnowledgeLive(layout, node, entry);
+              const { observation } = capture;
+              if (observation.status === "usable") {
+                if (
+                  observation.path !== undefined &&
+                  (port.phase === undefined || port.phase.isActive())
+                )
+                  usable.push({ layout, port, node, accepted: entry, capture });
+                continue;
+              }
+              if (node.identity.authority === "workspace") {
+                return yield* new KnowledgeDefinitionInvalid({
+                  detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
+                });
+              }
+              if (entry === undefined) {
+                return yield* new KnowledgeResolutionMissing({ name });
+              }
+              const restored = yield* Effect.result(restoreLockedPackage(name, entry));
+              if (Result.isFailure(restored)) {
+                const restoreFailure = restored.failure;
+                return yield* new KnowledgeUnavailable({
+                  detail: `Active Knowledge bundle could not be restored: ${name}. ${describeKnowledgeFailure(restoreFailure)}`,
+                  cause: restoreFailure,
+                });
+              } else prepared.push(restored.success);
+            }
+          }),
+        );
         // One resolution serves this call until a restored bundle is
         // published: restoring stages outside canonical state, and nothing
         // between here and the discovery dry run writes.

@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -31,11 +32,13 @@ import {
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { canonicalMaterializationPaths } from "@agentxm/workspace-kernel/acquisition";
 import {
@@ -64,7 +67,11 @@ import {
   applyPlannedProjections,
   observeObservedPlans,
 } from "@agentxm/workspace-kernel/projection";
-import { SourceHostProviders, SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
+import {
+  SourceHostProviders,
+  SourceNotResolvable,
+  createGitSourceHostProvider,
+} from "@agentxm/workspace-kernel/sources";
 import { FootprintRecorderTest } from "@agentxm/workspace-kernel/planning/testing";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";
 import {
@@ -77,6 +84,7 @@ import type {
   WorkspaceKnowledgeRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -212,6 +220,8 @@ const managerLayer = (
     readonly acceptedResolutionWriter?: Partial<AcceptedResolutionWriterService>;
     /** Replaces the native filesystem every service in the layer uses. */
     readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
+    /** Source providers built over the layer's filesystem, in place of the unused stub. */
+    readonly sources?: Layer.Layer<SourceHostProviders, never, FileSystem.FileSystem | Path.Path>;
   } = {},
 ) => {
   const axmDir = nodePath.join(workspaceRoot, ".axm");
@@ -264,16 +274,17 @@ const managerLayer = (
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(
-      Layer.succeed(SourceHostProviders, {
-        resolveNamedRegistry: () => Effect.die("not used"),
-        find: () => Effect.succeed([]),
-        fetch: () =>
-          Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
-        acquireForTransition: () =>
-          Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
-        cloneUrl: () => Option.none(),
-        origin: () => "test",
-      }),
+      options.sources ??
+        Layer.succeed(SourceHostProviders, {
+          resolveNamedRegistry: () => Effect.die("not used"),
+          find: () => Effect.succeed([]),
+          fetch: () =>
+            Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
+          acquireForTransition: () =>
+            Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
+          cloneUrl: () => Option.none(),
+          origin: () => "test",
+        }),
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), platform)),
@@ -2233,6 +2244,348 @@ describe("KnowledgeManager", () => {
             rmSync(workspaceRoot, { recursive: true, force: true });
           }
         }),
+    );
+  });
+
+  describe("sync restoring Git-hosted bundles", () => {
+    const git = (cwd: string, ...args: ReadonlyArray<string>) =>
+      execFileSync("git", ["-c", "user.name=AXM", "-c", "user.email=axm@example.test", ...args], {
+        cwd,
+        encoding: "utf8",
+      }).trim();
+
+    /**
+     * A repository whose one commit holds a Knowledge bundle per name in its
+     * own directory, reachable as `main` and `other`, served over file://.
+     */
+    const repositoryOf = (root: string, names: ReadonlyArray<string>) => {
+      const repository = nodePath.join(root, "repository");
+      mkdirSync(repository, { recursive: true });
+      git(repository, "init", "--quiet", "--initial-branch=main");
+      for (const name of names) writeKnowledgePackage(nodePath.join(repository, name), name, true);
+      git(repository, "add", ".");
+      git(repository, "commit", "--quiet", "-m", "bundles");
+      git(repository, "branch", "other");
+      return {
+        repository,
+        url: pathToFileURL(repository),
+        commit: git(repository, "rev-parse", "HEAD"),
+        treeOf: (name: string) => git(repository, "rev-parse", `HEAD:${name}`),
+      };
+    };
+
+    /**
+     * Enabled bundles locked to `url` at their revisions, none of them
+     * acquired, so a sync restores each from its Git source.
+     */
+    const lockedGitBundles = (
+      url: URL,
+      bundles: ReadonlyArray<{
+        readonly name: string;
+        readonly revision: string;
+        readonly commit: string;
+        readonly tree: string;
+        readonly integrityRoot: string;
+      }>,
+    ): Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> => {
+      const locatorOf = (name: string, revision: string) =>
+        printSourceParams({
+          type: "git",
+          url,
+          ref: Option.some(revision),
+          subPath: Option.some(name),
+        });
+      return {
+        settings: {
+          knowledge: Object.fromEntries(
+            bundles.map(({ name, revision }) => [
+              name,
+              { source: locatorOf(name, revision), enabled: true },
+            ]),
+          ),
+        },
+        lockfile: {
+          lockfileVersion: 1,
+          skills: {},
+          knowledge: Object.fromEntries(
+            bundles.map(({ name, revision, commit, tree, integrityRoot }) => [
+              name,
+              {
+                source: { type: "git" as const, url, revision, path: name },
+                identity: { owner: handle("@acme"), name: extensionName(name) },
+                resolved: { commit, tree },
+                treeIntegrity: treeIntegrityOfSync(integrityRoot),
+              },
+            ]),
+          ),
+        },
+        graph: {
+          packMembership: [],
+          nodes: bundles.map(({ name, revision }) => ({
+            type: "knowledge" as const,
+            name,
+            identity: { authority: "git" as const, locator: locatorOf(name, revision) },
+            source: locatorOf(name, revision),
+            enabled: true,
+            constraint: UNCONSTRAINED_DESIRED_NODE,
+            origins: [
+              { type: "settings" as const, source: locatorOf(name, revision), enabled: true },
+            ],
+          })),
+          mcpSourceClosures: [],
+          problems: [],
+        },
+      };
+    };
+
+    /** Git finds through the real Git provider, over the layer's own filesystem. */
+    const gitSources = Layer.effect(
+      SourceHostProviders,
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const provider = createGitSourceHostProvider();
+        return {
+          resolveNamedRegistry: () => Effect.die("not used"),
+          find: (source, options) =>
+            source.type === "git"
+              ? provider
+                  .find(source, options)
+                  .pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                  )
+              : Effect.succeed([]),
+          fetch: () =>
+            Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
+          acquireForTransition: () =>
+            Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
+          cloneUrl: () => Option.none(),
+          origin: () => "test",
+        };
+      }),
+    );
+
+    /**
+     * Run `run` against the manager over the real Git provider, counting the
+     * discovery checkouts it creates after layer construction.
+     */
+    const restoringSync = <A, E, R>(
+      workspaceRoot: string,
+      read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">,
+      run: (manager: KnowledgeManagerService) => Effect.Effect<A, E, R>,
+    ) =>
+      Effect.gen(function* () {
+        let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+        const outcome = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          recording?.reset();
+          return yield* run(manager);
+        }).pipe(
+          Effect.result,
+          Effect.provide(
+            managerLayer(workspaceRoot, {
+              read,
+              sources: gitSources,
+              fileSystem: (native) => {
+                const recorded = makeRecordingFileSystem(native);
+                recording = recorded.recording;
+                return recorded.fileSystem;
+              },
+            }),
+          ),
+        );
+        const checkouts =
+          recording
+            ?.calls({ method: "makeTempDirectory" })
+            .filter((call) => nodePath.basename(call.path).startsWith("axm-source-discovery-"))
+            .length ?? 0;
+        return { outcome, checkouts };
+      });
+
+    const withRoot = <A, E, R>(body: (root: string) => Effect.Effect<A, E, R>) =>
+      Effect.gen(function* () {
+        const root = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-knowledge-git-"));
+        try {
+          return yield* body(root);
+        } finally {
+          rmSync(root, { recursive: true, force: true });
+        }
+      });
+
+    const workspaceOf = (root: string) => {
+      const workspaceRoot = nodePath.join(root, "workspace");
+      mkdirSync(workspaceRoot, { recursive: true });
+      return workspaceRoot;
+    };
+
+    /** Every published Knowledge manifest's bundle name beneath the workspace. */
+    const publishedNames = (workspaceRoot: string): ReadonlyArray<string> => {
+      const found: Array<string> = [];
+      const visit = (directory: string) => {
+        if (!existsSync(directory)) return;
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+          const child = nodePath.join(directory, entry.name);
+          if (entry.isDirectory()) visit(child);
+          else if (entry.name === "knowledge.json")
+            found.push(String(JSON.parse(readFileSync(child, "utf8")).name));
+        }
+      };
+      visit(nodePath.join(workspaceRoot, "agent_extensions"));
+      return found.sort();
+    };
+
+    const lockedAt =
+      (source: ReturnType<typeof repositoryOf>, revision = "main") =>
+      (name: string) => ({
+        name,
+        revision,
+        commit: source.commit,
+        tree: source.treeOf(name),
+        integrityRoot: nodePath.join(source.repository, name),
+      });
+
+    for (const dryRun of [true, false])
+      it.effect(
+        `checks out one repository revision once for every bundle a sync ${dryRun ? "preview" : "apply"} restores from it`,
+        () =>
+          withRoot((root) =>
+            Effect.gen(function* () {
+              const source = repositoryOf(root, ["alpha", "beta"]);
+              const workspaceRoot = workspaceOf(root);
+              const { outcome, checkouts } = yield* restoringSync(
+                workspaceRoot,
+                lockedGitBundles(source.url, ["alpha", "beta"].map(lockedAt(source))),
+                (manager) => manager.sync({ dryRun }),
+              );
+
+              expect(outcome).toMatchObject({ _tag: "Success", success: { changed: true } });
+              expect(checkouts).toBe(1);
+              expect(publishedNames(workspaceRoot)).toStrictEqual(dryRun ? [] : ["alpha", "beta"]);
+            }),
+          ),
+      );
+
+    it.effect("checks out one repository revision once for three restored bundles", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const names = ["alpha", "beta", "gamma"];
+          const source = repositoryOf(root, names);
+          const workspaceRoot = workspaceOf(root);
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceRoot,
+            lockedGitBundles(source.url, names.map(lockedAt(source))),
+            (manager) => manager.sync({ dryRun: false }),
+          );
+
+          expect(outcome).toMatchObject({ _tag: "Success" });
+          expect(checkouts).toBe(1);
+          expect(publishedNames(workspaceRoot)).toStrictEqual(names);
+        }),
+      ),
+    );
+
+    it.effect("checks out each revision of one repository separately", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const source = repositoryOf(root, ["alpha", "beta"]);
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceOf(root),
+            lockedGitBundles(source.url, [
+              lockedAt(source, "main")("alpha"),
+              lockedAt(source, "other")("beta"),
+            ]),
+            (manager) => manager.sync({ dryRun: true }),
+          );
+
+          expect(outcome).toMatchObject({ _tag: "Success" });
+          expect(checkouts).toBe(2);
+        }),
+      ),
+    );
+
+    it.effect("checks out again for an apply sync after a preview sync", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const source = repositoryOf(root, ["alpha", "beta"]);
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceOf(root),
+            lockedGitBundles(source.url, ["alpha", "beta"].map(lockedAt(source))),
+            (manager) =>
+              manager.sync({ dryRun: true }).pipe(Effect.andThen(manager.sync({ dryRun: false }))),
+          );
+
+          expect(outcome).toMatchObject({ _tag: "Success" });
+          expect(checkouts).toBe(2);
+        }),
+      ),
+    );
+
+    it.effect("refuses the first bundle whose repository cannot be checked out", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const source = repositoryOf(root, ["alpha", "beta"]);
+          const missing = pathToFileURL(nodePath.join(root, "missing"));
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceOf(root),
+            lockedGitBundles(missing, ["alpha", "beta"].map(lockedAt(source))),
+            (manager) => manager.sync({ dryRun: true }),
+          );
+
+          expect(outcome).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "KnowledgeUnavailable" },
+          });
+          if (outcome._tag === "Failure")
+            expect(describeTestFailure(outcome.failure)).toContain(
+              "Active Knowledge bundle could not be restored: alpha.",
+            );
+          // The second bundle is never attempted.
+          expect(checkouts).toBe(1);
+        }),
+      ),
+    );
+
+    it.effect("refuses a bundle the shared checkout no longer resolves to its locked tree", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const source = repositoryOf(root, ["alpha", "beta"]);
+          const workspaceRoot = workspaceOf(root);
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceRoot,
+            lockedGitBundles(source.url, [
+              lockedAt(source)("alpha"),
+              { ...lockedAt(source)("beta"), tree: source.treeOf("alpha") },
+            ]),
+            (manager) => manager.sync({ dryRun: false }),
+          );
+
+          expect(outcome._tag).toBe("Failure");
+          if (outcome._tag === "Failure")
+            expect(describeTestFailure(outcome.failure)).toContain(
+              `Active Knowledge bundle could not be restored: beta. Git Knowledge source no longer resolves to locked commit/tree ${source.commit}/${source.treeOf("alpha")}: beta`,
+            );
+          expect(checkouts).toBe(1);
+          expect(publishedNames(workspaceRoot)).toStrictEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("checks out nothing when no restored bundle is Git-hosted", () =>
+      withRoot((root) =>
+        Effect.gen(function* () {
+          const workspaceRoot = workspaceOf(root);
+          writeKnowledgePackage(nodePath.join(workspaceRoot, "source"), "handbook", true);
+          const { outcome, checkouts } = yield* restoringSync(
+            workspaceRoot,
+            desiredHandbookReadFacts(workspaceRoot),
+            (manager) => manager.sync({ dryRun: true }),
+          );
+
+          expect(outcome).toMatchObject({ _tag: "Success" });
+          expect(checkouts).toBe(0);
+        }),
+      ),
     );
   });
 });

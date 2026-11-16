@@ -1,7 +1,9 @@
 /**
  * Install planning judges each existing directory target from one read of its
  * copy receipt: the currency check reads it, and the native location
- * classification of the same inspection uses what that read observed.
+ * classification of the same inspection uses what that read observed. One
+ * planning capture of the target entries and the canonical source serves both
+ * the target states and their classification.
  */
 
 import * as nodeFs from "node:fs";
@@ -45,7 +47,12 @@ import {
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
   configuredRow,
+  exactVersion,
+  extensionName,
+  handle,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
+import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { SkillManagerLive } from "../../manager.js";
 import { skillInstallationFacts } from "./installation.js";
 
@@ -263,6 +270,132 @@ describe("skill install planning of existing directory targets", () => {
         ownership: "owned",
         proof: "exact-canonical-source-link",
       });
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe("skill install planning of native target entries", () => {
+  it.effect("resolves each target entry and the canonical source once per inspection", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.mkdirSync(nodePath.dirname(claudeTarget()), { recursive: true });
+      nodeFs.mkdirSync(nodePath.dirname(sharedTarget()), { recursive: true });
+
+      const { inspection, recording } = yield* inspectRecorded;
+
+      const work = (target: string) => {
+        const counts = recording.counts(target);
+        return { readLink: counts.readLink ?? 0, stat: counts.stat ?? 0 };
+      };
+      // The planning capture resolves each absent entry once for its state and
+      // its classification; the currency check's receipt read resolves it again.
+      expect({
+        claude: work(claudeTarget()),
+        shared: work(sharedTarget()),
+        source: recording.counts(source).realPath ?? 0,
+      }).toEqual({
+        claude: { readLink: 3, stat: 2 },
+        shared: { readLink: 3, stat: 2 },
+        source: 1,
+      });
+      expect(inspection.targets).toEqual([
+        { path: ".agents/skills/review", state: "absent", agentIds: ["codex"] },
+        { path: ".claude/skills/review", state: "absent", agentIds: ["claude-code"] },
+      ]);
+      expect(nativeLocation(inspection, sharedTarget())).toMatchObject({
+        ownership: "absent",
+        state: "created",
+        configuredConsumers: ["codex"],
+        policyReasons: ["workspace-shared-skills"],
+      });
+      expect(nativeLocation(inspection, claudeTarget())).toMatchObject({
+        ownership: "absent",
+        state: "created",
+        configuredConsumers: ["claude-code"],
+        policyReasons: [],
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("resolves a linked target's immediate source once per inspection", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.mkdirSync(nodePath.dirname(claudeTarget()), { recursive: true });
+      nodeFs.symlinkSync(
+        nodePath.relative(nodePath.dirname(claudeTarget()), source),
+        claudeTarget(),
+      );
+      nodeFs.mkdirSync(nodePath.dirname(sharedTarget()), { recursive: true });
+
+      const { inspection, recording } = yield* inspectRecorded;
+
+      const counts = (target: string) => {
+        const recorded = recording.counts(target);
+        return {
+          readLink: recorded.readLink ?? 0,
+          stat: recorded.stat ?? 0,
+          realPath: recorded.realPath ?? 0,
+        };
+      };
+      expect({
+        source: counts(source),
+        link: counts(claudeTarget()),
+        parentListings: recording.counts(nodePath.dirname(claudeTarget())).readDirectory ?? 0,
+      }).toEqual({
+        source: { readLink: 1, stat: 1, realPath: 1 },
+        link: { readLink: 3, stat: 2, realPath: 2 },
+        parentListings: 2,
+      });
+      expect(inspection.targets).toEqual([
+        { path: ".agents/skills/review", state: "absent", agentIds: ["codex"] },
+        { path: ".claude/skills/review", state: "current", agentIds: ["claude-code"] },
+      ]);
+      expect(nativeLocation(inspection, claudeTarget())).toMatchObject({
+        mechanism: "symlink",
+        ownership: "owned",
+        proof: "exact-canonical-source-link",
+        state: "unchanged",
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("resolves no target entry or canonical source for a skill without a native name", () =>
+    Effect.gen(function* () {
+      nodeFs.mkdirSync(nodePath.dirname(claudeTarget()), { recursive: true });
+      nodeFs.mkdirSync(nodePath.dirname(sharedTarget()), { recursive: true });
+      // Registry content that preview has not acquired has no native name yet.
+      const ref: RegistrySkillRef = {
+        type: "skill",
+        refType: "registry",
+        owner: handle(OWNER),
+        name: extensionName(NAME),
+        version: exactVersion("1.0.0"),
+        integrity: Option.none(),
+        publisherBindingId: "binding-1",
+        packages: [],
+        source: {
+          type: "registry",
+          name: "example",
+          location: decodeRegistryEndpointSync("https://registry.example.test"),
+          owner: Option.none(),
+        },
+        skill: { name: extensionName(NAME), description: Option.none(), metadata: Option.none() },
+      };
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      const inspection = yield* skillInstallationFacts
+        .inspect(ref)
+        .pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+      const canonicalSource = nodePath.resolve(baseDir, inspection.displayPath);
+
+      expect(inspection.targets).toEqual([]);
+      expect(inspection.nativeLocations).toEqual([]);
+      const named = (target: string) =>
+        recording
+          .calls()
+          .filter((call) => call.path === target || call.path.startsWith(`${target}/`));
+      expect(named(claudeTarget())).toEqual([]);
+      expect(named(sharedTarget())).toEqual([]);
+      expect(named(canonicalSource)).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
 });

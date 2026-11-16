@@ -1,8 +1,9 @@
 import { skillDirectoryNameForRef } from "@agentxm/workspace-kernel/acquisition";
 import {
   type NativeLocationOutcome,
+  type NativeLocationSet,
+  captureNativeLocationSet,
   resolveNativeEntry,
-  resolveNativeReferent,
   readCopiedDirectory,
   copiedDirectoryIsCurrentWith,
 } from "@agentxm/workspace-kernel/locations";
@@ -36,6 +37,7 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
+  captureNativeArtifactLocations,
   nativeArtifactLocationOutcomes,
   CodingAgentRepository,
 } from "@agentxm/workspace-kernel/projection";
@@ -143,15 +145,22 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
   });
 
 /**
- * A target's state, and what its one copy receipt read observed. The receipt
+ * A target's state, and what its one copy receipt read observed. The target
+ * entry, the canonical source and a link's immediate target come from the
+ * inspection's planning capture, which its native location classification
+ * reads too; the receipt read and the copy's currency stay live. The receipt
  * presence serves only this inspection's native location classification; the
  * currency check consumes the receipt it just read.
  */
-const targetState = (args: { readonly linkPath: string; readonly canonicalSkillSrcPath: string }) =>
+const targetState = (args: {
+  readonly linkPath: string;
+  readonly canonicalSkillSrcPath: string;
+  readonly locations: NativeLocationSet;
+}) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const entry = yield* resolveNativeEntry(args.linkPath);
-    const source = yield* resolveNativeReferent(args.canonicalSkillSrcPath);
+    const entry = yield* args.locations.entry(args.linkPath);
+    const source = yield* args.locations.referent(args.canonicalSkillSrcPath);
     if (entry.entryPath === source) return { state: "current" as const };
     const receipt = yield* readCopiedDirectory(entry.entryPath);
     const copyReceipt = { directory: entry.entryPath, present: Option.isSome(receipt) };
@@ -161,7 +170,7 @@ const targetState = (args: { readonly linkPath: string; readonly canonicalSkillS
     )
       return { state: "current" as const, copyReceipt };
     if (entry.kind === "symlink" && entry.linkTarget !== undefined) {
-      const immediate = yield* resolveNativeEntry(
+      const immediate = yield* args.locations.entry(
         path.resolve(path.dirname(entry.entryPath), entry.linkTarget),
       );
       return {
@@ -224,39 +233,85 @@ const inspect = (ref: SkillExtensionRef) =>
       workspaceLocation.baseDir,
     );
     const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
-    const inspectedTargets = yield* Effect.forEach(
-      targetLocations.flatMap((location) =>
-        Option.toArray(directoryName).map((name) => ({ ...location, name })),
-      ),
-      (location) => {
-        const linkPath = path.join(location.targetDir, location.name);
-        return targetState({
-          linkPath,
-          canonicalSkillSrcPath: skillSrcPath,
-        }).pipe(
-          Effect.map(({ state, copyReceipt }) => {
-            const agentIds = artifactTargetAgentIds(location.agentIds);
-            return {
-              target: {
-                path: path.relative(workspaceLocation.baseDir, linkPath),
-                state,
-                ...(agentIds.length > 0 ? { agentIds } : {}),
-              },
-              copyReceipt,
-            };
-          }),
-        );
-      },
-      // eslint-disable-next-line axm-policy/no-unbounded-io -- target directories come from the fixed agent catalog
-      { concurrency: "unbounded" },
+    const namedLocations = targetLocations.flatMap((location) =>
+      Option.toArray(directoryName).map((name) => ({
+        ...location,
+        linkPath: path.join(location.targetDir, name),
+      })),
     );
+    // One planning capture of every target entry, its immediate link target
+    // and the canonical source serves both the target states and their native
+    // location classification below; nothing is written in between.
+    const planned =
+      namedLocations.length === 0
+        ? undefined
+        : yield* captureNativeLocationSet({
+            entries: namedLocations.map(({ linkPath }) => linkPath),
+            referents: [skillSrcPath],
+          });
+    const inspectedTargets =
+      planned === undefined
+        ? []
+        : yield* Effect.forEach(
+            namedLocations,
+            (location) => {
+              const { linkPath } = location;
+              return targetState({
+                linkPath,
+                canonicalSkillSrcPath: skillSrcPath,
+                locations: planned,
+              }).pipe(
+                Effect.map(({ state, copyReceipt }) => {
+                  const agentIds = artifactTargetAgentIds(location.agentIds);
+                  return {
+                    target: {
+                      path: path.relative(workspaceLocation.baseDir, linkPath),
+                      state,
+                      ...(agentIds.length > 0 ? { agentIds } : {}),
+                    },
+                    copyReceipt,
+                  };
+                }),
+              );
+            },
+            // eslint-disable-next-line axm-policy/no-unbounded-io -- target directories come from the fixed agent catalog
+            { concurrency: "unbounded" },
+          );
     const targets = inspectedTargets.map(({ target }) => target);
+    const allAgents = yield* agentRepo.all;
+    // The classification locates its readers and the shared directory in its
+    // own capture, and each target entry and the canonical source from the
+    // planning capture its target states just read.
+    const readerLocations =
+      planned === undefined
+        ? undefined
+        : yield* captureNativeArtifactLocations({
+            workspaceRoot: workspaceLocation.baseDir,
+            scope: workspaceLocation.scope,
+            agents: allAgents,
+            kinds: ["skill"],
+            sharedSkillPolicy: true,
+            entries: [],
+          });
+    const canonicalSource = path.resolve(skillSrcPath);
     const proposed = yield* nativeArtifactLocationOutcomes({
       workspaceRoot: workspaceLocation.baseDir,
       scope: workspaceLocation.scope,
-      agents: yield* agentRepo.all,
+      agents: allAgents,
       configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
       sharedSkillPolicy: true,
+      ...(planned === undefined || readerLocations === undefined
+        ? {}
+        : {
+            readers: readerLocations.readers,
+            locationSet: {
+              entry: planned.entry,
+              referent: (target: string) =>
+                path.resolve(target) === canonicalSource
+                  ? planned.referent(target)
+                  : readerLocations.locationSet.referent(target),
+            },
+          }),
       targets: inspectedTargets.map(({ target, copyReceipt }) => ({
         path: target.path,
         kind: "skill" as const,

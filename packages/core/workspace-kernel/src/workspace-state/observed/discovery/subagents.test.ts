@@ -7,9 +7,17 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import { SubagentScanFailed } from "../errors.js";
 import { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagents.js";
 import { afterEach, beforeEach } from "vitest";
 
@@ -138,4 +146,95 @@ describe("scanAllSubagentFiles", () => {
       }),
     ),
   );
+});
+
+describe("scanAllSubagentFiles over directories shared by several agents", () => {
+  const setUpSharedDirectories = () => {
+    fs.mkdirSync(path.join(tempDir, ".agents", "agents"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".agents", "agents", "a.md"), "# A");
+    fs.writeFileSync(path.join(tempDir, ".agents", "agents", "b.md"), "# B");
+    fs.mkdirSync(path.join(tempDir, ".qoder", "agents"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, ".qoder", "agents", "c.md"), "# C");
+  };
+
+  const recorded = <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | FileSystemRecorder>,
+    base: Layer.Layer<FileSystem.FileSystem> = NodeFileSystem.layer,
+  ) => effect.pipe(Effect.provide(Layer.merge(layerRecordingFileSystem(base), NodePath.layer)));
+
+  it.effect("scans each shared directory once and gives every agent its own rows", () =>
+    recorded(
+      Effect.gen(function* () {
+        setUpSharedDirectories();
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+
+        const result = yield* scanAllSubagentFiles(tempDir);
+
+        const agentsDir = path.resolve(tempDir, ".agents/agents");
+        const qoderDir = path.resolve(tempDir, ".qoder/agents");
+        expect(recording.counts(agentsDir)).toEqual({ access: 1, readDirectory: 1 });
+        expect(recording.counts(path.join(agentsDir, "a.md"))).toEqual({ stat: 1 });
+        expect(recording.counts(path.join(agentsDir, "b.md"))).toEqual({ stat: 1 });
+        expect(recording.counts(qoderDir)).toEqual({ access: 1, readDirectory: 1 });
+        expect(recording.counts(path.join(qoderDir, "c.md"))).toEqual({ stat: 1 });
+
+        const shared = [path.join(".agents/agents", "a.md"), path.join(".agents/agents", "b.md")];
+        const qoder = [path.join(".qoder/agents", "c.md")];
+        expect(
+          result.map((summary) => ({
+            agentId: summary.agentId,
+            subagentDir: summary.subagentDir,
+            files: summary.files.map((file) => file.path).sort(),
+          })),
+        ).toEqual([
+          { agentId: "antigravity", subagentDir: ".agents/agents", files: shared },
+          { agentId: "antigravity-cli", subagentDir: ".agents/agents", files: shared },
+          { agentId: "goose", subagentDir: ".agents/agents", files: shared },
+          { agentId: "qoder", subagentDir: ".qoder/agents", files: qoder },
+          { agentId: "qoder-cn", subagentDir: ".qoder/agents", files: qoder },
+        ]);
+        const fileArrays = result.map((summary) => summary.files);
+        expect(new Set(fileArrays).size).toBe(fileArrays.length);
+      }),
+    ),
+  );
+
+  it.effect("attributes a failed shared scan to the first agent that declares it", () => {
+    const agentsDir = path.resolve(tempDir, ".agents/agents");
+    const injected = PlatformError.systemError({
+      _tag: "PermissionDenied",
+      module: "FileSystem",
+      method: "readDirectory",
+      pathOrDescriptor: agentsDir,
+    });
+    const failingBase = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const base = yield* FileSystem.FileSystem;
+        return FileSystem.make({
+          ...base,
+          readDirectory: (directory, options) =>
+            directory === agentsDir
+              ? Effect.fail(injected)
+              : base.readDirectory(directory, options),
+        });
+      }),
+    ).pipe(Layer.provide(NodeFileSystem.layer));
+    return recorded(
+      Effect.gen(function* () {
+        setUpSharedDirectories();
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+
+        const error = yield* Effect.flip(scanAllSubagentFiles(tempDir));
+
+        expect(error).toBeInstanceOf(SubagentScanFailed);
+        expect(error.agentName).toBe("Antigravity");
+        expect(error.cause).toBe(injected);
+        expect(recording.counts(agentsDir).readDirectory).toBe(1);
+      }),
+      failingBase,
+    );
+  });
 });

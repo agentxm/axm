@@ -4,6 +4,7 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { SubagentScanFailed } from "../errors.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -32,27 +33,32 @@ export interface AgentSubagentSummary {
 const isKnownAgentId = (id: string): id is MaterializationTargetId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
-const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
+type SubagentLocationDeclaration = NonNullable<AgentDescriptor["subagents"]>["locations"][number];
+
+const projectSubagentDeclaration = (agent: AgentDescriptor) =>
+  agent.subagents?.locations.find(
+    (location) =>
+      location.scope === "project" &&
+      location.role === "primary" &&
+      location.applicability.kind === "always",
+  );
+
+/**
+ * Observe one resolved subagent location. `Option.none()` means it is absent;
+ * a present directory yields the names of its regular files, and a present
+ * file-shaped location yields no names.
+ */
+const scanSubagentLocation = (
+  fs: FileSystem.FileSystem,
+  p: Path.Path,
+  shape: SubagentLocationDeclaration["shape"],
+  subagentPath: string,
+) =>
   Effect.gen(function* () {
-    const subagents = agent.subagents;
-    const declaration = subagents?.locations.find(
-      (location) =>
-        location.scope === "project" &&
-        location.role === "primary" &&
-        location.applicability.kind === "always",
-    );
-    if (declaration === undefined) return [];
-
-    const fs = yield* FileSystem.FileSystem;
-    const p = yield* Path.Path;
-    const subagentPath = p.resolve(projectDir, declaration.path);
-
     const exists = yield* fs.exists(subagentPath);
-    if (!exists) return [];
+    if (!exists) return Option.none<ReadonlyArray<string>>();
 
-    if (declaration.shape === "file") {
-      return [{ path: declaration.path }] as const;
-    }
+    if (shape === "file") return Option.some<ReadonlyArray<string>>([]);
 
     const entries = yield* fs.readDirectory(subagentPath);
     const files = yield* Effect.filter(
@@ -64,13 +70,40 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
         }),
       { concurrency: SCANNER_IO_CONCURRENCY },
     );
+    return Option.some<ReadonlyArray<string>>(files);
+  });
 
-    return files.map(
-      (file) => ({ path: p.join(declaration.path, file) }) satisfies DetectedSubagentFile,
+/** A newly built file list for one agent's declaration. */
+const detectedFiles = (
+  p: Path.Path,
+  declaration: SubagentLocationDeclaration,
+  observed: Option.Option<ReadonlyArray<string>>,
+): ReadonlyArray<DetectedSubagentFile> =>
+  Option.match(observed, {
+    onNone: () => [],
+    onSome: (names) =>
+      declaration.shape === "file"
+        ? [{ path: declaration.path }]
+        : names.map((name) => ({ path: p.join(declaration.path, name) })),
+  });
+
+const scanFailed = (agent: AgentDescriptor) => (error: unknown) =>
+  new SubagentScanFailed({ agentName: agent.name, cause: error });
+
+const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
+  Effect.gen(function* () {
+    const declaration = projectSubagentDeclaration(agent);
+    if (declaration === undefined) return [];
+
+    const fs = yield* FileSystem.FileSystem;
+    const p = yield* Path.Path;
+    const subagentPath = p.resolve(projectDir, declaration.path);
+    return detectedFiles(
+      p,
+      declaration,
+      yield* scanSubagentLocation(fs, p, declaration.shape, subagentPath),
     );
-  }).pipe(
-    Effect.mapError((error) => new SubagentScanFailed({ agentName: agent.name, cause: error })),
-  );
+  }).pipe(Effect.mapError(scanFailed(agent)));
 
 export const scanAgentSubagentFiles = (agentId: string, projectDir: string) =>
   isKnownAgentId(agentId)
@@ -79,26 +112,49 @@ export const scanAgentSubagentFiles = (agentId: string, projectDir: string) =>
 
 export const scanAllSubagentFiles = (projectDir: string) =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const p = yield* Path.Path;
     const agentsWithSubagents = Object.values(AGENT_DESCRIPTORS).filter(
       (agent) => agent.subagents !== undefined,
     );
 
-    const results = yield* Effect.forEach(
-      agentsWithSubagents,
-      (agent) =>
-        Effect.gen(function* () {
-          const files = yield* scanKnownAgentSubagentFiles(agent, projectDir);
-          return {
-            agentId: agent.id,
-            agentName: agent.name,
-            subagentDir:
-              agent.subagents?.locations.find(
-                (location) => location.scope === "project" && location.role === "primary",
-              )?.path ?? "",
-            files,
-          } satisfies AgentSubagentSummary;
-        }),
+    const located = agentsWithSubagents.flatMap((agent) => {
+      const declaration = projectSubagentDeclaration(agent);
+      if (declaration === undefined) return [];
+      const subagentPath = p.resolve(projectDir, declaration.path);
+      return [{ agent, declaration, subagentPath, key: `${declaration.shape}:${subagentPath}` }];
+    });
+
+    // Agents that declare the same location share one scan in this call. The
+    // first agent in registry order that declares a location owns its scan
+    // and names its failure.
+    const owners = located.filter(
+      (subject, index) => located.findIndex(({ key }) => key === subject.key) === index,
+    );
+    const scans = yield* Effect.forEach(
+      owners,
+      (owner) =>
+        scanSubagentLocation(fs, p, owner.declaration.shape, owner.subagentPath).pipe(
+          Effect.mapError(scanFailed(owner.agent)),
+        ),
       { concurrency: SCANNER_IO_CONCURRENCY },
+    );
+
+    const results = located.map(
+      ({ agent, declaration, key }) =>
+        ({
+          agentId: agent.id,
+          agentName: agent.name,
+          subagentDir:
+            agent.subagents?.locations.find(
+              (location) => location.scope === "project" && location.role === "primary",
+            )?.path ?? "",
+          files: detectedFiles(
+            p,
+            declaration,
+            scans[owners.findIndex((owner) => owner.key === key)] ?? Option.none(),
+          ),
+        }) satisfies AgentSubagentSummary,
     );
 
     return results.filter((result) => result.files.length > 0);

@@ -62,6 +62,7 @@ export {
 } from "./participants.js";
 export {
   activeContributors,
+  CurrentCanonicalObservationHandoff,
   handedOverCanonicalObservation,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   requireCompleteContributors,

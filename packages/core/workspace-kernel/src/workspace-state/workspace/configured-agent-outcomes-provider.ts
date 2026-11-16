@@ -13,13 +13,18 @@ export type { WorkspaceReadViewReaders } from "./read-contracts.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
+import type * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ConfiguredAgentOutcome, ErrorCode } from "../../operations/index.js";
 import type { NativeLocationOutcome } from "../../locations/index.js";
-import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
 import type { AcceptedCanonicalObservation } from "./accepted-canonical-ref.js";
+import type { CanonicalObservation, CapturedManifest } from "./canonical-observation.js";
+import type { LockEntry } from "./lock-entry.js";
+import type { WorkspaceLayout } from "./layout.js";
+import type { WorkspaceReadPhaseState } from "./read-phase.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
@@ -83,6 +88,20 @@ export interface ConfiguredAgentOutcomesRequest {
      * node and accepted row, instead of observing the package again.
      */
     readonly acceptedCanonical?: AcceptedCanonicalObservation;
+    /**
+     * The canonical observation the caller made of this row's desired node,
+     * against `accepted` and `layout`, through the observation port of
+     * `phase`. A contributor selection in that still active phase takes it
+     * for the identical node, row and layout instead of observing again.
+     */
+    readonly canonicalObservation?: {
+      readonly phase: WorkspaceReadPhaseState;
+      readonly desired: DesiredExtensionNode;
+      readonly accepted: LockEntry | undefined;
+      readonly layout: WorkspaceLayout;
+      readonly observation: CanonicalObservation;
+      readonly manifest: Option.Option<CapturedManifest>;
+    };
   }>;
 }
 

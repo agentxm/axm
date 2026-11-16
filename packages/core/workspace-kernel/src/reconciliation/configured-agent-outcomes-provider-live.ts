@@ -21,6 +21,7 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   CodingAgentRepository,
+  CurrentCanonicalObservationHandoff,
   observeConfiguredSkillLocations,
   observeObservedInstructionSurfacePlans,
   inspectDesiredMcpServer,
@@ -153,21 +154,55 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         };
       }),
     });
+    /**
+     * Hand the contributor selection of one projection the canonical
+     * observations the request's rows carry from the active observation phase
+     * this call runs in; without any, the selection observes for itself.
+     */
+    const withRowObservations =
+      (request: ConfiguredAgentOutcomesRequest) =>
+      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          if (phase === undefined || !phase.observations) return yield* effect;
+          const captures = request.rows.flatMap((row) =>
+            row.canonicalObservation?.phase === phase ? [row.canonicalObservation] : [],
+          );
+          if (captures.length === 0) return yield* effect;
+          return yield* Effect.provideService(effect, CurrentCanonicalObservationHandoff, {
+            phase,
+            fileSystem: phase.fileSystem,
+            observed: (desired) =>
+              Option.map(
+                Option.fromUndefinedOr(captures.find((capture) => capture.desired === desired)),
+                ({ accepted, layout, observation, manifest }) => ({
+                  accepted,
+                  layout,
+                  observation,
+                  manifest,
+                }),
+              ),
+          });
+        });
     const aggregate =
       (manager: Pick<typeof hookManager, "observedProjectionPlans">) =>
       (request: ConfiguredAgentOutcomesRequest) =>
         Effect.gen(function* () {
-          const observed = yield* manager.observedProjectionPlans(
-            {
-              configuredAgents: request.agentIds,
-              ...(request.desiredGraph === undefined ? {} : { desiredGraph: request.desiredGraph }),
-            },
-            (plans) =>
-              observeObservedInstructionSurfacePlans(plans, {
-                view: "current",
+          const observed = yield* manager
+            .observedProjectionPlans(
+              {
                 configuredAgents: request.agentIds,
-              }),
-          );
+                ...(request.desiredGraph === undefined
+                  ? {}
+                  : { desiredGraph: request.desiredGraph }),
+              },
+              (plans) =>
+                observeObservedInstructionSurfacePlans(plans, {
+                  view: "current",
+                  configuredAgents: request.agentIds,
+                }),
+            )
+            .pipe(withRowObservations(request));
           const graph = request.desiredGraph ?? (yield* (yield* DesiredStateReader).graph());
           const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(

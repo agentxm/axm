@@ -17,6 +17,9 @@ import { LockfileReader } from "./lockfile-reader.js";
 import { WorkspaceLocation } from "./location.js";
 import { observeCanonicalExtensionCapturing } from "./canonical-observation.js";
 
+/** Types whose observer selects aggregate contributors from the desired graph. */
+const aggregateContributorTypes: ReadonlySet<string> = new Set(["rule", "knowledge", "hook"]);
+
 export const observeConfiguredTargets = Effect.fnUntraced(
   function* (
     targets: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
@@ -50,7 +53,7 @@ export const observeConfiguredTargets = Effect.fnUntraced(
         (node) =>
           Effect.gen(function* () {
             const accepted = yield* locks.acceptedEntry(node.type, node.name);
-            const { observation: canonical } = yield* observeCanonicalExtensionCapturing({
+            const { observation: canonical, manifest } = yield* observeCanonicalExtensionCapturing({
               layout,
               desired: node,
               accepted: Option.getOrUndefined(accepted),
@@ -76,6 +79,20 @@ export const observeConfiguredTargets = Effect.fnUntraced(
                       desired: node,
                       ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
                       observation: canonical,
+                    }),
+                  }
+                : {}),
+              // An aggregate contributor selection takes this observation of
+              // the identical node, row and layout while this phase is active.
+              ...(handing !== undefined && aggregateContributorTypes.has(node.type)
+                ? {
+                    canonicalObservation: Object.freeze({
+                      phase: handing,
+                      desired: node,
+                      accepted: Option.getOrUndefined(accepted),
+                      layout,
+                      observation: canonical,
+                      manifest,
                     }),
                   }
                 : {}),

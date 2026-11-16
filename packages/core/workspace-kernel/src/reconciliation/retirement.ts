@@ -42,6 +42,13 @@ interface VerifiedRetirementTree {
   readonly integrity: TreeIntegrity;
 }
 
+/** What one planning call observed of one canonical tree, filled as its rows need it. */
+interface ObservedRetirementTree {
+  readonly exists: boolean;
+  integrity?: TreeIntegrity;
+  nativeReferences?: ReadonlyArray<string>;
+}
+
 /** The digest a retirement verified for `type`'s accepted row `entry`, when it hashed that tree. */
 export type RetiredTreeDigest = (
   type: ExtensionType,
@@ -119,6 +126,11 @@ export const collectUnreachableRetirementVerifying = (
     const retainedPaths = new Set(
       accepted.filter((row) => !unreached(graph, row)).map(canonicalPath),
     );
+    // Rows that bind one canonical tree observe it once in this planning call.
+    // The rows run one after another with nothing written between them; each
+    // row still checks its own accepted integrity, and the transition repeats
+    // every observation under the lock.
+    const observedTrees = new Map<string, ObservedRetirementTree>();
     const judged = yield* Effect.forEach(
       accepted.filter(
         (row) =>
@@ -136,15 +148,23 @@ export const collectUnreachableRetirementVerifying = (
         Effect.gen(function* () {
           const canonical = canonicalPath(row);
           yield* validatePathSafety(path, layout.acquiredRoot, canonical);
-          const exists = yield* fs.exists(canonical).pipe(
-            Effect.mapError((cause) =>
-              syncRefused({
-                category: "internal",
-                detail: `Cannot inspect ${canonical}`,
-                cause,
+          const observed =
+            observedTrees.get(canonical) ??
+            (yield* fs.exists(canonical).pipe(
+              Effect.mapError((cause) =>
+                syncRefused({
+                  category: "internal",
+                  detail: `Cannot inspect ${canonical}`,
+                  cause,
+                }),
+              ),
+              Effect.map((exists) => {
+                const tree: ObservedRetirementTree = { exists };
+                observedTrees.set(canonical, tree);
+                return tree;
               }),
-            ),
-          );
+            ));
+          const exists = observed.exists;
           const shared = [...retainedPaths].some(
             (retained) =>
               isLexicallyWithin(path, canonical, retained) ||
@@ -152,7 +172,9 @@ export const collectUnreachableRetirementVerifying = (
           );
           let verified: VerifiedRetirementTree | undefined;
           if (exists && !shared) {
-            const integrity = yield* computeMaterializedTreeIntegrity(canonical);
+            const integrity =
+              observed.integrity ?? (yield* computeMaterializedTreeIntegrity(canonical));
+            observed.integrity = integrity;
             if (integrity !== row.entry.treeIntegrity)
               return yield* syncRefused({
                 category: "conflict",
@@ -160,23 +182,28 @@ export const collectUnreachableRetirementVerifying = (
               });
             verified = { type: row.type, root: canonical, accepted: row.entry, integrity };
           }
-          const nativeReferences =
-            exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")
-              ? yield* nativePackageReferences({
-                  workspaceRoot: location.baseDir,
-                  nativeDirectoryInputs: location.nativeDirectoryInputs,
-                  scope: location.scope,
-                  packageRoot: canonical,
-                }).pipe(
-                  Effect.mapError((cause) =>
-                    syncRefused({
-                      category: "conflict",
-                      detail: `Cannot inspect retained native references to ${canonical}`,
-                      cause,
-                    }),
-                  ),
-                )
-              : [];
+          let nativeReferences: Array<string> = [];
+          if (exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")) {
+            const references =
+              observed.nativeReferences ??
+              (yield* nativePackageReferences({
+                workspaceRoot: location.baseDir,
+                nativeDirectoryInputs: location.nativeDirectoryInputs,
+                scope: location.scope,
+                packageRoot: canonical,
+              }).pipe(
+                Effect.mapError((cause) =>
+                  syncRefused({
+                    category: "conflict",
+                    detail: `Cannot inspect retained native references to ${canonical}`,
+                    cause,
+                  }),
+                ),
+              ));
+            observed.nativeReferences = references;
+            // Each row record holds its own copy of the references.
+            nativeReferences = [...references];
+          }
           return {
             row: {
               ...row,

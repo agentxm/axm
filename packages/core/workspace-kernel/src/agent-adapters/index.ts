@@ -167,6 +167,7 @@ export {
   updateHooksJson,
   type HookNativeDeclaration,
 } from "./hooks/managed-groups.js";
+export { readHookSettingsObservation } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers
 export { readYamlEntry } from "./yaml.js";

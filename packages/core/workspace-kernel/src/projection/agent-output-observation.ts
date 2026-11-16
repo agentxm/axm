@@ -50,9 +50,7 @@ import {
 } from "./managed-file-discovery.js";
 import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
 import {
-  readDeclaredHookUnits,
-  invalidNativeConfig,
-  parseNativeConfigRoot,
+  readHookSettingsObservation,
   type HookNativeDeclaration,
   type NativeConfigObservationDiagnostic,
 } from "../agent-adapters/index.js";
@@ -561,44 +559,31 @@ export const observeAgentOutputs = (
       }
       if (Option.isNone(content.success)) continue;
       const raw = content.success.value;
-      const units = yield* readDeclaredHookUnits(
+      // One parse of the settings text yields both its declared units and
+      // whether it holds any registration for the unowned footprint.
+      const settingsObservation = yield* readHookSettingsObservation(
         group.path,
         group.settingsKey,
         raw,
         args.expectedHooks,
       ).pipe(Effect.result);
-      if (Result.isFailure(units)) {
-        diagnostics.push({ ...diagnostic, stage: "decode", cause: units.failure });
+      if (Result.isFailure(settingsObservation)) {
+        diagnostics.push({ ...diagnostic, stage: "decode", cause: settingsObservation.failure });
         continue;
       }
-      if (units.success.length === 0) {
-        const document = yield* parseNativeConfigRoot({
-          format: "jsonc",
-          raw,
-          onFailure: invalidNativeConfig("jsonc", group.path),
-        }).pipe(Effect.result);
-        if (Result.isFailure(document)) {
-          diagnostics.push({ ...diagnostic, stage: "decode", cause: document.failure });
-          continue;
-        }
-        const registrations = document.success[group.settingsKey];
-        if (
-          typeof registrations === "object" &&
-          registrations !== null &&
-          Object.values(registrations).some((value) => Array.isArray(value) && value.length > 0)
-        )
-          outputs.push({
-            extensionType: "hook",
-            containerPath: group.path,
-            path: `${group.path}#${group.settingsKey}`,
-            entryName: group.settingsKey,
-            nativeAddress: { kind: "key-path", path: group.path, keys: [group.settingsKey] },
-            claimantAgentIds: claimants,
-            ownership: "unowned",
-            desired: false,
-          });
-      }
-      for (const unit of units.success) {
+      const { units, hasRegistrations } = settingsObservation.success;
+      if (units.length === 0 && hasRegistrations)
+        outputs.push({
+          extensionType: "hook",
+          containerPath: group.path,
+          path: `${group.path}#${group.settingsKey}`,
+          entryName: group.settingsKey,
+          nativeAddress: { kind: "key-path", path: group.path, keys: [group.settingsKey] },
+          claimantAgentIds: claimants,
+          ownership: "unowned",
+          desired: false,
+        });
+      for (const unit of units) {
         const declaration = args.expectedHooks.find(({ name }) => name === unit.name);
         if (declaration === undefined) continue;
         outputs.push({

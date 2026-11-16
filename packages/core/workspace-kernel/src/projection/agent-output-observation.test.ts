@@ -17,6 +17,7 @@ import { resolveProjectWorkspaceLayout, SettingsSchema } from "../workspace-stat
 import { codingAgentFromDescriptor } from "../agent-adapters/index.js";
 
 import { observeAgentOutputs, workspaceOwnershipIssues } from "./agent-output-observation.js";
+import { workObservations } from "../locations/testing.js";
 import { classifyNativeOutputHealth } from "./native-output-conflicts.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import { makeCodingAgentRepository } from "./testing.js";
@@ -543,6 +544,103 @@ describe("incomplete Hook observations", () => {
           inventory.diagnostics.filter((diagnostic) => diagnostic.extensionType === "hook"),
         ).toEqual([]);
         expect(inventory.outputs.filter((output) => output.extensionType === "hook")).toEqual([]);
+      }),
+    ),
+  );
+});
+
+describe("Hook settings parses within one inventory", () => {
+  /** One inventory over a fixture whose only Hook file is `.claude/settings.json`. */
+  const observeHookFile = (content: (hookRoot: string) => string, declare = false) =>
+    Effect.gen(function* () {
+      const { args, path, root, write } = yield* fixture();
+      const hookRoot = path.join(root, "agent_extensions/@acme/hooks/guard");
+      yield* write(".claude/settings.json", content(hookRoot));
+      const work = workObservations(false);
+      const inventory = yield* observeAgentOutputs({
+        ...args,
+        expectedHooks: declare
+          ? [{ name: "guard", ref: "@acme/hooks/guard", scope: "project", root: hookRoot }]
+          : [],
+      }).pipe(work.provide);
+      return {
+        settings: path.join(root, ".claude/settings.json"),
+        parses: work.facts.filter(
+          (fact) => fact.kind === "axm.parse.native" && fact.attributes?.["axm.format"] === "jsonc",
+        ).length,
+        hooks: inventory.outputs.filter((output) => output.extensionType === "hook"),
+        diagnostics: inventory.diagnostics.filter(
+          (diagnostic) => diagnostic.extensionType === "hook",
+        ),
+      };
+    });
+
+  it.effect("parses a file holding only foreign registrations once", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() =>
+          JSON.stringify({ hooks: { BeforeAgent: [{ command: "echo foreign" }] } }),
+        );
+        expect(observed.parses).toBe(1);
+        expect(observed.diagnostics).toEqual([]);
+        expect(observed.hooks).toEqual([
+          {
+            extensionType: "hook",
+            containerPath: observed.settings,
+            path: `${observed.settings}#hooks`,
+            entryName: "hooks",
+            nativeAddress: { kind: "key-path", path: observed.settings, keys: ["hooks"] },
+            claimantAgentIds: ["claude-code"],
+            ownership: "unowned",
+            desired: false,
+          },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("parses an empty settings object once and reports nothing", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() => "{}");
+        expect(observed.parses).toBe(1);
+        expect(observed.hooks).toEqual([]);
+        expect(observed.diagnostics).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("parses a blank settings file not at all", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() => "  \n");
+        expect(observed.parses).toBe(0);
+        expect(observed.hooks).toEqual([]);
+        expect(observed.diagnostics).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("parses a file holding a declared registration once", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(
+          (hookRoot) =>
+            JSON.stringify({
+              hooks: {
+                BeforeAgent: [{ hooks: [{ type: "command", command: `bash ${hookRoot}/run.sh` }] }],
+              },
+            }),
+          true,
+        );
+        expect(observed.parses).toBe(1);
+        expect(observed.hooks).toEqual([
+          expect.objectContaining({
+            path: `${observed.settings}#guard`,
+            ownership: "declared",
+            proof: "effective-native-declaration",
+          }),
+        ]);
       }),
     ),
   );

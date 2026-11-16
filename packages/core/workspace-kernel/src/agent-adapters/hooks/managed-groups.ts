@@ -196,7 +196,11 @@ const declaredHookUnits = (
   );
 };
 
-export const readDeclaredHookUnits = (
+/**
+ * The declared units of one hook settings text, and whether its settings key
+ * holds any registration at all, from one parse of that text.
+ */
+export const readHookSettingsObservation = (
   configPath: string,
   settingsKey: string,
   raw: string,
@@ -205,8 +209,25 @@ export const readDeclaredHookUnits = (
   Effect.gen(function* () {
     const parsed = yield* parseJsonConfig(configPath, raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
-    return declaredHookUnits(parsed[settingsKey], declarations);
+    const registrations = parsed[settingsKey];
+    return {
+      units: declaredHookUnits(registrations, declarations),
+      hasRegistrations:
+        typeof registrations === "object" &&
+        registrations !== null &&
+        Object.values(registrations).some((value) => Array.isArray(value) && value.length > 0),
+    };
   });
+
+export const readDeclaredHookUnits = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+  declarations: ReadonlyArray<HookNativeDeclaration>,
+) =>
+  readHookSettingsObservation(configPath, settingsKey, raw, declarations).pipe(
+    Effect.map(({ units }) => units),
+  );
 
 const selectDeclaredHookGroups = (
   hooks: unknown,

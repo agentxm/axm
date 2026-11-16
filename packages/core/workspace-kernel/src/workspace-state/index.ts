@@ -240,6 +240,7 @@ export {
   acceptedCanonicalObservationOfKeptRoot,
   acceptedCanonicalObservationPath,
   observeDesiredCanonical,
+  observeDesiredCanonicalCapturing,
   observeDesiredUsableCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,

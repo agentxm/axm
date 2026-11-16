@@ -450,7 +450,7 @@ const acceptedEntryOf = (desired: DesiredExtensionNode, current?: AcceptedEntryO
     return { accepted, lockfile: read };
   });
 
-const observeDesiredCanonicalCapturing = (
+const observeDesiredCanonicalCapturingWith = (
   desired: DesiredExtensionNode,
   current?: AcceptedEntryOptions,
 ) =>
@@ -506,6 +506,23 @@ const observeAcceptedCanonicalCapturing = (
     return { observed, manifest, subagentPackage };
   });
 
+/**
+ * Observe like `observeDesiredCanonical`, also handing the caller the
+ * manifest text the observation read, with its own decode of it, and the
+ * Subagent package its payload check loaded. Neither is retained here.
+ */
+export const observeDesiredCanonicalCapturing = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  {
+    readonly observed: AcceptedCanonicalObservation;
+    readonly manifest: Option.Option<CapturedManifest>;
+    readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
+  },
+  WorkspaceStateReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
+> => observeDesiredCanonicalCapturingWith(desired);
+
 /** Observe one desired node against the accepted resolution its type and name resolve to. */
 export const observeDesiredCanonical = (
   desired: DesiredExtensionNode,
@@ -544,7 +561,7 @@ export const acceptedCanonicalObservationCapturing = ({
     const graph = yield* desiredState.graph();
     const desired = graph.nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return { observed: Option.none(), manifest: Option.none() };
-    const { observed, manifest, subagentPackage } = yield* observeDesiredCanonicalCapturing(
+    const { observed, manifest, subagentPackage } = yield* observeDesiredCanonicalCapturingWith(
       desired,
       currentGraph(desiredState, graph),
     );

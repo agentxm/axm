@@ -37,7 +37,7 @@ import {
   unresolvedPackRoutesText,
   desiredStateProblemText,
   lockEntryVersion,
-  observeDesiredCanonical,
+  observeDesiredCanonicalCapturing,
   bundledSkillCanonicalRoot,
   sameSourceIdentity,
   desiredIdentityFqn,
@@ -526,28 +526,48 @@ export const LocalInspection = {
         }
         const reachability = desiredReachability(graph, candidate);
         const source = candidate.identity.source.authority;
-        const canonical =
-          node === undefined ? undefined : (yield* observeDesiredCanonical(node)).observation;
+        const observed =
+          node === undefined ? undefined : yield* observeDesiredCanonicalCapturing(node);
+        const canonical = observed?.observed.observation;
         const root = canonical?.path ?? candidate.canonicalPath;
+        const manifestPath =
+          root === undefined ? undefined : path.join(root, manifestFilenameForType(candidate.type));
+        // The manifest text this item's observation read at this root, and that
+        // observation's own decode of it, made on first use and kept only for
+        // this item.
+        const capture = Option.filter(
+          observed?.manifest ?? Option.none(),
+          (manifest) => manifest.path === manifestPath,
+        );
+        const captureDecode = yield* Effect.cached(
+          Effect.sync(() => Option.flatMap(capture, (manifest) => manifest.decode())),
+        );
         const stat = root === undefined ? undefined : yield* Effect.result(fs.stat(root));
         let manifestVersion: string | undefined;
-        if (root !== undefined && Result.isSuccess(stat ?? Result.fail(null))) {
-          const text = yield* Effect.result(
-            fs.readFileString(path.join(root, manifestFilenameForType(candidate.type))),
-          );
-          if (Result.isSuccess(text)) {
-            const decoded = yield* Effect.result(
-              Effect.try({
-                try: (): unknown => JSON.parse(text.success),
-                catch: () => undefined,
-              }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ManifestIdentitySchema))),
-            );
-            if (
-              Result.isSuccess(decoded) &&
-              decoded.success.type === candidate.type &&
-              decoded.success.name === (candidate.accepted?.identity.name ?? candidate.name)
-            )
-              manifestVersion = decoded.success.version;
+        if (manifestPath !== undefined && Result.isSuccess(stat ?? Result.fail(null))) {
+          const expectedName = candidate.accepted?.identity.name ?? candidate.name;
+          const captured = Option.getOrUndefined(yield* captureDecode);
+          if (captured !== undefined) {
+            if (captured.type === candidate.type && captured.name === expectedName)
+              manifestVersion = captured.version;
+          } else {
+            const text = Option.isSome(capture)
+              ? Result.succeed(capture.value.text)
+              : yield* Effect.result(fs.readFileString(manifestPath));
+            if (Result.isSuccess(text)) {
+              const decoded = yield* Effect.result(
+                Effect.try({
+                  try: (): unknown => JSON.parse(text.success),
+                  catch: () => undefined,
+                }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ManifestIdentitySchema))),
+              );
+              if (
+                Result.isSuccess(decoded) &&
+                decoded.success.type === candidate.type &&
+                decoded.success.name === expectedName
+              )
+                manifestVersion = decoded.success.version;
+            }
           }
         }
         const declarations: Array<InspectionItem["desired"]["declarations"][number]> = [];
@@ -765,7 +785,14 @@ export const LocalInspection = {
         const memberEvidence =
           candidate.type === "pack" && root !== undefined && candidate.identity.fqn !== undefined
             ? yield* Effect.result(
-                inspectPackMembers({ root, packFqn: candidate.identity.fqn, graph }),
+                inspectPackMembers({
+                  root,
+                  packFqn: candidate.identity.fqn,
+                  graph,
+                  ...(Option.isSome(capture)
+                    ? { observedManifest: { text: capture.value.text, decoded: captureDecode } }
+                    : {}),
+                }),
               )
             : undefined;
         const memberFailure =

@@ -1,13 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
 import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
 import type { WorkFact } from "@agentxm/host-primitives/work-observation";
-import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import { StepFailureConversionTest } from "@agentxm/workspace-kernel/reconciliation/testing";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
@@ -16,7 +17,7 @@ import { buildInventoryDocument } from "../inventory-document.js";
 import { inspectInventory } from "../inventory-inspection.js";
 import { ListKnowledge } from "../knowledge/list-knowledge.js";
 import { makeInstalledWorkspace } from "../test-support/installed-workspace.js";
-import { knowledgeDocument } from "../testing.js";
+import { knowledgeDocument, makeInspectionFixture } from "../testing.js";
 import { withLocalAssessmentReadView, withLocalInspectionReadView } from "./content-read-view.js";
 
 /**
@@ -147,7 +148,7 @@ describe("Local inspection of Knowledge bundles", () => {
           ]);
           // Discovery selection reads knowledge.json and both documents; the
           // inventory's counts ask for none of them again.
-          expect(decodes).toEqual({ requested: 6, executed: 4 });
+          expect(decodes).toEqual({ requested: 5, executed: 4 });
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
@@ -169,7 +170,7 @@ describe("Local inspection of Knowledge bundles", () => {
             { concepts: 2, diagnostics: 0 },
             { concepts: 2, diagnostics: 0 },
           ]);
-          expect(decodes).toEqual({ requested: 11, executed: 7 });
+          expect(decodes).toEqual({ requested: 9, executed: 7 });
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
@@ -194,7 +195,7 @@ describe("Local inspection of Knowledge bundles", () => {
           expect(result.items.map((item) => item.knowledge)).toEqual([
             { concepts: 2, diagnostics: 1 },
           ]);
-          expect(decodes).toEqual({ requested: 7, executed: 5 });
+          expect(decodes).toEqual({ requested: 6, executed: 5 });
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
@@ -237,7 +238,7 @@ describe("Local inspection of Knowledge bundles", () => {
           );
           expect(show.result.items).toHaveLength(1);
           expect(show.result.items[0]).not.toHaveProperty("knowledge");
-          expect(show.decodes).toEqual({ requested: 5, executed: 3 });
+          expect(show.decodes).toEqual({ requested: 4, executed: 3 });
 
           // The inventory document states the failure the earlier inspection
           // met, exactly as its own inspection would.
@@ -270,7 +271,7 @@ describe("Local inspection of Knowledge bundles", () => {
           expect(result.items.map((item) => item.knowledge)).toEqual([
             { concepts: 2, diagnostics: 0 },
           ]);
-          expect(decodes).toEqual({ requested: 6, executed: 4 });
+          expect(decodes).toEqual({ requested: 5, executed: 4 });
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
@@ -342,5 +343,262 @@ describe("Local inspection of Knowledge bundles", () => {
         }),
       )
       .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
+  });
+});
+
+/** Count `JSON.parse` calls over exactly `text`, from the moment it is called. */
+const countParses = () => {
+  const parse = vi.spyOn(JSON, "parse");
+  return (text: string) => parse.mock.calls.filter(([input]) => input === text).length;
+};
+
+/** Resolutions and identity probes of exactly `file` through the recording port. */
+const verifiedReads = (recording: FileSystemRecording, file: string) => {
+  const counts = recording.counts(file);
+  return { realPath: counts.realPath ?? 0, stat: counts.stat ?? 0 };
+};
+
+/** Run `effect` over a recording port, counting from a reset recorder. */
+const recordedQuery = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+    recording.reset();
+    const result = yield* effect.pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+    return { result, recording };
+  });
+
+describe("Local inspection of a package manifest version", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const knowledgeManifest = (fields: Readonly<Record<string, unknown>> = {}) =>
+    JSON.stringify({
+      owner: "@acme",
+      type: "knowledge",
+      name: "platform",
+      version: "1.0.0",
+      description: "Fixture Knowledge bundle",
+      format: { name: "okf", version: "0.2" },
+      bundleRoot: "src",
+      ...fields,
+    });
+
+  it.effect("reports the version from the manifest its observation already decoded", () => {
+    const workspace = makeKnowledgeWorkspace({
+      agents: ["claude-code"],
+      bundles: [{ name: "platform", documents }],
+    });
+    const manifestPath = path.join(workspace.root, "knowledge", "platform", "knowledge.json");
+    const text = fs.readFileSync(manifestPath, "utf8");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const parses = countParses();
+          const { result, decodes } = yield* measure(showKnowledge);
+          expect(result.items[0]?.observed).toMatchObject({ manifestVersion: "1.0.0" });
+          // The observation's parse and discovery selection's inspection.
+          expect(parses(text)).toBe(2);
+          expect(decodes).toEqual({ requested: 5, executed: 4 });
+        }),
+      )
+      .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
+  });
+
+  it.effect("verifies the manifest once fewer inside an assessment", () => {
+    const workspace = makeKnowledgeWorkspace({
+      agents: ["claude-code"],
+      bundles: [{ name: "platform", documents }],
+    });
+    const manifestPath = path.join(workspace.root, "knowledge", "platform", "knowledge.json");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const { result, recording } = yield* recordedQuery(
+            withLocalAssessmentReadView(showKnowledge),
+          );
+          expect(result.items[0]?.observed).toMatchObject({ manifestVersion: "1.0.0" });
+          expect(
+            result.observationDiagnostics.filter(
+              (diagnostic) => diagnostic.code === "inspection-read-changed",
+            ),
+          ).toEqual([]);
+          // The observation's verified read and the inventory's own; the
+          // version needs no verified read of its own.
+          expect(verifiedReads(recording, manifestPath)).toEqual({ realPath: 4, stat: 6 });
+          expect(recording.contentReads(manifestPath)).toBe(1);
+        }),
+      )
+      .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
+  });
+
+  for (const scenario of [
+    {
+      label: "a manifest its grammar rejects beside a valid identity",
+      manifest: knowledgeManifest({ format: "okf" }),
+      version: "1.0.0",
+    },
+    {
+      label: "a manifest naming another owner",
+      manifest: knowledgeManifest({ owner: "@other" }),
+      version: "1.0.0",
+    },
+    {
+      label: "a manifest naming another package",
+      manifest: knowledgeManifest({ name: "other" }),
+      version: undefined,
+    },
+    { label: "a manifest that is not JSON", manifest: "{", version: undefined },
+    { label: "a missing manifest", manifest: undefined, version: undefined },
+  ])
+    it.effect(
+      `reports the manifest version exactly as its own read would for ${scenario.label}`,
+      () => {
+        const workspace = makeKnowledgeWorkspace({
+          agents: [],
+          bundles: [{ name: "platform", documents }],
+        });
+        const manifestPath = path.join(workspace.root, "knowledge", "platform", "knowledge.json");
+        if (scenario.manifest === undefined) fs.rmSync(manifestPath);
+        else fs.writeFileSync(manifestPath, scenario.manifest);
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              const result = yield* showKnowledge;
+              expect(result.items).toHaveLength(1);
+              expect(result.items[0]?.observed.manifestVersion).toBe(scenario.version);
+            }),
+          )
+          .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
+      },
+    );
+});
+
+describe("Local inspection of an authored Pack", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** An authored Pack with one authored Rule member, and no capability probe. */
+  const packWorkspace = (pack: string) => {
+    const fixture = makeInspectionFixture({
+      settings: {
+        agents: [],
+        owner: "@acme",
+        instructionFiles: false,
+        packs: { toolkit: { source: "workspace", enabled: true } },
+        rules: { review: { source: "workspace", enabled: true } },
+      },
+      files: {
+        "packs/toolkit/pack.json": pack,
+        "rules/review/rule.json": JSON.stringify({
+          owner: "@acme",
+          type: "rule",
+          name: "review",
+          version: "1.5.0",
+          description: "Review guidance",
+        }),
+        "rules/review/src/RULE.md": "Review every change.\n",
+      },
+    });
+    return {
+      ...fixture,
+      manifestPath: path.join(fixture.root, "packs", "toolkit", "pack.json"),
+      run: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        fixture
+          .provide(effect)
+          .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup))),
+    };
+  };
+  const packManifest = (dependencies: unknown) =>
+    JSON.stringify({
+      owner: "@acme",
+      type: "pack",
+      name: "toolkit",
+      version: "0.0.1",
+      dependencies,
+    });
+  const showPack = LocalInspection.query({
+    selection: { kind: "identities", identities: ["toolkit"] },
+    types: ["pack"],
+  });
+
+  it.effect("decodes the Pack manifest once for its observation, version and members", () => {
+    const text = packManifest({ "@acme/rules/review": ">=1.0.0" });
+    const workspace = packWorkspace(text);
+    return workspace.run(
+      Effect.gen(function* () {
+        const parses = countParses();
+        const { result, decodes } = yield* measure(showPack);
+        const item = result.items[0];
+        expect(item?.observed).toMatchObject({ manifestVersion: "0.0.1" });
+        expect(item?.pack?.members).toEqual([
+          {
+            fqn: "@acme/rules/review",
+            declaration: { constraint: ">=1.0.0", endpoint: null },
+            localNames: ["review"],
+            sourceIdentity: {
+              authority: "workspace",
+              fqn: "@acme/rules/review",
+              endpoint: null,
+              locator: null,
+            },
+            resolution: { status: "authored" },
+            version: "1.5.0",
+            reachability: "satisfying",
+            subjectRef: "member-1",
+          },
+        ]);
+        expect(item?.observed.coverage).toEqual({ state: "complete", reasons: [] });
+        // The desired graph's Pack document and the canonical observation; the
+        // member inspection still reads the manifest, from the phase's cell.
+        expect(parses(text)).toBe(2);
+        expect(decodes).toEqual({ requested: 6, executed: 4 });
+      }),
+    );
+  });
+
+  it.effect(
+    "keeps the member inspection's verified Pack manifest read inside an assessment",
+    () => {
+      const workspace = packWorkspace(packManifest({ "@acme/rules/review": ">=1.0.0" }));
+      return workspace.run(
+        Effect.gen(function* () {
+          const { result, recording } = yield* recordedQuery(withLocalAssessmentReadView(showPack));
+          expect(result.items[0]?.pack?.members).toHaveLength(1);
+          expect(
+            result.observationDiagnostics.filter(
+              (diagnostic) => diagnostic.code === "inspection-read-changed",
+            ),
+          ).toEqual([]);
+          // The member inspection's verified read stays; only the version's goes.
+          expect(verifiedReads(recording, workspace.manifestPath)).toEqual({
+            realPath: 4,
+            stat: 6,
+          });
+          expect(recording.contentReads(workspace.manifestPath)).toBe(1);
+        }),
+      );
+    },
+  );
+
+  it.effect("reports the same member failure for a Pack manifest its grammar rejects", () => {
+    const text = packManifest(5);
+    const workspace = packWorkspace(text);
+    return workspace.run(
+      Effect.gen(function* () {
+        const parses = countParses();
+        const result = yield* showPack;
+        const item = result.items[0];
+        expect(item?.observed.coverage.state).toBe("partial");
+        expect(item?.observed.coverage.reasons).toEqual([
+          'Pack member evidence could not be fully observed: SchemaError(Expected object\n  at ["dependencies"])',
+        ]);
+        expect(item?.observed.manifestVersion).toBe("0.0.1");
+        // The graph and the observation, then the version's identity parse and
+        // the member inspection's own decode of the text the observation rejected.
+        expect(parses(text)).toBe(4);
+      }),
+    );
   });
 });

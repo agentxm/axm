@@ -23,6 +23,7 @@ import {
   AcceptedResolutionWriterTest,
   MockWorkspaceTransactionScope,
   treeIntegrityOfSync,
+  exactVersion,
   extensionName,
   handle,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -44,6 +45,7 @@ import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   SourceHostProviders,
+  SourceNotResolvable,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
 import { RuleManager } from "@agentxm/workspace-kernel/materialization";
@@ -58,7 +60,10 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
-import type { LocalRuleRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import type {
+  LocalRuleRef,
+  RegistryRuleRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { RuleManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 
@@ -221,6 +226,8 @@ describe("RuleManager graph-derived region projection", () => {
     readonly locked: RulesLockMap;
     /** Replaces the native filesystem every service in the layer uses. */
     readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
+    /** Replaces the source host providers, which otherwise serve nothing. */
+    readonly providers?: SourceHostProvidersService;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     const wrapFileSystem = args.fileSystem;
@@ -248,7 +255,7 @@ describe("RuleManager graph-derived region projection", () => {
         ),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
-      Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
+      Layer.provide(Layer.succeed(SourceHostProviders, args.providers ?? providersStub)),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), platform),
@@ -524,11 +531,12 @@ describe("RuleManager graph-derived region projection", () => {
       };
     };
     /** A manager with no installed Rules whose filesystem records every call after setup. */
-    const recordedLayer = () => {
+    const recordedLayer = (providers?: SourceHostProvidersService) => {
       const holder: { recording?: FileSystemRecording } = {};
       const layer = makeTestLayer({
         graph: completeGraph([]),
         locked: decodeLockMap({}),
+        ...(providers === undefined ? {} : { providers }),
         fileSystem: (native) => {
           const recorded = makeRecordingFileSystem(native);
           holder.recording = recorded.recording;
@@ -602,5 +610,57 @@ describe("RuleManager graph-derived region projection", () => {
         ),
       );
     });
+
+    it.effect(
+      "reports a first input's fetch failure before an unwritable instruction source",
+      () => {
+        writeAuthoredRulePackage("beta");
+        const outside = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-rules-outside-"));
+        nodeFs.writeFileSync(nodePath.join(outside, "AGENTS.md"), "# Elsewhere\n");
+        nodeFs.symlinkSync(nodePath.join(outside, "AGENTS.md"), instructionsPath());
+        const unavailable: RegistryRuleRef = {
+          type: "rule",
+          refType: "registry",
+          owner: handle(OWNER),
+          name: extensionName("alpha"),
+          version: exactVersion("1.0.0"),
+          integrity: Option.none(),
+          publisherBindingId: "hbnd_test",
+          packages: [],
+          source: {
+            type: "registry",
+            name: "agentxm",
+            location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+            owner: Option.none(),
+          },
+          rule: { name: extensionName("alpha") },
+        };
+        const { layer, holder } = recordedLayer({
+          ...providersStub,
+          fetch: () =>
+            Effect.fail(
+              new SourceNotResolvable({ category: "network", detail: "Registry unavailable" }),
+            ),
+        });
+        return Effect.gen(function* () {
+          const manager = yield* RuleManager;
+          holder.recording?.reset();
+          const failure = yield* manager
+            .prepareProjection([unavailable, localRuleRef("beta")])
+            .pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "SourceNotResolvable",
+            detail: "Registry unavailable",
+          });
+          // The instruction source is first resolved after the first input's fetch.
+          expect(holder.recording?.calls({ path: instructionsPath() }).length).toBe(0);
+        }).pipe(
+          Effect.provide(layer),
+          Effect.ensuring(
+            Effect.sync(() => nodeFs.rmSync(outside, { recursive: true, force: true })),
+          ),
+        );
+      },
+    );
   });
 });

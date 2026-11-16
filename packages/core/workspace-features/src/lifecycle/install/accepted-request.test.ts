@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { zipSync } from "fflate";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
@@ -120,13 +121,14 @@ const desiredSkill = (name: string, source: string): DesiredExtensionNode => ({
 /**
  * Restore `names` from `source` through the live source providers over the
  * accepted `entries`, counting the scratch directories and artifact requests
- * the restoration makes.
+ * the restoration makes. Each artifact URL serves its bodies in request order,
+ * repeating the last one.
  */
 const restore = (args: {
   readonly source: string;
   readonly names: ReadonlyArray<string>;
   readonly entries: Readonly<Record<string, LockEntry>>;
-  readonly artifacts?: Readonly<Record<string, Uint8Array>>;
+  readonly artifacts?: Readonly<Record<string, ReadonlyArray<Uint8Array>>>;
 }) =>
   Effect.gen(function* () {
     const recorder = makeRecordingFileSystem(yield* FileSystem.FileSystem);
@@ -136,8 +138,12 @@ const restore = (args: {
     const requests: Array<string> = [];
     const artifactClient = HttpClient.make((request) =>
       Effect.sync(() => {
+        const served = requests.filter((url) => url === request.url).length;
         requests.push(request.url);
-        const body = Object.entries(args.artifacts ?? {}).find(([url]) => url === request.url)?.[1];
+        const bodies = Object.entries(args.artifacts ?? {}).find(
+          ([url]) => url === request.url,
+        )?.[1];
+        const body = bodies?.[Math.min(served, bodies.length - 1)];
         return HttpClientResponse.fromWeb(
           request,
           body === undefined ? new Response("missing", { status: 404 }) : new Response(body),
@@ -174,6 +180,7 @@ const restore = (args: {
         ),
       ),
     );
+    const locations: Array<readonly [string, string]> = [];
     const outcome = yield* Effect.scoped(
       Effect.gen(function* () {
         const source = yield* resolveSource(args.source, { expectedType: "skill" });
@@ -185,17 +192,23 @@ const restore = (args: {
           names: args.names,
           versionRange: Option.none(),
         });
+        for (const ref of refs)
+          if (ref.refType === "http" || ref.refType === "git-hosted")
+            locations.push([ref.name, fromFileLocation(ref.location)]);
         return refs.map((ref) => ref.name);
       }),
     ).pipe(Effect.result, Effect.provide(Layer.mergeAll(workspace, sources, NodeServices.layer)));
     const scratch = (prefix: string) =>
       recorder.recording
         .calls({ method: "makeTempDirectory" })
-        .filter((call) => nodePath.basename(call.path).startsWith(prefix)).length;
+        .filter((call) => nodePath.basename(call.path).startsWith(prefix))
+        .map((call) => call.path);
     return {
       outcome,
-      commitFetches: scratch("axm-source-commit-"),
-      artifactAcquisitions: scratch("axm-http-package-"),
+      locations: Object.fromEntries(locations),
+      commitFetches: scratch("axm-source-commit-").length,
+      artifactDirectories: scratch("axm-http-package-"),
+      existsChecks: (path: string) => recorder.recording.calls({ method: "access", path }).length,
       requests: [...requests],
     };
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
@@ -279,28 +292,126 @@ describe("repeat install restoring accepted packages", () => {
     }).pipe(Effect.scoped),
   );
 
+  const skillFile = (name: string, description = `The ${name} skill`) =>
+    new TextEncoder().encode(`---\nname: ${name}\ndescription: ${description}\n---\n`);
+  const artifactUrl = "https://example.test/skills.zip";
+  /** A lock entry accepting `name` at its own path inside the archive with `bytes`. */
+  const httpEntry = (name: string, bytes: Uint8Array): LockEntry => ({
+    source: {
+      type: "http",
+      url: new URL(artifactUrl),
+      kind: "archive",
+      path: name,
+      portable: true,
+    },
+    identity: { name: decodeExtensionNameSync(name) },
+    resolved: { format: "zip", url: new URL(artifactUrl), digest: httpArtifactDigest(bytes) },
+    treeIntegrity,
+  });
+
   it.effect("downloads one accepted HTTP artifact once for every package a request names", () =>
     Effect.gen(function* () {
-      const skill = (name: string) =>
-        new TextEncoder().encode(`---\nname: ${name}\ndescription: The ${name} skill\n---\n`);
-      const archive = zipSync({ "alpha/SKILL.md": skill("alpha"), "beta/SKILL.md": skill("beta") });
-      const url = "https://example.test/skills.zip";
-      const httpEntry = (name: string): LockEntry => ({
-        source: { type: "http", url: new URL(url), kind: "archive", path: name, portable: true },
-        identity: { name: decodeExtensionNameSync(name) },
-        resolved: { format: "zip", url: new URL(url), digest: httpArtifactDigest(archive) },
-        treeIntegrity,
+      const archive = zipSync({
+        "alpha/SKILL.md": skillFile("alpha"),
+        "beta/SKILL.md": skillFile("beta"),
       });
       const outcome = yield* restore({
-        source: url,
+        source: artifactUrl,
         names: ["alpha", "beta"],
-        entries: { alpha: httpEntry("alpha"), beta: httpEntry("beta") },
-        artifacts: { [url]: archive },
+        entries: { alpha: httpEntry("alpha", archive), beta: httpEntry("beta", archive) },
+        artifacts: { [artifactUrl]: [archive] },
       });
 
       expect(outcome.outcome).toMatchObject({ _tag: "Success", success: ["alpha", "beta"] });
-      expect(outcome.requests).toStrictEqual([url]);
-      expect(outcome.artifactAcquisitions).toBe(1);
+      expect(outcome.requests).toStrictEqual([artifactUrl]);
+      expect(outcome.artifactDirectories).toHaveLength(1);
+      const [scratchRoot = ""] = outcome.artifactDirectories;
+      expect(outcome.locations).toStrictEqual({
+        alpha: nodePath.join(scratchRoot, "alpha"),
+        beta: nodePath.join(scratchRoot, "beta"),
+      });
+      expect(outcome.existsChecks(nodePath.join(scratchRoot, "alpha"))).toBe(1);
+      expect(outcome.existsChecks(nodePath.join(scratchRoot, "beta"))).toBe(1);
+    }),
+  );
+
+  it.effect("refuses the package whose path the shared HTTP artifact does not hold", () =>
+    Effect.gen(function* () {
+      const archive = zipSync({ "alpha/SKILL.md": skillFile("alpha") });
+      const outcome = yield* restore({
+        source: artifactUrl,
+        names: ["alpha", "beta"],
+        entries: { alpha: httpEntry("alpha", archive), beta: httpEntry("beta", archive) },
+        artifacts: { [artifactUrl]: [archive] },
+      });
+
+      expect(outcome.outcome).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          detail: expect.stringContaining(
+            "Cannot restore accepted skill beta: its recorded source content is unavailable",
+          ),
+        },
+      });
+      expect(outcome.requests).toStrictEqual([artifactUrl]);
+      expect(outcome.artifactDirectories).toHaveLength(1);
+    }),
+  );
+
+  it.effect("downloads artifacts accepted from one URL at different digests separately", () =>
+    Effect.gen(function* () {
+      const first = zipSync({
+        "alpha/SKILL.md": skillFile("alpha"),
+        "beta/SKILL.md": skillFile("beta"),
+      });
+      const second = zipSync({
+        "alpha/SKILL.md": skillFile("alpha"),
+        "beta/SKILL.md": skillFile("beta", "Changed beta."),
+      });
+      const outcome = yield* restore({
+        source: artifactUrl,
+        names: ["alpha", "beta"],
+        entries: { alpha: httpEntry("alpha", first), beta: httpEntry("beta", second) },
+        artifacts: { [artifactUrl]: [first, second] },
+      });
+
+      expect(outcome.outcome).toMatchObject({ _tag: "Success", success: ["alpha", "beta"] });
+      expect(outcome.requests).toStrictEqual([artifactUrl, artifactUrl]);
+      expect(outcome.artifactDirectories).toHaveLength(2);
+      const [alphaRoot = "", betaRoot = ""] = outcome.artifactDirectories;
+      expect(outcome.locations).toStrictEqual({
+        alpha: nodePath.join(alphaRoot, "alpha"),
+        beta: nodePath.join(betaRoot, "beta"),
+      });
+    }),
+  );
+
+  it.effect("refuses the package whose own accepted digest its download does not match", () =>
+    Effect.gen(function* () {
+      const first = zipSync({
+        "alpha/SKILL.md": skillFile("alpha"),
+        "beta/SKILL.md": skillFile("beta"),
+      });
+      const accepted = zipSync({
+        "alpha/SKILL.md": skillFile("alpha"),
+        "beta/SKILL.md": skillFile("beta", "Accepted beta."),
+      });
+      const outcome = yield* restore({
+        source: artifactUrl,
+        names: ["alpha", "beta"],
+        entries: { alpha: httpEntry("alpha", first), beta: httpEntry("beta", accepted) },
+        artifacts: { [artifactUrl]: [first] },
+      });
+
+      expect(outcome.outcome).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          detail: expect.stringContaining(
+            "Cannot restore accepted skill beta: its recorded source content is unavailable",
+          ),
+        },
+      });
+      expect(outcome.requests).toStrictEqual([artifactUrl, artifactUrl]);
     }),
   );
 

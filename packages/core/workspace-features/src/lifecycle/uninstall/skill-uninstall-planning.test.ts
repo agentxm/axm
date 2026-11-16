@@ -225,6 +225,29 @@ describe("Skill removal planning", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("reports an unreadable configured source before a dangling skills directory", () =>
+    Effect.gen(function* () {
+      const installed = yield* installedSkills(["review"]);
+      const shared = nodePath.join(installed.workspace.root, ".agents/skills");
+      fs.rmSync(shared, { recursive: true, force: true });
+      fs.symlinkSync(nodePath.join(installed.workspace.root, "missing"), shared);
+      const planned = yield* planRecorded(installed, ["review"], {
+        failConfiguredSourceOf: "review",
+      });
+      expect(planned.exit._tag).toBe("Failure");
+      if (planned.exit._tag !== "Failure") return;
+      expect(refusals(planned.exit.cause)).toEqual([
+        {
+          category: "internal",
+          detail: "Skill uninstall planning failed for review",
+          cause: { tag: "OperationRefused", detail: "Configured source of review is unreadable" },
+        },
+      ]);
+      // The grouping is never reached once the configured source has failed.
+      expect(planned.realPaths.shared).toBe(0);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("still reports the Skill whose configured source could not be read", () =>
     Effect.gen(function* () {
       const installed = yield* installedSkills(["review", "triage"]);

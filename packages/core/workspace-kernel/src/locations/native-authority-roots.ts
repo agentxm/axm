@@ -132,13 +132,24 @@ const verifyRoot = (witness: NativeAuthorityRootWitness, address: NativeEntryAdd
     );
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
-/** Select one bounded physical root; a failed selected root never falls back to broader authority. */
+/**
+ * Select one bounded physical root; a failed selected root never falls back to broader authority.
+ *
+ * `observedRoots` are the resolutions an earlier assertion of the same
+ * read-only caller returned, with nothing written in between; they stand in
+ * for resolving each root again only when they name exactly `roots`, in order,
+ * and never alongside `witnesses`, which always resolve live.
+ */
 export const assertNativeMutationWithinRoots = (
   roots: ReadonlyArray<string>,
   target: string,
   mutation: "entry" | "content" = "entry",
   ownerRoot: string,
   witnesses?: ReadonlyArray<NativeAuthorityRootWitness>,
+  observedRoots?: ReadonlyArray<{
+    readonly nativeRoot: string;
+    readonly address: Option.Option<NativeEntryAddress>;
+  }>,
 ): Effect.Effect<
   {
     readonly nativeRoot: string;
@@ -154,6 +165,14 @@ export const assertNativeMutationWithinRoots = (
        */
       readonly ordinary: boolean;
     };
+    /**
+     * Every root as this assertion resolved it, or took it from
+     * `observedRoots`; a root that failed to resolve is `None`.
+     */
+    readonly rootResolutions: ReadonlyArray<{
+      readonly nativeRoot: string;
+      readonly address: Option.Option<NativeEntryAddress>;
+    }>;
   },
   NativeLocationError,
   FileSystem.FileSystem | Path.Path
@@ -170,8 +189,25 @@ export const assertNativeMutationWithinRoots = (
       readonly physicalRoot: string;
       readonly address: NativeEntryAddress;
     }> = [];
-    for (const nativeRoot of roots) {
-      const rootAddress = yield* resolveNativeEntry(nativeRoot).pipe(Effect.option);
+    const observed =
+      witnesses === undefined &&
+      observedRoots !== undefined &&
+      observedRoots.length === roots.length &&
+      observedRoots.every((observedRoot, index) => observedRoot.nativeRoot === roots[index])
+        ? observedRoots
+        : undefined;
+    const rootResolutions: Array<{
+      readonly nativeRoot: string;
+      readonly address: Option.Option<NativeEntryAddress>;
+    }> = [];
+    for (const [index, nativeRoot] of roots.entries()) {
+      const rootAddress =
+        observed?.[index]?.address ??
+        Option.map(
+          yield* resolveNativeEntry(nativeRoot).pipe(Effect.option),
+          (address): NativeEntryAddress => Object.freeze({ ...address }),
+        );
+      rootResolutions.push(Object.freeze({ nativeRoot, address: rootAddress }));
       if (
         Option.isSome(rootAddress) &&
         rootAddress.value.referentPath !== undefined &&
@@ -219,6 +255,7 @@ export const assertNativeMutationWithinRoots = (
     const rootAddress = selected.address;
     return {
       nativeRoot: selected.nativeRoot,
+      rootResolutions: Object.freeze(rootResolutions),
       root: {
         physicalRoot: selected.physicalRoot,
         linkTarget: rootAddress.linkTarget,

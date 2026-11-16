@@ -68,6 +68,8 @@ describe("Bundled AXM skill readiness", () => {
     readonly arrange?: (root: string) => void;
     readonly apply?: boolean;
     readonly betweenPlanAndApply?: (root: string) => void;
+    /** Further work to count in each phase, from the calls that phase recorded. */
+    readonly measure?: (recording: FileSystemRecording, root: string) => unknown;
   }) =>
     Effect.gen(function* () {
       const workspace = makeLifecycleFixture({
@@ -83,10 +85,12 @@ describe("Bundled AXM skill readiness", () => {
       recording.reset();
       const plan = yield* workspace.provide(planBundledAxmSkillInstall);
       const planned = count();
+      const plannedWork = options.measure?.(recording, workspace.root);
       const step = plan.jobs[0]?.steps[0];
       if (step === undefined) throw new Error("Expected the bundled install step");
 
       let applied: ReadonlyArray<number> = [];
+      let appliedWork: unknown;
       let applyFailure: unknown;
       if (options.apply === true) {
         if (step.readiness !== "ready") throw new Error("Expected a ready bundled install step");
@@ -95,6 +99,7 @@ describe("Bundled AXM skill readiness", () => {
         const outcome = yield* workspace.provide(step.run).pipe(Effect.result);
         if (Result.isFailure(outcome)) applyFailure = outcome.failure;
         applied = count();
+        appliedWork = options.measure?.(recording, workspace.root);
       }
       return {
         root: workspace.root,
@@ -103,7 +108,9 @@ describe("Bundled AXM skill readiness", () => {
         readiness: step.readiness,
         errorMessage: step.readiness === "error" ? step.errorMessage : undefined,
         planned,
+        plannedWork,
         applied,
+        appliedWork,
         applyFailure,
       };
     }).pipe(Effect.provide(recordedNodeServices));
@@ -219,6 +226,57 @@ describe("Bundled AXM skill readiness", () => {
         `Preserved unowned skill artifact at ${nodePath.join(shared.root, ".agents/skills/axm")}`,
       );
       expect(shared.workspace.readFile(".agents/skills/axm/SKILL.md")).toBe("# mine\n");
+    }),
+  );
+
+  it.effect("resolves the native roots and canonical source once across distinct directories", () =>
+    Effect.gen(function* () {
+      const measure = (recording: FileSystemRecording, root: string) => {
+        const sources = new Set(
+          recording
+            .calls({ method: "realPath" })
+            .map((call) => call.path)
+            .filter((path) => path.endsWith(`${nodePath.sep}axm${nodePath.sep}src`)),
+        );
+        return {
+          rootLinks: recording.calls({ path: root, method: "readLink" }).length,
+          sources: [...sources].map((source) => ({
+            source: nodePath.relative(root, source),
+            realPath: recording.calls({ path: source, method: "realPath" }).length,
+          })),
+        };
+      };
+      const distinct = yield* observe({
+        agents: ["codex", "gemini-cli"],
+        spellings: [".agents/skills", "other-skills"],
+        configureConfigProvider: skillsDirectoryOverride(
+          "AXM_GEMINI_CLI_SKILLS_DIR",
+          "other-skills",
+        ),
+        arrange: (root) => fs.mkdirSync(nodePath.join(root, "other-skills"), { recursive: true }),
+        apply: true,
+        measure,
+      });
+
+      const canonicalSource = "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src";
+      expect(distinct.applyFailure).toBeUndefined();
+      // Each distinct directory's own inspection names it alike in both phases.
+      expect({ planned: distinct.planned, applied: distinct.applied }).toEqual({
+        planned: [9, 9],
+        applied: [55, 51],
+      });
+      // Planning resolves the workspace root as a native root and the canonical
+      // source once for both directories; the target walks account for the rest.
+      expect(distinct.plannedWork).toEqual({
+        rootLinks: 3,
+        sources: [{ source: canonicalSource, realPath: 1 }],
+      });
+      // The install's readiness does the same; each ensure under its
+      // transaction still resolves both afresh for its own directory.
+      expect(distinct.appliedWork).toEqual({
+        rootLinks: 81,
+        sources: [{ source: canonicalSource, realPath: 7 }],
+      });
     }),
   );
 

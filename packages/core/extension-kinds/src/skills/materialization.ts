@@ -274,21 +274,43 @@ interface SkillAgentArtifactArgs {
   readonly nativeInsertionEligible: boolean;
 }
 
-/** Read-only ownership checks shared by preview and the writer. */
-export const inspectSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
+/**
+ * Read-only ownership checks shared by preview and the writer.
+ *
+ * `observed` is what an earlier inspection of the same read-only caller
+ * resolved for the same native roots and canonical source, with nothing
+ * written since; the writer never passes it, so its inspection resolves live.
+ */
+export const inspectSkillAgentArtifact = (
+  args: SkillAgentArtifactArgs,
+  observed?: {
+    readonly rootResolutions: Effect.Success<
+      ReturnType<typeof assertNativeMutationWithinRoots>
+    >["rootResolutions"];
+    readonly source: string;
+  },
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const agentSkillPath = path.join(args.targetDir, args.sanitizedName);
-    const { address } = yield* assertNativeMutationWithinRoots(
+    const { address, rootResolutions } = yield* assertNativeMutationWithinRoots(
       args.nativeRoots,
       agentSkillPath,
       "entry",
       args.baseDir,
+      undefined,
+      observed?.rootResolutions,
     );
-    const source = yield* resolveNativeReferent(args.canonicalSkillSrcPath);
+    const source = observed?.source ?? (yield* resolveNativeReferent(args.canonicalSkillSrcPath));
     // An authored source already occupies this physical entry. Never copy it onto itself.
     if (address.entryPath === source)
-      return { address, source, state: "current" as const, ownedPreviousLink: false };
+      return {
+        address,
+        source,
+        rootResolutions,
+        state: "current" as const,
+        ownedPreviousLink: false,
+      };
     let ownedPreviousLink = false;
     const previousSources = yield* Effect.forEach(
       args.previousCanonicalSkillSrcPaths ?? [],
@@ -299,7 +321,13 @@ export const inspectSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
         path.resolve(path.dirname(address.entryPath), address.linkTarget),
       );
       if (immediate.entryPath === source && immediate.kind !== "symlink")
-        return { address, source, state: "current" as const, ownedPreviousLink: false };
+        return {
+          address,
+          source,
+          rootResolutions,
+          state: "current" as const,
+          ownedPreviousLink: false,
+        };
       ownedPreviousLink =
         previousSources.includes(immediate.entryPath) && immediate.kind !== "symlink";
     }
@@ -307,7 +335,13 @@ export const inspectSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
       !args.requiresPackageContext &&
       (yield* copiedDirectoryIsCurrent(address.entryPath, source))
     )
-      return { address, source, state: "current" as const, ownedPreviousLink: false };
+      return {
+        address,
+        source,
+        rootResolutions,
+        state: "current" as const,
+        ownedPreviousLink: false,
+      };
     if (address.kind !== "absent" && !ownedPreviousLink) {
       const receipt = yield* readCopiedDirectory(address.entryPath);
       if (
@@ -327,7 +361,7 @@ export const inspectSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
         });
     }
     yield* assertNoPhysicalOverlap(source, address.entryPath);
-    return { address, source, state: "ready" as const, ownedPreviousLink };
+    return { address, source, rootResolutions, state: "ready" as const, ownedPreviousLink };
   });
 
 export const ensureSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>

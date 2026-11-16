@@ -133,7 +133,8 @@ const zipDistribution = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const resolved = yield* resolvePublishSelection(
+    // The listing stays with this walk; it never reaches the returned plan.
+    const { listing, ...resolved } = yield* resolvePublishSelection(
       dir,
       options ?? {},
       options?.skillEnvelope === undefined
@@ -184,11 +185,34 @@ const zipDistribution = (
           payload: envelope,
         });
       }
-      const pending = [""];
+      // Each directory is listed once: by the ignore observation that walked
+      // this tree for the selection, or here, where a directory's emptiness
+      // probe also supplies the names its descent walks.
+      const list = (relative: string) =>
+        Effect.suspend(() => {
+          const listed = listing?.names(relative);
+          return listed === undefined
+            ? fs.readDirectory(path.join(dir, relative))
+            : Effect.succeed(listed);
+        });
+      // An entry's link and kind come from the same observation when it
+      // examined that entry; `.git` it never examines, so that reads live.
+      const observe = (parent: string, name: string, abs: string) =>
+        Effect.gen(function* () {
+          const facts = listing?.facts(parent, name);
+          if (facts !== undefined)
+            return facts.kind === "link"
+              ? { kind: "link" as const, target: facts.target }
+              : { kind: "entry" as const, info: facts };
+          const link = yield* fs.readLink(abs).pipe(Effect.option);
+          if (Option.isSome(link)) return { kind: "link" as const, target: link.value };
+          return { kind: "entry" as const, info: yield* fs.stat(abs) };
+        });
+      const pending = [{ parent: "", children: yield* list("") }];
       while (pending.length > 0) {
-        const parent = pending.pop();
-        if (parent === undefined) break;
-        const children = yield* fs.readDirectory(path.join(dir, parent));
+        const next = pending.pop();
+        if (next === undefined) break;
+        const { parent, children } = next;
         for (const name of children) {
           const relative = path.join(parent, name);
           const abs = path.join(dir, relative);
@@ -196,13 +220,13 @@ const zipDistribution = (
           const rel = options?.skillEnvelope === undefined ? relativePath : `src/${relativePath}`;
           const publicationControl = name.toLowerCase() === ".gitignore";
           if (name === ".git" || publicationControl) {
-            const link = yield* fs.readLink(abs).pipe(Effect.option);
-            const info = Option.isSome(link) ? undefined : yield* fs.stat(abs);
-            const kind = Option.isSome(link)
-              ? "symlink"
-              : info?.type === "Directory"
-                ? "directory"
-                : "file";
+            const observed = yield* observe(parent, name, abs);
+            const kind =
+              observed.kind === "link"
+                ? "symlink"
+                : observed.info.type === "Directory"
+                  ? "directory"
+                  : "file";
             const selected = resolved.selection.evaluate({ path: relativePath, kind });
             if (publicationControl) {
               warnings.push(
@@ -213,27 +237,28 @@ const zipDistribution = (
               rel: kind === "directory" ? `${rel}/` : rel,
               abs,
               sourcePath: relativePath,
-              size: Option.isSome(link)
-                ? new TextEncoder().encode(link.value).length
-                : info?.type === "File"
-                  ? Number(info.size)
-                  : 0,
+              size:
+                observed.kind === "link"
+                  ? new TextEncoder().encode(observed.target).length
+                  : observed.info.type === "File"
+                    ? Number(observed.info.size)
+                    : 0,
               mode: 0,
               payload: new Uint8Array(),
               decision: selected,
             });
             continue;
           }
-          const target = yield* fs.readLink(abs).pipe(Effect.option);
-          if (Option.isSome(target)) {
+          const observed = yield* observe(parent, name, abs);
+          if (observed.kind === "link") {
             if (options?.skillEnvelope === undefined && relativePath === manifestName) {
               return yield* publishRefused({
                 category: "validation",
                 detail: "The distribution manifest must be a regular file, not a symbolic link.",
               });
             }
-            yield* validateContainedLink(dir, abs, target.value);
-            const payload = new TextEncoder().encode(target.value);
+            yield* validateContainedLink(dir, abs, observed.target);
+            const payload = new TextEncoder().encode(observed.target);
             candidates.push({
               rel,
               abs,
@@ -245,9 +270,9 @@ const zipDistribution = (
             });
             continue;
           }
-          const info = yield* fs.stat(abs);
+          const info = observed.info;
           if (info.type === "Directory") {
-            const contents = yield* fs.readDirectory(abs);
+            const contents = yield* list(relative);
             if (contents.length === 0) {
               candidates.push({
                 rel: `${rel}/`,
@@ -258,7 +283,7 @@ const zipDistribution = (
                 decision: resolved.selection.evaluate({ path: relativePath, kind: "directory" }),
                 payload: new Uint8Array(),
               });
-            } else pending.push(relative);
+            } else pending.push({ parent: relative, children: contents });
           } else if (info.type === "File") {
             const payload =
               options?.skillEnvelope === undefined && relativePath === manifestName

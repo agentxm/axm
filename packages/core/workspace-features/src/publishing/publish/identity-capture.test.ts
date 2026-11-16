@@ -98,14 +98,12 @@ const recordPublish = (world: PublishWorld, request: PublishRequest, path: strin
     }),
   );
 
-/** Archive preparation inspects the manifest as an entry and reads it into the distribution. */
-const walkedManifest: ReadonlyArray<RecordedFileSystemMethod> = [
-  "readLink",
-  "stat",
-  "readLink",
-  "stat",
-  "readFile",
-];
+/**
+ * Archive preparation inspects the manifest as an entry once, in the ignore
+ * observation whose listing the archive walk takes, and reads it into the
+ * distribution.
+ */
+const walkedManifest: ReadonlyArray<RecordedFileSystemMethod> = ["readLink", "stat", "readFile"];
 
 describe("Publish identity from the observed manifest", () => {
   const worlds: Array<PublishWorld> = [];

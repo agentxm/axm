@@ -250,7 +250,7 @@ const constraintMismatchObservation = (args: {
  * differ from the accepted integrity it was judged against. It is formed
  * only from a successful digest, never from a failed walk.
  */
-export interface ObservedTreeMismatch {
+interface ObservedTreeMismatch {
   readonly root: string;
   readonly acceptedIntegrity: TreeIntegrity;
   readonly observed: TreeIntegrity;

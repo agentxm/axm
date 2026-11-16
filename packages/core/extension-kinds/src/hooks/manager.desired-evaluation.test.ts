@@ -223,6 +223,17 @@ const evaluations = (workspace: Workspace) => {
   return { inherited, lock };
 };
 
+/**
+ * Run `effect` with the ambient desired-state reader replaced by a distinct
+ * reader over the same workspace, so the manager's own reader is not the one
+ * its caller provides.
+ */
+const throughAnotherReader = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const reader = yield* DesiredStateReader;
+    return yield* effect.pipe(Effect.provideService(DesiredStateReader, { ...reader }));
+  });
+
 describe("HookManager desired-state evaluation", () => {
   describe("one live projection plan build", () => {
     it.effect("derives its output authority from the evaluation its graph came from", () =>
@@ -259,6 +270,16 @@ describe("HookManager desired-state evaluation", () => {
         }),
       ),
     );
+
+    it.effect("captures the authority through a caller's distinct reader as before", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          yield* throughAnotherReader(workspace.manager.projectionPlans());
+          // The graph and the authority each evaluate, through their own readers.
+          expect(evaluations(workspace)).toEqual({ inherited: 2, lock: 3 });
+        }),
+      ),
+    );
   });
 
   describe("withdrawing a Hook's native registrations", () => {
@@ -271,6 +292,17 @@ describe("HookManager desired-state evaluation", () => {
           // Measured before the withdrawal handed its evaluation to its own
           // projection run: inherited 3, lock 4.
           expect(evaluations(workspace)).toEqual({ inherited: 1, lock: 2 });
+        }),
+      ),
+    );
+
+    it.effect("evaluates through a caller's distinct reader as before while deactivating", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          yield* throughAnotherReader(workspace.manager.materializeDeactivate({ target }));
+          // The withdrawal's authority, and its projection run's graph and
+          // authority, each evaluate.
+          expect(evaluations(workspace)).toEqual({ inherited: 3, lock: 4 });
         }),
       ),
     );

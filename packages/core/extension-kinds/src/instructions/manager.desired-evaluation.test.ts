@@ -179,4 +179,17 @@ describe("RuleManager desired-state evaluation in one live plan build", () => {
       }),
     ),
   );
+
+  it.effect("captures the authority through a caller's distinct reader as before", () =>
+    inWorkspace((workspace) =>
+      Effect.gen(function* () {
+        const reader = yield* DesiredStateReader;
+        yield* workspace.manager
+          .projectionPlans()
+          .pipe(Effect.provideService(DesiredStateReader, { ...reader }));
+        // The graph and the authority each evaluate, through their own readers.
+        expect(workspace.evaluations()).toEqual({ inherited: 2, lock: 4 });
+      }),
+    ),
+  );
 });

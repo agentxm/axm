@@ -24,14 +24,19 @@ import * as Schema from "effect/Schema";
 import * as Result from "effect/Result";
 import {
   resolveNativeReadLocation,
+  resolveNativeReferent,
   captureNativeLocationSet,
   type NativeDirectoryInputs,
 } from "../../locations/index.js";
-import { resolveAgentMcpConfigTargetPath } from "./native-config.js";
+import { readNativeMcpConfig, resolveAgentMcpConfigTargetPath } from "./native-config.js";
 import { McpConfigInvalid } from "../errors.js";
 import type { NativeConfigObservationDiagnostic } from "../native-config-observation.js";
 
-import { readCompetingMcpEntries, type CompetingMcpEntry } from "./competing-entries.js";
+import {
+  readCompetingMcpEntries,
+  type CompetingMcpEntry,
+  type CompetingMcpObservation,
+} from "./competing-entries.js";
 
 export { isConfigurableAgentId };
 
@@ -228,16 +233,70 @@ export const groupConfiguredMcpTargets = (args: {
     }),
   );
 
-/** Resolve captured scope roots before joining consumers to physical files. */
-export const resolveConfiguredMcpTargets = (args: {
+/**
+ * The key of one live admission's result: the scope and native root it was
+ * admitted under and the physical path it produced. A target without a
+ * native root was never admitted by a resolution and has no key.
+ */
+export const mcpTargetAdmissionKey = (target: McpConfigTarget): string | undefined =>
+  target.nativeRoot === undefined
+    ? undefined
+    : JSON.stringify([target.scope, target.nativeRoot, target.path]);
+
+interface ConfiguredMcpTargetArgs {
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly workspaceRoot: string;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
-}) =>
+}
+
+/**
+ * Resolve captured scope roots before joining consumers to physical files,
+ * with the admission key of every configured writer target this call admitted
+ * live. Within the call, members that share a declared route admit it once,
+ * and their competing-entry checks share each exact path spelling's bytes and
+ * referent; every member still decodes with its own grammar. Only successes
+ * are kept, because any failure ends the call.
+ */
+export const resolveConfiguredMcpTargetAdmissions = (args: ConfiguredMcpTargetArgs) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const members: Array<SharedMcpTargetMember> = [];
+    const admitted: Array<string> = [];
+    const admissions = new Map<string, string>();
+    const admit = (declaredTarget: McpConfigTarget) => {
+      const key = JSON.stringify([
+        declaredTarget.scope,
+        declaredTarget.nativeRoot ?? args.workspaceRoot,
+        declaredTarget.path,
+      ]);
+      const known = admissions.get(key);
+      return known !== undefined
+        ? Effect.succeed(known)
+        : resolveAgentMcpConfigTargetPath(args.workspaceRoot, declaredTarget).pipe(
+            Effect.tap((physicalPath) => Effect.sync(() => admissions.set(key, physicalPath))),
+          );
+    };
+    const reads = new Map<string, Option.Option<string>>();
+    const referents = new Map<string, string>();
+    const observe: CompetingMcpObservation = {
+      read: (configPath) => {
+        const known = reads.get(configPath);
+        return known !== undefined
+          ? Effect.succeed(known)
+          : readNativeMcpConfig(configPath).pipe(
+              Effect.tap((raw) => Effect.sync(() => reads.set(configPath, raw))),
+            );
+      },
+      referent: (configPath) => {
+        const known = referents.get(configPath);
+        return known !== undefined
+          ? Effect.succeed(known)
+          : resolveNativeReferent(configPath).pipe(
+              Effect.tap((physical) => Effect.sync(() => referents.set(configPath, physical))),
+            );
+      },
+    };
     const declaredReaders = AGENTS.flatMap((agent) => {
       const native = agent.capabilities["mcp-server"].native;
       if (!("locations" in native)) return [];
@@ -282,10 +341,7 @@ export const resolveConfiguredMcpTargets = (args: {
         if (resolved === undefined) continue;
         const declaredTarget = { ...target, nativeRoot: resolved.nativeRoot, path: resolved.path };
         // The captured read view never substitutes for live containment checks.
-        const physicalPath = yield* resolveAgentMcpConfigTargetPath(
-          args.workspaceRoot,
-          declaredTarget,
-        );
+        const physicalPath = yield* admit(declaredTarget);
         const captured = yield* observations.referent(resolved.path).pipe(
           Effect.mapError(
             (cause) =>
@@ -299,12 +355,15 @@ export const resolveConfiguredMcpTargets = (args: {
           return yield* new McpConfigInvalid({
             detail: `MCP location changed during observation: ${resolved.path}`,
           });
+        const admittedTarget = { ...target, nativeRoot: resolved.nativeRoot, path: physicalPath };
+        const admission = mcpTargetAdmissionKey(admittedTarget);
+        if (admission !== undefined) admitted.push(admission);
         members.push({
           agentId,
           locationId: location.id,
           configured: true,
           config,
-          target: { ...target, nativeRoot: resolved.nativeRoot, path: physicalPath },
+          target: admittedTarget,
           declaredTarget,
         });
       }
@@ -381,18 +440,25 @@ export const resolveConfiguredMcpTargets = (args: {
             : [{ path: resolved.path, format: location.format, serversPath: location.keyPath }];
         });
         competingEntries.push(
-          ...(yield* readCompetingMcpEntries({
-            agentId: member.agentId,
-            target: member.target,
-            serversPath: member.config.serversPath,
-            locations,
-            workspaceRoot: args.workspaceRoot,
-            userHome: args.nativeDirectoryInputs.userHome,
-            claudeConfigRoot: args.nativeDirectoryInputs.userConfigRootOverrides?.["claude-code"],
-          })),
+          ...(yield* readCompetingMcpEntries(
+            {
+              agentId: member.agentId,
+              target: member.target,
+              serversPath: member.config.serversPath,
+              locations,
+              workspaceRoot: args.workspaceRoot,
+              userHome: args.nativeDirectoryInputs.userHome,
+              claudeConfigRoot: args.nativeDirectoryInputs.userConfigRootOverrides?.["claude-code"],
+            },
+            observe,
+          )),
         );
       }
       result.push({ ...group, members: readers, unverifiedReaders, competingEntries });
     }
-    return result;
+    return { groups: result, admitted: Object.freeze([...new Set(admitted)]) };
   });
+
+/** Resolve captured scope roots before joining consumers to physical files. */
+export const resolveConfiguredMcpTargets = (args: ConfiguredMcpTargetArgs) =>
+  Effect.map(resolveConfiguredMcpTargetAdmissions(args), ({ groups }) => groups);

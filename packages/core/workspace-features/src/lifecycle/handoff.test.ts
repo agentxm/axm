@@ -38,6 +38,10 @@ interface Layout {
   readonly computedHash?: boolean;
   /** Add a link escaping the canonical copy, which the materialized-tree walk refuses. */
   readonly escapingLink?: boolean;
+  /** Point the agent alias at a copy that does not exist. */
+  readonly danglingAlias?: boolean;
+  /** Leave every native skills directory without a copy of the skill. */
+  readonly uninstalled?: boolean;
 }
 
 /**
@@ -59,13 +63,21 @@ const prepareHandoff = (layout: Layout) =>
     const alias = path.join(workspace.root, ".claude", "skills", "review");
     const separate = path.join(workspace.root, "elsewhere", "review");
     writeSkill(source, sourceFiles);
-    writeSkill(canonical, layout.installed ?? sourceFiles);
-    if (layout.escapingLink === true)
-      fs.symlinkSync(path.join("..", "..", "..", "upstream"), path.join(canonical, "escape"));
-    const aliasTarget = layout.separateAlias === true ? separate : canonical;
-    if (layout.separateAlias === true) writeSkill(separate, sourceFiles);
     fs.mkdirSync(path.dirname(alias), { recursive: true });
-    fs.symlinkSync(path.relative(path.dirname(alias), aliasTarget), alias);
+    if (layout.uninstalled === true) fs.mkdirSync(path.dirname(canonical), { recursive: true });
+    else {
+      writeSkill(canonical, layout.installed ?? sourceFiles);
+      if (layout.escapingLink === true)
+        fs.symlinkSync(path.join("..", "..", "..", "upstream"), path.join(canonical, "escape"));
+      const aliasTarget =
+        layout.separateAlias === true
+          ? separate
+          : layout.danglingAlias === true
+            ? path.join(workspace.root, "missing", "review")
+            : canonical;
+      if (layout.separateAlias === true) writeSkill(separate, sourceFiles);
+      fs.symlinkSync(path.relative(path.dirname(alias), aliasTarget), alias);
+    }
     const lockPath = path.join(workspace.root, "skills-lock.json");
     fs.writeFileSync(
       lockPath,
@@ -95,9 +107,11 @@ const prepareHandoff = (layout: Layout) =>
       outcome,
       recording: recorder.recording,
       treeHashes,
-      canonical: fs.realpathSync(canonical),
+      canonical: layout.uninstalled === true ? canonical : fs.realpathSync(canonical),
       separate: layout.separateAlias === true ? fs.realpathSync(separate) : undefined,
       entryPaths: { canonical, alias },
+      /** The alias entry under its physical parent, as native resolution spells it. */
+      physicalAlias: path.join(fs.realpathSync(path.dirname(alias)), "review"),
     };
   });
 
@@ -161,6 +175,42 @@ describe("Skills handoff preparation", () => {
         reason: "unsafe symlink: escape",
       });
       expect(prepared.treeHashes.map((fact) => fact.outcome)).toEqual(["success", "failure"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("resolves each skills directory shared by several agents once", () =>
+    Effect.gen(function* () {
+      const prepared = yield* prepareHandoff({});
+      expect(prepared.outcome._tag).toBe("Success");
+      // Native resolution reads the canonical entry's link and status once; the
+      // candidate fingerprint and the installation plan account for the rest.
+      expect(prepared.recording.counts(prepared.entryPaths.canonical)).toMatchObject({
+        readLink: 4,
+        stat: 5,
+      });
+      // The agent alias is a distinct directory and is still resolved on its own.
+      expect(prepared.recording.counts(prepared.entryPaths.alias)).toMatchObject({
+        readLink: 6,
+        stat: 4,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("finds no native copy after resolving each distinct skills directory once", () =>
+    Effect.gen(function* () {
+      const prepared = yield* prepareHandoff({ uninstalled: true });
+      expect(prepared.outcome._tag).toBe("Failure");
+      if (prepared.outcome._tag !== "Failure") return;
+      expect(prepared.outcome.failure).toMatchObject({
+        _tag: "OperationRefused",
+        detail: "No installed native copy of review was found; the manager entry was preserved",
+      });
+      // An absent entry costs one resolution: its lexical and parent-resolved link probes and one status.
+      expect(prepared.recording.counts(prepared.entryPaths.canonical)).toEqual({
+        readLink: 2,
+        stat: 1,
+      });
+      expect(prepared.treeHashes).toHaveLength(1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

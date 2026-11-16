@@ -153,13 +153,16 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
   const names = request.all ? Object.keys(original.skills).sort() : [...new Set(request.skills)];
   if (names.length === 0) return yield* failed("Select manager entries with --skill or --all");
   const configured = yield* settings.entries("skill");
+  // Many agents share one skills directory; each distinct spelling is resolved
+  // once per name, in first-seen order. Lexically distinct aliases stay separate.
   const directories = [path.join(location.baseDir, ".agents", "skills")];
   for (const agent of agents) {
     const target = yield* agent.resolveEffectiveSkillsDir({
       workspaceRoot: location.baseDir,
       scope: location.scope,
     });
-    if (target._tag === "supported") directories.push(target.dir);
+    if (target._tag === "supported" && !directories.includes(target.dir))
+      directories.push(target.dir);
   }
   const steps: Array<PlannedJobStep<InstallStepRequirements>> = [];
   for (const name of names) {

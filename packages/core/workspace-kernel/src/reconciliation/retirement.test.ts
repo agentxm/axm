@@ -307,6 +307,21 @@ describe("unreachable retirement planning", () => {
     }).pipe(Effect.provide(workspace())),
   );
 
+  it.effect("scans no native references for a row whose type needs none", () =>
+    Effect.gen(function* () {
+      const skillOnly = yield* planCounting([
+        { type: "skill", key: "kit", entry: pathEntry("kit") },
+      ]);
+      const canonical = skillOnly.roots.get("kit");
+      if (canonical === undefined) throw new Error("Expected the canonical root");
+      expect({
+        hashes: skillOnly.hashes,
+        probes: skillOnly.probes(canonical),
+        nativeReads: skillOnly.nativeReads,
+      }).toEqual({ hashes: 1, probes: 1, nativeReads: 0 });
+    }).pipe(Effect.provide(workspace())),
+  );
+
   it.effect("rechecks native references and the tree once per package under the lock", () =>
     Effect.gen(function* () {
       const shared = yield* planCounting(componentRows);

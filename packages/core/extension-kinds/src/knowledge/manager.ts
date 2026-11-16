@@ -155,6 +155,9 @@ const describeKnowledgeFailure = (
 ): string =>
   "detail" in failure && typeof failure.detail === "string" ? failure.detail : failureTag(failure);
 
+/** A differing digest a sync's own observation computed of one canonical tree. */
+type ObservedCanonicalMismatch = Parameters<typeof acquireCanonicalForRef>[0]["observedMismatch"];
+
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
   Effect.gen(function* () {
@@ -247,6 +250,7 @@ export const KnowledgeManagerLive = Layer.effect(
       ref: KnowledgeExtensionRef,
       force = false,
       nativeInsertionEligible = false,
+      observedMismatch?: ObservedCanonicalMismatch,
     ): Effect.Effect<
       PreparedKnowledgePackage,
       ExtensionManagerFailure,
@@ -281,6 +285,7 @@ export const KnowledgeManagerLive = Layer.effect(
           accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
           force,
           stage: { baseDir: tempDir, destinationPath: stagedPath },
+          ...(observedMismatch === undefined ? {} : { observedMismatch }),
           copyFailure: {
             code: "validation",
             detail: (target) => `Failed to copy knowledge package to ${target}`,
@@ -1007,7 +1012,16 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       });
 
-    const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
+    /**
+     * Restore one locked bundle. `observedMismatch` is the differing digest
+     * the caller's observation of its canonical tree computed in this same
+     * iteration, which the restore's reuse decision refuses reuse from.
+     */
+    const restoreLockedPackage = (
+      name: string,
+      entry: KnowledgeLockEntry,
+      observedMismatch?: ObservedCanonicalMismatch,
+    ) =>
       Effect.gen(function* () {
         const ref = yield* lockEntryToRef.knowledge(name, entry, {
           baseDir,
@@ -1021,7 +1035,7 @@ export const KnowledgeManagerLive = Layer.effect(
           });
         }
         if (ref.refType !== "git-hosted") {
-          return yield* preparePackage(ref);
+          return yield* preparePackage(ref, false, false, observedMismatch);
         }
         const discovered = yield* sources.find(ref.source, {
           names: [name],
@@ -1086,7 +1100,9 @@ export const KnowledgeManagerLive = Layer.effect(
               if (entry === undefined) {
                 return yield* new KnowledgeResolutionMissing({ name });
               }
-              const restored = yield* Effect.result(restoreLockedPackage(name, entry));
+              const restored = yield* Effect.result(
+                restoreLockedPackage(name, entry, capture.mismatchedTree),
+              );
               if (Result.isFailure(restored)) {
                 const restoreFailure = restored.failure;
                 return yield* new KnowledgeUnavailable({

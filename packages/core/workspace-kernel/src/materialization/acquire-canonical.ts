@@ -57,6 +57,16 @@ export interface AcquireCanonicalArgs<E = never> {
   };
   /** Knowledge stages bytes separately; reuse is still judged at canonicalPath. */
   readonly stage?: { readonly baseDir: string; readonly destinationPath: string };
+  /**
+   * For a staged acquisition only: a digest the caller's own observation of
+   * canonicalPath computed in this read phase and found different from the
+   * accepted integrity, with nothing written since. The reuse decision
+   * refuses reuse from it instead of hashing the same tree again; any other
+   * root or accepted integrity is hashed as usual.
+   */
+  readonly observedMismatch?: Parameters<
+    typeof observeAcceptedCanonicalReuse
+  >[0]["observedMismatch"];
   readonly external?: {
     readonly sourcePath?: (packageRoot: string) => string;
     readonly targetPath?: string;
@@ -204,7 +214,12 @@ export const acquireCanonicalForRef = <E = never>(
               });
             if (readPaths === undefined)
               return {
-                reusable: yield* observeAcceptedCanonicalReuse(reuseArgs),
+                reusable: yield* observeAcceptedCanonicalReuse({
+                  ...reuseArgs,
+                  ...(args.observedMismatch === undefined
+                    ? {}
+                    : { observedMismatch: args.observedMismatch }),
+                }),
                 recovery: undefined,
               };
             const kept = yield* observeAcceptedCanonicalReuseReading(reuseArgs, readPaths);

@@ -236,15 +236,50 @@ const constraintMismatchObservation = (args: {
   ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),
 });
 
+/**
+ * The digest an observation computed of the tree at `root` and found to
+ * differ from the accepted integrity it was judged against. It is formed
+ * only from a successful digest, never from a failed walk.
+ */
+export interface ObservedTreeMismatch {
+  readonly root: string;
+  readonly acceptedIntegrity: TreeIntegrity;
+  readonly observed: TreeIntegrity;
+}
+
+/**
+ * Whether the canonical tree at `root` is byte-for-byte the accepted one,
+ * and, when its digest was computed and differs, that mismatch.
+ */
+const observeTreeAgainstAccepted = (
+  root: string,
+  accepted: Pick<LockEntry, "treeIntegrity">,
+): Effect.Effect<
+  { readonly matches: boolean; readonly mismatch?: ObservedTreeMismatch },
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.map(Effect.result(computeMaterializedTreeIntegrity(root)), (observed) =>
+    Result.isFailure(observed)
+      ? { matches: false }
+      : observed.success === accepted.treeIntegrity
+        ? { matches: true }
+        : {
+            matches: false,
+            mismatch: Object.freeze({
+              root,
+              acceptedIntegrity: accepted.treeIntegrity,
+              observed: observed.success,
+            }),
+          },
+  );
+
 /** Whether the canonical tree at `root` is byte-for-byte the accepted one. */
 const observedTreeMatchesAccepted = (
   root: string,
   accepted: Pick<LockEntry, "treeIntegrity">,
 ): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.map(
-    Effect.result(computeMaterializedTreeIntegrity(root)),
-    (observed) => Result.isSuccess(observed) && observed.success === accepted.treeIntegrity,
-  );
+  Effect.map(observeTreeAgainstAccepted(root, accepted), ({ matches }) => matches);
 
 /** The ref an acquisition is about to materialize, as far as reuse judges it. */
 export type RequestedCanonicalRef =
@@ -272,6 +307,13 @@ interface AcceptedCanonicalReuseArgs {
   readonly requested: RequestedCanonicalRef;
   readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
+  /**
+   * A digest the caller's own observation, in the same read phase and with
+   * nothing written since, computed of `canonicalPath` against the accepted
+   * integrity and found different. It stands in for hashing that tree only
+   * to refuse reuse, and only for that exact root and accepted integrity.
+   */
+  readonly observedMismatch?: ObservedTreeMismatch;
 }
 
 /** The accepted row whose tree reuse may keep, judged before the tree is read. */
@@ -315,6 +357,14 @@ export const observeAcceptedCanonicalReuse = (
     const candidate = reuseCandidate(args);
     if (Option.isNone(candidate)) return Option.none();
     const accepted = candidate.value;
+    const mismatch = args.observedMismatch;
+    if (
+      mismatch !== undefined &&
+      mismatch.root === args.canonicalPath &&
+      mismatch.acceptedIntegrity === accepted.treeIntegrity &&
+      mismatch.observed !== accepted.treeIntegrity
+    )
+      return Option.none();
     return (yield* observedTreeMatchesAccepted(args.canonicalPath, accepted))
       ? Option.some(accepted.treeIntegrity)
       : Option.none();
@@ -527,6 +577,11 @@ interface CanonicalObservationCapture {
   readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
   /** Present when the caller asked for them and the observation ended usable. */
   readonly digests: Option.Option<ObservedTreeDigests>;
+  /**
+   * Present when this observation itself hashed the accepted tree, found its
+   * digest different, and reported it a materialization mismatch.
+   */
+  readonly mismatchedTree?: ObservedTreeMismatch;
 }
 
 const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
@@ -849,22 +904,29 @@ export const observeCanonicalExtensionCapturing = ({
                 : Option.none<ObservedTreeDigests>(),
           )
         : undefined;
-    if (
-      !workspaceAuthored &&
-      accepted !== undefined &&
-      !(digested === undefined
-        ? yield* treeMatchesAccepted(root, accepted)
-        : Option.isSome(digested))
-    ) {
-      return captured(
-        {
-          type: desired.type,
-          name: desired.name,
-          status: "materialization-mismatch",
-          path: root,
-        },
-        subagentPackage,
-      );
+    if (!workspaceAuthored && accepted !== undefined) {
+      const judged =
+        digested !== undefined
+          ? { matches: Option.isSome(digested) }
+          : verifiedTree !== undefined &&
+              verifiedTree.root === root &&
+              verifiedTree.accepted === accepted
+            ? { matches: verifiedTree.integrity === accepted.treeIntegrity }
+            : yield* observeTreeAgainstAccepted(root, accepted);
+      if (!judged.matches) {
+        const mismatched = captured(
+          {
+            type: desired.type,
+            name: desired.name,
+            status: "materialization-mismatch",
+            path: root,
+          },
+          subagentPackage,
+        );
+        return "mismatch" in judged && judged.mismatch !== undefined
+          ? { ...mismatched, mismatchedTree: judged.mismatch }
+          : mismatched;
+      }
     }
 
     // Authored and path/git content have no accepted Registry version:

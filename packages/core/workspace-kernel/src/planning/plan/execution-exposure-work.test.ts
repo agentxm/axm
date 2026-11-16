@@ -61,6 +61,8 @@ import { executionExposureRisks } from "./execution-exposure.js";
 type ReviewedType = "hook" | "mcp-server";
 
 const integrity = `sha512-${"A".repeat(86)}==`;
+// Permission bits do not stop a privileged reader, and Windows ignores them.
+const privileged = process.platform === "win32" || process.getuid?.() === 0;
 const endpoint = "https://registry.example.test";
 /** The Registry package every reviewed name selects. */
 const packageName = { hook: "audit", "mcp-server": "context" } as const;
@@ -677,31 +679,33 @@ describe("Reviewing an accepted canonical Registry tree", () => {
       }),
   );
 
-  it.effect("a canonical tree that could not be hashed is hashed again for previous inputs", () =>
-    Effect.gen(function* () {
-      const result = yield* review({
-        type: "hook",
-        steps: [{ names: ["audit"] }],
-        accepted: "matching",
-        observer: "current",
-        unreadableCanonical: true,
-      });
-      // The failed hash before the fetch decides nothing; previous inputs try the tree again.
-      expect(reviewed(result)).toEqual({
-        fetches: 1,
-        treeHashes: 3,
-        canonicalHashes: 2,
-        fetchedHashes: 1,
-        canonicalManifestReads: 0,
-        fetchedManifestReads: 1,
-        configurationHashes: 1,
-      });
-      expect(knownInputs(result.changes[0])).toEqual({
-        previous: "unavailable",
-        added: [],
-        removed: [],
-      });
-    }),
+  it.effect.skipIf(privileged)(
+    "a canonical tree that could not be hashed is hashed again for previous inputs",
+    () =>
+      Effect.gen(function* () {
+        const result = yield* review({
+          type: "hook",
+          steps: [{ names: ["audit"] }],
+          accepted: "matching",
+          observer: "current",
+          unreadableCanonical: true,
+        });
+        // The failed hash before the fetch decides nothing; previous inputs try the tree again.
+        expect(reviewed(result)).toEqual({
+          fetches: 1,
+          treeHashes: 3,
+          canonicalHashes: 2,
+          fetchedHashes: 1,
+          canonicalManifestReads: 0,
+          fetchedManifestReads: 1,
+          configurationHashes: 1,
+        });
+        expect(knownInputs(result.changes[0])).toEqual({
+          previous: "unavailable",
+          added: [],
+          removed: [],
+        });
+      }),
   );
 });
 

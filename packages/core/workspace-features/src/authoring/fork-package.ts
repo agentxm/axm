@@ -129,10 +129,14 @@ const validateContainedSymlinks = (sourceRoot: string) =>
     return yield* observeCopySource(sourceRoot, listing);
   });
 
+/**
+ * Copy the source package to `targetDir` and rewrite its manifest to the
+ * target identity, returning the exact manifest text it wrote there.
+ */
 export const forkExtensionPackage = (
   args: ForkExtensionPackageArgs,
 ): Effect.Effect<
-  void,
+  string,
   ForkPackageInvalid | ForkPackageConflict | ForkPackageFailed,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -205,7 +209,8 @@ export const forkExtensionPackage = (
       name: args.target.name,
       version: INITIAL_FORK_VERSION,
     };
-    yield* fs.writeFileString(targetManifestPath, `${JSON.stringify(rewritten, null, 2)}\n`).pipe(
+    const manifestText = `${JSON.stringify(rewritten, null, 2)}\n`;
+    yield* fs.writeFileString(targetManifestPath, manifestText).pipe(
       Effect.mapError(
         (cause) =>
           new ForkPackageFailed({
@@ -223,4 +228,5 @@ export const forkExtensionPackage = (
           }),
       ),
     );
+    return manifestText;
   });

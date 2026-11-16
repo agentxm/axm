@@ -19,7 +19,7 @@ describe("ForkExtension prepared work", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  type ForkedType = "rule" | "hook" | "subagent";
+  type ForkedType = "rule" | "hook" | "subagent" | "knowledge";
 
   const workspaceWith = (type: ForkedType) => {
     const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
@@ -122,6 +122,9 @@ describe("ForkExtension prepared work", () => {
   // The canonical copy under the lock resolves the staged root once for all of
   // its overlap checks, so it lists that root three fewer times.
   const sharedCopyRootResolution = 3;
+  // The preparing preflight decodes the manifest text the fork just wrote to
+  // the staged package instead of reading it back; the lock's reads it fresh.
+  const writtenManifestText = { rule: [1, 0], hook: [1] } as const;
 
   for (const type of ["rule", "hook"] as const)
     it.effect(`hashes an enabled ${type} fork's staged package once while preparing`, () => {
@@ -130,16 +133,18 @@ describe("ForkExtension prepared work", () => {
       const shared = sharedTreeWalk[type];
       const decoded = sharedManifestDecode[type];
       const hashed = sharedPackageHash[type];
+      const written = writtenManifestText[type];
       return Effect.gen(function* () {
         const { prepare, apply, staged } = yield* forkPhases(type, source, { enable: true });
         expect(deriveOperationOutcome(apply.value)).toBe("applied");
         // The preflight no longer re-hashes the staged root, so its walk and
-        // its read of every staged file go; it still reads the manifest.
+        // its read of every staged file go, and it decodes the manifest text
+        // the fork wrote instead of reading the manifest.
         expect(stagedCounts(prepare, staged, measured.files)).toEqual({
           hashes: measured.prepare.hashes - 1 - hashed,
           rootReadDirectory: measured.prepare.rootReadDirectory - 1 - shared,
           readFile: measured.prepare.readFile.map(
-            (count, index) => count - 1 - shared - (decoded[index] ?? 0),
+            (count, index) => count - 1 - shared - (decoded[index] ?? 0) - (written[index] ?? 0),
           ),
         });
         // Under the lock the preflight reads and hashes the staged package
@@ -154,6 +159,83 @@ describe("ForkExtension prepared work", () => {
         });
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
     });
+
+  // Measured before the preparing preflight decoded the manifest text the
+  // fork itself wrote: it read the staged manifest once more after the pinned
+  // hash walk had read it. A Subagent's manager also reads it in its contained
+  // package load, in both phases.
+  const manifestReadsBefore = {
+    subagent: { prepare: 3, apply: 3 },
+    knowledge: { prepare: 2, apply: 2 },
+  } as const;
+
+  for (const type of ["subagent", "knowledge"] as const)
+    it.effect(`reads an enabled ${type} fork's staged manifest once fewer while preparing`, () => {
+      const { created, source } = workspaceWith(type);
+      const manifest = authoringTypeFor(type).manifest;
+      const measured = manifestReadsBefore[type];
+      return Effect.gen(function* () {
+        const { prepare, apply, staged } = yield* forkPhases(type, source, { enable: true });
+        expect(deriveOperationOutcome(apply.value)).toBe("applied");
+        // Preparing decodes the text the fork wrote instead of reading it
+        // back; under the lock the preflight still reads it fresh.
+        expect({
+          prepare: stagedCounts(prepare, staged, [manifest]).readFile,
+          apply: stagedCounts(apply, staged, [manifest]).readFile,
+        }).toEqual({ prepare: [measured.prepare - 1], apply: [measured.apply] });
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+    });
+
+  it.effect("reads a disabled rule fork's staged manifest only in its pinned hash walk", () => {
+    const { created, source } = workspaceWith("rule");
+    return Effect.gen(function* () {
+      const { prepare, staged } = yield* forkPhases("rule", source, { enable: false });
+      expect(stagedCounts(prepare, staged, ["rule.json", "src/RULE.md"])).toEqual({
+        hashes: 1,
+        rootReadDirectory: 1,
+        readFile: [1, 1],
+      });
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
+
+  // The fork writes the rewritten manifest through a contained link, and the
+  // preparing preflight decodes exactly the text that landed behind it.
+  it.effect("forks an enabled subagent whose manifest is a link to a package file", () => {
+    const { created, source } = workspaceWith("subagent");
+    const manifestPath = nodePath.join(source, "subagent.json");
+    fs.renameSync(manifestPath, nodePath.join(source, "manifest-target.json"));
+    fs.symlinkSync("manifest-target.json", manifestPath);
+    return Effect.gen(function* () {
+      let stagedLink = false;
+      const { prepare, apply } = yield* forkPhases("subagent", source, {
+        enable: true,
+        between: (staged) => {
+          stagedLink = fs.lstatSync(nodePath.join(staged, "subagent.json")).isSymbolicLink();
+        },
+      });
+      const published = nodePath.join(created.root, "subagents", "custom");
+      expect(stagedLink).toBe(true);
+      expect(
+        prepare.value.execution.materialPaths.map((path) => nodePath.relative(created.root, path)),
+      ).toEqual([".claude/agents/custom.md", "axm.json", "axm.lock", "subagents/custom"]);
+      expect(deriveOperationOutcome(apply.value)).toBe("applied");
+      expect(fs.readlinkSync(nodePath.join(published, "subagent.json"))).toBe(
+        "manifest-target.json",
+      );
+      expect(
+        JSON.parse(fs.readFileSync(nodePath.join(published, "subagent.json"), "utf8")),
+      ).toEqual({
+        $schema: "https://axm.sh/schemas/subagent.schema.json",
+        owner: "@acme",
+        type: "subagent",
+        name: "custom",
+        version: "0.1.0",
+        description: "The original subagent.",
+        license: "MIT",
+        core: { instructions: "src/original.md" },
+      });
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
 
   /** Apply a rule fork whose staged package `between` changed after preparation. */
   const refusedUnderLock = (between: (staged: string) => void) => {

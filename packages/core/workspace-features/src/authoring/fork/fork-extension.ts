@@ -30,6 +30,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { readExtensionManifest } from "@agentxm/extension-content";
 
 import {
   SkillManager,
@@ -392,7 +393,7 @@ const prepareForkExtension: (
       ),
     );
     const stagedPackage = path.join(stagingRoot, "package");
-    yield* forkExtensionPackage({
+    const stagedManifestText = yield* forkExtensionPackage({
       sourceDir: selected.directory,
       targetDir: stagedPackage,
       sourceIdentity: selected.identity,
@@ -409,15 +410,28 @@ const prepareForkExtension: (
     const enabled = request.enable || Option.getOrElse(current.enabled, () => false);
 
     // Preparation hands the preflight the hash it just pinned for the same
-    // staged package; under the lock the preflight reads and hashes it fresh.
-    const nativePreflight = (sourceHash?: SourceHash) =>
+    // staged package and the manifest text the fork just wrote there, which
+    // the preflight decodes as it would the file it reads; under the lock the
+    // preflight reads, decodes and hashes the staged package fresh.
+    const nativePreflight = (sourceHash?: SourceHash, manifestText?: string) =>
       preflightAuthoredNativeProjection({
         identity: target,
         packageRoot: stagedPackage,
         enabled,
         ...(sourceHash === undefined ? {} : { sourceHash: Effect.succeed(sourceHash) }),
+        ...(manifestText === undefined
+          ? {}
+          : {
+              decodedManifest: readExtensionManifest(stagedPackage, target.type, {
+                text: manifestText,
+              }).pipe(
+                Effect.map(({ manifest }) => manifest),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              ),
+            }),
       });
-    const nativeProjection = yield* nativePreflight(stagedHash);
+    const nativeProjection = yield* nativePreflight(stagedHash, stagedManifestText);
 
     const artifact: JobStepArtifact = {
       ...nativeProjection,

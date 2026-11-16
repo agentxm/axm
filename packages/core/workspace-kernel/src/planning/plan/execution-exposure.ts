@@ -296,10 +296,13 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                   ? retainedPackageKeyForRef(priorRef.value) === retainedPackageKeyForRef(ref)
                   : sourceRefContentKey(priorRef.value) === sourceRefContentKey(ref));
               const source = yield* Effect.gen(function* () {
+                // The existing canonical tree was hashed and differs from the accepted integrity.
+                let canonicalDiverged = false;
                 if (ref.refType !== "registry")
                   return {
                     root: fromFileLocation(ref.location),
                     reused: Option.none<TreeIntegrity>(),
+                    canonicalDiverged: false,
                   };
                 if (
                   Option.isSome(canonical) &&
@@ -310,7 +313,8 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                 ) {
                   const observed = yield* treeIntegrityOf(canonical.value).pipe(Effect.option);
                   if (Option.isSome(observed) && observed.value === prior.value.treeIntegrity)
-                    return { root: canonical.value, reused: observed };
+                    return { root: canonical.value, reused: observed, canonicalDiverged: false };
+                  canonicalDiverged = Option.isSome(observed);
                 }
                 const sources = yield* Effect.serviceOption(SourceHostProviders);
                 if (Option.isNone(sources))
@@ -328,6 +332,7 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                       )
                     : yield* fetch,
                   reused: Option.none<TreeIntegrity>(),
+                  canonicalDiverged,
                 };
               });
               const sourceRoot = source.root;
@@ -520,6 +525,8 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                 if (!unchangedRegistration) return Option.none<string[]>();
                 // The reviewed tree already exists and matched the accepted integrity.
                 if (Option.isSome(previousFromReviewed)) return previousFromReviewed.value();
+                // The canonical tree was already found to differ from the accepted integrity.
+                if (source.canonicalDiverged) return Option.none<string[]>();
                 if (
                   Option.isNone(prior) ||
                   Option.isNone(canonical) ||

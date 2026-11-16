@@ -262,6 +262,8 @@ interface ReviewFixture {
   readonly local?: boolean;
   /** The transition holds an acquired on-disk tree, with other bytes, for the Registry package. */
   readonly acquired?: boolean;
+  /** A file of the accepted canonical tree cannot be read, so hashing that tree fails. */
+  readonly unreadableCanonical?: boolean;
 }
 
 /** Review one plan and report the work it performed after fixture setup. */
@@ -293,6 +295,12 @@ const review = (fixture: ReviewFixture) =>
     );
     yield* writePackage(fixture.type, canonicalRoot);
     const canonicalTree = yield* computeMaterializedTreeIntegrity(canonicalRoot);
+    if (fixture.unreadableCanonical === true) {
+      const unreadable = `${canonicalRoot}/src/hook.sh`;
+      yield* Effect.acquireRelease(native.chmod(unreadable, 0o000), () =>
+        native.chmod(unreadable, 0o644).pipe(Effect.ignore),
+      );
+    }
     const lockfile = lockfileFor(
       fixture.type,
       accepted,
@@ -637,15 +645,48 @@ describe("Reviewing an accepted canonical Registry tree", () => {
     }),
   );
 
-  it.effect("a fetched MCP re-hashes the diverged canonical tree for previous inputs", () =>
+  it.effect.each(["mcp-server", "hook"] as const)(
+    "a fetched %s does not hash a canonical tree already found diverged for previous inputs",
+    (type) =>
+      Effect.gen(function* () {
+        const result = yield* review({
+          type,
+          steps: [{ names: [packageName[type]] }],
+          accepted: "diverged",
+          observer: "current",
+        });
+        // Canonical before the fetch and the fetched tree; the diverged canonical tree settles
+        // previous inputs as unavailable without a second hash.
+        expect(reviewed(result)).toEqual({
+          fetches: 1,
+          treeHashes: 2,
+          canonicalHashes: 1,
+          fetchedHashes: 1,
+          canonicalManifestReads: 0,
+          fetchedManifestReads: 1,
+          configurationHashes: 1,
+        });
+        expect(result.changes[0]?.registrations).toEqual([
+          { target: "claude-code", change: "changed" },
+        ]);
+        expect(knownInputs(result.changes[0])).toEqual({
+          previous: "unavailable",
+          added: [],
+          removed: [],
+        });
+      }),
+  );
+
+  it.effect("a canonical tree that could not be hashed is hashed again for previous inputs", () =>
     Effect.gen(function* () {
       const result = yield* review({
-        type: "mcp-server",
-        steps: [{ names: ["context"] }],
-        accepted: "diverged",
+        type: "hook",
+        steps: [{ names: ["audit"] }],
+        accepted: "matching",
         observer: "current",
+        unreadableCanonical: true,
       });
-      // Canonical before the fetch, the fetched tree, then canonical again for previous inputs.
+      // The failed hash before the fetch decides nothing; previous inputs try the tree again.
       expect(reviewed(result)).toEqual({
         fetches: 1,
         treeHashes: 3,

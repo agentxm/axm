@@ -16,6 +16,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import {
   FileSystemRecorder,
@@ -41,39 +43,34 @@ import {
   LOCKFILE_VERSION,
   type Lockfile,
 } from "@agentxm/workspace-kernel/workspace-state";
-import {
-  WorkspaceReadTest,
-  exactVersion,
-  extensionName,
-  handle,
-} from "@agentxm/workspace-kernel/workspace-state/testing";
+import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { PackDefinitionInvalid } from "./index.js";
 import { PackManagerLive } from "./live.js";
 
-const manifest = {
+const manifest = Schema.decodeUnknownSync(PackManifestSchema)({
   owner: "@acme",
   type: "pack",
   name: "toolkit",
   version: "1.0.0",
   dependencies: { "@acme/skills/review": "^1.0.0" },
-};
+});
 
 const registryRef: RegistryPackRef = {
   type: "pack",
   refType: "registry",
-  owner: handle(manifest.owner),
-  name: extensionName(manifest.name),
+  owner: manifest.owner,
+  name: manifest.name,
   source: {
     type: "registry",
     name: "test",
     location: decodeRegistryEndpointSync("https://registry.example"),
     owner: Option.none(),
   },
-  version: exactVersion(manifest.version),
+  version: manifest.version,
   publisherBindingId: "binding",
   integrity: Option.some("sha512-test"),
   packages: [],
-  pack: { name: extensionName(manifest.name), dependencies: manifest.dependencies },
+  pack: { name: manifest.name, dependencies: manifest.dependencies },
 };
 
 let baseDir: string;
@@ -93,7 +90,7 @@ const registryPackDir = Effect.gen(function* () {
     .canonicalPath;
 });
 
-const fetchedSource = (pack: Readonly<Record<string, unknown>> = manifest) => {
+const fetchedSource = (pack: unknown = manifest) => {
   const source = nodePath.join(baseDir, "fetched");
   nodeFs.mkdirSync(source, { recursive: true });
   nodeFs.writeFileSync(nodePath.join(source, "pack.json"), JSON.stringify(pack));
@@ -105,9 +102,9 @@ const fetchedSource = (pack: Readonly<Record<string, unknown>> = manifest) => {
  * PackManagerLive over a recording filesystem that backs both the layer build
  * and every call, with the accepted lock read from `accepted`.
  */
-const withPackManager = <A, E>(
+const withPackManager = <A, E, R>(
   accepted: Effect.Effect<Lockfile, never> | "unreadable",
-  use: Effect.Effect<A, E, PackManager | FileSystemRecorder | WorkspaceLocation>,
+  use: Effect.Effect<A, E, R>,
 ) => {
   const source = fetchedSource();
   const read = WorkspaceReadTest({
@@ -133,10 +130,14 @@ const withPackManager = <A, E>(
     NativeWriteAuthorityPermissive,
     FootprintRecorderTest,
   );
+  const platform = Layer.provideMerge(
+    layerRecordingFileSystem(NodeFileSystem.layer),
+    NativePlatformTest,
+  );
   return use.pipe(
-    Effect.provide(PackManagerLive.pipe(Layer.provideMerge(dependencies))),
-    Effect.provide(layerRecordingFileSystem(NodeFileSystem.layer)),
-    Effect.provide(NativePlatformTest),
+    Effect.provide(
+      PackManagerLive.pipe(Layer.provideMerge(dependencies), Layer.provideMerge(platform)),
+    ),
   );
 };
 
@@ -166,17 +167,17 @@ const workspaceRef = (location: string): Effect.Effect<WorkspacePackRef> =>
       refType: "workspace",
       source: {
         type: "workspace",
-        owner: handle(manifest.owner),
+        owner: manifest.owner,
         extensionType: "pack",
-        name: extensionName(manifest.name),
+        name: manifest.name,
       },
-      owner: handle(manifest.owner),
-      name: extensionName(manifest.name),
-      version: exactVersion(manifest.version),
+      owner: manifest.owner,
+      name: manifest.name,
+      version: manifest.version,
       scope: "project",
       location,
       sourceHash: yield* computeSourceHash(manifest.name),
-      pack: { name: extensionName(manifest.name), dependencies: manifest.dependencies },
+      pack: { name: manifest.name, dependencies: manifest.dependencies },
     };
   });
 

@@ -1338,6 +1338,11 @@ describe("KnowledgeManager", () => {
         readonly desiredGraph?: typeof handbookGraph;
         readonly graph?: typeof handbookGraph;
         readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
+        /**
+         * Run the preparation inside a document read phase over the layer's
+         * own readers, as install planning does, active while this answers true.
+         */
+        readonly phaseActive?: () => boolean;
       } = {},
     ) =>
       Effect.gen(function* () {
@@ -1347,10 +1352,7 @@ describe("KnowledgeManager", () => {
         const lockfile = { lockfileVersion: 1 as const, skills: {} };
         const outcome = yield* Effect.gen(function* () {
           const manager = yield* KnowledgeManager;
-          recording?.reset();
-          reads.settings = 0;
-          reads.acceptedResolutions = 0;
-          return yield* manager.observedPrepareProjection(
+          const prepare = manager.observedPrepareProjection(
             refs,
             options.desiredGraph === undefined ? undefined : { desiredGraph: options.desiredGraph },
             (held) =>
@@ -1360,6 +1362,32 @@ describe("KnowledgeManager", () => {
                 ),
               ),
           );
+          const phaseActive = options.phaseActive;
+          const inPhase =
+            phaseActive === undefined
+              ? prepare
+              : prepare.pipe(
+                  Effect.provideService(CurrentWorkspaceReadPhase, {
+                    location: yield* WorkspaceLocation,
+                    observations: false,
+                    stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+                    fileSystem: yield* FileSystem.FileSystem,
+                    readers: {
+                      desired: yield* DesiredStateReader,
+                      settings: yield* SettingsReader,
+                      locks: yield* LockfileReader,
+                    },
+                    records: yield* WorkspaceRecords,
+                    packDocuments: new Map(),
+                    isActive: phaseActive,
+                    endedBy: () => (phaseActive() ? undefined : "phase-exit"),
+                    close: () => undefined,
+                  }),
+                );
+          recording?.reset();
+          reads.settings = 0;
+          reads.acceptedResolutions = 0;
+          return yield* inPhase;
         }).pipe(
           Effect.result,
           Effect.provide(
@@ -1454,6 +1482,82 @@ describe("KnowledgeManager", () => {
           expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
           expect(reads.settings).toBe(5);
           expect(reads.acceptedResolutions).toBe(2);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    for (const phaseEnds of [false, true])
+      it.effect(
+        phaseEnds
+          ? "resolves the projection inputs again when the read phase ends during inspection"
+          : "shares the projection inputs while the read phase stays current",
+        () =>
+          Effect.gen(function* () {
+            const workspaceRoot = mkdtempSync(
+              nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+            );
+            try {
+              const sourceRoot = nodePath.join(workspaceRoot, "source");
+              writeKnowledgePackage(sourceRoot, "handbook", true);
+              const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+              writeFileSync(instructionsPath, "# Project\n");
+              const sourceManifest = nodePath.join(sourceRoot, "knowledge.json");
+              let active = true;
+
+              const { outcome, recording, reads } = yield* recordedPreparation(
+                workspaceRoot,
+                [localRef("handbook", sourceRoot)],
+                {
+                  desiredGraph: handbookGraph,
+                  phaseActive: () => active,
+                  fileSystem: (native) =>
+                    FileSystem.make({
+                      ...native,
+                      // String reads of the manifest are derived from this one.
+                      readFile: (target) =>
+                        Effect.sync(() => {
+                          if (phaseEnds && target === sourceManifest) active = false;
+                        }).pipe(Effect.andThen(native.readFile(target))),
+                    }),
+                },
+              );
+
+              expect(active).toBe(!phaseEnds);
+              expect(outcome).toMatchObject({
+                _tag: "Success",
+                success: [["@acme/knowledge/handbook"]],
+              });
+              // An ended phase hands nothing on: the plan resolves the route
+              // and the documents again, exactly as when nothing was shared.
+              expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
+                phaseEnds ? 9 : 8,
+              );
+              expect(reads.settings).toBe(phaseEnds ? 8 : 5);
+              expect(reads.acceptedResolutions).toBe(phaseEnds ? 3 : 2);
+            } finally {
+              rmSync(workspaceRoot, { recursive: true, force: true });
+            }
+          }),
+      );
+
+    it.effect("resolves the projection inputs again for a graph its reader left mutable", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+          writeFileSync(instructionsPath, "# Project\n");
+
+          // The stub reader returns a fresh, unfrozen graph, which is never shared.
+          const { outcome, recording, reads } = yield* recordedPreparation(workspaceRoot, []);
+
+          expect(outcome).toMatchObject({ _tag: "Success", success: [[]] });
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(7);
+          expect(reads.settings).toBe(8);
+          expect(reads.acceptedResolutions).toBe(3);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

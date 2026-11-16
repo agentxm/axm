@@ -1,8 +1,14 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import {
+  AGENTS,
+  type NativeConfigReadLocation,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { resolveNativeReadLocation } from "../locations/index.js";
 import {
   nativePackageReferences,
   inspectNativePackageReferences,
@@ -235,6 +241,152 @@ describe("retained executable references", () => {
           withdrawal: { type: "hook", name: "audit", agentIds: ["claude-code"] },
         }),
       ).toEqual([mcp]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+/** Catalog readers whose always-applicable project declaration of `kind` resolves to `file`. */
+const projectReaders = (
+  path: Path.Path,
+  workspaceRoot: string,
+  kind: "mcp-server" | "hook",
+  file: string,
+) =>
+  AGENTS.flatMap((agent) => {
+    const native =
+      kind === "hook" ? agent.capabilities.hook.native : agent.capabilities["mcp-server"].native;
+    if (!("locations" in native)) return [];
+    const declarations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
+    return declarations.flatMap((declaration) =>
+      resolveNativeReadLocation(
+        path,
+        agent.id,
+        declaration,
+        { workspaceRoot, scope: "project" },
+        { skillsDirectoryOverrides: {} },
+      )?.path === file
+        ? [agent.id]
+        : [],
+    );
+  }).sort();
+
+describe("native reference probes within one inspection", () => {
+  const fixture = Effect.gen(function* () {
+    const base = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const workspaceRoot = yield* base.realPath(yield* base.makeTempDirectoryScoped());
+    const packageRoot = path.join(workspaceRoot, "agent_extensions/acme/server");
+    yield* base.makeDirectory(packageRoot, { recursive: true });
+    yield* base.makeDirectory(path.join(workspaceRoot, "tools"), { recursive: true });
+    yield* base.writeFileString(path.join(workspaceRoot, "tools/server.js"), "");
+    const { fileSystem, recording } = makeRecordingFileSystem(base);
+    const inspect = Effect.gen(function* () {
+      recording.reset();
+      return yield* inspectNativePackageReferences({
+        workspaceRoot,
+        packageRoot,
+        scope: "project",
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+    });
+    const probes = (file: string) => {
+      const counts = recording.counts(file);
+      return { access: counts.access ?? 0, realPath: counts.realPath ?? 0 };
+    };
+    return { base, path, workspaceRoot, packageRoot, inspect, probes };
+  });
+
+  it.effect(
+    "probes a native config file shared by several readers, and each of its candidate paths, once",
+    () =>
+      Effect.gen(function* () {
+        const { base, path, workspaceRoot, inspect, probes } = yield* fixture;
+        const file = path.join(workspaceRoot, ".mcp.json");
+        const readers = projectReaders(path, workspaceRoot, "mcp-server", file);
+        expect(readers.length).toBeGreaterThan(1);
+        yield* base.writeFileString(
+          file,
+          JSON.stringify({ mcpServers: { other: { command: "node", args: ["tools/server.js"] } } }),
+        );
+        expect(yield* inspect).toEqual([]);
+        expect({
+          file: probes(file),
+          existing: probes(path.join(workspaceRoot, "tools/server.js")),
+          missing: probes(path.join(workspaceRoot, "node")),
+        }).toEqual({
+          file: { access: 1, realPath: 1 },
+          existing: { access: 1, realPath: 1 },
+          missing: { access: 1, realPath: 0 },
+        });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("keeps the evidence and every reader when shared probes find a package path", () =>
+    Effect.gen(function* () {
+      const { base, path, workspaceRoot, inspect } = yield* fixture;
+      const file = path.join(workspaceRoot, ".mcp.json");
+      yield* base.writeFileString(
+        file,
+        JSON.stringify({
+          mcpServers: {
+            selected: { command: "node", args: ["agent_extensions/acme/server/server.js"] },
+            other: { command: "node", args: ["tools/server.js"] },
+          },
+        }),
+      );
+      expect(yield* inspect).toEqual([
+        {
+          path: file,
+          evidence: "structured-reference",
+          keys: ["mcpServers", "selected"],
+          readers: projectReaders(path, workspaceRoot, "mcp-server", file),
+        },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("keeps the evidence of each kind when one file feeds MCP and Hook readers", () =>
+    Effect.gen(function* () {
+      const { base, path, workspaceRoot, packageRoot, inspect, probes } = yield* fixture;
+      const file = path.join(workspaceRoot, ".gemini/settings.json");
+      const mcpReaders = projectReaders(path, workspaceRoot, "mcp-server", file);
+      const hookReaders = projectReaders(path, workspaceRoot, "hook", file);
+      expect(mcpReaders.length).toBeGreaterThan(0);
+      expect(hookReaders.length).toBeGreaterThan(0);
+      yield* base.makeDirectory(path.dirname(file), { recursive: true });
+      yield* base.writeFileString(
+        file,
+        JSON.stringify({
+          mcpServers: { other: { command: "node", args: ["tools/server.js"] } },
+          hooks: {
+            Stop: [{ hooks: [{ type: "command", command: `node '${packageRoot}/run.js'` }] }],
+          },
+        }),
+      );
+      expect(yield* inspect).toEqual([
+        {
+          path: file,
+          evidence: "possible-reference",
+          readers: hookReaders,
+        },
+      ]);
+      expect({
+        file: probes(file),
+        existing: probes(path.join(workspaceRoot, "tools/server.js")),
+      }).toEqual({ file: { access: 1, realPath: 1 }, existing: { access: 1, realPath: 1 } });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("probes an absent shared native config file once and no candidate", () =>
+    Effect.gen(function* () {
+      const { path, workspaceRoot, inspect, probes } = yield* fixture;
+      const file = path.join(workspaceRoot, ".mcp.json");
+      expect(yield* inspect).toEqual([]);
+      expect(probes(file)).toEqual({ access: 1, realPath: 0 });
+      expect(probes(path.join(workspaceRoot, "tools/server.js"))).toEqual({
+        access: 0,
+        realPath: 0,
+      });
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

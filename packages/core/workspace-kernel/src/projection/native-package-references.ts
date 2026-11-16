@@ -100,6 +100,19 @@ export const inspectNativePackageReferences = (args: NativePackageReferenceReque
         return [value];
       }
     };
+    // Sequential, success-only probe outcomes for exactly this inspection: `none` when the path
+    // does not exist, otherwise its real path. A failed probe aborts the inspection unrecorded.
+    const probes = new Map<string, Option.Option<string>>();
+    const probe = (absolute: string) =>
+      Effect.gen(function* () {
+        const prior = probes.get(absolute);
+        if (prior !== undefined) return prior;
+        const outcome = (yield* fs.exists(absolute))
+          ? Option.some(yield* fs.realPath(absolute))
+          : Option.none<string>();
+        probes.set(absolute, outcome);
+        return outcome;
+      });
     const references = (value: unknown) =>
       Effect.gen(function* () {
         for (const candidate of new Set(candidates(value))) {
@@ -111,10 +124,8 @@ export const inspectNativePackageReferences = (args: NativePackageReferenceReque
             (relativeRoot !== "" && candidate.includes(`${relativeRoot}${path.sep}`))
           )
             return true;
-          const absolute = path.resolve(args.workspaceRoot, candidate);
-          if (yield* fs.exists(absolute)) {
-            if (beneath(yield* fs.realPath(absolute))) return true;
-          }
+          const real = yield* probe(path.resolve(args.workspaceRoot, candidate));
+          if (Option.isSome(real) && beneath(real.value)) return true;
         }
         return false;
       });
@@ -144,8 +155,9 @@ export const inspectNativePackageReferences = (args: NativePackageReferenceReque
     );
     const present = yield* Effect.forEach(routes, (route) =>
       Effect.gen(function* () {
-        if (!(yield* fs.exists(route.resolved.path))) return [];
-        const physical = yield* fs.realPath(route.resolved.path);
+        const real = yield* probe(route.resolved.path);
+        if (Option.isNone(real)) return [];
+        const physical = real.value;
         return [
           {
             ...route,

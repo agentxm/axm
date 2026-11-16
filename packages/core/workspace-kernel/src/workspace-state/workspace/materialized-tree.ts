@@ -77,14 +77,21 @@ interface PackageContentEntry {
 /**
  * The strict walk and digest. When `retainPayloads` is set, each hashed entry
  * also comes back with the bytes it was hashed from, for one caller to frame
- * a second digest without reading the tree again.
+ * a second digest without reading the tree again. When `retainText` names the
+ * exact path the walk reads a regular file at, that file's bytes also come
+ * back decoded as `readFileString` decodes them, unless decoding fails.
  */
 const strictTreeDigest = (
   root: string,
   options: MaterializedTreeIntegrityOptions,
   retainPayloads: boolean,
+  retainText?: ReadonlySet<string>,
 ): Effect.Effect<
-  { readonly integrity: TreeIntegrity; readonly entries: ReadonlyArray<PackageContentEntry> },
+  {
+    readonly integrity: TreeIntegrity;
+    readonly entries: ReadonlyArray<PackageContentEntry>;
+    readonly texts?: ReadonlyMap<string, string>;
+  },
   MaterializedTreeInvalid,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -177,6 +184,7 @@ const strictTreeDigest = (
     let payloadBytes = 0;
     let hashedEntries = 0;
     const entries: PackageContentEntry[] = [];
+    const texts = retainText === undefined ? undefined : new Map<string, string>();
     const retain = (kind: string, relativePath: string, payload: Uint8Array): void => {
       if (retainPayloads) entries.push({ kind, relativePath, payload });
     };
@@ -207,6 +215,10 @@ const strictTreeDigest = (
         payloadBytes += content.byteLength;
         frame(hash, content);
         retain(`file:${file.executable}`, file.relativePath, content);
+        if (texts !== undefined && retainText?.has(file.absolutePath) === true) {
+          const text = decodedText(content);
+          if (text !== undefined) texts.set(file.absolutePath, text);
+        }
       }
     }).pipe(
       Effect.ensuring(
@@ -221,8 +233,51 @@ const strictTreeDigest = (
     return {
       integrity: decodeTreeIntegrity(`${TREE_INTEGRITY_PREFIX}${hash.digest("hex")}`),
       entries,
+      ...(texts === undefined ? {} : { texts }),
     };
   });
+
+/** The text `readFileString` without an encoding yields for `bytes`, or `undefined` where it fails. */
+const decodedText = (bytes: Uint8Array): string | undefined => {
+  try {
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return undefined;
+  }
+};
+
+/** Text of regular files one strict walk read, by the exact path it read them at. */
+export interface WalkedFileText {
+  /** The decoded text of the regular file the walk read at exactly `absolutePath`, if any. */
+  readonly text: (absolutePath: string) => Option.Option<string>;
+}
+
+/**
+ * The strict walk of `computeMaterializedTreeIntegrity`, also keeping the
+ * text of the regular files it reads at exactly the paths in `readPaths`,
+ * each joined from `root` with the same path service. Its failures, their
+ * order and its work observation are those of
+ * `computeMaterializedTreeIntegrity`. A path that is a link, a directory, or
+ * absent under that exact spelling has no text; the text stays local to the
+ * returned lookup.
+ */
+export const computeMaterializedTreeIntegrityReading = (
+  root: string,
+  readPaths: ReadonlyArray<string>,
+): Effect.Effect<
+  { readonly integrity: TreeIntegrity; readonly read: WalkedFileText },
+  MaterializedTreeInvalid,
+  FileSystem.FileSystem | Path.Path
+> =>
+  strictTreeDigest(root, {}, false, new Set(readPaths)).pipe(
+    Effect.map(({ integrity, texts }) => ({
+      integrity,
+      read: Object.freeze({
+        text: (absolutePath: string) => Option.fromUndefinedOr(texts?.get(absolutePath)),
+      }),
+    })),
+    (effect) => withWork("axm.hash.materialized-tree", effect),
+  );
 
 export const computeMaterializedTreeIntegrity = (
   root: string,

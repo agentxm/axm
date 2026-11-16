@@ -17,6 +17,7 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import type { LockEntry, PathTraversalDetected, TreeIntegrity } from "../workspace-state/index.js";
 import {
   observeAcceptedCanonicalReuse,
+  observeAcceptedCanonicalReuseReading,
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   LockfileReader,
@@ -61,9 +62,22 @@ export interface AcquireCanonicalArgs<E = never> {
     readonly targetPath?: string;
     readonly reuse?: boolean;
   };
+  /**
+   * Root-relative files `validate` reads from a kept accepted tree. The reuse
+   * decision's integrity walk keeps their text, and only the validation of
+   * the tree that same decision kept receives it, as `reused`.
+   */
+  readonly reuseValidationFiles?: ReadonlyArray<string>;
   readonly validate?: (
     stagingPath: string,
+    reused?: ReusedTreeFiles,
   ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path>;
+}
+
+/** Text of the files a reuse decision's integrity walk read from the tree it kept. */
+interface ReusedTreeFiles {
+  /** The text of the regular file the walk read at exactly `absolutePath`, if any. */
+  readonly text: (absolutePath: string) => Option.Option<string>;
 }
 
 export interface AcquiredCanonical {
@@ -179,15 +193,35 @@ export const acquireCanonicalForRef = <E = never>(
               accepted: args.accepted,
               force: args.force,
             } satisfies Parameters<typeof observeAcceptedCanonicalReuse>[0];
-            return args.stage === undefined
-              ? yield* reusableCanonicalTree(reuseArgs)
-              : { reusable: yield* observeAcceptedCanonicalReuse(reuseArgs), recovery: undefined };
+            const path = yield* Path.Path;
+            const readPaths = args.reuseValidationFiles?.map((file) =>
+              path.join(args.canonicalPath, file),
+            );
+            if (args.stage === undefined)
+              return yield* reusableCanonicalTree({
+                ...reuseArgs,
+                ...(readPaths === undefined ? {} : { readPaths }),
+              });
+            if (readPaths === undefined)
+              return {
+                reusable: yield* observeAcceptedCanonicalReuse(reuseArgs),
+                recovery: undefined,
+              };
+            const kept = yield* observeAcceptedCanonicalReuseReading(reuseArgs, readPaths);
+            return {
+              reusable: Option.map(kept, (tree) => tree.treeIntegrity),
+              recovery: undefined,
+              ...(Option.isSome(kept) ? { read: kept.value.read } : {}),
+            };
           })
         : undefined;
     // Validation is a refusal boundary, not permission to fetch replacement
     // bytes. Owners decide whether their selected declaration allows reuse.
     if (reuseDecision !== undefined && Option.isSome(reuseDecision.reusable)) {
-      if (args.validate !== undefined) yield* args.validate(args.canonicalPath);
+      if (args.validate !== undefined)
+        yield* "read" in reuseDecision && reuseDecision.read !== undefined
+          ? args.validate(args.canonicalPath, reuseDecision.read)
+          : args.validate(args.canonicalPath);
       return {
         packageRoot: args.canonicalPath,
         treeIntegrity: reuseDecision.reusable.value,

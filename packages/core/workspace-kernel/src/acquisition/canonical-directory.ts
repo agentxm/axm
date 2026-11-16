@@ -29,6 +29,7 @@ import { PathTraversalDetected } from "../workspace-state/index.js";
 import {
   computeMaterializedTreeIntegrity,
   observeAcceptedCanonicalReuse,
+  observeAcceptedCanonicalReuseReading,
   type LockEntry,
   type MaterializedTreeInvalid,
   type RequestedCanonicalRef,
@@ -397,16 +398,28 @@ export const createCanonicalDirectory = Effect.fnUntraced(function* <E, R>(
  *   publication of that same path, which then skips its repeated recovery.
  *   It is single-use, ignored for any other path, and never cached or stored.
  *   Every replacement still recovers again before it stages.
+ * - `read`: when `readPaths` is given and the tree is reusable, the text of
+ *   the regular files the reuse decision's integrity walk read at exactly
+ *   those paths, for the caller's validation of that same kept tree.
  */
 export const reusableCanonicalTree = Effect.fnUntraced(function* (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
   readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
+  readonly readPaths?: ReadonlyArray<string>;
 }) {
   const recovery = yield* CanonicalRecovery.recover(args.canonicalPath);
-  const reusable = yield* observeAcceptedCanonicalReuse(args);
-  return { reusable, recovery };
+  if (args.readPaths === undefined) {
+    const reusable = yield* observeAcceptedCanonicalReuse(args);
+    return { reusable, recovery };
+  }
+  const kept = yield* observeAcceptedCanonicalReuseReading(args, args.readPaths);
+  return {
+    reusable: Option.map(kept, (tree) => tree.treeIntegrity),
+    recovery,
+    ...(Option.isSome(kept) ? { read: kept.value.read } : {}),
+  };
 });
 
 export interface MaterializedPackage {

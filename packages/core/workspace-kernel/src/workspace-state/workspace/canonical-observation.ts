@@ -8,7 +8,9 @@ import * as Result from "effect/Result";
 import {
   computeMaterializedTreeDigestsMatching,
   computeMaterializedTreeIntegrity,
+  computeMaterializedTreeIntegrityReading,
   type TreeIntegrity,
+  type WalkedFileText,
 } from "./materialized-tree.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
@@ -265,6 +267,37 @@ export type RequestedCanonicalRef =
       readonly name: string;
     };
 
+interface AcceptedCanonicalReuseArgs {
+  readonly canonicalPath: string;
+  readonly requested: RequestedCanonicalRef;
+  readonly accepted: Option.Option<LockEntry>;
+  readonly force: boolean;
+}
+
+/** The accepted row whose tree reuse may keep, judged before the tree is read. */
+const reuseCandidate = (args: AcceptedCanonicalReuseArgs): Option.Option<LockEntry> => {
+  if (args.force || Option.isNone(args.accepted)) return Option.none();
+  const accepted = args.accepted.value;
+  if (args.requested.refType === "registry") {
+    if (acceptedRegistryVersionForRef(args.accepted, args.requested) !== args.requested.version) {
+      return Option.none();
+    }
+  } else if (
+    isRegistryLockEntry(accepted) ||
+    accepted.identity.name !== args.requested.name ||
+    (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
+  ) {
+    return Option.none();
+  }
+  if (
+    args.requested.refType === "http" &&
+    (accepted.source.type !== "http" ||
+      JSON.stringify(accepted.resolved) !== JSON.stringify(args.requested.snapshot))
+  )
+    return Option.none();
+  return Option.some(accepted);
+};
+
 /**
  * Whether an acquisition may keep the accepted canonical tree instead of
  * materializing the requested ref again. This is the only place that
@@ -275,34 +308,45 @@ export type RequestedCanonicalRef =
  * becomes accepted authority; `force` is the one bypass and always
  * re-materializes.
  */
-export const observeAcceptedCanonicalReuse = (args: {
-  readonly canonicalPath: string;
-  readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<LockEntry>;
-  readonly force: boolean;
-}): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
+export const observeAcceptedCanonicalReuse = (
+  args: AcceptedCanonicalReuseArgs,
+): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (args.force || Option.isNone(args.accepted)) return Option.none();
-    const accepted = args.accepted.value;
-    if (args.requested.refType === "registry") {
-      if (acceptedRegistryVersionForRef(args.accepted, args.requested) !== args.requested.version) {
-        return Option.none();
-      }
-    } else if (
-      isRegistryLockEntry(accepted) ||
-      accepted.identity.name !== args.requested.name ||
-      (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
-    ) {
-      return Option.none();
-    }
-    if (
-      args.requested.refType === "http" &&
-      (accepted.source.type !== "http" ||
-        JSON.stringify(accepted.resolved) !== JSON.stringify(args.requested.snapshot))
-    )
-      return Option.none();
+    const candidate = reuseCandidate(args);
+    if (Option.isNone(candidate)) return Option.none();
+    const accepted = candidate.value;
     return (yield* observedTreeMatchesAccepted(args.canonicalPath, accepted))
       ? Option.some(accepted.treeIntegrity)
+      : Option.none();
+  });
+
+/** A tree reuse kept, with the text of the files its integrity walk read. */
+export interface ReusedCanonicalTree {
+  readonly treeIntegrity: TreeIntegrity;
+  readonly read: WalkedFileText;
+}
+
+/**
+ * Decide reuse exactly as `observeAcceptedCanonicalReuse` does, also keeping
+ * the text of the regular files the integrity walk read at exactly the
+ * `readPaths`. The text is handed out only with a kept tree, whose walk
+ * matched the accepted integrity.
+ */
+export const observeAcceptedCanonicalReuseReading = (
+  args: AcceptedCanonicalReuseArgs,
+  readPaths: ReadonlyArray<string>,
+): Effect.Effect<Option.Option<ReusedCanonicalTree>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const candidate = reuseCandidate(args);
+    if (Option.isNone(candidate)) return Option.none();
+    const accepted = candidate.value;
+    const walked = yield* Effect.result(
+      computeMaterializedTreeIntegrityReading(args.canonicalPath, readPaths),
+    );
+    return Result.isSuccess(walked) && walked.success.integrity === accepted.treeIntegrity
+      ? Option.some<ReusedCanonicalTree>(
+          Object.freeze({ treeIntegrity: accepted.treeIntegrity, read: walked.success.read }),
+        )
       : Option.none();
   });
 

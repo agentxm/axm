@@ -231,6 +231,59 @@ describe("canonical acquisition dispatch", () => {
     ),
   );
 
+  it.effect("hands a kept tree's walked text only to the validation of that kept tree", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(root, "source");
+        const canonicalPath = path.join(root, "canonical", "audit");
+        fs.mkdirSync(source);
+        fs.writeFileSync(path.join(source, "hook.sh"), "accepted content");
+        fs.writeFileSync(path.join(source, "notes.md"), "notes");
+        const handed: Array<Option.Option<string> | "none"> = [];
+        const args = {
+          ref: refFor(source),
+          type: "hook",
+          baseDir: root,
+          canonicalPath,
+          force: false,
+          external: { reuse: true },
+          copyFailure: { code: "validation", detail: () => "copy failed" },
+          reuseValidationFiles: ["hook.sh"],
+          validate: (
+            directory: string,
+            reused?: { readonly text: (file: string) => Option.Option<string> },
+          ) =>
+            Effect.sync(() => {
+              handed.push(
+                reused === undefined ? "none" : reused.text(path.join(directory, "hook.sh")),
+              );
+            }),
+        } as const;
+        const initial = yield* acquireCanonicalForRef({ ...args, accepted: Option.none() });
+        const accepted = Option.some<LockEntry>({
+          source: { type: "path", path: "source" },
+          identity: { owner: handle("@acme"), name: extensionName("audit") },
+          resolved: { tree: initial.treeIntegrity },
+          treeIntegrity: initial.treeIntegrity,
+        });
+        yield* acquireCanonicalForRef({ ...args, accepted });
+        yield* acquireCanonicalForRef({
+          ...args,
+          accepted,
+          stage: { baseDir: root, destinationPath: path.join(root, "stage", "audit") },
+        });
+        const { reuseValidationFiles: _, ...unrequested } = args;
+        yield* acquireCanonicalForRef({ ...unrequested, accepted });
+        expect(handed).toEqual([
+          "none",
+          Option.some("accepted content"),
+          Option.some("accepted content"),
+          "none",
+        ]);
+      }),
+    ),
+  );
+
   it.effect("records registry publication parents independently of an external source target", () =>
     run(
       Effect.gen(function* () {

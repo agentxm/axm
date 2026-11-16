@@ -2,7 +2,8 @@
  * Installing a Pack observes its canonical directory only where the install
  * judges it: the workspace route probes the authored package once, after its
  * location check, and every acquired route leaves that directory to the
- * acquisition.
+ * acquisition. Reusing an intact accepted Pack tree validates its manifest
+ * from the bytes the reuse decision's integrity walk read.
  */
 
 import * as nodeFs from "node:fs";
@@ -256,6 +257,120 @@ describe("Pack install canonical directory observation", () => {
           const reused = yield* manager.materializeInstall({ ref: registryRef });
           expect(reused.treeIntegrity).toEqual(Option.some(entry.treeIntegrity));
           expect(recording.counts(yield* registryPackDir)).toEqual({ access: 1, readDirectory: 1 });
+        }),
+      );
+    }),
+  );
+});
+
+describe("Pack reuse validation", () => {
+  it.effect("validates a reused accepted Pack tree from the bytes its integrity walk read", () =>
+    Effect.gen(function* () {
+      const lock = yield* Ref.make(emptyLock());
+      yield* withPackManager(
+        Ref.get(lock),
+        Effect.gen(function* () {
+          const manager = yield* PackManager;
+          const recording = yield* FileSystemRecorder;
+          const entry = yield* acceptRegistryPack(lock);
+          recording.reset();
+          const reused = yield* manager.materializeInstall({ ref: registryRef });
+          expect(reused.treeIntegrity).toEqual(Option.some(entry.treeIntegrity));
+          const packDir = yield* registryPackDir;
+          expect(recording.contentReads(nodePath.join(packDir, "pack.json"))).toBe(1);
+          expect(recording.contentReads(nodePath.join(packDir, "README.md"))).toBe(1);
+        }),
+      );
+    }),
+  );
+
+  /** Rewrite the accepted tree with `edit` and accept the rewritten tree's integrity. */
+  const acceptRewrittenTree = (lock: Ref.Ref<Lockfile>, edit: (packDir: string) => void) =>
+    Effect.gen(function* () {
+      const entry = yield* acceptRegistryPack(lock);
+      const packDir = yield* registryPackDir;
+      edit(packDir);
+      const treeIntegrity = yield* computeMaterializedTreeIntegrity(packDir);
+      yield* Ref.update(lock, (current) => ({
+        ...current,
+        packs: { [registryRef.name]: { ...entry, treeIntegrity } },
+      }));
+      return packDir;
+    });
+
+  it.effect("still refuses a kept tree whose manifest names another declaration", () =>
+    Effect.gen(function* () {
+      const lock = yield* Ref.make(emptyLock());
+      yield* withPackManager(
+        Ref.get(lock),
+        Effect.gen(function* () {
+          const manager = yield* PackManager;
+          const recording = yield* FileSystemRecorder;
+          const packDir = yield* acceptRewrittenTree(lock, (directory) =>
+            nodeFs.writeFileSync(
+              nodePath.join(directory, "pack.json"),
+              JSON.stringify({ ...manifest, version: "2.0.0" }),
+            ),
+          );
+          recording.reset();
+          const failure = yield* manager.materializeInstall({ ref: registryRef }).pipe(Effect.flip);
+          expect(failure).toBeInstanceOf(PackDefinitionInvalid);
+          expect(failure).toMatchObject({
+            detail:
+              "Fetched Pack @acme/packs/toolkit@2.0.0 does not match the selected Pack @acme/packs/toolkit@1.0.0 dependency declaration",
+          });
+          expect(recording.contentReads(nodePath.join(packDir, "pack.json"))).toBe(1);
+        }),
+      );
+    }),
+  );
+
+  it.effect("reads a kept tree's linked manifest itself", () =>
+    Effect.gen(function* () {
+      const lock = yield* Ref.make(emptyLock());
+      yield* withPackManager(
+        Ref.get(lock),
+        Effect.gen(function* () {
+          const manager = yield* PackManager;
+          const recording = yield* FileSystemRecorder;
+          const packDir = yield* acceptRewrittenTree(lock, (directory) => {
+            nodeFs.renameSync(
+              nodePath.join(directory, "pack.json"),
+              nodePath.join(directory, "manifest.json"),
+            );
+            nodeFs.symlinkSync("manifest.json", nodePath.join(directory, "pack.json"));
+          });
+          recording.reset();
+          const reused = yield* manager.materializeInstall({ ref: registryRef });
+          expect(Option.isSome(reused.treeIntegrity)).toBe(true);
+          expect(recording.contentReads(nodePath.join(packDir, "manifest.json"))).toBe(1);
+          expect(recording.contentReads(nodePath.join(packDir, "pack.json"))).toBe(1);
+        }),
+      );
+    }),
+  );
+
+  it.effect("refuses a kept tree without a manifest as its own read does", () =>
+    Effect.gen(function* () {
+      const lock = yield* Ref.make(emptyLock());
+      yield* withPackManager(
+        Ref.get(lock),
+        Effect.gen(function* () {
+          const manager = yield* PackManager;
+          const recording = yield* FileSystemRecorder;
+          const packDir = yield* acceptRewrittenTree(lock, (directory) =>
+            nodeFs.rmSync(nodePath.join(directory, "pack.json")),
+          );
+          recording.reset();
+          const failure = yield* manager.materializeInstall({ ref: registryRef }).pipe(Effect.flip);
+          const manifestPath = nodePath.join(packDir, "pack.json");
+          expect(failure).toBeInstanceOf(PackDefinitionInvalid);
+          expect(failure).toMatchObject({
+            detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
+          });
+          expect(recording.calls({ path: manifestPath, method: "readFile" })).toEqual([
+            { method: "readFile", path: manifestPath, outcome: "failure" },
+          ]);
         }),
       );
     }),

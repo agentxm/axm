@@ -223,6 +223,8 @@ export {
   capturedManifestFor,
   observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
+  observeAcceptedCanonicalReuseReading,
+  type ReusedCanonicalTree,
   type RequestedCanonicalRef,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,

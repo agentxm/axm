@@ -3539,13 +3539,14 @@ describe("instruction projection reads each prepared input once", () => {
         expect({ absentCounts, occupiedCounts }).toEqual({
           // The admission that found the target absent or a directory decides
           // its classification; the copy beside it is classified as before.
+          // An existing entry's capture takes its stat from its resolution.
           absentCounts: {
             claude: { readLink: 8, stat: 4 },
-            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 8 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 7 },
           },
           occupiedCounts: {
-            claude: { readDirectory: 1, readLink: 7, realPath: 5, stat: 7 },
-            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 8 },
+            claude: { readDirectory: 1, readLink: 7, realPath: 5, stat: 6 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 7 },
           },
         });
       }),
@@ -3630,8 +3631,9 @@ describe("instruction projection reads each prepared input once", () => {
         }).toEqual({
           // Prepare's entry admission, its classification and the record's
           // witness; the row key reuses the admitted entry and still resolves
-          // the workspace root live.
-          target: { readFile: 2, readLink: 7, realPath: 6, stat: 7 },
+          // the workspace root live. The entry's capture takes its stat from
+          // its resolution.
+          target: { readFile: 2, readLink: 7, realPath: 6, stat: 6 },
           rootRealPaths: 17,
           sourceReads: 2,
         });
@@ -3707,7 +3709,8 @@ describe("instruction projection reads each prepared input once", () => {
               readFile: 4,
               readLink: 10,
               realPath: 10,
-              stat: 13,
+              // Two captures take the entry's stat from its resolution.
+              stat: 11,
               writeFile: 1,
             },
             gitignoreReads: 4,

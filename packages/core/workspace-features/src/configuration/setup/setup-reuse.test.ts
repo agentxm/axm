@@ -173,9 +173,10 @@ describe("Setup reads once what nothing changes between its plan and its apply",
       expect(Exit.isSuccess(observed.transition)).toBe(true);
       // Before, the report checked once more and discarded the answer: 9 and 1.
       // With no lockfile, the apply no longer looks again for one to read rows
-      // from: before, 8 lockfile accesses.
+      // from: before, 8 lockfile accesses. The alias write checks its
+      // .gitignore fences once: before, 8 Git checks.
       expect(observed.counts).toEqual({
-        gitChecks: 8,
+        gitChecks: 7,
         reportGitChecks: 0,
         lockfileReadsBeforeWrite: 0,
         lockfileAccess: 7,
@@ -365,7 +366,9 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
       expect(Exit.isSuccess(observed.transition)).toBe(true);
       const canonical = canonicalOf(fixture.root, observed);
       // Before: 10 while planning (plan rows, admission, concerns) and 2 in the report.
-      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      // Two fewer since the entry's copy currency is decided from the address its
+      // admission resolved.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(6);
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
       // Before: 2 in the report.
       expect(callCount(observed.calls.reported, "readLink", canonical)).toBe(0);
@@ -404,7 +407,9 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
       );
       expect(Exit.isSuccess(observed.transition)).toBe(true);
       // Before: 10 while planning and 2 in the report.
-      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      // Two fewer since the entry's copy currency is decided from the address its
+      // admission resolved.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(6);
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
       expect(
         skillStep(observed.outcome)?.artifact?.targets?.map((target) => target.change),
@@ -419,7 +424,9 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
       const observed = yield* observeSetup(fixture, request(fixture.root));
       expect(Exit.isSuccess(observed.transition)).toBe(true);
       // Before: 10 while planning.
-      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      // Two fewer since the entry's copy currency is decided from the address its
+      // admission resolved.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(6);
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(4);
     }),
   );
@@ -434,7 +441,9 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
         true,
       );
       // Before: 10 while planning.
-      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      // Two fewer since the entry's copy currency is decided from the address its
+      // admission resolved.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(6);
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(4);
     }),
   );

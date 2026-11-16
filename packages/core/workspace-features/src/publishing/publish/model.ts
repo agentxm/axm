@@ -879,9 +879,10 @@ export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
 
 /**
  * Prepare one candidate, also handing its own source assessment, and nothing
- * else, what the preparation already observed of the package's repository:
- * the Git root the archive's ignore discovery found from the package, when it
- * walked for one.
+ * else, what the preparation already observed of the package: the Git root
+ * the archive's ignore discovery found from the package, when it walked for
+ * one, and what the archive walk observed of each source entry, which the
+ * assessment takes or releases.
  */
 export const prepareCandidateForAssessment = Effect.fn("axm.publish.prepareCandidate")(function* (
   candidate: NonNullable<Effect.Success<ReturnType<typeof decodeCandidate>>>,
@@ -1083,7 +1084,12 @@ export const prepareCandidateForAssessment = Effect.fn("axm.publish.prepareCandi
       integrity,
       backfill,
     } satisfies UploadCandidate,
-    source: plannedArchive.gitRoot === undefined ? {} : { repositoryRoot: plannedArchive.gitRoot },
+    source: {
+      ...(plannedArchive.gitRoot === undefined ? {} : { repositoryRoot: plannedArchive.gitRoot }),
+      ...(plannedArchive.sourceObservations === undefined
+        ? {}
+        : { observations: plannedArchive.sourceObservations }),
+    },
   };
 });
 

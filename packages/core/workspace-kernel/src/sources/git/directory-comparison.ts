@@ -3,7 +3,11 @@ import type * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { GitOperationFailed } from "../errors.js";
-import type { GitDirectoryComparisonResult, GitHeadFacts } from "./operations.js";
+import type {
+  GitDirectoryComparisonResult,
+  GitHeadFacts,
+  GitPayloadObservation,
+} from "./operations.js";
 
 /** Input material for comparing one directory with its enclosing Git HEAD. */
 interface GitDirectoryComparisonInput {
@@ -19,6 +23,11 @@ interface GitDirectoryComparisonInput {
     readonly root: Option.Option<string>;
     readonly head?: GitHeadFacts;
   };
+  /**
+   * Takes, at most once, what the caller already observed of one current
+   * path within the same read; a path it returns nothing for is read live.
+   */
+  readonly takeObservation?: (currentPath: string) => GitPayloadObservation | undefined;
 }
 
 /** Git worktree comparison capability used by publication preflight. */

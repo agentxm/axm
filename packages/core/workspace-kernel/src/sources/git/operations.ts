@@ -226,6 +226,16 @@ export type GitHeadFacts =
   | { readonly kind: "no-head" }
   | { readonly kind: "head"; readonly revision: string; readonly objectFormat: "sha1" | "sha256" };
 
+/**
+ * What a caller already observed of one current payload entry without
+ * following it: a link's raw target, an empty directory, or a regular file's
+ * executable bit with, when it read them, its bytes.
+ */
+export type GitPayloadObservation =
+  | { readonly kind: "link"; readonly target: string }
+  | { readonly kind: "directory" }
+  | { readonly kind: "file"; readonly executable: boolean; readonly bytes?: Uint8Array };
+
 /** Git evidence for one directory, before feature-specific archive filtering. */
 export interface GitDirectoryComparisonResult {
   readonly repositoryRoot: string;
@@ -428,14 +438,18 @@ const supportedObjectFormat = (objectFormat: string): "sha1" | "sha256" => {
  * so that boundary can classify them too. A caller that compared another
  * directory of the same repository within the same read may pass the HEAD
  * facts that comparison returned; the HEAD subtree of this directory is still
- * listed.
+ * listed. A caller that already observed current entries within the same read
+ * may hand each over once; every entry it did not observe is read here.
  */
 export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
   function* (
     repositoryRoot: string,
     directory: string,
     currentPaths: ReadonlyArray<string>,
-    prior?: { readonly head?: GitHeadFacts },
+    prior?: {
+      readonly head?: GitHeadFacts;
+      readonly takeObservation?: (currentPath: string) => GitPayloadObservation | undefined;
+    },
   ): Effect.fn.Return<
     GitDirectoryComparisonResult,
     GitOperationFailed | PlatformError.PlatformError,
@@ -495,28 +509,41 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
       return yield* Effect.gen(function* () {
         for (const currentPath of currentPaths) {
           const absolute = path.join(directory, currentPath);
-          const target = yield* fs.readLink(absolute).pipe(Effect.option);
+          const observed = prior?.takeObservation?.(currentPath);
           let bytes: Uint8Array;
           let mode: string;
-          if (Option.isSome(target)) {
-            bytes = new TextEncoder().encode(target.value);
+          if (observed?.kind === "directory") {
+            blobs.set(currentPath, { mode: "040000" });
+            continue;
+          }
+          if (observed?.kind === "link") {
+            bytes = new TextEncoder().encode(observed.target);
             mode = "120000";
+          } else if (observed?.kind === "file") {
+            bytes = observed.bytes ?? (yield* fs.readFile(absolute));
+            mode = observed.executable ? "100755" : "100644";
           } else {
-            const info = yield* fs.stat(absolute);
-            if (info.type === "Directory") {
-              // Git cannot represent an empty directory; report it as added without
-              // inventing a Git blob identity for it.
-              blobs.set(currentPath, { mode: "040000" });
-              continue;
+            const target = yield* fs.readLink(absolute).pipe(Effect.option);
+            if (Option.isSome(target)) {
+              bytes = new TextEncoder().encode(target.value);
+              mode = "120000";
+            } else {
+              const info = yield* fs.stat(absolute);
+              if (info.type === "Directory") {
+                // Git cannot represent an empty directory; report it as added without
+                // inventing a Git blob identity for it.
+                blobs.set(currentPath, { mode: "040000" });
+                continue;
+              }
+              if (info.type !== "File") {
+                return yield* new GitOperationFailed({
+                  operation: "compare-directory-to-head",
+                  detail: `Unsupported payload entry: ${currentPath}`,
+                });
+              }
+              bytes = yield* fs.readFile(absolute);
+              mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
             }
-            if (info.type !== "File") {
-              return yield* new GitOperationFailed({
-                operation: "compare-directory-to-head",
-                detail: `Unsupported payload entry: ${currentPath}`,
-              });
-            }
-            bytes = yield* fs.readFile(absolute);
-            mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
           }
           const frame = `blob ${bytes.byteLength}\0`;
           const objectId = createHash(head.objectFormat).update(frame).update(bytes).digest("hex");

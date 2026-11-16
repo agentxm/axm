@@ -384,7 +384,9 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
       Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
     );
     const decodedCandidates = decodedPrepared.map(({ candidate }) => candidate);
-    // Root hints stay with this pass; HEAD facts are shared only within it.
+    // Root hints and walk observations stay with this pass, each released
+    // when its package's assessment settles; HEAD facts are shared only
+    // within the pass.
     // The pass is sequential: assessing concurrently would need each root's
     // first comparison to settle before another one may take its facts.
     const repositoryHeads = makeRepositoryHeads();
@@ -402,7 +404,16 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
             selection: candidate.fileSelection,
             ...("repositoryRoot" in source ? { repositoryRoot: source.repositoryRoot } : {}),
             repositoryHeads,
-          }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
+            ...("observations" in source ? { takeObservation: source.observations.take } : {}),
+          }).pipe(
+            Effect.mapError(sourceAssessmentFailed(candidate.fqn)),
+            // Whatever the comparison did not take is released when it settles.
+            Effect.ensuring(
+              Effect.sync(() => {
+                if ("observations" in source) source.observations.release();
+              }),
+            ),
+          );
           return { ...candidate, sourceAssessment } satisfies PublishCandidate;
         }),
       ),

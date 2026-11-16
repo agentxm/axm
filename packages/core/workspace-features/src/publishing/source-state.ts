@@ -72,6 +72,13 @@ export const assessPublishSourceState = (args: {
   readonly repositoryRoot?: Option.Option<string>;
   /** HEAD facts earlier assessments of the same pass observed. */
   readonly repositoryHeads?: ReturnType<typeof makeRepositoryHeads>;
+  /**
+   * Takes, at most once, what the same preparation's archive walk observed of
+   * one payload path, keyed as `currentPaths` names it.
+   */
+  readonly takeObservation?: Parameters<
+    GitDirectoryComparisonService["compare"]
+  >[0]["takeObservation"];
 }): Effect.Effect<PublishSourceAssessment, GitOperationFailed, GitDirectoryComparison> =>
   Effect.gen(function* () {
     const git = yield* GitDirectoryComparison;
@@ -93,6 +100,7 @@ export const assessPublishSourceState = (args: {
       ...(root === undefined
         ? {}
         : { repository: { root, ...(head === undefined ? {} : { head }) } }),
+      ...(args.takeObservation === undefined ? {} : { takeObservation: args.takeObservation }),
     });
     if (Option.isSome(comparison) && comparison.value.head !== undefined)
       args.repositoryHeads?.record(comparison.value.repositoryRoot, comparison.value.head);

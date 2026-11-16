@@ -125,10 +125,23 @@ interface PlannedZipArchive {
  */
 type TakeSourceBytes = (abs: string) => Uint8Array | undefined;
 
+/**
+ * What the walk observed of one source entry it examined itself, as a Git
+ * comparison of the same entry would: a link's raw target, an empty
+ * directory, or a regular file's executable bit and, when it read them, its
+ * raw bytes.
+ */
+type SourceObservation =
+  | { readonly kind: "link"; readonly target: string }
+  | { readonly kind: "directory" }
+  | { readonly kind: "file"; readonly executable: boolean; readonly bytes?: Uint8Array };
+
 const zipDistribution = (
   dir: string,
   options?: BuildZipArchiveOptions,
   takeSourceBytes?: TakeSourceBytes,
+  /** Hand the walk's own source observations to the caller; only preparation asks. */
+  observeSources = false,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -165,6 +178,8 @@ const zipDistribution = (
         readonly sourcePath?: string;
         readonly decision: SelectionDecision;
         readonly payload?: Uint8Array;
+        /** The source path relative to `dir` and what the walk observed there. */
+        readonly observed?: { readonly key: string; readonly observation: SourceObservation };
       }> = [];
       if (options?.skillEnvelope !== undefined) {
         const envelope = yield* prepareManifest(options.skillEnvelope);
@@ -268,6 +283,10 @@ const zipDistribution = (
               mode: 0o120777,
               payload,
               decision: resolved.selection.evaluate({ path: relativePath, kind: "symlink" }),
+              observed: {
+                key: relativePath,
+                observation: { kind: "link", target: observed.target },
+              },
             });
             continue;
           }
@@ -283,13 +302,16 @@ const zipDistribution = (
                 sourcePath: relativePath,
                 decision: resolved.selection.evaluate({ path: relativePath, kind: "directory" }),
                 payload: new Uint8Array(),
+                observed: { key: `${relativePath}/`, observation: { kind: "directory" } },
               });
             } else pending.push({ parent: relative, children: contents });
           } else if (info.type === "File") {
-            const payload =
+            const sourceBytes =
               options?.skillEnvelope === undefined && relativePath === manifestName
-                ? yield* prepareManifest(yield* fs.readFile(abs))
+                ? yield* fs.readFile(abs)
                 : undefined;
+            const payload =
+              sourceBytes === undefined ? undefined : yield* prepareManifest(sourceBytes);
             candidates.push({
               rel,
               abs,
@@ -298,6 +320,14 @@ const zipDistribution = (
               mode: 0o100000 | (info.mode & 0o777),
               sourcePath: relativePath,
               decision: resolved.selection.evaluate({ path: relativePath, kind: "file" }),
+              observed: {
+                key: relativePath,
+                observation: {
+                  kind: "file",
+                  executable: (info.mode & 0o111) !== 0,
+                  ...(sourceBytes === undefined ? {} : { bytes: sourceBytes }),
+                },
+              },
             });
           } else {
             return yield* publishRefused({
@@ -374,6 +404,28 @@ const zipDistribution = (
       ),
     );
 
+    // The walk's own observations, keyed by source path, until the caller's
+    // comparison takes each one; nothing else holds the bytes after zipping.
+    const observations = new Map<string, SourceObservation>();
+    if (observeSources) {
+      // An included regular file's raw bytes are the ones zipped; the
+      // manifest's are the ones read before its distribution copy was made.
+      const archived = new Map(contents.map(([rel, bytes]) => [rel, bytes]));
+      for (const { observed, rel, decision } of files) {
+        if (observed === undefined) continue;
+        const { observation } = observed;
+        const bytes =
+          observation.kind === "file" && observation.bytes === undefined && decision.included
+            ? archived.get(rel)
+            : undefined;
+        observations.set(
+          observed.key,
+          observation.kind === "file" && bytes !== undefined
+            ? { ...observation, bytes }
+            : observation,
+        );
+      }
+    }
     const zippable: Zippable = {};
     for (const [rel, bytes, mode] of contents) {
       zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME, os: 3, attrs: mode << 16 }];
@@ -402,6 +454,18 @@ const zipDistribution = (
     return {
       zipBytes,
       ...(gitRoot === undefined ? {} : { gitRoot }),
+      ...(observeSources
+        ? {
+            sourceObservations: {
+              take: (key: string) => {
+                const observation = observations.get(key);
+                observations.delete(key);
+                return observation;
+              },
+              release: () => observations.clear(),
+            },
+          }
+        : {}),
       ...resolved,
       policyFingerprint: JSON.stringify({
         selection: resolved.policyFingerprint,
@@ -453,11 +517,22 @@ const planFromZip = (
   dir: string,
   options?: BuildZipArchiveOptions,
   takeSourceBytes?: TakeSourceBytes,
+  observeSources = false,
 ) =>
   Effect.gen(function* () {
-    const { zipBytes, gitRoot, ...planned } = yield* zipDistribution(dir, options, takeSourceBytes);
+    const { zipBytes, gitRoot, sourceObservations, ...planned } = yield* zipDistribution(
+      dir,
+      options,
+      takeSourceBytes,
+      observeSources,
+    );
     const archive = yield* admitDistribution(zipBytes);
-    return { zipBytes, gitRoot, planned: { archive, ...planned } satisfies PlannedZipArchive };
+    return {
+      zipBytes,
+      gitRoot,
+      sourceObservations,
+      planned: { archive, ...planned } satisfies PlannedZipArchive,
+    };
   }).pipe(Effect.withSpan("axm.publish.archive"));
 
 /**
@@ -476,17 +551,20 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
  * bytes the preparation already read for an included regular file, which the
  * archive then uses instead of reading that file again. When the selection's
  * ignore discovery walked to a Git root, the preparation also receives the
- * root it found (none when it found none).
+ * root it found (none when it found none). The preparation also receives what
+ * the walk observed of each source entry it examined itself, keyed by source
+ * path ("/" ending an empty directory), to take once each or release.
  */
 export const prepareZipArchive = (
   dir: string,
   options?: BuildZipArchiveOptions,
   takeSourceBytes?: TakeSourceBytes,
 ) =>
-  planFromZip(dir, options, takeSourceBytes).pipe(
-    Effect.map(({ zipBytes, gitRoot, planned }) => ({
+  planFromZip(dir, options, takeSourceBytes, true).pipe(
+    Effect.map(({ zipBytes, gitRoot, sourceObservations, planned }) => ({
       ...planned,
       ...(gitRoot === undefined ? {} : { gitRoot }),
+      ...(sourceObservations === undefined ? {} : { sourceObservations }),
       digests: () => ({
         integrity: sha512Integrity(zipBytes),
         sha256: archiveSha256Hex(zipBytes),

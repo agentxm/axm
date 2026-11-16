@@ -35,6 +35,7 @@ import {
   requestFor,
   type PublishWorld,
 } from "../test-helpers.js";
+import { assessPublishSourceState } from "../source-state.js";
 import { prepare, previewOrApply } from "./use-case.js";
 
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
@@ -319,6 +320,254 @@ describe("Publish source assessment sharing", () => {
           probes: { "skills/a": 2, "skills/b": 2, skills: 4, ".": 4 },
           processes: { head: 2, unbornHead: 0, objectFormat: 2, subtrees: 2 },
         },
+      });
+    }),
+  );
+});
+
+describe("Publish source assessment payload reads", () => {
+  const worlds: Array<PublishWorld> = [];
+  afterEach(() => {
+    for (const world of worlds.splice(0)) world.cleanup();
+  });
+
+  const delegating = () => {
+    let current: GitDirectoryComparisonService["compare"] | undefined;
+    const compare: GitDirectoryComparisonService["compare"] = (input) =>
+      current === undefined ? Effect.die("No live comparison yet") : current(input);
+    return { compare, set: (next: typeof compare) => void (current = next) };
+  };
+
+  /** Payload entries of the fixture package, relative to its directory. */
+  const payload = [
+    "skill.json",
+    "src/SKILL.md",
+    "notes.md",
+    "alias.md",
+    "drafts/old.md",
+    "empty",
+    // The comparison names an empty directory with its trailing separator.
+    "empty/",
+  ];
+
+  /**
+   * One authored skill holding an included file, an included link to it, an
+   * excluded draft, and an empty directory, committed when `repository` asks.
+   */
+  const notesWorld = (
+    compare: GitDirectoryComparisonService["compare"],
+    repository: "committed" | "unborn" | "none",
+  ) => {
+    const world = makePublishWorld({ settings: { skills: { notes: "workspace" } }, compare });
+    const dir = world.write("skill", { name: "notes", publishExclude: ["drafts/**"] });
+    fs.writeFileSync(nodePath.join(dir, "notes.md"), "committed notes\n");
+    fs.symlinkSync("notes.md", nodePath.join(dir, "alias.md"));
+    fs.mkdirSync(nodePath.join(dir, "drafts"));
+    fs.writeFileSync(nodePath.join(dir, "drafts", "old.md"), "draft\n");
+    fs.mkdirSync(nodePath.join(dir, "empty"));
+    if (repository !== "none") git(world.root, "init", "-q");
+    if (repository === "committed") commitAll(world.root);
+    return { world, dir };
+  };
+
+  /** Edit every kind of payload entry after the commit, the draft included. */
+  const editAfterCommit = (dir: string) => {
+    fs.writeFileSync(nodePath.join(dir, "notes.md"), "edited notes\n");
+    fs.rmSync(nodePath.join(dir, "alias.md"));
+    fs.symlinkSync("./notes.md", nodePath.join(dir, "alias.md"));
+    fs.chmodSync(nodePath.join(dir, "src", "SKILL.md"), 0o755);
+    fs.writeFileSync(nodePath.join(dir, "drafts", "old.md"), "edited draft\n");
+  };
+
+  const payloadReads = (recording: FileSystemRecording, dir: string) =>
+    Object.fromEntries(
+      payload.map((relative) => {
+        const { readLink, stat, readFile } = recording.counts(nodePath.join(dir, relative));
+        return [relative, { readLink: readLink ?? 0, stat: stat ?? 0, readFile: readFile ?? 0 }];
+      }),
+    );
+
+  const observe = (
+    world: PublishWorld,
+    comparison: ReturnType<typeof delegating>,
+    dir: string,
+    options: { readonly apply?: boolean } = {},
+  ) =>
+    withRecordedRun(world, comparison.set, ({ recording, recorded }) =>
+      Effect.gen(function* () {
+        recording.reset();
+        const prepared = yield* recorded(
+          prepare(requestFor(world, { preview: options.apply !== true, acceptWarnings: true })),
+        );
+        const preparation = payloadReads(recording, dir);
+        if (prepared._tag !== "Ready") return yield* Effect.die("Expected a ready preparation");
+        const candidate = prepared.candidate.uploadCandidates[0];
+        if (candidate === undefined) return yield* Effect.die("Expected one upload candidate");
+        const assessment = candidate.sourceAssessment;
+        // An assessment that reads every payload entry itself, for reference.
+        const live = yield* assessPublishSourceState({
+          directory: candidate.extensionDir,
+          archivePlan: candidate.archivePlan,
+          selection: candidate.fileSelection,
+        });
+        expect(assessment).toEqual(live);
+        if (options.apply !== true) return { preparation, assessment };
+        recording.reset();
+        const outcome = yield* recorded(previewOrApply(prepared.candidate, apply));
+        expect(publishDocument(outcome).counts).toMatchObject({ published: 1 });
+        return { preparation, assessment, application: payloadReads(recording, dir) };
+      }),
+    );
+
+  const reads = (readLink: number, stat: number, readFile: number) => ({
+    readLink,
+    stat,
+    readFile,
+  });
+
+  it.effect("hashes the payload the archive read instead of reading it again", () =>
+    Effect.gen(function* () {
+      const comparison = delegating();
+      const { world, dir } = notesWorld(comparison.compare, "committed");
+      worlds.push(world);
+      editAfterCommit(dir);
+
+      const run = yield* observe(world, comparison, dir);
+
+      expect(run.assessment?.state).toMatchObject({
+        status: "differs-from-head",
+        differences: [
+          { path: "alias.md", change: "modified" },
+          // Git cannot hold an empty directory.
+          { path: "empty/", change: "added" },
+          { path: "notes.md", change: "modified" },
+          { path: "src/SKILL.md", change: "modified" },
+        ],
+      });
+      expect(run.preparation).toEqual({
+        // The canonical observation, the candidate decode and the archive read the manifest.
+        "skill.json": reads(1, 1, 3),
+        "src/SKILL.md": reads(1, 1, 1),
+        // The archive's link containment check also reads the link it resolves.
+        "notes.md": reads(2, 1, 1),
+        "alias.md": reads(1, 0, 0),
+        // An excluded draft's bytes were never archived, so the assessment reads them.
+        "drafts/old.md": reads(1, 1, 1),
+        empty: reads(1, 1, 0),
+        "empty/": reads(0, 0, 0),
+      });
+    }),
+  );
+
+  it.effect("takes the observations of an existing directory by its original paths", () =>
+    Effect.gen(function* () {
+      const comparison = delegating();
+      const world = makePublishWorld({ compare: comparison.compare });
+      worlds.push(world);
+      const dir = nodePath.join(world.root, "upstream");
+      fs.mkdirSync(nodePath.join(dir, "empty"), { recursive: true });
+      fs.writeFileSync(nodePath.join(dir, "SKILL.md"), "# Upstream\n");
+      fs.writeFileSync(nodePath.join(dir, "notes.md"), "committed notes\n");
+      fs.symlinkSync("notes.md", nodePath.join(dir, "alias.md"));
+      git(world.root, "init", "-q");
+      commitAll(world.root);
+      fs.writeFileSync(nodePath.join(dir, "notes.md"), "edited notes\n");
+
+      const run = yield* withRecordedRun(world, comparison.set, ({ recording, recorded }) =>
+        Effect.gen(function* () {
+          recording.reset();
+          const prepared = yield* recorded(
+            prepare(
+              requestFor(world, {
+                selectors: ["@acme/skills/review"],
+                from: dir,
+                packageVersion: "1.0.0",
+                preview: true,
+              }),
+            ),
+          );
+          const counts = Object.fromEntries(
+            ["SKILL.md", "notes.md", "alias.md", "empty/"].map((relative) => {
+              const { readLink, stat, readFile } = recording.counts(nodePath.join(dir, relative));
+              return [relative, reads(readLink ?? 0, stat ?? 0, readFile ?? 0)];
+            }),
+          );
+          if (prepared._tag !== "Ready") return yield* Effect.die("Expected a ready preparation");
+          const candidate = prepared.candidate.uploadCandidates[0];
+          if (candidate === undefined) return yield* Effect.die("Expected one upload candidate");
+          const live = yield* assessPublishSourceState({
+            directory: candidate.extensionDir,
+            archivePlan: candidate.archivePlan,
+            payloadPrefix: "src/",
+            selection: candidate.fileSelection,
+          });
+          expect(candidate.sourceAssessment).toEqual(live);
+          return { counts, state: candidate.sourceAssessment?.state };
+        }),
+      );
+
+      expect(run.counts).toEqual({
+        "SKILL.md": reads(1, 1, 1),
+        "notes.md": reads(2, 1, 1),
+        "alias.md": reads(1, 0, 0),
+        "empty/": reads(0, 0, 0),
+      });
+      expect(run.state).toMatchObject({
+        status: "differs-from-head",
+        directory: "upstream",
+        differences: [
+          { path: "empty/", change: "added" },
+          { path: "notes.md", change: "modified" },
+        ],
+      });
+    }),
+  );
+
+  it.effect("reads no payload again outside Git or without a HEAD commit", () =>
+    Effect.gen(function* () {
+      for (const repository of ["none", "unborn"] as const) {
+        const comparison = delegating();
+        const { world, dir } = notesWorld(comparison.compare, repository);
+        worlds.push(world);
+
+        const run = yield* observe(world, comparison, dir);
+
+        expect({ repository, preparation: run.preparation }).toEqual({
+          repository,
+          preparation: {
+            "skill.json": reads(1, 1, 3),
+            "src/SKILL.md": reads(1, 1, 1),
+            "notes.md": reads(2, 1, 1),
+            "alias.md": reads(1, 0, 0),
+            "drafts/old.md": reads(1, 1, 0),
+            empty: reads(1, 1, 0),
+            "empty/": reads(0, 0, 0),
+          },
+        });
+        expect(run.assessment?.state?.status).toBe(repository === "none" ? undefined : "no-head");
+      }
+    }),
+  );
+
+  it.effect("revalidates the payload from live reads before uploading", () =>
+    Effect.gen(function* () {
+      const comparison = delegating();
+      const { world, dir } = notesWorld(comparison.compare, "committed");
+      worlds.push(world);
+      editAfterCommit(dir);
+
+      const run = yield* observe(world, comparison, dir, { apply: true });
+
+      // The apply observes every payload entry afresh, its revalidation's
+      // comparison included, exactly as many times as before.
+      expect(run.application).toEqual({
+        "skill.json": reads(5, 5, 5),
+        "src/SKILL.md": reads(5, 5, 5),
+        "notes.md": reads(6, 5, 5),
+        "alias.md": reads(5, 0, 0),
+        "drafts/old.md": reads(5, 5, 4),
+        empty: reads(4, 4, 0),
+        "empty/": reads(1, 1, 0),
       });
     }),
   );

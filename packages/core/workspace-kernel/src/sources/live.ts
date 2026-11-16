@@ -391,7 +391,7 @@ export const GitDirectoryComparisonLive: Layer.Layer<
       Layer.succeed(Path.Path, path),
     );
     return {
-      compare: ({ directory, currentPaths, repository }) =>
+      compare: ({ directory, currentPaths, repository, takeObservation }) =>
         (repository === undefined
           ? detectGitRoot(directory)
           : Effect.succeed(repository.root)
@@ -400,12 +400,10 @@ export const GitDirectoryComparisonLive: Layer.Layer<
             Option.match({
               onNone: () => Effect.succeed(Option.none()),
               onSome: (repositoryRoot) =>
-                compareDirectoryToHead(
-                  repositoryRoot,
-                  directory,
-                  currentPaths,
-                  repository?.head === undefined ? undefined : { head: repository.head },
-                ).pipe(Effect.map(Option.some)),
+                compareDirectoryToHead(repositoryRoot, directory, currentPaths, {
+                  ...(repository?.head === undefined ? {} : { head: repository.head }),
+                  ...(takeObservation === undefined ? {} : { takeObservation }),
+                }).pipe(Effect.map(Option.some)),
             }),
           ),
           Effect.provide(platform),

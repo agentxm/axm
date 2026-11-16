@@ -789,7 +789,8 @@ export const usableAcceptedCanonicalFrom = (
  * Observe one desired node like `observeDesiredCanonical`, with the usable
  * accepted package that observation establishes. The resolution of a usable
  * package uses the manifest decode the observation made; nothing it read is
- * retained.
+ * retained. The caller is also handed the manifest text the observation read,
+ * with its own decode of it.
  */
 export const observeDesiredUsableCanonical = (
   desired: DesiredExtensionNode,
@@ -797,13 +798,14 @@ export const observeDesiredUsableCanonical = (
   {
     readonly observed: AcceptedCanonicalObservation;
     readonly usable: Option.Option<UsableAcceptedCanonical>;
+    readonly manifest: Option.Option<CapturedManifest>;
   },
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > =>
   Effect.gen(function* () {
     const { observed, manifest } = yield* observeDesiredCanonicalCapturing(desired);
-    return { observed, usable: yield* usableFrom(observed, undefined, manifest) };
+    return { observed, usable: yield* usableFrom(observed, undefined, manifest), manifest };
   });
 
 export const usableAcceptedCanonical = (

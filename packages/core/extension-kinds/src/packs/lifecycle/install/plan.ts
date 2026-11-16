@@ -47,6 +47,7 @@ import {
   isRequiredByAnotherOrigin,
   desiredReachability,
   usableAcceptedCanonical,
+  capturedManifestFor,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
   type McpServerExtensionTarget,
@@ -118,9 +119,10 @@ import {
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   scanWorkspaceAuthority,
-  selectPackGraph,
+  selectPackGraphCapturing,
   type PackGraphSelection,
   type PackGraphSelectionRequest,
+  type ScannedMemberManifest,
 } from "../../install/graph-selection.js";
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
@@ -657,9 +659,38 @@ export type PackInstallRequirements =
   | StepFailureConversion
   | SubagentManager;
 
+/**
+ * The authority scan's decodes of the manifests of `type` for the members one
+ * manager preparation receives, in a map owned by that one call. A manager
+ * takes a decode only for the same package root and type.
+ */
+const scannedManifests = (
+  path: Path.Path,
+  memberManifests: ReadonlyArray<ScannedMemberManifest>,
+  type: ScannedMemberManifest["type"],
+  names: ReadonlyArray<string>,
+) => {
+  const entries = memberManifests.flatMap((entry) =>
+    entry.type === type && names.includes(entry.name)
+      ? Option.toArray(
+          Option.map(
+            capturedManifestFor(path, Option.some(entry.manifest), entry.packageRoot, type),
+            (
+              manifest,
+            ): [string, { readonly packageRoot: string; readonly manifest: typeof manifest }] => [
+              entry.name,
+              { packageRoot: entry.packageRoot, manifest },
+            ],
+          ),
+        )
+      : [],
+  );
+  return entries.length === 0 ? {} : { preparedManifests: new Map(entries) };
+};
+
 /** Select a Pack once, before the enclosing install prepares shared native units. */
 const preparePackInstallGraph = (intent: PackInstallIntent) =>
-  selectPackGraph(intent).pipe(
+  selectPackGraphCapturing(intent).pipe(
     Effect.mapError((cause) => {
       if (cause._tag === "OperationRefused") return cause;
       const memberFailure = failureDetail(cause);
@@ -701,7 +732,15 @@ export const planPackInstall: (
     const mcpServerManager = yield* McpServerManager;
 
     const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
-    const selection = intent.preparedSelection ?? (yield* preparePackInstallGraph(intent));
+    // A selection this call makes hands over the manifests its authority scan
+    // read for workspace-authored members; one prepared elsewhere hands none.
+    const { selection, memberManifests } =
+      intent.preparedSelection === undefined
+        ? yield* preparePackInstallGraph(intent)
+        : {
+            selection: intent.preparedSelection,
+            memberManifests: [] satisfies ReadonlyArray<ScannedMemberManifest>,
+          };
     if (selection.kind === "authority-blocked") {
       const suggestions = selection.blockers
         .flatMap((fact) => fact.recovery)
@@ -860,6 +899,9 @@ export const planPackInstall: (
 
     const { authority, proposedGraph, refs } = selection;
     const graph = authority.graph;
+    // The transition's under-lock check needs only the scan's fingerprint, so
+    // no closure the plan returns holds the scan or its member manifests.
+    const authorityFingerprint = authority.fingerprint;
     const hookRefs = refs.filter((ref) => ref.type === "hook");
     const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
       Effect.mapError((cause) =>
@@ -882,20 +924,29 @@ export const planPackInstall: (
           .map((ref) => ref.hook.name),
       ),
     };
+    const hookProjectionRefs = (intent.projectionRefs ?? refs)
+      .filter((ref) => ref.type === "hook")
+      .filter(
+        (ref) =>
+          proposedGraph.nodes.find((node) => node.type === "hook" && node.name === ref.hook.name)
+            ?.enabled !== false,
+      );
     const { exposures: hookExposures, acceptedContent: hookAcceptedContent } =
       hookRefs.length === 0
         ? { exposures: [], acceptedContent: undefined }
         : yield* hookManager
             .observedPrepareProjection(
-              (intent.projectionRefs ?? refs)
-                .filter((ref) => ref.type === "hook")
-                .filter(
-                  (ref) =>
-                    proposedGraph.nodes.find(
-                      (node) => node.type === "hook" && node.name === ref.hook.name,
-                    )?.enabled !== false,
+              hookProjectionRefs,
+              {
+                ...hookProjection,
+                desiredGraph: proposedGraph,
+                ...scannedManifests(
+                  path,
+                  memberManifests,
+                  "hook",
+                  hookProjectionRefs.map((ref) => ref.hook.name),
                 ),
-              { ...hookProjection, desiredGraph: proposedGraph },
+              },
               ({ observed, acceptedContent }) =>
                 observeObservedPlans(observed).pipe(
                   Effect.flatMap((observations) =>
@@ -935,20 +986,29 @@ export const planPackInstall: (
           .map((ref) => ref.knowledge.name),
       ),
     };
+    const ruleProjectionRefs = (intent.projectionRefs ?? refs)
+      .filter((ref) => ref.type === "rule")
+      .filter(
+        (ref) =>
+          proposedGraph.nodes.find((node) => node.type === "rule" && node.name === ref.rule.name)
+            ?.enabled !== false,
+      );
     const ruleExposures =
       ruleRefs.length === 0
         ? []
         : yield* ruleManager
             .observedPrepareProjection(
-              (intent.projectionRefs ?? refs)
-                .filter((ref) => ref.type === "rule")
-                .filter(
-                  (ref) =>
-                    proposedGraph.nodes.find(
-                      (node) => node.type === "rule" && node.name === ref.rule.name,
-                    )?.enabled !== false,
+              ruleProjectionRefs,
+              {
+                ...ruleProjection,
+                desiredGraph: proposedGraph,
+                ...scannedManifests(
+                  path,
+                  memberManifests,
+                  "rule",
+                  ruleProjectionRefs.map((ref) => ref.rule.name),
                 ),
-              { ...ruleProjection, desiredGraph: proposedGraph },
+              },
               (observed) =>
                 observeObservedInstructionSurfacePlans(observed).pipe(
                   Effect.flatMap((observations) =>
@@ -961,20 +1021,30 @@ export const planPackInstall: (
                 ),
             )
             .pipe(Effect.mapError(projectionRefusal));
+    const knowledgeProjectionRefs = (intent.projectionRefs ?? refs)
+      .filter((ref) => ref.type === "knowledge")
+      .filter(
+        (ref) =>
+          proposedGraph.nodes.find(
+            (node) => node.type === "knowledge" && node.name === ref.knowledge.name,
+          )?.enabled !== false,
+      );
     const knowledgeExposures =
       knowledgeRefs.length === 0
         ? []
         : yield* knowledgeManager
             .observedPrepareProjection(
-              (intent.projectionRefs ?? refs)
-                .filter((ref) => ref.type === "knowledge")
-                .filter(
-                  (ref) =>
-                    proposedGraph.nodes.find(
-                      (node) => node.type === "knowledge" && node.name === ref.knowledge.name,
-                    )?.enabled !== false,
+              knowledgeProjectionRefs,
+              {
+                ...knowledgeProjection,
+                desiredGraph: proposedGraph,
+                ...scannedManifests(
+                  path,
+                  memberManifests,
+                  "knowledge",
+                  knowledgeProjectionRefs.map((ref) => ref.knowledge.name),
                 ),
-              { ...knowledgeProjection, desiredGraph: proposedGraph },
+              },
               (observed) =>
                 observeObservedInstructionSurfacePlans(observed).pipe(
                   Effect.flatMap((observations) =>
@@ -1308,7 +1378,7 @@ export const planPackInstall: (
       // moved, this candidate describes a decision that is no longer available.
       preTransition: Effect.gen(function* () {
         const refreshed = yield* scanWorkspaceAuthority(intent.packToInstall);
-        if (refreshed.blockers.length > 0 || refreshed.fingerprint !== authority.fingerprint) {
+        if (refreshed.blockers.length > 0 || refreshed.fingerprint !== authorityFingerprint) {
           return yield* installRefused({
             category: "conflict",
             detail: "Workspace source authority changed before the pack transition applied",

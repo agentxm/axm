@@ -31,12 +31,14 @@ export interface AcquiredTreeObservation {
   readonly entry: (entry: string) => Option.Option<AcquiredTreeEntry>;
 }
 
+interface AcquiredTreeMeasureOptions {
+  readonly maxBytes?: number;
+  readonly maxEntries?: number;
+}
+
 /** Count a staged tree before it is admitted to the operation's retained scratch. */
-export const measureAcquiredTree = (
-  directory: string,
-  options?: { readonly maxBytes?: number; readonly maxEntries?: number },
-) =>
-  observeAcquiredTree(directory, options).pipe(
+export const measureAcquiredTree = (directory: string, options?: AcquiredTreeMeasureOptions) =>
+  walkAcquiredTree(directory, options, false).pipe(
     Effect.map(({ bytes, entries }) => ({ bytes, entries })),
   );
 
@@ -45,9 +47,29 @@ export const measureAcquiredTree = (
  * limits and failures in the same order, and return what the measure observed
  * of the tree alongside its counts.
  */
-export const observeAcquiredTree = (
+export const observeAcquiredTree = (directory: string, options?: AcquiredTreeMeasureOptions) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const { bytes, entries, listings, visited } = yield* walkAcquiredTree(directory, options, true);
+    const listed = HashMap.fromIterable(listings);
+    const kinds = HashMap.fromIterable(visited);
+    const observation: AcquiredTreeObservation = {
+      root: path.resolve(directory),
+      listing: (target) =>
+        Option.map(HashMap.get(listed, path.resolve(target)), (children) => [...children]),
+      entry: (target) => HashMap.get(kinds, path.resolve(target)),
+    };
+    return { bytes, entries, observation };
+  });
+
+/**
+ * The one measuring walk behind both views. Only an observing caller records
+ * listings and entry kinds, so a count-only measure does no recording work.
+ */
+const walkAcquiredTree = (
   directory: string,
-  options?: { readonly maxBytes?: number; readonly maxEntries?: number },
+  options: AcquiredTreeMeasureOptions | undefined,
+  record: boolean,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -81,18 +103,18 @@ export const observeAcquiredTree = (
           : yield* fs.readLink(current).pipe(Effect.option);
       if (Option.isSome(link)) {
         yield* validateContainedLink(directory, current, link.value);
-        visited.push([path.resolve(current), { link: true }]);
+        if (record) visited.push([path.resolve(current), { link: true }]);
         bytes += new TextEncoder().encode(link.value).byteLength;
         if (bytes > maxBytes)
           return yield* new AcquiredTreeLimitExceeded({ resource: "bytes", limit: maxBytes });
         continue;
       }
       const info = yield* fs.stat(current);
-      if (current !== directory)
+      if (record && current !== directory)
         visited.push([path.resolve(current), { link: false, type: info.type }]);
       if (info.type === "Directory") {
         const children = yield* fs.readDirectory(current);
-        listings.push([path.resolve(current), Object.freeze([...children])]);
+        if (record) listings.push([path.resolve(current), Object.freeze([...children])]);
         entries += children.length;
         if (entries > maxEntries) {
           return yield* new AcquiredTreeLimitExceeded({
@@ -111,13 +133,5 @@ export const observeAcquiredTree = (
         }
       }
     }
-    const listed = HashMap.fromIterable(listings);
-    const kinds = HashMap.fromIterable(visited);
-    const observation: AcquiredTreeObservation = {
-      root: path.resolve(directory),
-      listing: (target) =>
-        Option.map(HashMap.get(listed, path.resolve(target)), (children) => [...children]),
-      entry: (target) => HashMap.get(kinds, path.resolve(target)),
-    };
-    return { bytes, entries, observation };
+    return { bytes, entries, listings, visited };
   });

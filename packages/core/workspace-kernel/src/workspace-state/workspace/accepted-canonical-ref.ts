@@ -44,6 +44,7 @@ import {
   type CanonicalObservation,
   type CapturedManifest,
   type CapturedSubagentPackage,
+  type ObservedTreeDigests,
 } from "./canonical-observation.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
@@ -453,12 +454,16 @@ const acceptedEntryOf = (desired: DesiredExtensionNode, current?: AcceptedEntryO
 const observeDesiredCanonicalCapturingWith = (
   desired: DesiredExtensionNode,
   current?: AcceptedEntryOptions,
+  digestAcceptedTree?: (accepted: LockEntry) => boolean,
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
     const { accepted, lockfile } = yield* acceptedEntryOf(desired, current);
-    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, { lockfile });
+    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, {
+      lockfile,
+      ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+    });
   });
 
 /**
@@ -474,18 +479,21 @@ const observeAcceptedCanonicalCapturing = (
     readonly verifiedTree?: VerifiedCanonicalTree;
     readonly judged?: ReturnType<typeof judgeCanonicalBeforeContent>;
     readonly lockfile?: Lockfile | undefined;
+    readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
   },
 ) =>
   Effect.gen(function* () {
-    const { verifiedTree, judged } = prepared;
+    const { verifiedTree, judged, digestAcceptedTree } = prepared;
     const reader = yield* LockfileReader;
-    const { observation, manifest, subagentPackage } = yield* observeCanonicalExtensionCapturing({
-      layout,
-      desired,
-      accepted: Option.getOrUndefined(accepted),
-      ...(verifiedTree === undefined ? {} : { verifiedTree }),
-      ...(judged === undefined ? {} : { judged }),
-    });
+    const { observation, manifest, subagentPackage, digests } =
+      yield* observeCanonicalExtensionCapturing({
+        layout,
+        desired,
+        accepted: Option.getOrUndefined(accepted),
+        ...(verifiedTree === undefined ? {} : { verifiedTree }),
+        ...(judged === undefined ? {} : { judged }),
+        ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+      });
     const observed: AcceptedCanonicalObservation = {
       desired,
       ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
@@ -503,7 +511,7 @@ const observeAcceptedCanonicalCapturing = (
           },
         }),
     };
-    return { observed, manifest, subagentPackage };
+    return { observed, manifest, subagentPackage, digests };
   });
 
 /**
@@ -537,11 +545,9 @@ export const observeDesiredCanonical = (
  * manifest text the observation read, for that caller's own decode, and the
  * Subagent package its payload check loaded. Neither is retained here.
  */
-export const acceptedCanonicalObservationCapturing = ({
-  type,
-  name,
-  desired: proposed,
-}: AcceptedCanonicalRefArgs): Effect.Effect<
+export const acceptedCanonicalObservationCapturing = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
   {
     readonly observed: Option.Option<AcceptedCanonicalObservation>;
     readonly manifest: Option.Option<CapturedManifest>;
@@ -551,21 +557,46 @@ export const acceptedCanonicalObservationCapturing = ({
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > =>
+  Effect.map(
+    acceptedCanonicalObservationDigesting(args),
+    ({ observed, manifest, subagentPackage }) =>
+      subagentPackage === undefined
+        ? { observed, manifest }
+        : { observed, manifest, subagentPackage },
+  );
+
+/**
+ * Observe like `acceptedCanonicalObservationCapturing`, also handing the
+ * caller the accepted tree's digests the observation made when
+ * `digestAcceptedTree` asks for them.
+ */
+const acceptedCanonicalObservationDigesting = (
+  { type, name, desired: proposed }: AcceptedCanonicalRefArgs,
+  digestAcceptedTree?: (accepted: LockEntry) => boolean,
+) =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
     if (proposed !== undefined) {
-      const { observed, manifest, subagentPackage } =
-        yield* observeDesiredCanonicalCapturing(proposed);
-      return { observed: Option.some(observed), manifest, subagentPackage };
+      const { observed, manifest, subagentPackage, digests } =
+        yield* observeDesiredCanonicalCapturingWith(proposed, undefined, digestAcceptedTree);
+      return { observed: Option.some(observed), manifest, subagentPackage, digests };
     }
     const graph = yield* desiredState.graph();
     const desired = graph.nodes.find((node) => node.type === type && node.name === name);
-    if (desired === undefined) return { observed: Option.none(), manifest: Option.none() };
-    const { observed, manifest, subagentPackage } = yield* observeDesiredCanonicalCapturingWith(
-      desired,
-      currentGraph(desiredState, graph),
-    );
-    return { observed: Option.some(observed), manifest, subagentPackage };
+    if (desired === undefined)
+      return {
+        observed: Option.none<AcceptedCanonicalObservation>(),
+        manifest: Option.none<CapturedManifest>(),
+        subagentPackage: undefined,
+        digests: Option.none<ObservedTreeDigests>(),
+      };
+    const { observed, manifest, subagentPackage, digests } =
+      yield* observeDesiredCanonicalCapturingWith(
+        desired,
+        currentGraph(desiredState, graph),
+        digestAcceptedTree,
+      );
+    return { observed: Option.some(observed), manifest, subagentPackage, digests };
   });
 
 export const acceptedCanonicalObservation = (
@@ -746,12 +777,43 @@ export const usableAcceptedCanonical = (
   | SettingsReader
   | LockfileReader
   | DesiredStateReader
+> => Effect.map(usableAcceptedCanonicalCapturing(args), ({ usable }) => usable);
+
+/**
+ * Like `usableAcceptedCanonical`, also handing the caller what the one
+ * observation it makes read: the manifest text with its own decode, and,
+ * when `digestAcceptedTree` asks for them, the digests of the accepted tree
+ * it walked. Neither is retained here.
+ */
+export const usableAcceptedCanonicalCapturing = (
+  args: UsableAcceptedCanonicalArgs & {
+    readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+  },
+): Effect.Effect<
+  {
+    readonly usable: Option.Option<UsableAcceptedCanonical>;
+    readonly manifest: Option.Option<CapturedManifest>;
+    readonly digests: Option.Option<ObservedTreeDigests>;
+  },
+  AcceptedCanonicalRefError,
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
 > =>
-  acceptedCanonicalObservationCapturing(args).pipe(
-    Effect.flatMap(({ observed, manifest }) =>
+  acceptedCanonicalObservationDigesting(args, args.digestAcceptedTree).pipe(
+    Effect.flatMap(({ observed, manifest, digests }) =>
       Option.match(observed, {
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: (canonical) => usableFrom(canonical, args.preparedWorkspaceRef, manifest),
+        onNone: () =>
+          Effect.succeed({ usable: Option.none<UsableAcceptedCanonical>(), manifest, digests }),
+        onSome: (canonical) =>
+          Effect.map(usableFrom(canonical, args.preparedWorkspaceRef, manifest), (usable) => ({
+            usable,
+            manifest,
+            digests,
+          })),
       }),
     ),
   );

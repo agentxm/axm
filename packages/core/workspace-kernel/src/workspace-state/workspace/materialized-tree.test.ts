@@ -9,11 +9,13 @@ import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 import {
   computeMaterializedTreeDigests,
+  computeMaterializedTreeDigestsMatching,
   computeMaterializedTreeIntegrity,
 } from "./materialized-tree.js";
 import { computePackageContentHash } from "./package-hash.js";
@@ -207,6 +209,59 @@ describe("computeMaterializedTreeDigests", () => {
           inspections: [1, 1, 1, 1, 1, 1, 1, 1, 1],
           listings: [1, 1, 1, 1, 1],
           linkReads: [1],
+        });
+      } finally {
+        nodeFs.rmSync(root, { recursive: true, force: true });
+      }
+    }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect("frames the package hash only of a walk that matches the expected tree", () =>
+    Effect.gen(function* () {
+      const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-tree-digests-"));
+      try {
+        writeMixedTree(root);
+        const expected = yield* computeMaterializedTreeDigests(root);
+        const other = yield* computeMaterializedTreeIntegrity(root, {
+          includeFile: (relative) => relative !== "a.txt",
+        });
+        const judged = (integrity: typeof other, frame: boolean) =>
+          Effect.gen(function* () {
+            const { tracer, work } = spanTracer();
+            const digests = yield* computeMaterializedTreeDigestsMatching(
+              root,
+              integrity,
+              frame,
+            ).pipe(withDetailedWork(tracer));
+            return {
+              digests,
+              walks: work("axm.hash.materialized-tree").length,
+              framings: work("axm.hash.package").length,
+            };
+          });
+        expect({
+          matching: yield* judged(expected.treeIntegrity, true),
+          unframed: yield* judged(expected.treeIntegrity, false),
+          mismatched: yield* judged(other, true),
+        }).toEqual({
+          matching: {
+            digests: {
+              treeIntegrity: expected.treeIntegrity,
+              contentHash: Option.some(expected.contentHash),
+            },
+            walks: 1,
+            framings: 1,
+          },
+          unframed: {
+            digests: { treeIntegrity: expected.treeIntegrity, contentHash: Option.none() },
+            walks: 1,
+            framings: 0,
+          },
+          mismatched: {
+            digests: { treeIntegrity: expected.treeIntegrity, contentHash: Option.none() },
+            walks: 1,
+            framings: 0,
+          },
         });
       } finally {
         nodeFs.rmSync(root, { recursive: true, force: true });

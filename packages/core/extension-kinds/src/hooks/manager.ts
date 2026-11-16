@@ -44,8 +44,10 @@ import {
   validatePathSafety,
   acceptedCanonicalObservation,
   capturedManifestFor,
+  isRegistryLockEntry,
+  type LockEntry,
   removableAcceptedCanonicalPath,
-  usableAcceptedCanonical,
+  usableAcceptedCanonicalCapturing,
   workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -99,7 +101,10 @@ import {
   resolveHookConfiguration,
   requiredHookRuntimeFiles,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type {
+  HookExtensionRef,
+  RegistryHookRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   assertNativeMutationWithinRoots,
@@ -629,9 +634,21 @@ export const HookManagerLive = Layer.effect(
       readonly root: string;
     }
 
-    /** One observation of the Hook's accepted package, as a frozen fact of what it found. */
-    const observeAcceptedHook = (name: string) =>
-      usableAcceptedCanonical({ type: "hook", name }).pipe(
+    /**
+     * One observation of the Hook's accepted package, as a frozen fact of
+     * what it found, beside what that observation read for its caller: the
+     * manifest it decoded and, when `digestAcceptedTree` asks for them, the
+     * digests of the accepted tree it walked.
+     */
+    const observeAcceptedHook = (
+      name: string,
+      digestAcceptedTree?: (accepted: LockEntry) => boolean,
+    ) =>
+      usableAcceptedCanonicalCapturing({
+        type: "hook",
+        name,
+        ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+      }).pipe(
         Effect.mapError(
           (cause) =>
             new HookDefinitionInvalid({
@@ -639,8 +656,8 @@ export const HookManagerLive = Layer.effect(
               cause,
             }),
         ),
-        Effect.map((canonical): AcceptedContentObservation =>
-          Object.freeze({
+        Effect.map(({ usable: canonical, manifest, digests }) => {
+          const observed: AcceptedContentObservation = Object.freeze({
             type: "hook",
             name,
             ...(Option.isSome(canonical)
@@ -651,31 +668,54 @@ export const HookManagerLive = Layer.effect(
                   }),
                 }
               : {}),
-          }),
-        ),
+          });
+          return { observed, captured: { manifest, digests } };
+        }),
       );
+
+    /**
+     * Whether the accepted row names exactly the content `ref` selects: the
+     * same Registry endpoint, package, version, archive integrity and
+     * publisher binding, as the content key of the ref restored from it.
+     */
+    const acceptedRowSelects = (accepted: LockEntry, ref: RegistryHookRef): boolean =>
+      isRegistryLockEntry(accepted) &&
+      accepted.source.url.href === ref.source.location.href &&
+      accepted.identity.owner === ref.owner &&
+      accepted.identity.name === ref.name &&
+      accepted.resolved.version === ref.version &&
+      accepted.resolved.publisherBindingId === ref.publisherBindingId &&
+      (accepted.resolved.integrity.length > 0 ? accepted.resolved.integrity : undefined) ===
+        Option.getOrUndefined(ref.integrity);
 
     /**
      * The package root a ref is read from, with the accepted-package
      * observation that chose it for a Registry ref. An observation `handed` in
      * by the same owner call for this Hook decides instead of observing again.
+     * `captured` is what an observation made here read of the root it chose,
+     * present only when that root is the accepted package's.
      */
     const rootForRef = (
       ref: HookExtensionRef,
       handed?: ReadonlyArray<AcceptedContentObservation>,
+      digestAcceptedTree?: (accepted: LockEntry) => boolean,
     ) =>
       Effect.gen(function* () {
         if (ref.refType !== "registry")
-          return { root: fromFileLocation(ref.location), observed: undefined };
-        const observed =
-          handed?.find(({ type, name }) => type === "hook" && name === ref.hook.name) ??
-          (yield* observeAcceptedHook(ref.hook.name));
+          return { root: fromFileLocation(ref.location), observed: undefined, captured: undefined };
+        const handedObservation = handed?.find(
+          ({ type, name }) => type === "hook" && name === ref.hook.name,
+        );
+        const { observed, captured } =
+          handedObservation === undefined
+            ? yield* observeAcceptedHook(ref.hook.name, digestAcceptedTree)
+            : { observed: handedObservation, captured: undefined };
         if (
           observed.usable !== undefined &&
           observed.usable.contentKey === sourceRefContentKey(ref)
         )
-          return { root: observed.usable.path, observed };
-        return { root: (yield* sources.fetch(ref)).directory, observed };
+          return { root: observed.usable.path, observed, captured };
+        return { root: (yield* sources.fetch(ref)).directory, observed, captured: undefined };
       });
     /**
      * The manifest at the ref's root. For a ref that is not a Registry ref, a
@@ -1286,16 +1326,30 @@ export const HookManagerLive = Layer.effect(
           (ref) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const { root, observed } = yield* rootForRef(ref);
+                const preparedHash = options?.preparedContentHashes?.get(ref.hook.name);
+                // A Registry Hook's accepted package is observed here; its walk
+                // of the accepted tree also frames the package hash when the
+                // row selects this ref's content and no hash was handed in.
+                const { root, observed, captured } = yield* rootForRef(
+                  ref,
+                  undefined,
+                  ref.refType === "registry"
+                    ? (accepted) => preparedHash === undefined && acceptedRowSelects(accepted, ref)
+                    : undefined,
+                );
                 // The decode the caller made of this same package's hook
-                // manifest in this boundary; otherwise the manifest is read.
+                // manifest in this boundary, else the one this call's
+                // observation made of it; otherwise the manifest is read.
                 const preparedManifest = options?.preparedManifests?.get(ref.hook.name);
                 const manifest =
                   preparedManifest !== undefined &&
                   preparedManifest.packageRoot === root &&
                   preparedManifest.manifest.type === "hook"
                     ? preparedManifest.manifest
-                    : yield* readManifest(root);
+                    : yield* Option.match(
+                        capturedManifestFor(path, captured?.manifest, root, "hook"),
+                        { onSome: Effect.succeed, onNone: () => readManifest(root) },
+                      );
                 const validatedRoot = yield* validatePackageFiles(root, manifest);
                 const canonicalPath = computeExtensionPathsForLayout(
                   path.join,
@@ -1304,16 +1358,31 @@ export const HookManagerLive = Layer.effect(
                   "hooks",
                   ref.hook.name,
                 ).canonicalPath;
-                // The strict tree walk always runs; the package hash is framed
-                // from it unless the caller hashed this same root in this boundary.
-                const preparedHash = options?.preparedContentHashes?.get(ref.hook.name);
+                // The strict tree walk always runs, here or as this call's
+                // observation of this same accepted root; the package hash is
+                // framed from it unless the caller hashed this same root in
+                // this boundary.
+                const walked = Option.filter(
+                  Option.fromUndefinedOr(captured?.digests).pipe(Option.flatten),
+                  (digests) => digests.root === root,
+                );
                 const { treeIntegrity, contentHash } =
                   preparedHash !== undefined && preparedHash.packageRoot === root
                     ? {
-                        treeIntegrity: yield* computeMaterializedTreeIntegrity(root),
+                        treeIntegrity: Option.isSome(walked)
+                          ? walked.value.treeIntegrity
+                          : yield* computeMaterializedTreeIntegrity(root),
                         contentHash: preparedHash.contentHash,
                       }
-                    : yield* computeMaterializedTreeDigests(root);
+                    : yield* Option.match(
+                        Option.flatMap(walked, ({ treeIntegrity, contentHash }) =>
+                          Option.map(contentHash, (hash) => ({ treeIntegrity, contentHash: hash })),
+                        ),
+                        {
+                          onSome: Effect.succeed,
+                          onNone: () => computeMaterializedTreeDigests(root),
+                        },
+                      );
                 return {
                   contributor: {
                     name: ref.hook.name,

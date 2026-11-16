@@ -62,6 +62,9 @@ const drift = (installed: InstallWorld) =>
 const treeHashes = (work: ReturnType<typeof workObservations>) =>
   work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length;
 
+const packageHashes = (work: ReturnType<typeof workObservations>) =>
+  work.facts.filter((fact) => fact.kind === "axm.hash.package").length;
+
 const hookRequest = installRequest({
   type: "hook",
   subject: { kind: "source", source: `@acme/hooks/${HOOK}` },
@@ -103,13 +106,15 @@ const replanAcceptedHook = (installed: InstallWorld) =>
       )
       .pipe(Effect.provideService(FileSystem.FileSystem, recorder.fileSystem));
     const step = plan.jobs[0]?.steps[0];
+    const root = canonicalHookRoot(installed);
     return {
       readiness: step?.readiness,
       agents: step?.artifact?.agents,
       treeHashes: treeHashes(work),
-      manifestReads: recorder.recording.contentReads(
-        nodePath.join(canonicalHookRoot(installed), "hook.json"),
-      ),
+      packageHashes: packageHashes(work),
+      manifestReads: recorder.recording.contentReads(nodePath.join(root, "hook.json")),
+      scriptReads: recorder.recording.contentReads(nodePath.join(root, "src", "hook.sh")),
+      rootListings: recorder.recording.calls({ path: root, method: "readDirectory" }).length,
     };
   });
 
@@ -118,13 +123,19 @@ describe("Hook install planning of an accepted Registry Hook", () => {
     Effect.gen(function* () {
       const installed = yield* acceptedHook;
 
-      // One hash observes the accepted package and one is the prepared
-      // package's own digest; the outcome evaluation still reads the manifest.
+      // The observation of the accepted package walks its tree once, and the
+      // preparation takes that walk's digests and manifest decode; the
+      // outcome evaluation still reads the manifest. Measured before the
+      // preparation took them: treeHashes 2, manifestReads 6, scriptReads 2
+      // and rootListings 3.
       expect(yield* replanAcceptedHook(installed)).toEqual({
         readiness: "ready",
         agents: ["claude-code"],
-        treeHashes: 2,
-        manifestReads: 6,
+        treeHashes: 1,
+        packageHashes: 1,
+        manifestReads: 4,
+        scriptReads: 1,
+        rootListings: 2,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -138,7 +149,10 @@ describe("Hook install planning of an accepted Registry Hook", () => {
         readiness: "ready",
         agents: ["claude-code"],
         treeHashes: 2,
+        packageHashes: 1,
         manifestReads: 3,
+        scriptReads: 1,
+        rootListings: 2,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -152,6 +166,30 @@ describe("Hook install planning of an accepted Registry Hook", () => {
       yield* installed.workspace.provide(InstallExtensions.prepare(hookRequest).pipe(work.provide));
 
       expect(treeHashes(work)).toBe(2);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("hashes as before when installing another version over an intact Hook", () =>
+    Effect.gen(function* () {
+      const installed = yield* acceptedHook;
+      installed.registry.writeHook(HOOK, [{ version: "1.0.0" }, { version: "2.0.0" }]);
+      const work = workObservations(false);
+
+      yield* installed.workspace.provide(
+        InstallExtensions.prepare(
+          installRequest({
+            type: "hook",
+            subject: { kind: "source", source: `@acme/hooks/${HOOK}@2.0.0` },
+          }),
+        ).pipe(work.provide),
+      );
+
+      // The accepted row selects other content, so its observation frames no
+      // package hash: the same counts as before the preparation took digests.
+      expect({ treeHashes: treeHashes(work), packageHashes: packageHashes(work) }).toEqual({
+        treeHashes: 6,
+        packageHashes: 3,
+      });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });
@@ -211,10 +249,12 @@ describe("Pack install planning of an accepted Registry Hook member", () => {
     Effect.gen(function* () {
       const installed = yield* acceptedPack;
 
+      // The Hook preparation takes its observation's walk of the intact
+      // member; measured before: 8.
       expect(yield* reprepare(installed)).toEqual({
         acquisitions: [],
         carriesObservations: false,
-        treeHashes: 8,
+        treeHashes: 7,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -284,10 +324,11 @@ describe("Pack update planning of an unchanged Registry Hook member", () => {
       const installed = yield* acceptedPack;
       advancePacks(installed, { toolkit: HOOK });
 
+      // Measured before the Hook preparation took its observation's walk: 5.
       expect(yield* prepareUpdate(installed)).toEqual({
         acquisitions: ["pack:toolkit"],
         carriesObservations: false,
-        treeHashes: 5,
+        treeHashes: 4,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -298,10 +339,11 @@ describe("Pack update planning of an unchanged Registry Hook member", () => {
       const installed = yield* acceptedPacks(packs);
       advancePacks(installed, packs);
 
+      // Measured before each Hook preparation took its observation's walk: 18.
       expect(yield* prepareUpdate(installed)).toEqual({
         acquisitions: ["pack:toolkit", "pack:kit"],
         carriesObservations: false,
-        treeHashes: 18,
+        treeHashes: 14,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -310,10 +352,11 @@ describe("Pack update planning of an unchanged Registry Hook member", () => {
     Effect.gen(function* () {
       const installed = yield* acceptedPack;
 
+      // Measured before the Hook preparation took its observation's walk: 6.
       expect(yield* prepareUpdate(installed, true)).toEqual({
         acquisitions: ["pack:toolkit", `hook:${HOOK}`],
         carriesObservations: false,
-        treeHashes: 6,
+        treeHashes: 5,
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );

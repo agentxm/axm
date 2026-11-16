@@ -4,6 +4,7 @@ import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -284,5 +285,36 @@ export const computeMaterializedTreeDigests = (
     return {
       treeIntegrity: walked.integrity,
       contentHash: yield* packageContentHashOf(walked.entries),
+    };
+  });
+
+/**
+ * The strict walk of `computeMaterializedTreeIntegrity`, for a caller that
+ * judges the walked tree against the `expected` integrity. When `frame` is
+ * set and the walked integrity is the expected one, the package content hash
+ * of the same bytes is framed as `computeMaterializedTreeDigests` frames it;
+ * otherwise no package hash is framed and no bytes are kept. The walk's
+ * failures are those of `computeMaterializedTreeIntegrity`, and the read
+ * bytes stay local to this call.
+ */
+export const computeMaterializedTreeDigestsMatching = (
+  root: string,
+  expected: TreeIntegrity,
+  frame: boolean,
+): Effect.Effect<
+  { readonly treeIntegrity: TreeIntegrity; readonly contentHash: Option.Option<SourceHash> },
+  MaterializedTreeInvalid,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const walked = yield* strictTreeDigest(root, {}, frame).pipe((effect) =>
+      withWork("axm.hash.materialized-tree", effect),
+    );
+    return {
+      treeIntegrity: walked.integrity,
+      contentHash:
+        frame && walked.integrity === expected
+          ? Option.some(yield* packageContentHashOf(walked.entries))
+          : Option.none<SourceHash>(),
     };
   });

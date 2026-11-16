@@ -244,6 +244,7 @@ export {
   observeDesiredUsableCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalCapturing,
   usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
@@ -265,6 +266,7 @@ export {
   lockEntryVersion,
   isGitLockEntry,
   isPathLockEntry,
+  isRegistryLockEntry,
   type LockEntry,
   type LockEntryToRefError,
 } from "./workspace/lock-entry.js";

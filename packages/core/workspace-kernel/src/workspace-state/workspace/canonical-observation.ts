@@ -5,7 +5,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
+import {
+  computeMaterializedTreeDigestsMatching,
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "./materialized-tree.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   toExtensionTypePlural,
   type ExtensionType,
@@ -99,6 +104,27 @@ interface ObserveCanonicalArgs {
    * path service from these exact layout, node and accepted row values.
    */
   readonly judged?: CanonicalPreContentJudgement;
+  /**
+   * Asks for the digests of the accepted tree the observation walks: the
+   * integrity it verified, and the package content hash of the same bytes
+   * when this returns true for the accepted row. They are handed out only
+   * from a walk whose integrity is the accepted one, by an observation that
+   * ends usable.
+   */
+  readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+}
+
+/**
+ * The digests of the accepted tree at `root` an observation walked and found
+ * to be the accepted row's: its integrity, and its package content hash when
+ * the caller asked for one. Frozen; the bytes they were computed from are not
+ * kept.
+ */
+export interface ObservedTreeDigests {
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly treeIntegrity: TreeIntegrity;
+  readonly contentHash: Option.Option<SourceHash>;
 }
 
 export const canonicalPathForAcceptedExtension = (
@@ -455,12 +481,15 @@ interface CanonicalObservationCapture {
   readonly manifest: Option.Option<CapturedManifest>;
   /** Present whenever the observation loaded a Subagent package to check its payload. */
   readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
+  /** Present when the caller asked for them and the observation ended usable. */
+  readonly digests: Option.Option<ObservedTreeDigests>;
 }
 
 const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
   observation,
   manifest: Option.none(),
   subagentPackage: Option.none(),
+  digests: Option.none(),
 });
 
 /**
@@ -546,6 +575,7 @@ export const observeCanonicalExtensionCapturing = ({
   accepted,
   verifiedTree,
   judged: prejudged,
+  digestAcceptedTree,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservationCapture,
   never,
@@ -653,6 +683,7 @@ export const observeCanonicalExtensionCapturing = ({
     const captured = (
       observation: CanonicalObservation,
       subagentPackage: Option.Option<CapturedSubagentPackage> = Option.none(),
+      digests: Option.Option<ObservedTreeDigests> = Option.none(),
     ): CanonicalObservationCapture => ({
       observation,
       manifest: Option.map(capture.text, (text) => ({
@@ -664,6 +695,7 @@ export const observeCanonicalExtensionCapturing = ({
           ),
       })),
       subagentPackage,
+      digests,
     });
     const read = capture.result;
     if (Result.isFailure(read)) {
@@ -725,10 +757,39 @@ export const observeCanonicalExtensionCapturing = ({
       );
     }
 
+    // A caller that asked for the accepted tree's digests receives them from
+    // this same walk, unless a digest the caller verified stands for it.
+    const digested =
+      !workspaceAuthored &&
+      accepted !== undefined &&
+      digestAcceptedTree !== undefined &&
+      !(
+        verifiedTree !== undefined &&
+        verifiedTree.root === root &&
+        verifiedTree.accepted === accepted
+      )
+        ? yield* Effect.map(
+            Effect.result(
+              computeMaterializedTreeDigestsMatching(
+                root,
+                accepted.treeIntegrity,
+                digestAcceptedTree(accepted),
+              ),
+            ),
+            (walked) =>
+              Result.isSuccess(walked) && walked.success.treeIntegrity === accepted.treeIntegrity
+                ? Option.some<ObservedTreeDigests>(
+                    Object.freeze({ root, accepted, ...walked.success }),
+                  )
+                : Option.none<ObservedTreeDigests>(),
+          )
+        : undefined;
     if (
       !workspaceAuthored &&
       accepted !== undefined &&
-      !(yield* treeMatchesAccepted(root, accepted))
+      !(digested === undefined
+        ? yield* treeMatchesAccepted(root, accepted)
+        : Option.isSome(digested))
     ) {
       return captured(
         {
@@ -766,6 +827,7 @@ export const observeCanonicalExtensionCapturing = ({
         path: root,
       },
       subagentPackage,
+      digested ?? Option.none(),
     );
   });
 

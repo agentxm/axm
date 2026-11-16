@@ -44,11 +44,16 @@ export const computeDistributionTreeIntegrity = (root: string, selection?: Resol
         entries.set(parts.slice(0, index).join("/"), { kind: "directory" });
     };
     const candidates: Array<DistributionLinkEntry> = [];
-    const pending = [""];
+    // A directory's listing is taken once: the root's when it is walked, every
+    // other directory's when its emptiness is tested, carried with its entry.
+    const pending: Array<{ readonly parent: string; readonly names?: ReadonlyArray<string> }> = [
+      { parent: "" },
+    ];
     while (pending.length > 0) {
-      const parent = pending.pop();
-      if (parent === undefined) break;
-      for (const name of yield* fs.readDirectory(path.join(root, parent))) {
+      const next = pending.pop();
+      if (next === undefined) break;
+      const { parent } = next;
+      for (const name of next.names ?? (yield* fs.readDirectory(path.join(root, parent)))) {
         if (name === ".git") {
           candidates.push({ path: parent === "" ? name : `${parent}/${name}`, included: false });
           continue;
@@ -77,10 +82,11 @@ export const computeDistributionTreeIntegrity = (root: string, selection?: Resol
             kind: info.type === "Directory" ? "directory" : "file",
           }).included !== false;
         if (info.type === "Directory") {
-          if ((yield* fs.readDirectory(absolute)).length === 0) {
+          const names = yield* fs.readDirectory(absolute);
+          if (names.length === 0) {
             candidates.push({ path: relative, included });
             if (included) retain(relative, { kind: "directory" });
-          } else pending.push(relative);
+          } else pending.push({ parent: relative, names });
         } else if (info.type === "File") {
           candidates.push({ path: relative, included });
           if (included)

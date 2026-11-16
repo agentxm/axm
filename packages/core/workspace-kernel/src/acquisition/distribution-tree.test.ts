@@ -1,8 +1,11 @@
 import { withDetailedWork } from "../locations/testing.js";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { computeDistributionTreeIntegrity, resolveFileSelection } from "./index.js";
@@ -90,5 +93,79 @@ describe("selected distribution identity", () => {
         yield* fs.chmod(path.join(registry, "src", "deep", "body.md"), 0o755);
         expect(yield* computeDistributionTreeIntegrity(registry)).not.toBe(expected);
       }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
+/**
+ * Work evidence for one distribution-tree hash: every directory below the root
+ * is listed exactly once.
+ */
+describe("distribution identity work", () => {
+  const recordingLayer = Layer.merge(
+    NodeServices.layer,
+    layerRecordingFileSystem(NodeFileSystem.layer),
+  );
+
+  /** A package tree with nested content, an empty directory and an excluded non-empty directory. */
+  const writePackage = (directory: string, options: { readonly evals: boolean }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      yield* fs.makeDirectory(path.join(directory, "src", "deep"), { recursive: true });
+      yield* fs.makeDirectory(path.join(directory, "empty"));
+      yield* fs.writeFileString(path.join(directory, "src", "deep", "body.md"), "content");
+      yield* fs.writeFileString(path.join(directory, "skill.json"), "{}");
+      if (options.evals) {
+        yield* fs.makeDirectory(path.join(directory, "evals"));
+        yield* fs.writeFileString(path.join(directory, "evals", "case.json"), "{}");
+      }
+    });
+
+  const excludeEvals = resolveFileSelection({
+    packageDirectory: "",
+    gitignore: [],
+    exclude: ["evals/"],
+    manifest: "skill.json",
+  });
+
+  it.effect("lists each directory of the walk once, including excluded ones", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const recording = yield* FileSystemRecorder;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "source");
+      const twin = path.join(root, "twin");
+      yield* writePackage(source, { evals: true });
+      yield* writePackage(twin, { evals: false });
+      const expected = yield* computeDistributionTreeIntegrity(twin);
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      recording.reset();
+
+      expect(
+        yield* computeDistributionTreeIntegrity(source, excludeEvals).pipe(
+          withDetailedWork(tracer),
+        ),
+      ).toBe(expected);
+
+      const listings = (directory: string) =>
+        recording.calls({ method: "readDirectory", path: directory }).length;
+      expect({
+        root: listings(source),
+        src: listings(path.join(source, "src")),
+        deep: listings(path.join(source, "src", "deep")),
+        empty: listings(path.join(source, "empty")),
+        evals: listings(path.join(source, "evals")),
+        total: recording.calls({ method: "readDirectory" }).length,
+      }).toEqual({ root: 1, src: 1, deep: 1, empty: 1, evals: 1, total: 5 });
+      expect(spans.filter((span) => span.name === "axm.hash.distribution-tree")).toHaveLength(1);
+    }).pipe(Effect.provide(recordingLayer)),
   );
 });

@@ -21,8 +21,8 @@ export interface CapturedKnowledgeSource extends KnowledgeCorpusSource {
   readonly sourceRevision: KnowledgeRevision;
 }
 
+/** The corpus fingerprint is derived by the index snapshot that publishes it. */
 export interface CapturedKnowledgeCorpus {
-  readonly fingerprint: KnowledgeRevision;
   readonly sources: ReadonlyArray<CapturedKnowledgeSource>;
 }
 
@@ -180,11 +180,7 @@ export const captureKnowledgeCorpus = <E>(
             equalBytes(source.bytes, confirmed[index]?.bytes ?? new Uint8Array()),
         )
       ) {
-        const revised = yield* withSourceRevisions(captured);
-        return {
-          fingerprint: computeKnowledgeCorpusFingerprint(revised),
-          sources: revised,
-        };
+        return { sources: yield* withSourceRevisions(captured) };
       }
     }
     return yield* new KnowledgeCorpusChangingError({ attempts: maxAttempts });

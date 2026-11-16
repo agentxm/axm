@@ -111,7 +111,7 @@ it.effect("retries a changing corpus and returns one stable capture", () =>
 
     expect(reads).toBe(4);
     expect(new TextDecoder().decode(corpus.sources[0]?.bytes)).toBe("stable");
-    expect(corpus.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    expect(corpus.sources[0]?.sourceRevision).toBe(computeKnowledgeSourceRevision(bytes("stable")));
   }),
 );
 
@@ -164,7 +164,6 @@ it.effect("hashes each source of a stable capture once, after the confirming rea
         computeKnowledgeSourceRevision(bytes(`content of ${source.relativePath}`)),
       ),
     );
-    expect(corpus.fingerprint).toBe(computeKnowledgeCorpusFingerprint(corpus.sources));
   }),
 );
 

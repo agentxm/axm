@@ -45,6 +45,7 @@ const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
     const sources = yield* SourceHostProviders;
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
+    const verdicts = yield* CurrentRetainedVerdicts;
     const layout = yield* Ref.get(location.layout);
     const lock = yield* (yield* LockfileReader).lockfile.pipe(
       Effect.mapError((cause) =>
@@ -84,8 +85,21 @@ const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
         toExtensionTypePlural(binding.type),
         entry.identity.name,
       ).canonicalPath;
-      const integrity = yield* computeMaterializedTreeIntegrity(canonical).pipe(Effect.option);
-      if (Option.isSome(integrity) && integrity.value === entry.treeIntegrity) {
+      const verdictKey = JSON.stringify([
+        "git",
+        binding.packageKey,
+        canonical,
+        entry.treeIntegrity,
+        root,
+      ]);
+      const verified =
+        verdicts?.discoveryRoots.has(verdictKey) === true ||
+        Option.exists(
+          yield* computeMaterializedTreeIntegrity(canonical).pipe(Effect.option),
+          (integrity) => integrity === entry.treeIntegrity,
+        );
+      if (verified) {
+        verdicts?.discoveryRoots.set(verdictKey, canonical);
         const found = yield* sources
           .find(
             { type: "local", path: canonical },
@@ -151,7 +165,9 @@ const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
 /**
  * The discovery roots a locator's probe loop has already verified against
  * their accepted snapshots, keyed by binding, retained root, accepted tree and
- * package root. Only established roots are kept; a refusal is never kept.
+ * the package root (for a retained Git package, the `git`-marked repository
+ * root). Only established roots are kept; a refusal, a mismatch or a failed
+ * hash is never kept.
  */
 interface RetainedVerdicts {
   readonly discoveryRoots: Map<string, string>;
@@ -163,8 +179,9 @@ const CurrentRetainedVerdicts = Context.Reference<RetainedVerdicts | undefined>(
 );
 
 /**
- * Let the retained lookups `effect` runs verify each retained tree once. The
- * verdicts belong to this one run and are released with it.
+ * Let the retained lookups `effect` runs verify each retained tree once, from
+ * local, HTTP and Git sources alike. The verdicts belong to this one run and
+ * are released with it.
  */
 export const withRetainedVerdicts = <A, E, R>(
   effect: Effect.Effect<A, E, R>,

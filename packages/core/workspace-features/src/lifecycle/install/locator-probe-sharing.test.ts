@@ -11,6 +11,7 @@
  * `SourceHostProviders` placed over the live one at its service seam.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -47,6 +48,7 @@ import {
   makeInstallWorld,
   type InstallWorld,
 } from "../../testing/install-world.js";
+import { serveBareRepository } from "../../testing/git-repositories.js";
 import {
   InstallExtensions,
   type InstallExtensionsRequest,
@@ -550,4 +552,140 @@ describe("the probe loop's shared readings end with its selection", () => {
       }),
     );
   });
+});
+
+/**
+ * Serve a Git repository holding the skills `alpha` (carrying an asset discovery
+ * never reads) and `beta` and the rule `gamma`, retain `alpha` from it, and run
+ * `use` with the served URL and the retained `alpha` tree, over a recording
+ * host filesystem.
+ */
+const withRetainedGitSkill = <A, E, R>(
+  use: (served: { readonly url: string; readonly retained: string }) => Effect.Effect<A, E, R>,
+) => {
+  const world = makeInstallWorld();
+  return Effect.gen(function* () {
+    const source = nodePath.join(world.workspace.root, "vendor-source");
+    fs.mkdirSync(source);
+    const alpha = writeLocalSkillPackage(source, { name: "alpha" });
+    fs.mkdirSync(nodePath.join(alpha, "assets"));
+    fs.writeFileSync(nodePath.join(alpha, "assets", "notes.txt"), "notes\n");
+    writeLocalSkillPackage(source, { name: "beta" });
+    writeLocalRulePackage(source, { name: "gamma" });
+    const git = (args: ReadonlyArray<string>) =>
+      execFileSync(
+        "git",
+        ["-c", "user.name=AXM Test", "-c", "user.email=test@example.invalid", ...args],
+        { cwd: source, stdio: "ignore" },
+      );
+    git(["init", "--quiet", "--initial-branch=main"]);
+    git(["add", "."]);
+    git(["commit", "--quiet", "-m", "main"]);
+    const served = yield* Effect.acquireRelease(
+      Effect.promise(() =>
+        serveBareRepository({ root: world.workspace.root, source, name: "extensions" }),
+      ),
+      (repository) => Effect.sync(repository.stop),
+    );
+    return yield* world.workspace.provide(
+      Effect.gen(function* () {
+        yield* applyInstall(
+          installRequest({
+            type: "skill",
+            subject: { kind: "source", source: served.url },
+            names: ["alpha"],
+            all: false,
+          }),
+        );
+        const store = nodePath.join(world.workspace.root, "agent_extensions");
+        const asset = fs
+          .readdirSync(store, { recursive: true, encoding: "utf8" })
+          .filter((relative) => relative.endsWith(nodePath.join("assets", "notes.txt")));
+        expect(asset).toHaveLength(1);
+        const retained = nodePath.dirname(nodePath.dirname(nodePath.join(store, asset[0] ?? "")));
+        return yield* use({ url: served.url, retained });
+      }),
+    );
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(recordingHost),
+    Effect.ensuring(Effect.sync(world.cleanup)),
+  );
+};
+
+describe("locator probes of a Git source share one verification of a retained Git package", () => {
+  it.effect("hashes a retained Git package once across the probe loop", () =>
+    withRetainedGitSkill(({ url, retained }) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const finds: Array<LocalFind> = [];
+        recording.reset();
+        const selection = yield* selectCounting(locatorAll(url), finds);
+
+        // Each of the seven type probes hashed the retained tree before.
+        expect({
+          asset: recording.contentReads(nodePath.join(retained, "assets", "notes.txt")),
+          manifest: recording.contentReads(nodePath.join(retained, "skill.json")),
+          finds: finds.filter((find) => find.path === retained).map((find) => find.type),
+        }).toEqual({ asset: 1, manifest: 2, finds: ["*"] });
+        expect(settledNames(selection)).toEqual([
+          { type: "skill", names: ["alpha", "beta"] },
+          { type: "rule", names: ["gamma"] },
+        ]);
+
+        // The next selection verifies the retained tree afresh.
+        recording.reset();
+        yield* selectCounting(locatorAll(url), finds);
+        expect(recording.contentReads(nodePath.join(retained, "assets", "notes.txt"))).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("hashes an edited retained Git package on every probe and reads Git instead", () =>
+    withRetainedGitSkill(({ url, retained }) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        fs.writeFileSync(nodePath.join(retained, "assets", "notes.txt"), "edited\n");
+        const finds: Array<LocalFind> = [];
+        recording.reset();
+        const selection = yield* selectCounting(locatorAll(url), finds);
+
+        expect({
+          asset: recording.contentReads(nodePath.join(retained, "assets", "notes.txt")),
+          finds: finds.filter((find) => find.path === retained).map((find) => find.type),
+        }).toEqual({ asset: 7, finds: [] });
+        expect(settledNames(selection)).toEqual([
+          { type: "skill", names: ["alpha", "beta"] },
+          { type: "rule", names: ["gamma"] },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("hashes a retained Git package once across explicitly selected types", () =>
+    withRetainedGitSkill(({ url, retained }) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const finds: Array<LocalFind> = [];
+        recording.reset();
+        const selection = yield* selectCounting(
+          installRequest({
+            subject: { kind: "source", source: url },
+            selectors: { skill: ["beta"], rule: ["gamma"] },
+            all: false,
+          }),
+          finds,
+        );
+
+        expect({
+          asset: recording.contentReads(nodePath.join(retained, "assets", "notes.txt")),
+          finds: finds.filter((find) => find.path === retained).map((find) => find.type),
+        }).toEqual({ asset: 1, finds: ["skill", "rule"] });
+        expect(settledNames(selection)).toEqual([
+          { type: "skill", names: ["beta"] },
+          { type: "rule", names: ["gamma"] },
+        ]);
+      }),
+    ),
+  );
 });

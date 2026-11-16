@@ -10,6 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -32,7 +33,11 @@ import {
   versionSatisfiesRequest,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import type { SourceHostProvidersService, SourceResolutionFailure } from "../sources/index.js";
+import {
+  withSharedAcceptedSourceAcquisitions,
+  type SourceHostProvidersService,
+  type SourceResolutionFailure,
+} from "../sources/index.js";
 import {
   desiredStateProblemText,
   type DesiredConstraintConflict,
@@ -604,7 +609,7 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
         source,
       })),
     ];
-    const resolutions = yield* Effect.forEach(
+    const resolveMembers = Effect.forEach(
       entries,
       (entry) =>
         memberSelectionRange(memberRange, entry.fqn, entry.constraint).pipe(
@@ -626,6 +631,16 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
         ),
       { concurrency: 16 },
     );
+    // Members restored from accepted state fetch each accepted commit or
+    // artifact once for this expansion, in the scope it already runs in;
+    // each member still checks and selects its own package.
+    const ambientScope =
+      dependencyResolver === undefined ? Option.none() : yield* Effect.serviceOption(Scope.Scope);
+    const resolutions = Option.isSome(ambientScope)
+      ? yield* withSharedAcceptedSourceAcquisitions(resolveMembers).pipe(
+          Effect.provideService(Scope.Scope, ambientScope.value),
+        )
+      : yield* resolveMembers;
     const holdbacks = resolutions.flatMap((resolution) =>
       resolution.kind === "policy_held" ? [resolution.holdback] : resolution.holdbacks,
     );

@@ -12,7 +12,10 @@ import { sameRegistryEndpoint } from "@agentxm/extension-model/unstable/extensio
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { acceptedConfiguredResolution } from "@agentxm/workspace-kernel/resolution";
 import { DesiredStateReader, desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
-import { resolveSource } from "@agentxm/workspace-kernel/sources";
+import {
+  resolveSource,
+  withSharedAcceptedSourceAcquisitions,
+} from "@agentxm/workspace-kernel/sources";
 import { configuredEntryResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 
 const sameSource = (left: Source, right: Source): boolean => {
@@ -83,4 +86,9 @@ export const acceptedInstallRequestRefs = (args: {
       );
     }
     return refs;
-  }).pipe(Effect.mapError(configuredEntryResolutionRefused("requested extension")));
+  }).pipe(
+    // Packages restored from one accepted Git commit or HTTP artifact fetch it
+    // once for this request; each still checks and selects its own package.
+    withSharedAcceptedSourceAcquisitions,
+    Effect.mapError(configuredEntryResolutionRefused("requested extension")),
+  );

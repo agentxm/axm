@@ -25,6 +25,7 @@ export {
 // Provider implementations
 export { createGitSourceHostProvider, withSharedGitDiscoveryCheckouts } from "./providers/git.js";
 export { GitRemoteRefListings, withSharedGitRemoteRefListings } from "./providers/git.js";
+export { withSharedAcceptedSourceAcquisitions } from "./providers/git.js";
 export { bindHttpPackageRef } from "./providers/http.js";
 export { createLocalSourceHostProvider } from "./providers/local.js";
 export { createRemoteRegistrySourceHostProvider } from "./providers/registry/host-provider.js";

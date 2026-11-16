@@ -7,6 +7,7 @@ import type { HttpSource } from "@agentxm/extension-model/unstable/sources/types
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HttpArtifactSnapshot } from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { discoverConventionRefs } from "./convention-discovery.js";
+import { AcceptedSourceAcquisitions } from "./git.js";
 import type {
   FindOptions,
   SourceHostProvider,
@@ -245,6 +246,18 @@ export const findHttpSource = (
     return refs;
   });
 
+/** One accepted snapshot's exact download inputs, in a fixed order. */
+const acceptedSnapshotKey = (snapshot: HttpArtifactSnapshot): string =>
+  JSON.stringify(
+    snapshot.format === "files"
+      ? [
+          "http",
+          snapshot.format,
+          snapshot.files.map((file) => [file.path, file.url.href, file.digest]),
+        ]
+      : ["http", snapshot.format, snapshot.url.href, snapshot.digest],
+  );
+
 export const createHttpSourceHostProvider = (): SourceHostProvider<
   HttpSource,
   FileSystem.FileSystem | Path.Path | ArtifactHttpClient | Scope.Scope,
@@ -262,8 +275,15 @@ export const createHttpSourceHostProvider = (): SourceHostProvider<
         });
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
-      const acquired = yield* acquireAcceptedHttpPackage(ref.snapshot);
-      const directory = path.join(acquired.directory, ref.sourcePath);
+      const acquire = acquireAcceptedHttpPackage(ref.snapshot).pipe(
+        Effect.map(({ directory }) => directory),
+      );
+      const shared = yield* Effect.serviceOption(AcceptedSourceAcquisitions);
+      // The snapshot pins every artifact's digest; each package is selected below.
+      const scratchRoot = Option.isSome(shared)
+        ? yield* shared.value.acquire(acceptedSnapshotKey(ref.snapshot), acquire)
+        : yield* acquire;
+      const directory = path.join(scratchRoot, ref.sourcePath);
       if (!(yield* fs.exists(directory)))
         return yield* new SourceNotResolvable({
           category: "conflict",
@@ -271,11 +291,11 @@ export const createHttpSourceHostProvider = (): SourceHostProvider<
         });
       return {
         directory,
-        scratchRoot: acquired.directory,
+        scratchRoot,
         ...(ref.distribution === undefined
           ? {}
           : {
-              packageDirectory: path.join(acquired.directory, ref.distribution.packageRoot),
+              packageDirectory: path.join(scratchRoot, ref.distribution.packageRoot),
               componentPath: ref.distribution.componentPath,
             }),
       };

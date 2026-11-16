@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import type { WorkspaceLayoutError } from "../workspace/errors.js";
@@ -201,14 +202,31 @@ interface BuildScopeDeps {
   readonly diagnosticsRef: Ref.Ref<ReadonlyArray<Warning>>;
 }
 
+/**
+ * Deep-freeze a value produced by `JSON.parse`. The walk keeps its own work
+ * stack, so nesting as deep as the parser accepts cannot exhaust the call stack.
+ */
+const freezeParsedJson = (root: unknown): unknown => {
+  const pending: Array<unknown> = [root];
+  while (pending.length > 0) {
+    const next = pending.pop();
+    if (Predicate.isObjectOrArray(next) && !Object.isFrozen(next)) {
+      Object.freeze(next);
+      for (const child of Object.values(next)) pending.push(child);
+    }
+  }
+  return root;
+};
+
 /** Parse text as plain JSON into a deep-frozen value; none when it is not JSON. */
 const parseLooseJson = (text: string): Option.Option<unknown> => {
+  let value: unknown;
   try {
-    const value: unknown = JSON.parse(text);
-    return Option.some(freezeWorkspaceValue(value));
+    value = JSON.parse(text);
   } catch {
     return Option.none();
   }
+  return Option.some(freezeParsedJson(value));
 };
 
 const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps: BuildScopeDeps) {

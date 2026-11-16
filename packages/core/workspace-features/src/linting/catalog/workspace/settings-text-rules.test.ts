@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Predicate from "effect/Predicate";
 import { vi } from "vitest";
 
 import { contextFor, validLockfile } from "./conformance/test-helpers.js";
@@ -34,6 +36,9 @@ const checkAll = (settings: SettingsSpec, text: string) =>
       Effect.ensuring(Effect.sync(() => parse.mockRestore())),
     );
   });
+
+const field = (value: unknown, key: string): unknown =>
+  Predicate.isObject(value) ? value[key] : undefined;
 
 const settingsWithFindings = `${JSON.stringify({
   agents: ["claude-code"],
@@ -89,6 +94,46 @@ describe("settings text rules", () => {
       const { parses, findings } = yield* checkAll({ _tag: "valid", contents: text }, text);
       expect(parses).toBe(1);
       expect(findings).toEqual([]);
+    }),
+  );
+
+  it.effect("still report findings when the settings text nests deeper than a recursive walk", () =>
+    Effect.gen(function* () {
+      const depth = 20_000;
+      const nested = `${"[".repeat(depth)}${"]".repeat(depth)}`;
+      const text = `{"mcpServers":{"flat":{"command":"node","args":${nested}}}}\n`;
+      const { parses, findings } = yield* checkAll({ _tag: "valid", contents: text }, text);
+      expect(parses).toBe(1);
+      expect(findings).toEqual([
+        {
+          ruleId: "workspace/mcps-transport-exclusivity",
+          message:
+            "MCP server 'flat' uses retired flat fields; declare an explicit connection instead. Edit `axm.json` so each MCP server uses one transport.",
+        },
+      ]);
+    }),
+  );
+
+  it.effect("share the parsed settings frozen down to their deepest value", () =>
+    Effect.gen(function* () {
+      const depth = 20_000;
+      const nested = `${"[".repeat(depth)}{"leaf":{}}${"]".repeat(depth)}`;
+      const text = `{"mcpServers":{"flat":{"command":"node","args":${nested}}}}\n`;
+      const context = yield* contextFor({
+        settings: { _tag: "valid", contents: text },
+        lockfile: validLockfile,
+      });
+      const parsed = Option.getOrUndefined(yield* context.workspace.state.settingsJson);
+      let levels = 0;
+      let current = field(field(field(parsed, "mcpServers"), "flat"), "args");
+      while (Array.isArray(current)) {
+        expect(Object.isFrozen(current)).toBe(true);
+        levels += 1;
+        current = current[0];
+      }
+      expect(levels).toBe(depth);
+      expect(Object.isFrozen(current)).toBe(true);
+      expect(Object.isFrozen(field(current, "leaf"))).toBe(true);
     }),
   );
 

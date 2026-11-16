@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import type * as PlatformError from "effect/PlatformError";
 import { isNotFound, readFileStringIfPresent } from "@agentxm/host-primitives";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpInspectionError } from "./errors.js";
@@ -24,6 +25,7 @@ import { CurrentWorkspaceReadPhase, type McpServerEntry } from "../../workspace-
 import {
   withNativeConfigReadView,
   decodeMcpServerManifestAt,
+  decodeMcpServerManifestRead,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
   resolveConfiguredMcpTargetAdmissions,
@@ -381,11 +383,23 @@ const inspectUnavailableSource = (
     ),
   );
 
+/**
+ * The first canonical root holding an MCP manifest. When the caller decodes
+ * that manifest, the read that finds it also supplies its text: absence moves
+ * on, and only a read failing for another reason is followed by the existence
+ * probe, which decides between moving on and carrying that failure to the
+ * decode. Otherwise the probe alone selects the root.
+ */
 const findManifestRoot = Effect.fnUntraced(function* (
   workspaceRoot: string,
   canonicalPaths: ReadonlyArray<string>,
+  readManifest: boolean,
 ): Effect.fn.Return<
-  { readonly root: Option.Option<string>; readonly diagnostics: ReadonlyArray<McpConfigIoFailed> },
+  {
+    readonly root: Option.Option<string>;
+    readonly manifest: Option.Option<Result.Result<string, PlatformError.PlatformError>>;
+    readonly diagnostics: ReadonlyArray<McpConfigIoFailed>;
+  },
   never,
   FileSystem.FileSystem | Path.Path
 > {
@@ -395,6 +409,17 @@ const findManifestRoot = Effect.fnUntraced(function* (
   for (const candidate of canonicalPaths) {
     const resolved = path.resolve(workspaceRoot, candidate);
     const manifestPath = path.join(resolved, manifestFilenameForType("mcp-server"));
+    const read = readManifest
+      ? yield* readFileStringIfPresent(fs, manifestPath).pipe(Effect.result)
+      : undefined;
+    if (read !== undefined && Result.isSuccess(read)) {
+      if (Option.isNone(read.success)) continue;
+      return {
+        root: Option.some(resolved),
+        manifest: Option.some(Result.succeed(read.success.value)),
+        diagnostics,
+      };
+    }
     const exists = yield* fs.exists(manifestPath).pipe(Effect.result);
     if (Result.isFailure(exists)) {
       if (!isNotFound(exists.failure))
@@ -406,9 +431,14 @@ const findManifestRoot = Effect.fnUntraced(function* (
         );
       continue;
     }
-    if (exists.success) return { root: Option.some(resolved), diagnostics };
+    if (exists.success)
+      return {
+        root: Option.some(resolved),
+        manifest: read === undefined ? Option.none() : Option.some(Result.fail(read.failure)),
+        diagnostics,
+      };
   }
-  return { root: Option.none(), diagnostics };
+  return { root: Option.none(), manifest: Option.none(), diagnostics };
 });
 
 /** The declaration an inspection renders: the entry as it would be projected when enabled. */
@@ -563,9 +593,14 @@ const inspectEnabledMcpServer = (
       });
     }
     const inline = declaration.connection !== undefined;
+    const nativeComponent = args.entry?.kind === "sourced" ? args.entry.nativeComponent : undefined;
     const source = inline
-      ? { root: Option.none<string>(), diagnostics: [] }
-      : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
+      ? { root: Option.none<string>(), manifest: Option.none(), diagnostics: [] }
+      : yield* findManifestRoot(
+          args.workspaceRoot,
+          args.canonicalPaths,
+          nativeComponent === undefined,
+        );
     const manifestRoot = source.root;
     const observed = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot))
@@ -579,8 +614,6 @@ const inspectEnabledMcpServer = (
           conflict: Option.none<string>(),
         };
       const path = yield* Path.Path;
-      const nativeComponent =
-        args.entry?.kind === "sourced" ? args.entry.nativeComponent : undefined;
       const nativeDefinition =
         nativeComponent === undefined || Option.isNone(manifestRoot)
           ? undefined
@@ -588,9 +621,17 @@ const inspectEnabledMcpServer = (
       const manifest =
         Option.isNone(manifestRoot) || nativeComponent !== undefined
           ? undefined
-          : yield* decodeMcpServerManifestAt(
-              path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
-            );
+          : yield* Option.match(source.manifest, {
+              onNone: () =>
+                decodeMcpServerManifestAt(
+                  path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
+                ),
+              onSome: (read) =>
+                decodeMcpServerManifestRead(
+                  path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
+                  Effect.fromResult(read),
+                ),
+            });
       const { groups, admitted } = yield* resolveTargets(args);
       const plan = planMcpServerTargets({
         groups,

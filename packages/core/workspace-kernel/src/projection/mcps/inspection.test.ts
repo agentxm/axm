@@ -11,11 +11,13 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import * as Result from "effect/Result";
 import * as Effect from "effect/Effect";
 import * as ConfigProvider from "effect/ConfigProvider";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
-import { NativePlatformTest } from "../../locations/testing.js";
+import { NativePlatformTest, workObservations } from "../../locations/testing.js";
 import { WorkspaceStateLive } from "../../workspace-state/live.js";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import {
@@ -27,7 +29,11 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import * as Layer from "effect/Layer";
-import { readYamlEntry, writeAgentMcpConfig } from "../../agent-adapters/index.js";
+import {
+  McpConfigIoFailed,
+  readYamlEntry,
+  writeAgentMcpConfig,
+} from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import {
   collectNativeAgentMcpServers,
@@ -275,6 +281,18 @@ describe("agent MCP config inspection", () => {
                 target === blocked && condition !== "missing"
                   ? Effect.fail(cause)
                   : fs.exists(target),
+              // A path whose probe fails cannot be read either.
+              readFileString: (target, encoding) =>
+                target === blocked && condition !== "missing"
+                  ? Effect.fail(
+                      PlatformError.systemError({
+                        _tag: condition === "PermissionDenied" ? "PermissionDenied" : "Unknown",
+                        module: "FileSystem",
+                        method: "readFileString",
+                        pathOrDescriptor: blocked,
+                      }),
+                    )
+                  : fs.readFileString(target, encoding),
             }),
           );
           if (condition === "missing") {
@@ -859,6 +877,200 @@ describe("agent MCP config inspection", () => {
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
+      }),
+    ),
+  );
+});
+
+/**
+ * Work evidence for selecting a sourced connection's canonical manifest: the
+ * read that finds the manifest also supplies its text, and an existence probe
+ * runs only after a read fails for a reason other than absence, so absence,
+ * probe failures and read failures keep their evidence.
+ */
+describe("canonical MCP manifest selection", () => {
+  const contextManifest = JSON.stringify({
+    owner: "@acme",
+    type: "mcp-server",
+    name: "context",
+    version: "1.0.0",
+    server: {
+      name: "ai.acme/context",
+      description: "Context",
+      version: "1.0.0",
+      packages: [
+        {
+          registryType: "npm",
+          identifier: "@acme/context",
+          version: "1.0.0",
+          transport: { type: "stdio" },
+        },
+      ],
+    },
+  });
+  const packageEntry = {
+    ...registryContextEntry,
+    distribution: {
+      kind: "package",
+      registryType: "npm",
+      identifier: "@acme/context",
+      transport: "stdio",
+    },
+  } satisfies McpServerEntry;
+
+  const pluginEntry: McpServerEntry = {
+    kind: "sourced",
+    source: "@acme/mcps/context",
+    enabled: true,
+    nativeComponent: { format: "agent-plugins", configPath: "mcp.json", name: "context" },
+  };
+
+  /** Inspect "context" over a recording filesystem, after fixture setup is forgotten. */
+  const inspectRecorded = (options: {
+    readonly canonicalPaths: ReadonlyArray<string>;
+    readonly setup: (root: string) => void;
+    readonly entry?: McpServerEntry;
+    /** Primitive reads of this path fail as a permission refusal. */
+    readonly denyReadOf?: string;
+  }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = realpathSync(mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-manifest-select-")));
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => rmSync(root, { recursive: true, force: true })),
+      );
+      options.setup(root);
+      const deniedPath =
+        options.denyReadOf === undefined ? undefined : nodePath.join(root, options.denyReadOf);
+      const denied = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "readFile",
+        pathOrDescriptor: deniedPath ?? root,
+      });
+      const { fileSystem, recording } = makeRecordingFileSystem({
+        ...fs,
+        readFile: (target) => (target === deniedPath ? Effect.fail(denied) : fs.readFile(target)),
+      });
+      const observations = workObservations(false);
+      const result = yield* inspectDesiredMcpServer({
+        workspaceRoot: root,
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        scope: "project",
+        agentIds: ["claude-code"],
+        node: { name: "context", authority: "sourced" },
+        entry: options.entry ?? packageEntry,
+        canonicalPaths: options.canonicalPaths,
+        state: "projected",
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        observations.provide,
+        Effect.result,
+      );
+      const manifest = (candidate: string) => {
+        const file = nodePath.join(root, candidate, "mcp.json");
+        return {
+          access: recording.counts(file).access ?? 0,
+          reads: recording.calls({ path: file, method: "readFile" }).map((call) => call.outcome),
+        };
+      };
+      return {
+        root,
+        result,
+        denied,
+        manifest,
+        manifestParses: observations.facts.filter((fact) => fact.kind === "axm.parse.manifest")
+          .length,
+      };
+    }).pipe(Effect.scoped);
+
+  it.effect("selects the manifest from the read that finds it, without probing", () =>
+    withNode(
+      Effect.gen(function* () {
+        const observed = yield* inspectRecorded({
+          canonicalPaths: ["absent", "available"],
+          setup: (root) => {
+            mkdirSync(nodePath.join(root, "available"));
+            writeFileSync(nodePath.join(root, "available/mcp.json"), contextManifest);
+          },
+        });
+        const inspection = Result.getOrUndefined(observed.result);
+        expect(inspection?.current).toBe(true);
+        expect(inspection?.sourceDiagnostics).toBeUndefined();
+        expect(inspection?.inspections.map(({ status }) => status)).toEqual(["match"]);
+        // The absent candidate is one read that reports absence.
+        expect(observed.manifest("absent")).toEqual({ access: 0, reads: ["failure"] });
+        expect(observed.manifest("available")).toEqual({ access: 0, reads: ["success"] });
+        expect(observed.manifestParses).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("keeps a native component's manifest probe beside its plugin definition read", () =>
+    withNode(
+      Effect.gen(function* () {
+        const observed = yield* inspectRecorded({
+          canonicalPaths: ["plugin"],
+          entry: pluginEntry,
+          setup: (root) => {
+            mkdirSync(nodePath.join(root, "plugin"));
+            writeFileSync(
+              nodePath.join(root, "plugin/mcp.json"),
+              JSON.stringify({
+                $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+                mcpServers: { context: { command: "node" } },
+              }),
+            );
+          },
+        });
+        expect(Result.isSuccess(observed.result)).toBe(true);
+        // The probe selects the root; only the plugin definition reads the file.
+        expect(observed.manifest("plugin")).toEqual({ access: 1, reads: ["success"] });
+        expect(observed.manifestParses).toBe(0);
+      }),
+    ),
+  );
+
+  it.effect("fails with the read's cause when a present manifest cannot be read", () =>
+    withNode(
+      Effect.gen(function* () {
+        const observed = yield* inspectRecorded({
+          canonicalPaths: ["available"],
+          denyReadOf: "available/mcp.json",
+          setup: (root) => {
+            mkdirSync(nodePath.join(root, "available"));
+            writeFileSync(nodePath.join(root, "available/mcp.json"), contextManifest);
+          },
+        });
+        expect(Result.isFailure(observed.result) ? observed.result.failure : undefined).toEqual(
+          new McpConfigIoFailed({
+            detail: `Failed to read MCP server manifest: ${nodePath.join(observed.root, "available/mcp.json")}`,
+            cause: observed.denied,
+          }),
+        );
+        expect(observed.manifest("available").access).toBe(1);
+        expect(observed.manifest("available").reads).toEqual(["failure"]);
+        expect(observed.manifestParses).toBe(0);
+      }),
+    ),
+  );
+
+  it.effect("fails reading a directory named as the manifest", () =>
+    withNode(
+      Effect.gen(function* () {
+        const observed = yield* inspectRecorded({
+          canonicalPaths: ["available"],
+          setup: (root) =>
+            mkdirSync(nodePath.join(root, "available/mcp.json"), { recursive: true }),
+        });
+        const failure = Result.isFailure(observed.result) ? observed.result.failure : undefined;
+        expect(failure).toBeInstanceOf(McpConfigIoFailed);
+        expect(failure).toMatchObject({
+          detail: `Failed to read MCP server manifest: ${nodePath.join(observed.root, "available/mcp.json")}`,
+          cause: { reason: { _tag: "BadResource", method: "readFile" } },
+        });
+        expect(observed.manifest("available").access).toBe(1);
+        expect(observed.manifest("available").reads).toEqual(["failure"]);
       }),
     ),
   );

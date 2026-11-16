@@ -132,6 +132,7 @@ export {
 } from "./mcps/native-config.js";
 export { manifestInputs, mcpInputVariables, mcpInputId, resolveMcpInputs } from "./mcps/inputs.js";
 export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
+export { decodeMcpServerManifestRead } from "./mcps/manifest.js";
 export {
   planMcpServerTargets,
   unresolvedMcpAgentTargets,

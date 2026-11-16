@@ -106,7 +106,27 @@ export interface LockfileReaderService {
   readonly acceptedEntry: <T extends InstallableExtensionType>(
     type: T,
     name: string,
+    options?: AcceptedEntryOptions,
   ) => Effect.Effect<Option.Option<LockEntryByType[T]>, WorkspaceStateReadFailure>;
+}
+
+/** What one accepted-row lookup may take from, and hand back to, the caller's own call. */
+export interface AcceptedEntryOptions {
+  /**
+   * The graph `reader.graph()`, called without options, returned earlier in
+   * the caller's same call, with nothing written since. Only the live reader
+   * bound to that very `reader` keys an MCP connection by it instead of
+   * evaluating the graph again; every other reader evaluates its own.
+   */
+  readonly current?: {
+    readonly reader: DesiredStateReaderService;
+    readonly graph: DesiredStateGraph;
+  };
+  /**
+   * Receives the lockfile the lookup read, for the caller's same call only;
+   * it is not called when the lookup read none.
+   */
+  readonly receiveLockfile?: (lockfile: Lockfile) => void;
 }
 
 /** Explicit immutable document inputs for evaluating a proposal. */

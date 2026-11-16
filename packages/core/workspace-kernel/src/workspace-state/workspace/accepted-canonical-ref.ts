@@ -46,8 +46,10 @@ import {
   type CapturedSubagentPackage,
 } from "./canonical-observation.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
-import type { DesiredExtensionNode } from "./desired-state-graph.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
+import type { AcceptedEntryOptions, DesiredStateReaderService } from "./read-contracts.js";
+import type { LockEntryByType } from "./entry-accessors.js";
 import { LockfileReader } from "./lockfile-reader.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import { lockEntries } from "./entry-accessors.js";
@@ -251,6 +253,28 @@ const lockEntryLabels: Record<InstallableExtensionType, string> = {
   pack: "Pack",
 };
 
+/** The ref the accepted row already read for `type` and `name` is restored from. */
+const refFromAcceptedEntry = <T extends InstallableExtensionType>(
+  type: T,
+  name: string,
+  entry: LockEntryByType[T],
+): Effect.Effect<
+  ExtensionRef,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const ref = yield* lockEntryToRef[type](name, entry, lockRefDeps(location, settings, path));
+    if (ref.type === "mcp-server" && (ref.refType === "local" || ref.refType === "git-hosted")) {
+      const nativeComponent = (yield* settings.entries("mcp-server"))[name]?.nativeComponent;
+      if (nativeComponent !== undefined) return { ...ref, nativeComponent };
+    }
+    return ref;
+  });
+
 const refFromAcceptedResolution = <T extends InstallableExtensionType>(
   type: T,
   name: string,
@@ -260,21 +284,32 @@ const refFromAcceptedResolution = <T extends InstallableExtensionType>(
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
     const entry = yield* (yield* LockfileReader).acceptedEntry(type, name);
     if (Option.isNone(entry)) return yield* missingAccepted(lockEntryLabels[type], name);
-    const ref = yield* lockEntryToRef[type](
-      name,
-      entry.value,
-      lockRefDeps(location, settings, path),
-    );
-    if (ref.type === "mcp-server" && (ref.refType === "local" || ref.refType === "git-hosted")) {
-      const nativeComponent = (yield* settings.entries("mcp-server"))[name]?.nativeComponent;
-      if (nativeComponent !== undefined) return { ...ref, nativeComponent };
-    }
-    return ref;
+    return yield* refFromAcceptedEntry(type, name, entry.value);
+  });
+
+/**
+ * The graph `reader.graph()` returned to the caller's same call, for the
+ * accepted-row lookup that follows it with nothing written between.
+ */
+const currentGraph = (
+  reader: DesiredStateReaderService,
+  graph: DesiredStateGraph,
+): AcceptedEntryOptions => ({ current: { reader, graph } });
+
+const lockedResolutionRef = (
+  args: AcceptedCanonicalRefArgs,
+  options?: AcceptedEntryOptions,
+): Effect.Effect<
+  Option.Option<ExtensionRef>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> =>
+  Effect.gen(function* () {
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name, options);
+    if (Option.isNone(accepted)) return Option.none();
+    return Option.some(yield* refFromAcceptedEntry(args.type, args.name, accepted.value));
   });
 
 /** Reconstruct a ref directly from accepted lock authority without desired reachability. */
@@ -284,12 +319,7 @@ export const acceptedLockedResolutionRef = (
   Option.Option<ExtensionRef>,
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
-> =>
-  Effect.gen(function* () {
-    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name);
-    if (Option.isNone(accepted)) return Option.none();
-    return Option.some(yield* refFromAcceptedResolution(args.type, args.name));
-  });
+> => lockedResolutionRef(args);
 
 /**
  * The package root an observation in the same call found usable, with the
@@ -392,34 +422,62 @@ export const acceptedResolutionRef = (
 > =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
-    const desired =
-      args.desired ??
-      (yield* desiredState.graph()).nodes.find(
-        (node) => node.type === args.type && node.name === args.name,
-      );
+    if (args.desired !== undefined) {
+      if (args.desired.identity.authority === "workspace") return Option.none();
+      return yield* lockedResolutionRef(args);
+    }
+    const graph = yield* desiredState.graph();
+    const desired = graph.nodes.find((node) => node.type === args.type && node.name === args.name);
     if (desired === undefined || desired.identity.authority === "workspace") {
       return Option.none();
     }
-    return yield* acceptedLockedResolutionRef(args);
+    return yield* lockedResolutionRef(args, currentGraph(desiredState, graph));
   });
 
-const observeDesiredCanonicalCapturing = (desired: DesiredExtensionNode) =>
+/**
+ * The accepted row of `desired`, with the lockfile that lookup read, which
+ * the caller's same call may judge package sharing against.
+ */
+const acceptedEntryOf = (desired: DesiredExtensionNode, current?: AcceptedEntryOptions) =>
+  Effect.gen(function* () {
+    let read: Lockfile | undefined;
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name, {
+      ...current,
+      receiveLockfile: (lockfile) => {
+        read = lockfile;
+      },
+    });
+    return { accepted, lockfile: read };
+  });
+
+const observeDesiredCanonicalCapturing = (
+  desired: DesiredExtensionNode,
+  current?: AcceptedEntryOptions,
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
-    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout);
+    const { accepted, lockfile } = yield* acceptedEntryOf(desired, current);
+    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, { lockfile });
   });
 
-/** Observe one desired node against the accepted row already read for it. */
+/**
+ * Observe one desired node against the accepted row already read for it.
+ * `lockfile` is the one that row's lookup read in the same call; without it,
+ * package sharing is judged against a lockfile read here.
+ */
 const observeAcceptedCanonicalCapturing = (
   desired: DesiredExtensionNode,
   accepted: Option.Option<LockEntry>,
   layout: WorkspaceLayout,
-  verifiedTree?: VerifiedCanonicalTree,
-  judged?: ReturnType<typeof judgeCanonicalBeforeContent>,
+  prepared: {
+    readonly verifiedTree?: VerifiedCanonicalTree;
+    readonly judged?: ReturnType<typeof judgeCanonicalBeforeContent>;
+    readonly lockfile?: Lockfile | undefined;
+  },
 ) =>
   Effect.gen(function* () {
+    const { verifiedTree, judged } = prepared;
     const reader = yield* LockfileReader;
     const { observation, manifest, subagentPackage } = yield* observeCanonicalExtensionCapturing({
       layout,
@@ -437,7 +495,7 @@ const observeAcceptedCanonicalCapturing = (
         hasOtherPackageBinding({
           path: yield* Path.Path,
           layout,
-          lockfile: yield* reader.lockfile,
+          lockfile: prepared.lockfile ?? (yield* reader.lockfile),
           canonicalPath: observation.path,
           excluded: {
             type: desired.type,
@@ -478,12 +536,18 @@ export const acceptedCanonicalObservationCapturing = ({
 > =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
-    const desired =
-      proposed ??
-      (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
+    if (proposed !== undefined) {
+      const { observed, manifest, subagentPackage } =
+        yield* observeDesiredCanonicalCapturing(proposed);
+      return { observed: Option.some(observed), manifest, subagentPackage };
+    }
+    const graph = yield* desiredState.graph();
+    const desired = graph.nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return { observed: Option.none(), manifest: Option.none() };
-    const { observed, manifest, subagentPackage } =
-      yield* observeDesiredCanonicalCapturing(desired);
+    const { observed, manifest, subagentPackage } = yield* observeDesiredCanonicalCapturing(
+      desired,
+      currentGraph(desiredState, graph),
+    );
     return { observed: Option.some(observed), manifest, subagentPackage };
   });
 
@@ -503,20 +567,23 @@ export const acceptedCanonicalObservation = (
 const acceptedCanonicalSubject = ({ type, name, desired: proposed }: AcceptedCanonicalRefArgs) =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
+    const graph = proposed === undefined ? yield* desiredState.graph() : undefined;
     const desired =
-      proposed ??
-      (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
+      proposed ?? graph?.nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return Option.none();
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+    const { accepted, lockfile } = yield* acceptedEntryOf(
+      desired,
+      graph === undefined ? undefined : currentGraph(desiredState, graph),
+    );
     const judged = judgeCanonicalBeforeContent(
       yield* Path.Path,
       layout,
       desired,
       Option.getOrUndefined(accepted),
     );
-    return Option.some({ desired, accepted, layout, judged, path: judged.reportedPath });
+    return Option.some({ desired, accepted, lockfile, layout, judged, path: judged.reportedPath });
   });
 
 /**
@@ -556,16 +623,14 @@ export const acceptedCanonicalObservationOfKeptRoot = (
   Effect.gen(function* () {
     const subject = yield* acceptedCanonicalSubject(args);
     if (Option.isNone(subject)) return Option.none();
-    const { desired, accepted, layout, judged, path } = subject.value;
+    const { desired, accepted, lockfile, layout, judged, path } = subject.value;
     if (path === undefined || discarded(path)) return Option.none();
     // The judgement made deriving the root stands for the observation's own.
-    const { observed } = yield* observeAcceptedCanonicalCapturing(
-      desired,
-      accepted,
-      layout,
-      verifiedTree,
+    const { observed } = yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, {
+      ...(verifiedTree === undefined ? {} : { verifiedTree }),
       judged,
-    );
+      lockfile,
+    });
     return Option.some({ path, observed });
   });
 

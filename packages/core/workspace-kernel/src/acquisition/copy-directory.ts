@@ -10,7 +10,7 @@
 
 import type { PlatformError } from "effect/PlatformError";
 import {
-  assertNoPhysicalOverlap,
+  assertResolvedNoPhysicalOverlap,
   NativeLocationError,
   resolveNativeEntry,
   validateContainedLink,
@@ -239,7 +239,10 @@ export const copyExtensionDirectory = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    yield* assertNoPhysicalOverlap(src, dest);
+    // The source root's resolution here serves every overlap check of this copy:
+    // nothing is written before the last of them.
+    const srcAddress = yield* resolveNativeEntry(src);
+    yield* assertResolvedNoPhysicalOverlap(dest, srcAddress, yield* resolveNativeEntry(dest));
     const maxBytes = Math.min(
       options?.maxBytes ?? MAX_COPIED_EXTENSION_BYTES,
       MAX_COPIED_EXTENSION_BYTES,
@@ -266,18 +269,23 @@ export const copyExtensionDirectory = (
     );
     // A destination may alias any source member, not only its corresponding
     // filename. Capture the complete read set before authorizing any write.
-    const sources = yield* Effect.forEach(files, ({ source }) => resolveNativeEntry(source));
-    const sourceIdentityUnavailable = sources.some((entry) => entry.inode === undefined);
-    const sourcePaths = new Set(sources.map((entry) => entry.referentPath ?? entry.entryPath));
+    const sources = yield* Effect.forEach(files, (file) =>
+      Effect.map(resolveNativeEntry(file.source), (address) => ({ ...file, address })),
+    );
+    const sourceIdentityUnavailable = sources.some(({ address }) => address.inode === undefined);
+    const sourcePaths = new Set(
+      sources.map(({ address }) => address.referentPath ?? address.entryPath),
+    );
     const sourceIdentities = new Set(
-      sources.flatMap((entry) =>
-        entry.inode === undefined ? [] : [JSON.stringify([entry.device, entry.inode])],
+      sources.flatMap(({ address }) =>
+        address.inode === undefined ? [] : [JSON.stringify([address.device, address.inode])],
       ),
     );
-    for (const { source, target } of files) {
-      yield* assertNoPhysicalOverlap(src, target);
-      yield* assertNoPhysicalOverlap(source, target);
+    // Each destination is resolved once, where its first overlap check needs it.
+    for (const { address, target } of sources) {
       const destination = yield* resolveNativeEntry(target);
+      yield* assertResolvedNoPhysicalOverlap(target, srcAddress, destination);
+      yield* assertResolvedNoPhysicalOverlap(target, address, destination);
       if (destination.kind === "absent") continue;
       if (destination.inode === undefined || sourceIdentityUnavailable)
         return yield* new NativeLocationError({
@@ -296,8 +304,8 @@ export const copyExtensionDirectory = (
         return yield* new NativeLocationError({ target, reason: "hardlink" });
     }
     for (const { target } of links) {
-      yield* assertNoPhysicalOverlap(src, target);
       const destination = yield* resolveNativeEntry(target);
+      yield* assertResolvedNoPhysicalOverlap(target, srcAddress, destination);
       if (destination.kind !== "absent")
         return yield* new NativeLocationError({ target, reason: "workspace-conflict" });
     }

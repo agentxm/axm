@@ -350,6 +350,21 @@ const judgePhysicalOverlap = (
     }
   });
 
+/**
+ * The overlap judgment of `assertNoPhysicalOverlap` over addresses the caller
+ * resolved within the same check, before any write; `target` names the refused
+ * output in the error.
+ */
+export const assertResolvedNoPhysicalOverlap = (
+  target: string,
+  sourceAddress: NativeEntryAddress,
+  targetAddress: NativeEntryAddress,
+): Effect.Effect<void, NativeLocationError, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* judgePhysicalOverlap(path, target, sourceAddress, targetAddress);
+  });
+
 /** Source and output trees must not coincide, nest, or address the same hardlinked file. */
 export const assertNoPhysicalOverlap = (
   source: string,

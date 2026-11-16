@@ -14,7 +14,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  parseJsonOptional,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+  sharedPerKey,
+} from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -115,68 +122,75 @@ export const mojoDetector: PackageDetector = {
   ),
 };
 
+/** The entries of a directory that exists and is readable, otherwise `none`. */
+const listExistingDirectory = (directory: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const exists = yield* fs.exists(directory).pipe(Effect.option);
+    if (Option.isNone(exists) || !exists.value) return Option.none();
+    const entries = yield* fs.readDirectory(directory).pipe(Effect.option);
+    return Option.map(entries, sharedListing);
+  });
+
 /**
  * Mojo package reader.
  *
  * Reads `agent-extensions.json` sidecar files from `.pixi/envs/<env>/conda-meta/`
- * in the project directory for each detected Mojo/conda package.
+ * in the project directory for each detected Mojo/conda package. Packages of
+ * one read share the environment and `conda-meta` listings.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const mojoReader: PackageReader = {
-  type: mojoType,
-  read: Effect.fn("read.mojo")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+export const mojoReader: PackageReader = preparedReader(
+  mojoType,
+  Effect.gen(function* () {
+    const listing = yield* sharedPerKey(listExistingDirectory);
+    return Effect.fn("read.mojo")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
 
-      // Derive project directory from the source manifest path
-      const projectDir = path.dirname(pkg.source);
+        // Derive project directory from the source manifest path
+        const projectDir = path.dirname(pkg.source);
 
-      const pixiEnvsDir = path.join(projectDir, ".pixi", "envs");
+        const pixiEnvsDir = path.join(projectDir, ".pixi", "envs");
 
-      // Check if .pixi/envs exists
-      const envsDirExists = yield* fs.exists(pixiEnvsDir).pipe(Effect.option);
-      if (Option.isNone(envsDirExists) || !envsDirExists.value) return Option.none();
+        // Scan environment directories of an existing .pixi/envs
+        const envDirs = yield* listing(pixiEnvsDir);
+        if (Option.isNone(envDirs)) return Option.none();
 
-      // Scan environment directories
-      const envDirs = yield* fs.readDirectory(pixiEnvsDir).pipe(Effect.option);
-      if (Option.isNone(envDirs)) return Option.none();
+        for (const envDir of envDirs.value) {
+          const condaMetaDir = path.join(pixiEnvsDir, envDir, "conda-meta");
 
-      for (const envDir of envDirs.value) {
-        const condaMetaDir = path.join(pixiEnvsDir, envDir, "conda-meta");
-        const condaMetaExists = yield* fs.exists(condaMetaDir).pipe(Effect.option);
-        if (Option.isNone(condaMetaExists) || !condaMetaExists.value) continue;
+          // Scan for package directories matching the package name
+          const metaEntries = yield* listing(condaMetaDir);
+          if (Option.isNone(metaEntries)) continue;
 
-        // Scan for package directories matching the package name
-        const metaEntries = yield* fs.readDirectory(condaMetaDir).pipe(Effect.option);
-        if (Option.isNone(metaEntries)) continue;
+          for (const entry of metaEntries.value) {
+            // Match entries that start with the package name
+            if (!entry.startsWith(pkg.purl.name)) continue;
 
-        for (const entry of metaEntries.value) {
-          // Match entries that start with the package name
-          if (!entry.startsWith(pkg.purl.name)) continue;
+            const agentExtensionsJsonPath = path.join(condaMetaDir, entry, "agent-extensions.json");
+            const content = yield* readFileOptional(agentExtensionsJsonPath);
+            if (Option.isNone(content)) continue;
 
-          const agentExtensionsJsonPath = path.join(condaMetaDir, entry, "agent-extensions.json");
-          const content = yield* readFileOptional(agentExtensionsJsonPath);
-          if (Option.isNone(content)) continue;
+            const parsed = yield* parseJsonOptional(
+              content.value,
+              `${pkg.purl.name}/agent-extensions.json`,
+            );
+            if (Option.isNone(parsed)) continue;
 
-          const parsed = yield* parseJsonOptional(
-            content.value,
-            `${pkg.purl.name}/agent-extensions.json`,
-          );
-          if (Option.isNone(parsed)) continue;
-
-          const recommendations = yield* readAgentExtensions(
-            parsed.value,
-            `pixi cache for ${pkg.purl.name}`,
-          );
-          if (Option.isSome(recommendations)) return recommendations;
+            const recommendations = yield* readAgentExtensions(
+              parsed.value,
+              `pixi cache for ${pkg.purl.name}`,
+            );
+            if (Option.isSome(recommendations)) return recommendations;
+          }
         }
-      }
 
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "mojo" }),
-    Effect.withSpan("read.mojo"),
-  ),
-};
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "mojo" }),
+      Effect.withSpan("read.mojo"),
+    );
+  }),
+);

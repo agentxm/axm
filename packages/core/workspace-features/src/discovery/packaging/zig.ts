@@ -14,10 +14,19 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  logMalformedJson,
+  parseJson,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+  sharedPerKey,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
+import { freezeWorkspaceValue } from "@agentxm/workspace-kernel/workspace-state";
 
 const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
 
@@ -120,6 +129,30 @@ export const zigDetector: PackageDetector = {
   ),
 };
 
+/** The Zig cache's entries, read once for every package of one read. */
+const listZigCache = (cacheDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+
+    // Check if cache directory exists
+    const cacheDirExists = yield* fs.exists(cacheDir).pipe(Effect.option);
+    if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
+
+    // Scan cache directory entries for agent-extensions.json
+    const entries = yield* fs.readDirectory(cacheDir).pipe(Effect.option);
+    return Option.map(entries, sharedListing);
+  });
+
+/**
+ * One cache entry's `agent-extensions.json`, read once for every package of
+ * one read: `none` when it cannot be read, otherwise its frozen JSON value or
+ * `none` when that is malformed, which each package diagnoses itself.
+ */
+const readZigCacheEntry = (agentExtensionsJsonPath: string) =>
+  Effect.map(readFileOptional(agentExtensionsJsonPath), (content) =>
+    Option.map(content, (text) => Option.map(parseJson(text), freezeWorkspaceValue)),
+  );
+
 /**
  * Zig package reader.
  *
@@ -127,49 +160,47 @@ export const zigDetector: PackageDetector = {
  * detected Zig package and extracts recommendation metadata.
  *
  * Since Zig uses content-addressed hashes for packages rather than named
- * directories, the reader does a best-effort scan of the cache.
+ * directories, the reader does a best-effort scan of the cache. Packages of
+ * one read share that scan.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const zigReader: PackageReader = {
-  type: zigType,
-  read: Effect.fn("read.zig")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+export const zigReader: PackageReader = preparedReader(
+  zigType,
+  Effect.gen(function* () {
+    const cacheListing = yield* sharedPerKey(listZigCache);
+    const cacheEntry = yield* sharedPerKey(readZigCacheEntry);
+    return Effect.fn("read.zig")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
 
-      const cacheDir = path.join(yield* osHomeDirectory, ".cache", "zig", "p");
+        const cacheDir = path.join(yield* osHomeDirectory, ".cache", "zig", "p");
 
-      // Check if cache directory exists
-      const cacheDirExists = yield* fs.exists(cacheDir).pipe(Effect.option);
-      if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
+        const entries = yield* cacheListing(cacheDir);
+        if (Option.isNone(entries)) return Option.none();
 
-      // Scan cache directory entries for agent-extensions.json
-      const entries = yield* fs.readDirectory(cacheDir).pipe(Effect.option);
-      if (Option.isNone(entries)) return Option.none();
+        // Check each cache entry for agent-extensions.json with matching package name
+        for (const entry of entries.value) {
+          const content = yield* cacheEntry(path.join(cacheDir, entry, "agent-extensions.json"));
+          if (Option.isNone(content)) continue;
 
-      // Check each cache entry for agent-extensions.json with matching package name
-      for (const entry of entries.value) {
-        const agentExtensionsJsonPath = path.join(cacheDir, entry, "agent-extensions.json");
-        const content = yield* readFileOptional(agentExtensionsJsonPath);
-        if (Option.isNone(content)) continue;
+          const parsed = content.value;
+          if (Option.isNone(parsed)) {
+            yield* logMalformedJson(`${pkg.purl.name}/agent-extensions.json`);
+            continue;
+          }
 
-        const parsed = yield* parseJsonOptional(
-          content.value,
-          `${pkg.purl.name}/agent-extensions.json`,
-        );
-        if (Option.isNone(parsed)) continue;
+          const recommendations = yield* readAgentExtensions(
+            parsed.value,
+            `zig cache for ${pkg.purl.name}`,
+          );
+          if (Option.isSome(recommendations)) return recommendations;
+        }
 
-        const recommendations = yield* readAgentExtensions(
-          parsed.value,
-          `zig cache for ${pkg.purl.name}`,
-        );
-        if (Option.isSome(recommendations)) return recommendations;
-      }
-
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "zig" }),
-    Effect.withSpan("read.zig"),
-  ),
-};
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "zig" }),
+      Effect.withSpan("read.zig"),
+    );
+  }),
+);

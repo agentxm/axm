@@ -68,4 +68,12 @@ export interface PackageReader {
     Config.ConfigError,
     FileSystem.FileSystem | Path.Path
   >;
+  /**
+   * Opens one read of several packages of this type. Inputs that all of them
+   * share, such as a package-manager root or a project's package index, are
+   * read at most once for the packages the returned read serves and are
+   * released with it. Opening reads nothing. Readers whose inputs are all
+   * per package have none.
+   */
+  readonly prepare?: Effect.Effect<PackageReader["read"]>;
 }

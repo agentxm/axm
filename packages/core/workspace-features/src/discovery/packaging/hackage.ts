@@ -11,7 +11,13 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+  sharedPerKey,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
@@ -261,78 +267,103 @@ const parseAgentExtensionsField = (content: string): Record<string, unknown> | u
   }
 };
 
+/** The Cabal store's compiler directories, or `none` when the store is unreadable. */
+const listCabalStore = Effect.gen(function* () {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const home = yield* osHomeDirectory;
+
+  const cabalStoreDir = path.join(home, ".cabal", "store");
+  const storeEntries = yield* fs.readDirectory(cabalStoreDir).pipe(Effect.option);
+  return Option.map(storeEntries, (entries) => ({
+    cabalStoreDir,
+    entries: sharedListing(entries),
+  }));
+});
+
+/** Whether a project's `dist-newstyle` directory is accessible. */
+const accessDistNewstyle = (distDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return Option.isSome(yield* fs.access(distDir).pipe(Effect.option));
+  });
+
 /**
  * Hackage package reader.
  *
  * Reads `x-agent-extensions` from `.cabal` files in
  * `~/.cabal/store/ghc-<version>/<pkg>-<version>/` or `dist-newstyle/`.
+ * Packages of one read share the store listing and each project's
+ * `dist-newstyle` probe.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const hackageReader: PackageReader = {
-  type: hackageType,
-  read: Effect.fn("read.hackage")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+export const hackageReader: PackageReader = preparedReader(
+  hackageType,
+  Effect.gen(function* () {
+    const store = yield* Effect.cached(listCabalStore);
+    const distNewstyle = yield* sharedPerKey(accessDistNewstyle);
+    return Effect.fn("read.hackage")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
+        const fs = yield* FileSystem.FileSystem;
 
-      const pkgName = pkg.purl.name;
-      const version = pkg.purl.version;
-      const home = yield* osHomeDirectory;
+        const pkgName = pkg.purl.name;
+        const version = pkg.purl.version;
 
-      // Try to find the .cabal file in known locations
+        // Try to find the .cabal file in known locations
 
-      // 1. Try ~/.cabal/store/ghc-*/pkg-version/
-      const cabalStoreDir = path.join(home, ".cabal", "store");
-      const storeExists = yield* fs.readDirectory(cabalStoreDir).pipe(Effect.option);
+        // 1. Try ~/.cabal/store/ghc-*/pkg-version/
+        const storeExists = yield* store;
 
-      if (Option.isSome(storeExists)) {
-        // Look for ghc-* directories
-        for (const ghcDir of storeExists.value) {
-          if (!ghcDir.startsWith("ghc-")) continue;
+        if (Option.isSome(storeExists)) {
+          const { cabalStoreDir, entries } = storeExists.value;
+          // Look for ghc-* directories
+          for (const ghcDir of entries) {
+            if (!ghcDir.startsWith("ghc-")) continue;
 
-          const pkgDirName = version ? `${pkgName}-${version}` : pkgName;
-          const pkgDir = path.join(cabalStoreDir, ghcDir, pkgDirName);
-          const pkgEntries = yield* fs.readDirectory(pkgDir).pipe(Effect.option);
+            const pkgDirName = version ? `${pkgName}-${version}` : pkgName;
+            const pkgDir = path.join(cabalStoreDir, ghcDir, pkgDirName);
+            const pkgEntries = yield* fs.readDirectory(pkgDir).pipe(Effect.option);
 
-          if (Option.isSome(pkgEntries)) {
-            const cabalFile = pkgEntries.value.find((e) => e.endsWith(".cabal"));
-            if (cabalFile !== undefined) {
-              const cabalPath = path.join(pkgDir, cabalFile);
-              const content = yield* readFileOptional(cabalPath);
-              if (Option.isSome(content)) {
-                const metadata = parseAgentExtensionsField(content.value);
-                if (metadata === undefined) return Option.none();
+            if (Option.isSome(pkgEntries)) {
+              const cabalFile = pkgEntries.value.find((e) => e.endsWith(".cabal"));
+              if (cabalFile !== undefined) {
+                const cabalPath = path.join(pkgDir, cabalFile);
+                const content = yield* readFileOptional(cabalPath);
+                if (Option.isSome(content)) {
+                  const metadata = parseAgentExtensionsField(content.value);
+                  if (metadata === undefined) return Option.none();
 
-                return yield* readAgentExtensions(metadata, `${pkgName}`);
+                  return yield* readAgentExtensions(metadata, `${pkgName}`);
+                }
               }
             }
           }
         }
-      }
 
-      // 2. Try dist-newstyle/ relative to project dir
-      const projectDir = path.dirname(pkg.source);
-      const distDir = path.join(projectDir, "dist-newstyle");
-      const distExists = yield* fs.access(distDir).pipe(Effect.option);
+        // 2. Try dist-newstyle/ relative to project dir
+        const projectDir = path.dirname(pkg.source);
+        const distDir = path.join(projectDir, "dist-newstyle");
 
-      if (Option.isSome(distExists)) {
-        // Search recursively for the package's .cabal file
-        // dist-newstyle has a deep structure, so look for any .cabal file matching the package name
-        const pkgDirName = version ? `${pkgName}-${version}` : pkgName;
-        const candidatePath = path.join(distDir, "build", pkgDirName, `${pkgName}.cabal`);
-        const content = yield* readFileOptional(candidatePath);
-        if (Option.isSome(content)) {
-          const metadata = parseAgentExtensionsField(content.value);
-          if (metadata === undefined) return Option.none();
+        if (yield* distNewstyle(distDir)) {
+          // Search recursively for the package's .cabal file
+          // dist-newstyle has a deep structure, so look for any .cabal file matching the package name
+          const pkgDirName = version ? `${pkgName}-${version}` : pkgName;
+          const candidatePath = path.join(distDir, "build", pkgDirName, `${pkgName}.cabal`);
+          const content = yield* readFileOptional(candidatePath);
+          if (Option.isSome(content)) {
+            const metadata = parseAgentExtensionsField(content.value);
+            if (metadata === undefined) return Option.none();
 
-          return yield* readAgentExtensions(metadata, `${pkgName}`);
+            return yield* readAgentExtensions(metadata, `${pkgName}`);
+          }
         }
-      }
 
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "hackage" }),
-    Effect.withSpan("read.hackage"),
-  ),
-};
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "hackage" }),
+      Effect.withSpan("read.hackage"),
+    );
+  }),
+);

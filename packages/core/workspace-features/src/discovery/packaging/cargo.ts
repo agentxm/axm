@@ -12,7 +12,14 @@ import * as Path from "effect/Path";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  envOrHomePath,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+  sharedPerKey,
+} from "./reader-io.js";
 import { parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -163,6 +170,33 @@ const parsePackageMetadataAgentExtensions = (content: string): TomlTable | undef
   return agentExtensions === undefined ? undefined : { agentExtensions };
 };
 
+/** The registry source directory and its index directories, or `none` when unreadable. */
+const listRegistrySources = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+
+  const cargoHome = yield* resolveCargoHome();
+  const registrySrcDir = path.join(cargoHome, "registry", "src");
+
+  const indexDirs = yield* fs.readDirectory(registrySrcDir).pipe(Effect.option);
+  return Option.map(indexDirs, (entries) => ({
+    registrySrcDir,
+    indexDirs: sharedListing(entries),
+  }));
+});
+
+const listIndex = (indexPath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(indexPath).pipe(Effect.option);
+    return Option.map(entries, sharedListing);
+  });
+
+const findMatchingCrateDir = (entries: Option.Option<ReadonlyArray<string>>, crateName: string) =>
+  Option.isNone(entries)
+    ? undefined
+    : entries.value.find((entry) => entry === crateName || entry.startsWith(`${crateName}-`));
+
 /**
  * Cargo package reader.
  *
@@ -177,57 +211,52 @@ const parsePackageMetadataAgentExtensions = (content: string): TomlTable | undef
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const cargoReader: PackageReader = {
-  type: cargoType,
-  read: Effect.fn("read.cargo")(
-    function* (pkg: DetectedPackage) {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-
-      const cargoHome = yield* resolveCargoHome();
-      const crateName = pkg.purl.name;
-      const version = pkg.purl.version;
-
-      const registrySrcDir = path.join(cargoHome, "registry", "src");
-
-      const indexDirs = yield* fs.readDirectory(registrySrcDir).pipe(Effect.option);
-      if (Option.isNone(indexDirs)) return Option.none();
-
-      for (const indexDir of indexDirs.value) {
-        const indexPath = path.join(registrySrcDir, indexDir);
-
-        const crateDir =
-          version !== undefined
-            ? `${crateName}-${version}`
-            : yield* findMatchingCrateDir(fs, indexPath, crateName);
-        if (crateDir === undefined) continue;
-
-        const cargoTomlPath = path.join(indexPath, crateDir, "Cargo.toml");
-        const content = yield* readFileOptional(cargoTomlPath);
-        if (Option.isNone(content)) {
-          if (version !== undefined) return Option.none();
-          continue;
-        }
-
-        const metadata = parsePackageMetadataAgentExtensions(content.value);
-        if (metadata === undefined) {
-          if (version !== undefined) return Option.none();
-          continue;
-        }
-
-        return yield* readAgentExtensions(metadata, `${crateDir}/Cargo.toml`);
-      }
-
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "cargo" }),
-    Effect.withSpan("read.cargo"),
-  ),
-};
-
-const findMatchingCrateDir = (fs: FileSystem.FileSystem, indexPath: string, crateName: string) =>
+export const cargoReader: PackageReader = preparedReader(
+  cargoType,
   Effect.gen(function* () {
-    const entries = yield* fs.readDirectory(indexPath).pipe(Effect.option);
-    if (Option.isNone(entries)) return undefined;
-    return entries.value.find((entry) => entry === crateName || entry.startsWith(`${crateName}-`));
-  });
+    // Every crate of one read lists the same registry sources and indexes.
+    const registry = yield* Effect.cached(listRegistrySources);
+    const indexEntries = yield* sharedPerKey(listIndex);
+    return Effect.fn("read.cargo")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
+
+        const crateName = pkg.purl.name;
+        const version = pkg.purl.version;
+
+        const sources = yield* registry;
+        if (Option.isNone(sources)) return Option.none();
+        const { registrySrcDir, indexDirs } = sources.value;
+
+        for (const indexDir of indexDirs) {
+          const indexPath = path.join(registrySrcDir, indexDir);
+
+          const crateDir =
+            version !== undefined
+              ? `${crateName}-${version}`
+              : findMatchingCrateDir(yield* indexEntries(indexPath), crateName);
+          if (crateDir === undefined) continue;
+
+          const cargoTomlPath = path.join(indexPath, crateDir, "Cargo.toml");
+          const content = yield* readFileOptional(cargoTomlPath);
+          if (Option.isNone(content)) {
+            if (version !== undefined) return Option.none();
+            continue;
+          }
+
+          const metadata = parsePackageMetadataAgentExtensions(content.value);
+          if (metadata === undefined) {
+            if (version !== undefined) return Option.none();
+            continue;
+          }
+
+          return yield* readAgentExtensions(metadata, `${crateDir}/Cargo.toml`);
+        }
+
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "cargo" }),
+      Effect.withSpan("read.cargo"),
+    );
+  }),
+);

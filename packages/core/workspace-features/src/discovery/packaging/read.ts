@@ -21,14 +21,26 @@ export const readLocalRecommendations = Effect.fn("discover.readLocal")(function
   packages: ReadonlyArray<DetectedPackage>,
   readers: ReadonlyArray<PackageReader>,
 ) {
+  const readerOf = (pkg: DetectedPackage) => readers.find((r) => r.type === pkg.type);
+  // Each reader with packages to read opens one read for this call; the inputs
+  // its packages share live as long as this call.
+  const opened = yield* Effect.forEach(
+    Array.dedupeWith(
+      packages.flatMap((pkg) => readerOf(pkg) ?? []),
+      (left, right) => left === right,
+    ),
+    (reader) =>
+      Effect.map(reader.prepare ?? Effect.succeed(reader.read), (read) => ({ reader, read })),
+  );
   const results = yield* Effect.forEach(
     packages,
     (pkg) => {
-      const reader = readers.find((r) => r.type === pkg.type);
-      if (!reader) return Effect.succeed(Option.none());
-      return reader
-        .read(pkg)
-        .pipe(Effect.map((result) => Option.map(result, (refs) => [pkg, refs] as const)));
+      const reader = readerOf(pkg);
+      const read = opened.find((entry) => entry.reader === reader)?.read;
+      if (!read) return Effect.succeed(Option.none());
+      return read(pkg).pipe(
+        Effect.map((result) => Option.map(result, (refs) => [pkg, refs] as const)),
+      );
     },
     { concurrency: 16 },
   );

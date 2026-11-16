@@ -14,7 +14,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  logMalformedJson,
+  parseJson,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedPerKey,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -227,61 +234,93 @@ const resolvePackageRoot = (dartToolDir: string, rootUri: string): Option.Option
 };
 
 /**
+ * What one `package_config.json` gives every package it may list: its frozen
+ * entries, malformed JSON that each package diagnoses, or nothing usable.
+ */
+type PackageConfigRead =
+  | { readonly state: "entries"; readonly packages: ReadonlyArray<PackageConfigEntry> }
+  | { readonly state: "malformed" }
+  | { readonly state: "unusable" };
+
+type PackageConfigEntry = Schema.Schema.Type<typeof PackageConfigEntrySchema>;
+
+const readPackageConfig = (packageConfigPath: string) =>
+  Effect.gen(function* () {
+    const configContent = yield* readFileOptional(packageConfigPath);
+    if (Option.isNone(configContent)) return { state: "unusable" } satisfies PackageConfigRead;
+
+    const configParsed = parseJson(configContent.value);
+    if (Option.isNone(configParsed)) return { state: "malformed" } satisfies PackageConfigRead;
+
+    const configResult = decodePackageConfig(configParsed.value);
+    if (Result.isFailure(configResult)) return { state: "unusable" } satisfies PackageConfigRead;
+
+    const packages = configResult.success.packages;
+    if (packages === undefined) return { state: "unusable" } satisfies PackageConfigRead;
+
+    return {
+      state: "entries",
+      packages: Object.freeze(packages.map((entry) => Object.freeze({ ...entry }))),
+    } satisfies PackageConfigRead;
+  });
+
+/**
  * Pub package reader.
  *
  * Reads `.dart_tool/package_config.json` to locate the package root,
  * then reads `pubspec.yaml` and extracts the top-level `agentExtensions` array.
+ * Packages of one project share one read of its `package_config.json`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const pubReader: PackageReader = {
-  type: pubType,
-  read: Effect.fn("read.pub")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
+export const pubReader: PackageReader = preparedReader(
+  pubType,
+  Effect.map(
+    sharedPerKey((packageConfigPath) => readPackageConfig(packageConfigPath)),
+    (packageConfig) =>
+      Effect.fn("read.pub")(
+        function* (pkg: DetectedPackage) {
+          const path = yield* Path.Path;
 
-      // Derive project directory from the source manifest path
-      const projectDir = path.dirname(pkg.source);
+          // Derive project directory from the source manifest path
+          const projectDir = path.dirname(pkg.source);
 
-      // Read .dart_tool/package_config.json
-      const packageConfigPath = path.join(projectDir, ".dart_tool", "package_config.json");
-      const configContent = yield* readFileOptional(packageConfigPath);
-      if (Option.isNone(configContent)) return Option.none();
+          // Read .dart_tool/package_config.json
+          const config = yield* packageConfig(
+            path.join(projectDir, ".dart_tool", "package_config.json"),
+          );
+          if (config.state === "malformed") {
+            yield* logMalformedJson("package_config.json");
+            return Option.none();
+          }
+          if (config.state === "unusable") return Option.none();
 
-      const configParsed = yield* parseJsonOptional(configContent.value, "package_config.json");
-      if (Option.isNone(configParsed)) return Option.none();
+          // Find the package entry matching our detected package name
+          const pkgEntry = config.packages.find((p) => p.name === pkg.purl.name);
+          if (pkgEntry === undefined) return Option.none();
 
-      const configResult = decodePackageConfig(configParsed.value);
-      if (Result.isFailure(configResult)) return Option.none();
+          // Resolve rootUri against the .dart_tool/ directory. package_config.json
+          // entries are URI references — a real `dart pub get` writes absolute
+          // `file://` URIs for hosted packages — so resolve as a URL, not a path.
+          const dartToolDir = path.resolve(projectDir, ".dart_tool");
+          const packageRoot = resolvePackageRoot(dartToolDir, pkgEntry.rootUri);
+          if (Option.isNone(packageRoot)) return Option.none();
 
-      const packages = configResult.success.packages;
-      if (packages === undefined) return Option.none();
+          // Read pubspec.yaml from package root
+          const pubspecPath = path.join(packageRoot.value, "pubspec.yaml");
+          const pubspecContent = yield* readFileOptional(pubspecPath);
+          if (Option.isNone(pubspecContent)) return Option.none();
 
-      // Find the package entry matching our detected package name
-      const pkgEntry = packages.find((p) => p.name === pkg.purl.name);
-      if (pkgEntry === undefined) return Option.none();
+          const metadata = yield* Effect.try({
+            try: (): unknown => YAML.parse(pubspecContent.value),
+            catch: () => ({ _tag: "YamlParseError" as const }),
+          }).pipe(Effect.option);
+          if (Option.isNone(metadata)) return Option.none();
 
-      // Resolve rootUri against the .dart_tool/ directory. package_config.json
-      // entries are URI references — a real `dart pub get` writes absolute
-      // `file://` URIs for hosted packages — so resolve as a URL, not a path.
-      const dartToolDir = path.resolve(projectDir, ".dart_tool");
-      const packageRoot = resolvePackageRoot(dartToolDir, pkgEntry.rootUri);
-      if (Option.isNone(packageRoot)) return Option.none();
-
-      // Read pubspec.yaml from package root
-      const pubspecPath = path.join(packageRoot.value, "pubspec.yaml");
-      const pubspecContent = yield* readFileOptional(pubspecPath);
-      if (Option.isNone(pubspecContent)) return Option.none();
-
-      const metadata = yield* Effect.try({
-        try: (): unknown => YAML.parse(pubspecContent.value),
-        catch: () => ({ _tag: "YamlParseError" as const }),
-      }).pipe(Effect.option);
-      if (Option.isNone(metadata)) return Option.none();
-
-      return yield* readAgentExtensions(metadata.value, `${pkg.purl.name}`);
-    },
-    Effect.annotateLogs({ reader: "pub" }),
-    Effect.withSpan("read.pub"),
+          return yield* readAgentExtensions(metadata.value, `${pkg.purl.name}`);
+        },
+        Effect.annotateLogs({ reader: "pub" }),
+        Effect.withSpan("read.pub"),
+      ),
   ),
-};
+);

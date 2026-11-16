@@ -179,6 +179,42 @@ describe("detectPackages project listing", () => {
     ).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("gives a detector that asks after the listing finished the same entries", () =>
+    withProject(listedManifests, (projectDir) =>
+      Effect.gen(function* () {
+        const listed = yield* Deferred.make<void>();
+        let first: Option.Option<ReadonlyArray<string>> = Option.none();
+        let later: Option.Option<ReadonlyArray<string>> = Option.none();
+        const early: PackageDetector = {
+          type: decodeType("gem"),
+          detect: (_projectDir, projectEntries) =>
+            Effect.gen(function* () {
+              first = yield* projectEntries;
+              yield* Deferred.succeed(listed, undefined);
+              return [];
+            }),
+        };
+        const late: PackageDetector = {
+          type: decodeType("nuget"),
+          detect: (_projectDir, projectEntries) =>
+            Effect.gen(function* () {
+              yield* Deferred.await(listed);
+              later = yield* projectEntries;
+              return [];
+            }),
+        };
+
+        const { listings } = yield* detectRecorded(projectDir, [early, late]);
+
+        expect(listings).toEqual(["success"]);
+        expect(Option.map(first, (entries) => [...entries].sort())).toEqual(
+          Option.some(Object.keys(listedManifests).sort()),
+        );
+        expect(Option.getOrUndefined(later)).toBe(Option.getOrUndefined(first));
+      }),
+    ).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("keeps one listing for a detector still waiting when another stops waiting", () =>
     withProject(listedManifests, (projectDir) =>
       Effect.gen(function* () {

@@ -13,8 +13,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { AgentDetectionFailed } from "./errors.js";
 import {
+  AgentDetectionRoots,
   AgentExecutableResolver,
   detectAgent,
   detectAgentScopeResults,
@@ -327,6 +329,130 @@ describe("detectAgentsInRoot", () => {
 
       expect(ids).toContain("codex");
       expect(ids).toContain("roo");
+    }),
+  );
+});
+
+describe("one detection pass over the agent catalog", () => {
+  const projectDir = "/work/project";
+  const userHome = "/work/home";
+  const sharedPaths = [
+    "/work/project/.agents",
+    "/work/project/AGENTS.md",
+    "/work/project/.qoder",
+    "/work/project/.qoder/settings.json",
+    "/work/home/.gemini/antigravity-cli",
+    "/work/home/.gemini/antigravity-cli/settings.json",
+  ];
+
+  const notFound = (target: string) =>
+    PlatformError.systemError({
+      _tag: "NotFound",
+      module: "FileSystem",
+      method: "access",
+      pathOrDescriptor: target,
+    });
+
+  // A synchronous in-memory filesystem, so concurrent probes settle in the
+  // order they were issued.
+  const recordedPass = (
+    existing: ReadonlySet<string>,
+    failing?: { readonly path: string; readonly error: PlatformError.PlatformError },
+  ) => {
+    const base = FileSystem.makeNoop({
+      access: (target) =>
+        failing?.path === target
+          ? Effect.fail(failing.error)
+          : existing.has(target)
+            ? Effect.void
+            : Effect.fail(notFound(target)),
+    });
+    const { fileSystem, recording } = makeRecordingFileSystem(base);
+    let resolverCalls = 0;
+    const provide = <A, E>(
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+    ): Effect.Effect<A, E> =>
+      effect.pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provide(Path.layer),
+        Effect.provideService(AgentDetectionRoots, {
+          home: userHome,
+          configHome: `${userHome}/.config`,
+        }),
+        Effect.provideService(AgentExecutableResolver, {
+          exists: () =>
+            Effect.sync(() => {
+              resolverCalls += 1;
+              return false;
+            }),
+        }),
+      );
+    return { recording, provide, resolverCalls: () => resolverCalls };
+  };
+
+  it.effect("probes a marker path that several agents declare once", () =>
+    Effect.gen(function* () {
+      const { recording, provide, resolverCalls } = recordedPass(new Set());
+      const result = yield* provide(detectAgentScopeResults(projectDir));
+
+      expect(result).toEqual([]);
+      for (const shared of sharedPaths) {
+        expect(recording.counts(shared), shared).toEqual({ access: 1 });
+      }
+      const accesses = recording.calls({ method: "access" });
+      expect(accesses).toHaveLength(210);
+      expect(accesses.filter(({ path: target }) => target.startsWith(projectDir))).toHaveLength(
+        119,
+      );
+      expect(accesses.filter(({ path: target }) => target.startsWith(userHome))).toHaveLength(91);
+      expect(recording.calls()).toHaveLength(210);
+      expect(resolverCalls()).toBe(10);
+    }),
+  );
+
+  it.effect("probes every marker again in a second pass", () =>
+    Effect.gen(function* () {
+      const { recording, provide } = recordedPass(new Set());
+      yield* provide(detectAgentScopeResults(projectDir));
+      recording.reset();
+      yield* provide(detectAgentScopeResults(projectDir));
+
+      for (const shared of sharedPaths) {
+        expect(recording.counts(shared), shared).toEqual({ access: 1 });
+      }
+      expect(recording.calls({ method: "access" })).toHaveLength(210);
+    }),
+  );
+
+  it.effect("detects every agent that declares a present shared marker", () =>
+    Effect.gen(function* () {
+      const { provide } = recordedPass(new Set(["/work/project/.qoder"]));
+      const result = yield* provide(detectAgentScopeResults(projectDir));
+
+      expect(result.map(({ agent, project, user }) => ({ id: agent.id, project, user }))).toEqual([
+        { id: "qoder", project: true, user: false },
+        { id: "qoder-cn", project: true, user: false },
+      ]);
+    }),
+  );
+
+  it.effect("names the first declaring agent when a shared marker cannot be probed", () =>
+    Effect.gen(function* () {
+      const failingPath = "/work/project/.qoder/settings.json";
+      const failing = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "access",
+        pathOrDescriptor: failingPath,
+      });
+      const { recording, provide } = recordedPass(new Set(), { path: failingPath, error: failing });
+      const error = yield* Effect.flip(provide(detectAgentScopeResults(projectDir)));
+
+      expect(error).toBeInstanceOf(AgentDetectionFailed);
+      if (!(error instanceof AgentDetectionFailed)) return;
+      expect(error.detail).toBe("Failed to detect Qoder");
+      expect(error.cause).toBe(failing);
+      expect(recording.counts(failingPath)).toEqual({ access: 1 });
     }),
   );
 });

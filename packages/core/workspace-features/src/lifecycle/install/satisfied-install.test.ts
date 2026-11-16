@@ -297,7 +297,9 @@ describe("satisfied install execution", () => {
     Effect.gen(function* () {
       const work = yield* repeatedApplyWork("hook", "guard");
 
-      expect(work).toEqual({ outcome: "no-op", treeHashes: 4, manifestReads: 12 });
+      // Each Hook selection frames its package hash from its observation's
+      // walk; measured before: 12 manifest reads.
+      expect(work).toEqual({ outcome: "no-op", treeHashes: 4, manifestReads: 10 });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

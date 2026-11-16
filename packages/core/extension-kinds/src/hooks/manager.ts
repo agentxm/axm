@@ -241,20 +241,31 @@ type ConfiguredOutcomeOptions = NonNullable<
 const sameAgents = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index]);
 
-/** The caller's hash from this same boundary when its root matches exactly; otherwise hashed here. */
+/**
+ * The caller's hash from this same boundary when its root matches exactly;
+ * else the hash the contributor's own observation framed for exactly this
+ * root in this call; otherwise hashed here.
+ */
 const preparedContentHash = (
   prepared: NativeProjectionOptions["preparedContentHashes"],
   name: string,
   packageRoot: string,
+  observed: Option.Option<{ readonly root: string; readonly contentHash: SourceHash }>,
 ): Effect.Effect<
   string,
   Effect.Error<ReturnType<typeof computePackageContentHash>>,
   Effect.Services<ReturnType<typeof computePackageContentHash>>
 > => {
   const entry = prepared?.get(name);
-  return entry !== undefined && entry.packageRoot === packageRoot
-    ? Effect.succeed(entry.contentHash)
-    : computePackageContentHash(packageRoot);
+  if (entry !== undefined && entry.packageRoot === packageRoot)
+    return Effect.succeed(entry.contentHash);
+  return Option.match(
+    Option.filter(observed, ({ root }) => root === packageRoot),
+    {
+      onSome: ({ contentHash }) => Effect.succeed(contentHash),
+      onNone: () => computePackageContentHash(packageRoot),
+    },
+  );
 };
 
 /**
@@ -559,6 +570,9 @@ export const HookManagerLive = Layer.effect(
           graph: args.graph,
           accepted: args.locked,
           captureManifests: true,
+          // A contributor the caller hashed nothing for frames its package
+          // hash from its own observation's walk of the accepted tree.
+          captureContentHashFor: (node) => args.preparedContentHashes?.get(node.name) === undefined,
         }),
       ).pipe(
         Effect.flatMap((contributors) =>
@@ -598,6 +612,7 @@ export const HookManagerLive = Layer.effect(
                     args.preparedContentHashes,
                     contributor.node.name,
                     contributor.packageRoot,
+                    contributor.contentHash ?? Option.none(),
                   ),
                 };
                 return { selected, resolvedRoot };

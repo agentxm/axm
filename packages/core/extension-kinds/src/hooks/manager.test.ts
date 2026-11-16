@@ -47,6 +47,7 @@ import {
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -1153,6 +1154,135 @@ describe("HookManager", () => {
         }
       }),
     );
+
+    describe("a retained acquired contributor's package hash", () => {
+      /**
+       * Install `audit` from a local source, then count one `measure` of the
+       * retained contributor: its canonical tree's reads and the hashes.
+       */
+      const countRetained = <A, E>(
+        measure: (
+          manager: HookManagerShape,
+          canonical: { readonly root: string; readonly contentHash: string },
+        ) => Effect.Effect<A, E, ManagerRequirements>,
+        before?: (workspaceRoot: string, canonicalRoot: string) => void,
+      ) =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-hook-retained-hash-"),
+          );
+          try {
+            const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+            writeHookPackage(packageRoot, "audit");
+            yield* writeReceipt(workspaceRoot, packageRoot, { configuration: {} });
+            const canonicalRoot = canonicalRootOf(workspaceRoot, packageRoot);
+            // The canonical tree is a copy of these same bytes.
+            const contentHash = yield* computePackageContentHash(packageRoot).pipe(
+              Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)),
+            );
+            return yield* withRecordedManager(
+              workspaceRoot,
+              (manager, recording) =>
+                Effect.gen(function* () {
+                  yield* manager.materializeInstall({
+                    ref: makeLocalHookRef("audit", packageRoot),
+                  });
+                  before?.(workspaceRoot, canonicalRoot);
+                  recording.reset();
+                  const work = workObservations(false);
+                  const value = yield* measure(manager, {
+                    root: canonicalRoot,
+                    contentHash,
+                  }).pipe(work.provide, Effect.result);
+                  const at = (relative: string) => nodePath.join(canonicalRoot, relative);
+                  return {
+                    value,
+                    counts: {
+                      scriptReads: recording.contentReads(at("src/hook.sh")),
+                      manifestReads: recording.contentReads(at("hook.json")),
+                      rootListings: recording.counts(canonicalRoot).readDirectory ?? 0,
+                      sourceListings: recording.counts(at("src")).readDirectory ?? 0,
+                      scriptInspections: recording.counts(at("src/hook.sh")).lstat ?? 0,
+                      treeHashes: work.facts.filter(
+                        ({ kind }) => kind === "axm.hash.materialized-tree",
+                      ).length,
+                      packageHashes: work.facts.filter(({ kind }) => kind === "axm.hash.package")
+                        .length,
+                    },
+                  };
+                }),
+              { hooks: ["audit"] },
+            );
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        });
+
+      const outcomesOf = (manager: HookManagerShape) =>
+        manager.configuredAgentOutcomes?.("current") ??
+        Effect.die("The Hook manager evaluates configured-agent outcomes");
+
+      it.effect("frames it from the walk that verified the accepted tree", () =>
+        Effect.gen(function* () {
+          const outcomes = yield* countRetained((manager) => outcomesOf(manager));
+          const planned = yield* countRetained((manager) => manager.projectionPlans());
+          // The receipt keyed by the package hash of the accepted tree is found.
+          expect(
+            Result.isSuccess(outcomes.value)
+              ? outcomes.value.success.map(({ hook }) => hook?.fixtureEvidence.state)
+              : outcomes.value.failure,
+          ).toEqual(["historical"]);
+          // Measured before the selection took its observation's walk: the
+          // script's reads and inspections and both listings 2 each, and
+          // hook.json 3 (the manifest capture, the strict walk and the
+          // package hash).
+          const once = {
+            scriptReads: 1,
+            manifestReads: 2,
+            rootListings: 1,
+            sourceListings: 1,
+            scriptInspections: 1,
+            treeHashes: 1,
+            packageHashes: 1,
+          };
+          expect({ outcomes: outcomes.counts, planned: planned.counts }).toEqual({
+            outcomes: once,
+            planned: once,
+          });
+        }),
+      );
+
+      it.effect("frames none when the caller hands the hash of the same root", () =>
+        Effect.gen(function* () {
+          const counted = yield* countRetained((manager, canonical) =>
+            manager.projectionPlans({
+              preparedContentHashes: new Map([
+                ["audit", { packageRoot: canonical.root, contentHash: canonical.contentHash }],
+              ]),
+            }),
+          );
+          expect(Result.isSuccess(counted.value)).toBe(true);
+          expect({
+            scriptReads: counted.counts.scriptReads,
+            treeHashes: counted.counts.treeHashes,
+            packageHashes: counted.counts.packageHashes,
+          }).toEqual({ scriptReads: 1, treeHashes: 1, packageHashes: 0 });
+        }),
+      );
+
+      it.effect("still refuses a contributor whose tree differs from its accepted row", () =>
+        Effect.gen(function* () {
+          const counted = yield* countRetained(
+            (manager) => manager.projectionPlans(),
+            (_, canonicalRoot) =>
+              writeFileSync(nodePath.join(canonicalRoot, "src/hook.sh"), "#!/bin/sh\n"),
+          );
+          expect(
+            Result.isFailure(counted.value) ? counted.value.failure : "projected",
+          ).toMatchObject({ _tag: "ContributorTreeMismatch" });
+        }),
+      );
+    });
 
     describe("within one preparation", () => {
       /** A workspace with the `audit` and `lint` packages and no native Hook settings yet. */

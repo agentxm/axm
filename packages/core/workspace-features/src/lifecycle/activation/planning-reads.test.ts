@@ -407,13 +407,15 @@ describe("Activation planning observes canonical content only where a decision r
         // retirement just verified; the retirement and the withdrawal
         // description still hash the tree.
         // The outcome evaluation takes the root's real path its validation
-        // resolved; measured before: 4 probes.
+        // resolved, and the selection frames the member's package hash from
+        // its observation's walk; measured before: 4 probes and one more
+        // directory read.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -458,13 +460,15 @@ describe("Activation planning observes canonical content only where a decision r
         expect(steps.map((step) => step.readiness)).toEqual(["error"]);
         expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
         // The outcome evaluation takes the root's real path its validation
-        // resolved; measured before: 4 probes.
+        // resolved, and the selection frames the member's package hash from
+        // its observation's walk; measured before: 4 probes and one more
+        // directory read.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 3, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -516,13 +520,15 @@ describe("Activation planning observes canonical content only where a decision r
         expect(steps.map((step) => step.readiness)).toEqual(["ready"]);
         expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
         // The outcome evaluation takes the root's real path its validation
-        // resolved; measured before: 4 probes.
+        // resolved, and the selection frames the member's package hash from
+        // its observation's walk; measured before: 4 probes and one more
+        // directory read.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -686,9 +692,10 @@ describe("Activation planning hands settlement's observation to step collection"
       publish: (r: InstallWorld["registry"]) => r.writeHook("review", [{ version: "1.0.0" }]),
       steps: [],
       repeated: { treeHashes: 5, rootDirectoryReads: 10, rootProbes: 7 },
-      // Each outcome evaluation takes its validation's real path of the root;
-      // measured before: 6 probes.
-      observed: { treeHashes: 4, rootDirectoryReads: 9, rootProbes: 4 },
+      // Each outcome evaluation takes its validation's real path of the root,
+      // and each selection frames the package hash from its observation's
+      // walk; measured before: 6 probes and 9 directory reads.
+      observed: { treeHashes: 4, rootDirectoryReads: 7, rootProbes: 4 },
     },
     {
       type: "rule",

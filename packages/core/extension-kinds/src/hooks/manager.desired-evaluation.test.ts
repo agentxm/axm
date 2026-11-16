@@ -26,7 +26,7 @@ import {
   RegistryTransportTest,
 } from "@agentxm/registry-client/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { HookManager, type ManagerRequirements } from "@agentxm/workspace-kernel/materialization";
 import { applyProjectionPlans, observeObservedPlans } from "@agentxm/workspace-kernel/projection";
 import {
@@ -508,4 +508,22 @@ describe("HookManager desired-state evaluation", () => {
       ),
     );
   });
+
+  it.effect("hashes an authored contributor's package once in one projection run", () =>
+    inWorkspace(["audit"], (workspace) =>
+      Effect.gen(function* () {
+        const work = workObservations(false);
+        yield* workspace.manager.projectionPlans().pipe(work.provide);
+        // An authored package has no accepted tree to verify; its package
+        // hash is its only walk, as before.
+        expect({
+          treeHashes: work.facts.filter(({ kind }) => kind === "axm.hash.materialized-tree").length,
+          packageHashes: work.facts.filter(({ kind }) => kind === "axm.hash.package").length,
+          scriptReads: workspace.recording.contentReads(
+            nodePath.join(workspace.root, "hooks", "audit", "src", "hook.sh"),
+          ),
+        }).toEqual({ treeHashes: 0, packageHashes: 1, scriptReads: 1 });
+      }),
+    ),
+  );
 });

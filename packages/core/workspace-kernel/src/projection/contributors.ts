@@ -27,6 +27,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   contributorSetBlockers,
   contributorSetComplete,
@@ -58,6 +59,13 @@ export interface AggregateContributor {
    * to a caller that asked for it, for that caller's own call.
    */
   readonly manifest?: Option.Option<CapturedManifest>;
+  /**
+   * The package content hash of `packageRoot`, framed from the strict walk
+   * this contributor's canonical observation made of the accepted tree,
+   * handed only to a caller that asked for it, for that caller's own call.
+   * `None` when the observation made no such walk.
+   */
+  readonly contentHash?: Option.Option<{ readonly root: string; readonly contentHash: SourceHash }>;
 }
 
 /** Stable recovery-conformance identity for aggregate writes blocked by an incomplete contributor set. */
@@ -174,6 +182,7 @@ const contributorForNode = (args: {
   readonly node: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
   readonly captureManifests: boolean;
+  readonly captureContentHash: boolean;
 }): Effect.Effect<
   AggregateContributor,
   | AuthoredContributorUnsupported
@@ -202,9 +211,14 @@ const contributorForNode = (args: {
       });
     }
     const handedOver = yield* handedOverCanonicalObservation({ layout, node, accepted });
-    const { observation, manifest } = Option.isSome(handedOver)
-      ? handedOver.value
-      : yield* observeCanonicalExtensionCapturing({ layout, desired: node, accepted });
+    const { observation, manifest, digests } = Option.isSome(handedOver)
+      ? { ...handedOver.value, digests: Option.none() }
+      : yield* observeCanonicalExtensionCapturing({
+          layout,
+          desired: node,
+          accepted,
+          ...(args.captureContentHash ? { digestAcceptedTree: () => true } : {}),
+        });
     if (observation.status === "missing-resolution") {
       return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }
@@ -219,6 +233,13 @@ const contributorForNode = (args: {
           ? Option.fromUndefinedOr(accepted?.identity.owner)
           : Option.some(authoredIdentity.owner),
       ...(args.captureManifests ? { manifest } : {}),
+      ...(args.captureContentHash
+        ? {
+            contentHash: Option.flatMap(digests, ({ root, contentHash }) =>
+              Option.map(contentHash, (hash) => Object.freeze({ root, contentHash: hash })),
+            ),
+          }
+        : {}),
     };
   });
 
@@ -228,7 +249,8 @@ const contributorForNode = (args: {
  * contributed by a Pack, each resolved to its canonical package root. The
  * set is proven complete for that type before any contributor is resolved.
  * A caller that decodes each contributor's manifest itself may ask for the
- * manifest each observation read.
+ * manifest each observation read, and a caller that hashes a contributor's
+ * package may ask that contributor's observation for that hash.
  */
 export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
@@ -236,6 +258,8 @@ export const activeContributors = (args: {
   readonly graph: DesiredStateGraph;
   readonly accepted: Readonly<Record<string, LockEntry>>;
   readonly captureManifests?: true;
+  /** Whether a contributor's observation also frames its package content hash. */
+  readonly captureContentHashFor?: (node: DesiredExtensionNode) => boolean;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
   | DesiredStateIncomplete
@@ -253,6 +277,7 @@ export const activeContributors = (args: {
           node,
           accepted: args.accepted[node.name],
           captureManifests: args.captureManifests === true,
+          captureContentHash: args.captureContentHashFor?.(node) === true,
         }),
       ),
     ),

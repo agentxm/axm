@@ -282,9 +282,11 @@ describe("Hook configuration hashes the configured package once per boundary", (
             expect(native).not.toContain("original");
             // The manager hashed the configured package again in each
             // projection: 4 hashes and 13 script reads in preparation, 2 and 5
-            // under the lock.
+            // under the lock. Each retained selection now frames its hash
+            // from its observation's walk: 10 script reads in preparation
+            // before.
             expect({ prepared, applied }).toEqual({
-              prepared: { hashes: 3, scriptReads: 10 },
+              prepared: { hashes: 3, scriptReads: 8 },
               applied: { hashes: 1, scriptReads: 4 },
             });
           }),
@@ -326,8 +328,9 @@ describe("Hook configuration hashes the configured package once per boundary", (
             // the manager after the contributor observation of each of the
             // three projections in preparation and the one under the lock:
             // 22 reads in preparation and 7 in apply. Observations, hashes
-            // and tree checks still read it.
-            expect({ prepared, applied }).toEqual({ prepared: 15, applied: 6 });
+            // and tree checks still read it; a retained selection's hash now
+            // comes from its observation's walk (15 in preparation before).
+            expect({ prepared, applied }).toEqual({ prepared: 13, applied: 6 });
           }),
         )
         .pipe(Effect.provide(recordedNodeServices));
@@ -533,11 +536,13 @@ describe("Hook configuration hashes the configured package once per boundary", (
               ]),
             );
 
-            // Each contributor's script is read once by its hash and once by
-            // the package-file validation, which always runs.
-            expect(computed).toMatchObject({ hashes: 2, auditReads: 2, retainedReads: 2 });
-            expect(handed).toMatchObject({ hashes: 1, auditReads: 1, retainedReads: 2 });
-            expect(elsewhere).toMatchObject({ hashes: 2, auditReads: 2, retainedReads: 2 });
+            // Each contributor's script is read once by its observation's
+            // strict walk, which frames the hash of a contributor nothing was
+            // handed for; a hash handed for another root is computed apart.
+            // Measured before the walk framed it: 2, 2 and 2 reads each.
+            expect(computed).toMatchObject({ hashes: 2, auditReads: 1, retainedReads: 1 });
+            expect(handed).toMatchObject({ hashes: 1, auditReads: 1, retainedReads: 1 });
+            expect(elsewhere).toMatchObject({ hashes: 2, auditReads: 2, retainedReads: 1 });
             // The handed hash renders the same observation the manager's own does.
             expect(handed.observations).toEqual(computed.observations);
             expect(elsewhere.observations).toEqual(computed.observations);

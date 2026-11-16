@@ -109,13 +109,17 @@ import {
   validatePublishOwners,
 } from "../preflight.js";
 import { publishRecoverySelection } from "../recovery.js";
-import { assessPublishSourceState, publishSourceRiskCondition } from "../source-state.js";
+import {
+  assessPublishSourceState,
+  makeRepositoryHeads,
+  publishSourceRiskCondition,
+} from "../source-state.js";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type { PublishSettlement } from "../settlement.js";
 import {
   catalogEntries,
   decodeCandidate,
-  prepareCandidate,
+  prepareCandidateForAssessment,
   resolveTargetRegistry,
   selectEntries,
   type PublishCandidate,
@@ -359,7 +363,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
               Effect.gen(function* () {
                 if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
                 if (result.success === undefined) return undefined;
-                return yield* prepareCandidate(
+                return yield* prepareCandidateForAssessment(
                   result.success.candidate,
                   result.success.index,
                   request.backfill,
@@ -375,14 +379,19 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
     const selected = selection.entries;
     const decoded: ReadonlyArray<
       Result.Result<PublishCandidate | undefined, PublishFailure | PublishPreparationFailure>
-    > = prepared.decoded;
-    const decodedCandidates = decoded.flatMap((result) =>
+    > = prepared.decoded.map((result) => Result.map(result, (success) => success?.candidate));
+    const decodedPrepared = prepared.decoded.flatMap((result) =>
       Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
     );
+    const decodedCandidates = decodedPrepared.map(({ candidate }) => candidate);
+    // Root hints stay with this pass; HEAD facts are shared only within it.
+    // The pass is sequential: assessing concurrently would need each root's
+    // first comparison to settle before another one may take its facts.
+    const repositoryHeads = makeRepositoryHeads();
     const decodedPreflightFailures = decoded.flatMap((result) =>
       Result.isFailure(result) ? [preparationFailureOf(result.failure)] : [],
     );
-    const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
+    const sourceAssessments = yield* Effect.forEach(decodedPrepared, ({ candidate, source }) =>
       Effect.result(
         Effect.gen(function* () {
           if (candidate.action === "skip") return candidate;
@@ -391,6 +400,8 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
             archivePlan: candidate.archivePlan,
             ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
             selection: candidate.fileSelection,
+            ...("repositoryRoot" in source ? { repositoryRoot: source.repositoryRoot } : {}),
+            repositoryHeads,
           }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
           return { ...candidate, sourceAssessment } satisfies PublishCandidate;
         }),

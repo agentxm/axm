@@ -218,12 +218,22 @@ export interface GitDirectoryDifference {
   readonly workingObject?: string;
 }
 
+/**
+ * What a comparison observed of its repository's HEAD: the same for every
+ * directory of that repository until something commits to it.
+ */
+export type GitHeadFacts =
+  | { readonly kind: "no-head" }
+  | { readonly kind: "head"; readonly revision: string; readonly objectFormat: "sha1" | "sha256" };
+
 /** Git evidence for one directory, before feature-specific archive filtering. */
 export interface GitDirectoryComparisonResult {
   readonly repositoryRoot: string;
   readonly repositoryDirectory: string;
   readonly headRevision?: string;
   readonly differences: ReadonlyArray<GitDirectoryDifference>;
+  /** The repository HEAD facts this comparison observed or was given. */
+  readonly head?: GitHeadFacts;
 }
 
 // -----------------------------------------------------------------------------
@@ -406,17 +416,26 @@ export const getTreeSha = (repoPath: string, subPath = ".") =>
     catch: mapGitError("get-tree-sha", `Failed to get tree SHA for '${subPath}'`),
   }).pipe(withGitOperationBoundary("get-tree-sha"), Effect.withSpan("Git.getTreeSha"));
 
+const supportedObjectFormat = (objectFormat: string): "sha1" | "sha256" => {
+  if (objectFormat === "sha1" || objectFormat === "sha256") return objectFormat;
+  throw new Error(`Unsupported Git object format: ${objectFormat}`);
+};
+
 /**
  * Compare an exact set of current payload entries with the corresponding Git
  * HEAD subtree. The caller owns which current paths belong to its material
  * boundary; deleted HEAD paths remain present in the returned difference set
- * so that boundary can classify them too.
+ * so that boundary can classify them too. A caller that compared another
+ * directory of the same repository within the same read may pass the HEAD
+ * facts that comparison returned; the HEAD subtree of this directory is still
+ * listed.
  */
 export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
   function* (
     repositoryRoot: string,
     directory: string,
     currentPaths: ReadonlyArray<string>,
+    prior?: { readonly head?: GitHeadFacts },
   ): Effect.fn.Return<
     GitDirectoryComparisonResult,
     GitOperationFailed | PlatformError.PlatformError,
@@ -426,28 +445,36 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
     const fs = yield* FileSystem.FileSystem;
     const repositoryDirectory = toPosixPath(path.relative(repositoryRoot, directory), path.sep);
     const normalizedDirectory = repositoryDirectory.length === 0 ? "." : repositoryDirectory;
-    const head = yield* Effect.tryPromise({
-      try: async (signal) => {
-        const git = createGit(repositoryRoot, signal);
-        const revision = await readHeadRevision(git);
-        if (revision === undefined) return undefined;
-        const treeOutput = await git.raw([
-          "ls-tree",
-          "-r",
-          "-z",
-          "--full-tree",
-          "HEAD",
-          "--",
-          normalizedDirectory,
-        ]);
-        const objectFormat = (await git.revparse(["--show-object-format"])).trim();
-        if (objectFormat !== "sha1" && objectFormat !== "sha256") {
-          throw new Error(`Unsupported Git object format: ${objectFormat}`);
-        }
-        return { revision, blobs: parseHeadBlobs(treeOutput, normalizedDirectory), objectFormat };
-      },
-      catch: mapGitError("compare-directory-to-head"),
-    });
+    const known = prior?.head;
+    const head =
+      known?.kind === "no-head"
+        ? undefined
+        : yield* Effect.tryPromise({
+            try: async (signal) => {
+              const git = createGit(repositoryRoot, signal);
+              const revision = known === undefined ? await readHeadRevision(git) : known.revision;
+              if (revision === undefined) return undefined;
+              const treeOutput = await git.raw([
+                "ls-tree",
+                "-r",
+                "-z",
+                "--full-tree",
+                "HEAD",
+                "--",
+                normalizedDirectory,
+              ]);
+              const objectFormat =
+                known === undefined
+                  ? supportedObjectFormat((await git.revparse(["--show-object-format"])).trim())
+                  : known.objectFormat;
+              return {
+                revision,
+                blobs: parseHeadBlobs(treeOutput, normalizedDirectory),
+                objectFormat,
+              };
+            },
+            catch: mapGitError("compare-directory-to-head"),
+          });
     if (head === undefined) {
       return {
         repositoryRoot,
@@ -455,6 +482,7 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
         differences: [...currentPaths]
           .sort((a, b) => a.localeCompare(b))
           .map((currentPath) => ({ path: currentPath, change: "added" as const })),
+        head: { kind: "no-head" },
       } satisfies GitDirectoryComparisonResult;
     }
 
@@ -542,6 +570,7 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
       repositoryDirectory: normalizedDirectory,
       headRevision: head.revision,
       differences,
+      head: { kind: "head", revision: head.revision, objectFormat: head.objectFormat },
     } satisfies GitDirectoryComparisonResult;
   },
   (effect, _repositoryRoot, directory) =>

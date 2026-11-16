@@ -36,6 +36,8 @@ interface IgnoreSnapshot {
   readonly rules: ReadonlyArray<SelectionRule>;
   readonly fingerprint: string;
   readonly listing?: PackageListing;
+  /** The Git root the walk from the package found, when this observation walked for one. */
+  readonly gitRoot?: Option.Option<string>;
 }
 
 /** Rediscover every time, including missing ancestor files and newly created nested files. */
@@ -68,9 +70,10 @@ export const observeGitIgnoreInputs = (input: {
         ),
       );
     const packageRoot = path.resolve(input.packageRoot);
+    const gitRoot = input.boundaryRoot === undefined ? yield* findGitRoot(packageRoot) : undefined;
     const boundaryRoot =
       input.boundaryRoot === undefined
-        ? Option.getOrElse(yield* findGitRoot(packageRoot), () => packageRoot)
+        ? Option.getOrElse(gitRoot ?? Option.none(), () => packageRoot)
         : path.resolve(input.boundaryRoot);
     if (!isLexicallyWithin(path, boundaryRoot, packageRoot)) {
       return yield* new IgnoreDiscoveryFailed({
@@ -193,6 +196,7 @@ export const observeGitIgnoreInputs = (input: {
       rules,
       fingerprint,
       ...(input.retainListing === true ? { listing } : {}),
+      ...(gitRoot === undefined ? {} : { gitRoot }),
     } satisfies IgnoreSnapshot;
   }).pipe(
     Effect.mapError((cause) =>

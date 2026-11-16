@@ -133,8 +133,9 @@ const zipDistribution = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    // The listing stays with this walk; it never reaches the returned plan.
-    const { listing, ...resolved } = yield* resolvePublishSelection(
+    // The listing stays with this walk; neither it nor the Git root reaches
+    // the returned plan.
+    const { listing, gitRoot, ...resolved } = yield* resolvePublishSelection(
       dir,
       options ?? {},
       options?.skillEnvelope === undefined
@@ -400,6 +401,7 @@ const zipDistribution = (
     );
     return {
       zipBytes,
+      ...(gitRoot === undefined ? {} : { gitRoot }),
       ...resolved,
       policyFingerprint: JSON.stringify({
         selection: resolved.policyFingerprint,
@@ -453,9 +455,9 @@ const planFromZip = (
   takeSourceBytes?: TakeSourceBytes,
 ) =>
   Effect.gen(function* () {
-    const { zipBytes, ...planned } = yield* zipDistribution(dir, options, takeSourceBytes);
+    const { zipBytes, gitRoot, ...planned } = yield* zipDistribution(dir, options, takeSourceBytes);
     const archive = yield* admitDistribution(zipBytes);
-    return { zipBytes, planned: { archive, ...planned } satisfies PlannedZipArchive };
+    return { zipBytes, gitRoot, planned: { archive, ...planned } satisfies PlannedZipArchive };
   }).pipe(Effect.withSpan("axm.publish.archive"));
 
 /**
@@ -472,7 +474,9 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
  * admitted archive is a copy of those bytes that is never mutated, so the
  * digests are the admitted archive's. `takeSourceBytes` may hand over source
  * bytes the preparation already read for an included regular file, which the
- * archive then uses instead of reading that file again.
+ * archive then uses instead of reading that file again. When the selection's
+ * ignore discovery walked to a Git root, the preparation also receives the
+ * root it found (none when it found none).
  */
 export const prepareZipArchive = (
   dir: string,
@@ -480,8 +484,9 @@ export const prepareZipArchive = (
   takeSourceBytes?: TakeSourceBytes,
 ) =>
   planFromZip(dir, options, takeSourceBytes).pipe(
-    Effect.map(({ zipBytes, planned }) => ({
+    Effect.map(({ zipBytes, gitRoot, planned }) => ({
       ...planned,
+      ...(gitRoot === undefined ? {} : { gitRoot }),
       digests: () => ({
         integrity: sha512Integrity(zipBytes),
         sha256: archiveSha256Hex(zipBytes),

@@ -877,7 +877,13 @@ export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
   return { selected, manifest, manifestJson, manifestPath, extensionDir };
 });
 
-export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(function* (
+/**
+ * Prepare one candidate, also handing its own source assessment, and nothing
+ * else, what the preparation already observed of the package's repository:
+ * the Git root the archive's ignore discovery found from the package, when it
+ * walked for one.
+ */
+export const prepareCandidateForAssessment = Effect.fn("axm.publish.prepareCandidate")(function* (
   candidate: NonNullable<Effect.Success<ReturnType<typeof decodeCandidate>>>,
   index: Option.Option<ExtensionIndex>,
   backfillRequested: boolean,
@@ -904,7 +910,10 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     Option.isSome(index) &&
     index.value.versions.some((entry) => entry.version === manifest.version)
   ) {
-    return { ...version, action: "skip" } satisfies ExistingVersionCandidate;
+    return {
+      candidate: { ...version, action: "skip" } satisfies ExistingVersionCandidate,
+      source: {},
+    };
   }
   let backfill = false;
   if (Option.isSome(index)) {
@@ -1060,20 +1069,27 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     ),
   );
   return {
-    ...version,
-    action: "publish",
-    manifestJson,
-    ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
-    ...(publicationOptions === undefined ? {} : { publishOptions: publicationOptions }),
-    fileSelection: plannedArchive.selection,
-    policyFingerprint: plannedArchive.policyFingerprint,
-    archive,
-    archiveSha256Hex: archiveDigest,
-    archivePlan,
-    integrity,
-    backfill,
-  } satisfies UploadCandidate;
+    candidate: {
+      ...version,
+      action: "publish",
+      manifestJson,
+      ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
+      ...(publicationOptions === undefined ? {} : { publishOptions: publicationOptions }),
+      fileSelection: plannedArchive.selection,
+      policyFingerprint: plannedArchive.policyFingerprint,
+      archive,
+      archiveSha256Hex: archiveDigest,
+      archivePlan,
+      integrity,
+      backfill,
+    } satisfies UploadCandidate,
+    source: plannedArchive.gitRoot === undefined ? {} : { repositoryRoot: plannedArchive.gitRoot },
+  };
 });
+
+/** Prepare one candidate. */
+export const prepareCandidate = (...args: Parameters<typeof prepareCandidateForAssessment>) =>
+  prepareCandidateForAssessment(...args).pipe(Effect.map(({ candidate }) => candidate));
 
 /**
  * Per-type publish selection: a bare name means "this type's package with

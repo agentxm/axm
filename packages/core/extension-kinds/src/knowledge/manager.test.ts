@@ -5,6 +5,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import {
@@ -1307,4 +1308,260 @@ describe("KnowledgeManager", () => {
         }
       }),
   );
+
+  describe("projection preparation", () => {
+    const handbookNode = {
+      type: "knowledge" as const,
+      name: "handbook",
+      identity: { authority: "path" as const, locator: "./source" },
+      source: "./source",
+      enabled: true,
+      constraint: UNCONSTRAINED_DESIRED_NODE,
+      origins: [{ type: "settings" as const, source: "./source", enabled: true }],
+    };
+    const handbookGraph = {
+      packMembership: [],
+      nodes: [handbookNode],
+      mcpSourceClosures: [],
+      problems: [],
+    };
+
+    /**
+     * Prepare the discovery plan for `refs` and observe it once, counting the
+     * settings and accepted-resolution document reads and every filesystem
+     * call the preparation makes after layer construction.
+     */
+    const recordedPreparation = (
+      workspaceRoot: string,
+      refs: ReadonlyArray<KnowledgeExtensionRef>,
+      options: {
+        readonly desiredGraph?: typeof handbookGraph;
+        readonly graph?: typeof handbookGraph;
+        readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
+      } = {},
+    ) =>
+      Effect.gen(function* () {
+        let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+        const reads = { settings: 0, acceptedResolutions: 0 };
+        const settings = { instructionFiles: {} };
+        const lockfile = { lockfileVersion: 1 as const, skills: {} };
+        const outcome = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          recording?.reset();
+          reads.settings = 0;
+          reads.acceptedResolutions = 0;
+          return yield* manager.observedPrepareProjection(
+            refs,
+            options.desiredGraph === undefined ? undefined : { desiredGraph: options.desiredGraph },
+            (held) =>
+              observeObservedPlans(held).pipe(
+                Effect.map((observations) =>
+                  observations.map((observation) => observation.expectedContributors),
+                ),
+              ),
+          );
+        }).pipe(
+          Effect.result,
+          Effect.provide(
+            managerLayer(workspaceRoot, {
+              read: {
+                settingsDocument: Effect.sync(() => {
+                  reads.settings += 1;
+                  return settings;
+                }),
+                acceptedResolutions: Effect.sync(() => {
+                  reads.acceptedResolutions += 1;
+                  return lockfile;
+                }),
+                ...(options.graph === undefined ? {} : { graph: options.graph }),
+              },
+              fileSystem: (native) => {
+                const recorded = makeRecordingFileSystem(options.fileSystem?.(native) ?? native);
+                recording = recorded.recording;
+                return recorded.fileSystem;
+              },
+            }),
+          ),
+        );
+        return { outcome, recording, reads };
+      });
+
+    const deepFrozen = <A>(value: A): A => {
+      if (typeof value === "object" && value !== null) {
+        for (const child of Object.values(value)) deepFrozen(child);
+        Object.freeze(value);
+      }
+      return value;
+    };
+
+    it.effect(
+      "resolves the instruction target route once while preparing one Knowledge bundle",
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+          );
+          try {
+            const sourceRoot = nodePath.join(workspaceRoot, "source");
+            writeKnowledgePackage(sourceRoot, "handbook", true);
+            const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+            writeFileSync(instructionsPath, "# Project\n");
+
+            const { outcome, recording, reads } = yield* recordedPreparation(
+              workspaceRoot,
+              [localRef("handbook", sourceRoot)],
+              { desiredGraph: handbookGraph },
+            );
+
+            expect(outcome).toMatchObject({
+              _tag: "Success",
+              success: [["@acme/knowledge/handbook"]],
+            });
+            // One route resolution of the declared instruction file shared by
+            // the source's overlap check and the plan, the overlap check
+            // itself, then the region dry run's own fresh route checks.
+            expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
+              8,
+            );
+            // The projection inputs are read once for the source checks and
+            // the plan; the plan and its dry run read the rest for themselves.
+            expect(reads.settings).toBe(5);
+            expect(reads.acceptedResolutions).toBe(2);
+            expect(readFileSync(instructionsPath, "utf8")).toBe("# Project\n");
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
+
+    it.effect("resolves the instruction target route once while preparing no bundle", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+          writeFileSync(instructionsPath, "# Project\n");
+
+          // The manager reads a deeply frozen desired graph, as live readers return.
+          const { outcome, recording, reads } = yield* recordedPreparation(workspaceRoot, [], {
+            graph: deepFrozen({ ...handbookGraph, nodes: [] }),
+          });
+
+          expect(outcome).toMatchObject({ _tag: "Success", success: [[]] });
+          // One route resolution, then the region dry run's own route checks:
+          // the same calls a standing plan makes.
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
+          expect(reads.settings).toBe(5);
+          expect(reads.acceptedResolutions).toBe(2);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    it.effect("keeps the region dry run's target and alias checks for a standing plan", () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
+        try {
+          const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+          writeFileSync(instructionsPath, "# Project\n");
+          let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+
+          const contributors = yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            recording?.reset();
+            return yield* manager.observedProjectionPlans(undefined, (held) =>
+              observeObservedPlans(held).pipe(
+                Effect.map((observations) =>
+                  observations.map((observation) => observation.expectedContributors),
+                ),
+              ),
+            );
+          }).pipe(
+            Effect.provide(
+              managerLayer(workspaceRoot, {
+                fileSystem: (native) => {
+                  const recorded = makeRecordingFileSystem(native);
+                  recording = recorded.recording;
+                  return recorded.fileSystem;
+                },
+              }),
+            ),
+          );
+
+          expect(contributors).toEqual([[]]);
+          // The plan's own route resolution, then the dry run's own route checks.
+          expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(6);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    );
+
+    it.effect(
+      "refuses the prepared plan when the instruction alias is retargeted during inspection",
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+          );
+          try {
+            const sourceRoot = nodePath.join(workspaceRoot, "source");
+            writeKnowledgePackage(sourceRoot, "handbook", true);
+            const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+            // Relative links stay valid through an alias in the same directory.
+            writeFileSync(nodePath.join(workspaceRoot, "FIRST.md"), "# First\n");
+            writeFileSync(nodePath.join(workspaceRoot, "SECOND.md"), "# Second\n");
+            symlinkSync("FIRST.md", instructionsPath);
+            const sourceManifest = nodePath.join(sourceRoot, "knowledge.json");
+            let retargeted = false;
+            const retarget = (target: string) =>
+              Effect.sync(() => {
+                if (target !== sourceManifest || retargeted) return;
+                retargeted = true;
+                // A foreign actor moves the alias while the source is inspected.
+                rmSync(instructionsPath);
+                symlinkSync("SECOND.md", instructionsPath);
+              });
+
+            const { outcome } = yield* recordedPreparation(
+              workspaceRoot,
+              [localRef("handbook", sourceRoot)],
+              {
+                desiredGraph: handbookGraph,
+                fileSystem: (native) =>
+                  FileSystem.make({
+                    ...native,
+                    // String reads of the manifest are derived from this one.
+                    readFile: (target) =>
+                      retarget(target).pipe(Effect.andThen(native.readFile(target))),
+                  }),
+              },
+            );
+
+            expect(retargeted).toBe(true);
+            // The source's overlap check and the plan share one resolution of
+            // the alias, so the plan's dry run sees the move and refuses.
+            expect(outcome).toMatchObject({
+              _tag: "Failure",
+              failure: {
+                _tag: "ManagedRegionViolation",
+                reason: "Native region alias changed after planning",
+              },
+            });
+            expect(readFileSync(nodePath.join(workspaceRoot, "FIRST.md"), "utf8")).toBe(
+              "# First\n",
+            );
+            expect(readFileSync(nodePath.join(workspaceRoot, "SECOND.md"), "utf8")).toBe(
+              "# Second\n",
+            );
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
+  });
 });

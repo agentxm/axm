@@ -125,6 +125,22 @@ interface PreparedKnowledgePackage {
 }
 
 /**
+ * A deeply frozen value: the value itself when it is already frozen, as
+ * decoded workspace documents are, otherwise a frozen copy this call owns.
+ */
+const ownedFrozen = <A>(value: A): A => {
+  if (Object.isFrozen(value)) return value;
+  const copy = structuredClone(value);
+  const freeze = (current: unknown): void => {
+    if (typeof current !== "object" || current === null || Object.isFrozen(current)) return;
+    for (const nested of Object.values(current)) freeze(nested);
+    Object.freeze(current);
+  };
+  freeze(copy);
+  return copy;
+};
+
+/**
  * Name the failure that stopped a restore in the operator's sentence: the
  * producing family carries its own detail, so no application envelope is
  * needed to describe it.
@@ -555,6 +571,29 @@ export const KnowledgeManagerLive = Layer.effect(
         const instructionsTarget = yield* getInstructionsTarget();
         return { graph, locked, configured, config, instructionsTarget };
       });
+    type KnowledgeProjectionInputs = Effect.Success<ReturnType<typeof resolveKnowledgeProjection>>;
+
+    /**
+     * The projection inputs one preparation call shares between its source
+     * checks and its plan, frozen so neither consumer can change what the
+     * other reads. A caller's desired graph is handed to both as it is today;
+     * a graph the manager read is shared only when its reader froze it.
+     * Otherwise there is nothing to share and the plan resolves its own. The
+     * accepted rows have one consumer, the plan, and pass to it unchanged.
+     */
+    const shareableKnowledgeProjection = (
+      resolved: KnowledgeProjectionInputs,
+      options?: NativeProjectionOptions,
+    ): KnowledgeProjectionInputs | undefined =>
+      options?.desiredGraph === resolved.graph || Object.isFrozen(resolved.graph)
+        ? {
+            graph: resolved.graph,
+            locked: resolved.locked,
+            configured: ownedFrozen(resolved.configured),
+            config: ownedFrozen(resolved.config),
+            instructionsTarget: ownedFrozen(resolved.instructionsTarget),
+          }
+        : undefined;
 
     const runKnowledgeProjectionAdapter = (args: {
       readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
@@ -610,10 +649,16 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
+    /**
+     * Plan the discovery region. A caller that resolved these same options'
+     * projection inputs earlier in its own call, in the read phase still
+     * current, hands them over instead of resolving them again.
+     */
     const makeKnowledgeProjectionPlan = (
       prospective: ReadonlyArray<KnowledgeDiscoveryBundle> = [],
       options?: NativeProjectionOptions,
       replacedNames: ReadonlySet<string> = new Set(prospective.map(({ name }) => name)),
+      resolved?: KnowledgeProjectionInputs,
     ): Effect.Effect<
       ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>,
       ExtensionManagerFailure,
@@ -621,7 +666,7 @@ export const KnowledgeManagerLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         const { graph, locked, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options);
+          resolved ?? (yield* resolveKnowledgeProjection(options));
         const configuredAgents =
           options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
         const accepted = yield* captureAgentOutputAuthority();
@@ -734,8 +779,10 @@ export const KnowledgeManagerLive = Layer.effect(
       use,
     ) =>
       Effect.gen(function* () {
-        const { graph, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options);
+        const phase = yield* workspaceReadPhaseFor(location);
+        const resolved = yield* resolveKnowledgeProjection(options);
+        const shared = shareableKnowledgeProjection(resolved, options);
+        const { graph, configured, config, instructionsTarget } = shared ?? resolved;
         const prospective = yield* Effect.forEach(
           refs,
           (ref) =>
@@ -791,12 +838,16 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
+        // The plan reuses this call's inputs only while the read phase they
+        // came from is still the current one; otherwise it reads its own.
+        const samePhase = (yield* workspaceReadPhaseFor(location)) === phase;
         return yield* withObservedProjectionPlans(
           [
             yield* makeKnowledgeProjectionPlan(
               prospective.flat(),
               options,
               new Set(refs.map((ref) => ref.knowledge.name)),
+              samePhase ? shared : undefined,
             ),
           ],
           use,

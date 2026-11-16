@@ -738,3 +738,78 @@ describe("skill locations retained for the caller's classification", () => {
     ),
   );
 });
+
+describe("Subagent entry classification", () => {
+  const observeSubagents = (
+    args: Parameters<typeof observeAgentOutputs>[0],
+    fs: FileSystem.FileSystem,
+  ) =>
+    Effect.gen(function* () {
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      const inventory = yield* observeAgentOutputs({
+        ...args,
+        expectedSubagentNames: new Set(["review"]),
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+      return {
+        recording,
+        subagents: inventory.outputs
+          .filter((output) => output.extensionType === "subagent")
+          .map(({ path, entryName }) => ({ path, entryName })),
+      };
+    });
+
+  it.effect("admits a regular Subagent file from the stat its entry resolution made", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const physicalRoot = yield* fs.realPath(root);
+        const file = path.join(physicalRoot, ".claude/agents/review.md");
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+        yield* fs.writeFileString(file, "Review\n");
+        const { recording, subagents } = yield* observeSubagents(
+          { ...args, workspaceRoot: physicalRoot },
+          fs,
+        );
+        expect(subagents).toEqual([{ path: file, entryName: "review" }]);
+        expect(recording.counts(file)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+      }),
+    ),
+  );
+
+  it.effect("still stats a linked Subagent entry's referent and skips a linked directory", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const physicalRoot = yield* fs.realPath(root);
+        const agents = path.join(physicalRoot, ".claude/agents");
+        const source = path.join(physicalRoot, "elsewhere/review.md");
+        const directory = path.join(physicalRoot, "elsewhere/folder.md");
+        yield* fs.makeDirectory(agents, { recursive: true });
+        yield* fs.makeDirectory(directory, { recursive: true });
+        yield* fs.writeFileString(source, "Review\n");
+        const linked = path.join(agents, "review.md");
+        const linkedDirectory = path.join(agents, "folder.md");
+        const dangling = path.join(agents, "gone.md");
+        yield* fs.symlink(source, linked);
+        yield* fs.symlink(directory, linkedDirectory);
+        yield* fs.symlink(path.join(physicalRoot, "missing.md"), dangling);
+        const { recording, subagents } = yield* observeSubagents(
+          { ...args, workspaceRoot: physicalRoot },
+          fs,
+        );
+        expect(subagents).toEqual(
+          expect.arrayContaining([
+            { path: source, entryName: "review" },
+            { path: dangling, entryName: "gone" },
+          ]),
+        );
+        expect(subagents).toHaveLength(2);
+        // The link's own resolution stats it once; admission stats it once more for its target type.
+        expect(recording.counts(linked).stat).toBe(2);
+        expect(recording.counts(linkedDirectory).stat).toBe(2);
+        // A dangling link has no referent to admit.
+        expect(recording.counts(dangling).stat).toBe(1);
+      }),
+    ),
+  );
+});

@@ -410,7 +410,9 @@ export const observeAgentOutputs = (
           const entry = nativeEntry.success;
           if (entry.kind === "absent" || entry.kind === "directory" || entry.kind === "other")
             continue;
-          if (entry.referentPath !== undefined) {
+          // A regular file was classified by the stat its resolution just made;
+          // only a link's referent type is still unobserved.
+          if (entry.kind === "symlink" && entry.referentPath !== undefined) {
             const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
             if (Option.isSome(stat) && stat.value.type !== "File") continue;
           }

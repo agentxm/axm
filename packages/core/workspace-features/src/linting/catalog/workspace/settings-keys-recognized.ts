@@ -54,17 +54,6 @@ const closestKnownKey = (key: string): string | undefined => {
   return best?.candidate;
 };
 
-// `workspace/settings-schema-valid` owns the invalid-JSON arm; this rule stays
-// quiet unless the bytes parse to a plain object.
-const parseJsonRecord = (raw: string): Readonly<Record<string, unknown>> | undefined => {
-  try {
-    const value: unknown = JSON.parse(raw);
-    return Predicate.isReadonlyObject(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 export const settingsKeysRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Workspace settings use only supported top-level keys.",
@@ -72,13 +61,15 @@ export const settingsKeysRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const raw = yield* Effect.result(context.workspace.state.raw("settings"));
-      if (Result.isFailure(raw) || Option.isNone(raw.success)) {
+      // `workspace/settings-schema-valid` owns the invalid-JSON arm; this rule
+      // stays quiet unless the bytes parse to a plain object.
+      const json = yield* Effect.result(context.workspace.state.settingsJson);
+      if (Result.isFailure(json) || Option.isNone(json.success)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
 
-      const parsed = parseJsonRecord(raw.success.value.bytes);
-      if (parsed === undefined) {
+      const parsed = json.success.value;
+      if (!Predicate.isReadonlyObject(parsed)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
 

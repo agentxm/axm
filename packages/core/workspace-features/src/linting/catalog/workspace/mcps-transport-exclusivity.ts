@@ -14,15 +14,6 @@ const RULE_ID = "workspace/mcps-transport-exclusivity";
 const hasOwnValue = (entry: Readonly<Record<string, unknown>>, key: string): boolean =>
   Object.hasOwn(entry, key) && entry[key] !== undefined;
 
-const parseSettings = (bytes: string): Readonly<Record<string, unknown>> | undefined => {
-  try {
-    const parsed: unknown = JSON.parse(bytes);
-    return Predicate.isObject(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const transportError = (entry: Readonly<Record<string, unknown>>): string | undefined => {
   if (["command", "args", "env", "url", "headers", "cwd"].some((key) => hasOwnValue(entry, key)))
     return "uses retired flat fields; declare an explicit connection instead";
@@ -56,10 +47,10 @@ export const mcpServerTransportExclusivityRule: AdvisoryRule<WorkspaceRuleContex
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
-      const raw = yield* Effect.result(context.workspace.state.raw("settings"));
-      if (Result.isFailure(raw) || Option.isNone(raw.success)) return EMPTY_ADVISORY_FINDINGS;
-      const settings = parseSettings(raw.success.value.bytes);
-      if (settings === undefined) return EMPTY_ADVISORY_FINDINGS;
+      const json = yield* Effect.result(context.workspace.state.settingsJson);
+      if (Result.isFailure(json) || Option.isNone(json.success)) return EMPTY_ADVISORY_FINDINGS;
+      const settings = json.success.value;
+      if (!Predicate.isObject(settings)) return EMPTY_ADVISORY_FINDINGS;
       const mcpServers = settings["mcpServers"];
       if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([name, entry]) => {

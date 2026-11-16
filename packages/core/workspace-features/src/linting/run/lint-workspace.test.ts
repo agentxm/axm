@@ -819,3 +819,117 @@ describe("lint contributor observations", () => {
     );
   });
 });
+
+/** Counts the `JSON.parse` calls whose input is exactly `text` while `run` executes. */
+const countingParsesOf =
+  (text: () => string) =>
+  <A, E, R>(run: Effect.Effect<A, E, R>) =>
+    Effect.suspend(() => {
+      const parse = vi.spyOn(JSON, "parse");
+      return run.pipe(
+        Effect.exit,
+        Effect.map((exit) => ({
+          exit,
+          parses: parse.mock.calls.filter(([input]) => input === text()).length,
+        })),
+        Effect.ensuring(Effect.sync(() => parse.mockRestore())),
+      );
+    });
+
+const settingsText = (fixture: Fixture) =>
+  nodeFs.readFileSync(nodePath.join(fixture.project.root, "axm.json"), "utf8");
+
+const settingsRuleIds = new Set([
+  "workspace/settings-keys-recognized",
+  "workspace/mcps-transport-exclusivity",
+  "workspace/mcps-no-secret-literal",
+]);
+
+const mcpSettings = {
+  settingsRulesParseCount: "unrecognized",
+  mcpServers: {
+    demo: {
+      connection: { transport: "stdio", command: "node", env: { API_TOKEN: { env: "API_TOKEN" } } },
+    },
+  },
+};
+
+/** One selected-subject lint over the fixture inside an observation phase. */
+const selectedLint = (
+  fixture: Fixture,
+  subjects: Parameters<typeof lintSelectedSubjects>[0]["subjects"],
+) =>
+  withWorkspaceObservationReadView(
+    Effect.gen(function* () {
+      const location = yield* WorkspaceLocation;
+      const graph = yield* (yield* DesiredStateReader).graph();
+      return yield* lintSelectedSubjects({
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        platform: { fs: yield* FileSystem.FileSystem, path: yield* Path.Path },
+        workspaceRoot: location.baseDir,
+        userHome: fixture.home,
+        scope: location.scope,
+        desiredState: graph,
+        subjects,
+      });
+    }),
+  );
+
+describe("lint settings rules", () => {
+  it.effect("parses the settings text once for every rule that reads its keys", () => {
+    const fixture = workspaceWith({ settings: mcpSettings, files: { "axm.lock": validLock } });
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        countingParsesOf(() => settingsText(fixture))(query(fixture)),
+      );
+      expect(exit._tag).toBe("Success");
+      if (exit._tag !== "Success") return;
+      const { exit: lint, parses } = exit.value;
+      expect(lint._tag).toBe("Success");
+      if (lint._tag !== "Success") return;
+      // The strict settings decode and one loose parse the three rules share.
+      expect(parses).toBe(2);
+      expect(
+        lint.value.document.findings
+          .filter((finding) => settingsRuleIds.has(finding.ruleId))
+          .map(({ ruleId, message }) => ({ ruleId, message })),
+      ).toEqual([
+        {
+          ruleId: "workspace/settings-keys-recognized",
+          message:
+            "Workspace settings has unrecognized top-level key 'settingsRulesParseCount'. The current settings schema does not recognize this key.",
+        },
+      ]);
+    });
+  });
+
+  const selectedParses = (subjects: Parameters<typeof lintSelectedSubjects>[0]["subjects"]) => {
+    const fixture = workspaceWith({ settings: mcpSettings, files: { "axm.lock": validLock } });
+    return Effect.gen(function* () {
+      const { exit } = yield* recordedLint(
+        fixture,
+        countingParsesOf(() => settingsText(fixture))(selectedLint(fixture, subjects)),
+      );
+      expect(exit._tag).toBe("Success");
+      if (exit._tag !== "Success") return -1;
+      expect(exit.value.exit._tag).toBe("Success");
+      return exit.value.parses;
+    });
+  };
+
+  it.effect("parses the settings text once for both rules of a selected MCP server", () =>
+    Effect.gen(function* () {
+      // The assessment's and the lint read model's strict decodes, and one
+      // loose parse the two selected MCP rules share.
+      expect(yield* selectedParses([{ type: "mcp-server", name: "demo" }])).toBe(3);
+    }),
+  );
+
+  it.effect("parses the settings text for no rule when no MCP server is selected", () =>
+    Effect.gen(function* () {
+      // Only the assessment's and the lint read model's strict decodes.
+      expect(yield* selectedParses([])).toBe(2);
+    }),
+  );
+});

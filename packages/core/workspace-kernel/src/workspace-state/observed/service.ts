@@ -77,6 +77,12 @@ interface ScopedStateApi {
     Option.Option<RawSourceBytes>,
     SettingsIoError | LockfileIoError | LockfileVersionUnsupported
   >;
+  /**
+   * The settings text parsed as plain JSON, deep-frozen and without schema
+   * decoding; none when the file is absent or its text is not JSON. Parsed
+   * once per read model, from the same cached bytes as `raw("settings")`.
+   */
+  readonly settingsJson: Effect.Effect<Option.Option<unknown>, SettingsIoError>;
 }
 
 /** Scoped source-host views over the cached settings loader. */
@@ -194,6 +200,16 @@ interface BuildScopeDeps {
    */
   readonly diagnosticsRef: Ref.Ref<ReadonlyArray<Warning>>;
 }
+
+/** Parse text as plain JSON into a deep-frozen value; none when it is not JSON. */
+const parseLooseJson = (text: string): Option.Option<unknown> => {
+  try {
+    const value: unknown = JSON.parse(text);
+    return Option.some(freezeWorkspaceValue(value));
+  } catch {
+    return Option.none();
+  }
+};
 
 const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps: BuildScopeDeps) {
   const {
@@ -432,10 +448,15 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   const raw: ScopedStateApi["raw"] = (source) =>
     source === "settings" ? loaders.settingsRaw : loaders.lockfileRaw;
 
+  const settingsJson: ScopedStateApi["settingsJson"] = yield* Effect.cached(
+    loaders.settingsRaw.pipe(Effect.map(Option.flatMap(({ bytes }) => parseLooseJson(bytes)))),
+  );
+
   const state: ScopedStateApi = {
     settings: loaders.settings,
     lockfile: loaders.lockfile,
     raw,
+    settingsJson,
   };
 
   return {

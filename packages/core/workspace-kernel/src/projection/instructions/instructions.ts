@@ -1198,13 +1198,7 @@ const observed = (
   observedForm: ObservedInstructionForm,
 ): ObservedTargetPath => ({ ownership, observedForm });
 
-/**
- * Classify what occupies a planned target path. The path is the source
- * itself, a symlink resolving to the source, or a file judged against its
- * recorded projection row by the shared whole-file decision. A differing file
- * AXM has no record of writing is unowned.
- */
-const observeTargetPath = (args: {
+interface TargetPathObservationArgs {
   readonly nativeRoots?: ReadonlyArray<string>;
   readonly workspaceRoot: string;
   readonly sourcePath: string;
@@ -1212,12 +1206,36 @@ const observeTargetPath = (args: {
   readonly sourceContent: Option.Option<string>;
   readonly sourceFileName: string;
   readonly rows: InstructionProjectionRows;
-}): Effect.Effect<ObservedTargetPath, never, FileSystem.FileSystem | Path.Path> =>
+}
+
+/** A target's classification and the row key classification computed for it. */
+interface KeyedTargetObservation {
+  readonly target: ObservedTargetPath;
+  /** Undefined when classification never keyed the path; `None` when the path has no key. */
+  readonly rowKey: Option.Option<ProjectionUnitPath> | undefined;
+}
+
+const unkeyed = (target: ObservedTargetPath): KeyedTargetObservation => ({
+  target,
+  rowKey: undefined,
+});
+
+/**
+ * Classify what occupies a planned target path. The path is the source
+ * itself, a symlink resolving to the source, or a file judged against its
+ * recorded projection row by the shared whole-file decision. A differing file
+ * AXM has no record of writing is unowned.
+ */
+const classifyTargetPath = (
+  args: TargetPathObservationArgs,
+): Effect.Effect<KeyedTargetObservation, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     if (isSamePath(path, args.sourcePath, args.targetPath)) {
-      return observed("owned-current", Option.isSome(args.sourceContent) ? "file" : "none");
+      return unkeyed(
+        observed("owned-current", Option.isSome(args.sourceContent) ? "file" : "none"),
+      );
     }
 
     const linkTarget = yield* fs.readLink(args.targetPath).pipe(Effect.option);
@@ -1229,14 +1247,16 @@ const observeTargetPath = (args: {
       const source = isSamePath(path, resolved, args.sourcePath)
         ? direct
         : yield* linkClassificationEntry(args.sourcePath);
-      return observed(
-        Option.isSome(direct) &&
-          Option.isSome(source) &&
-          direct.value.kind !== "symlink" &&
-          direct.value.entryPath === source.value.entryPath
-          ? "owned-current"
-          : "unowned",
-        resolves ? "symlink" : "broken-link",
+      return unkeyed(
+        observed(
+          Option.isSome(direct) &&
+            Option.isSome(source) &&
+            direct.value.kind !== "symlink" &&
+            direct.value.entryPath === source.value.entryPath
+            ? "owned-current"
+            : "unowned",
+          resolves ? "symlink" : "broken-link",
+        ),
       );
     }
 
@@ -1249,14 +1269,29 @@ const observeTargetPath = (args: {
       const exists = yield* fs
         .exists(args.targetPath)
         .pipe(Effect.catch(() => Effect.succeed(true)));
-      if (!exists) return observed("absent", "none");
+      if (!exists) return unkeyed(observed("absent", "none"));
       const stat = yield* fs.stat(args.targetPath).pipe(Effect.option);
-      return observed(
-        "unowned",
-        Option.isSome(stat) && stat.value.type === "Directory" ? "directory" : "file",
+      return unkeyed(
+        observed(
+          "unowned",
+          Option.isSome(stat) && stat.value.type === "Directory" ? "directory" : "file",
+        ),
       );
     }
     const unit = yield* observedUnitPath(args.workspaceRoot, args.targetPath);
+    return {
+      target: yield* judgeTargetFile(args, unit, targetContent.value),
+      rowKey: unit,
+    };
+  });
+
+/** Judge readable bytes at a target against its recorded row and the source. */
+const judgeTargetFile = (
+  args: TargetPathObservationArgs,
+  unit: Option.Option<ProjectionUnitPath>,
+  targetContent: string,
+): Effect.Effect<ObservedTargetPath> =>
+  Effect.gen(function* () {
     const recorded = recordedRow(args.rows, unit);
     if (Option.isNone(args.sourceContent) || Option.isNone(unit))
       // Without a source only AXM's last write can show the copy is unedited,
@@ -1265,7 +1300,7 @@ const observeTargetPath = (args: {
         ? {
             ...observed("owned-drift", "copy"),
             lastWrite:
-              (yield* projectionOutputDigest(targetContent.value)) === recorded.value.row.output
+              (yield* projectionOutputDigest(targetContent)) === recorded.value.row.output
                 ? "matches"
                 : "modified",
           }
@@ -1273,7 +1308,7 @@ const observeTargetPath = (args: {
     const decision = yield* decideWholeFileWrite({
       recorded,
       gen: yield* copyGeneration(unit.value, args.sourceFileName, args.sourceContent.value),
-      bytes: targetContent,
+      bytes: Option.some(targetContent),
       rendered: args.sourceContent.value,
       replaceUnrecorded: false,
     });
@@ -1286,7 +1321,7 @@ const observeTargetPath = (args: {
               ...observed("owned-current", "copy"),
               lastWrite: yield* recordedOutputComparison(
                 recorded.value,
-                targetContent.value,
+                targetContent,
                 args.sourceContent.value,
               ),
             }
@@ -1300,6 +1335,12 @@ const observeTargetPath = (args: {
     }
   });
 
+/** Classify a planned target path, for a caller that keys its rows itself. */
+const observeTargetPath = (
+  args: TargetPathObservationArgs,
+): Effect.Effect<ObservedTargetPath, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(classifyTargetPath(args), ({ target }) => target);
+
 /** One planned item's observation, before a prospective root decides whether it is kept. */
 interface ObservedPlannedItem {
   readonly root: string;
@@ -1308,6 +1349,8 @@ interface ObservedPlannedItem {
   readonly status: Option.Option<InstructionStatusItem>;
   /** An empty source would create or adopt an empty alias: kept only at a prospective root. */
   readonly emptyAlias: boolean;
+  /** The target's row key when classifying it computed one; undefined otherwise. */
+  readonly rowKey: Option.Option<ProjectionUnitPath> | undefined;
 }
 
 const observePlannedItems = (args: {
@@ -1326,7 +1369,14 @@ const observePlannedItems = (args: {
         const observedItem = (
           status: Option.Option<InstructionStatusItem>,
           emptyAlias: boolean,
-        ): ObservedPlannedItem => ({ root: item.root, agentId: item.agentId, status, emptyAlias });
+          rowKey?: Option.Option<ProjectionUnitPath>,
+        ): ObservedPlannedItem => ({
+          root: item.root,
+          agentId: item.agentId,
+          status,
+          emptyAlias,
+          rowKey,
+        });
         if (item.action === "skip") {
           return observedItem(
             Option.some({
@@ -1364,10 +1414,10 @@ const observePlannedItems = (args: {
         );
         // An adapter target is never written, so nothing there is AXM's to
         // own or collide with; only the source decides its health.
-        const target =
+        const { target, rowKey } =
           item.action === "adapter"
-            ? observed("absent", "none")
-            : yield* observeTargetPath({
+            ? unkeyed(observed("absent", "none"))
+            : yield* classifyTargetPath({
                 workspaceRoot: args.workspaceRoot,
                 nativeRoots: args.nativeRoots,
                 sourcePath: item.sourcePath,
@@ -1384,7 +1434,7 @@ const observePlannedItems = (args: {
           sourceContent.value.length === 0 &&
           (target.ownership === "absent" || target.ownership === "owned-unrecorded-identical");
         if (emptyAlias && !args.prospectiveRoots.includes(item.root))
-          return observedItem(Option.none(), true);
+          return observedItem(Option.none(), true, rowKey);
         const health = toInstructionHealth({
           sourceExists: Option.isSome(sourceContent),
           mechanism,
@@ -1405,10 +1455,17 @@ const observePlannedItems = (args: {
             details: instructionDetails(item.instructions, health, target.ownership),
           } satisfies InstructionStatusItem),
           emptyAlias,
+          rowKey,
         );
       }),
     { concurrency: 16 },
   );
+
+/** A stale target and the row key its classification computed, if any. */
+interface KeyedStaleTarget {
+  readonly item: InstructionStatusItem;
+  readonly rowKey: Option.Option<ProjectionUnitPath> | undefined;
+}
 
 /**
  * Classify a registry-convention path the current plan does not desire. Only
@@ -1429,7 +1486,7 @@ const observeStaleCandidate = (
   workspaceRoot: string,
   nativeRoots: ReadonlyArray<string>,
   rows: InstructionProjectionRows,
-): Effect.Effect<Option.Option<InstructionStatusItem>, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Option.Option<KeyedStaleTarget>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -1471,22 +1528,21 @@ const observeStaleCandidate = (
         return Option.none();
       }
       const resolves = yield* fileExists(resolved);
-      return Option.some(
-        stale({
+      return Option.some({
+        item: stale({
           sourceFile: resolved,
           mechanism: "symlink",
           ownership: "owned-current",
           observedForm: resolves ? "symlink" : "broken-link",
         }),
-      );
+        rowKey: undefined,
+      });
     }
 
     const content = yield* readFileOption(candidate.targetPath, workspaceRoot, nativeRoots);
     if (Option.isNone(content)) return Option.none();
-    const recorded = recordedRow(
-      rows,
-      yield* observedUnitPath(workspaceRoot, candidate.targetPath),
-    );
+    const rowKey = yield* observedUnitPath(workspaceRoot, candidate.targetPath);
+    const recorded = recordedRow(rows, rowKey);
     if (Option.isNone(recorded)) return Option.none();
     const sourceFile = path.join(candidate.root, sourceFileName);
     const decision = yield* decideOutputDeletion({
@@ -1495,15 +1551,16 @@ const observeStaleCandidate = (
       expectedRender: yield* readFileOption(sourceFile, workspaceRoot, nativeRoots),
       discardModified: false,
     });
-    return Option.some(
-      stale({
+    return Option.some({
+      item: stale({
         sourceFile,
         mechanism: "copy",
         ownership: decision._tag === "delete" ? "owned-current" : "owned-drift",
         observedForm: "copy",
         lastWrite: decision._tag === "delete" ? "matches" : "modified",
       }),
-    );
+      rowKey,
+    });
   });
 
 /** The alias region as found; `None` when its fences are malformed. */
@@ -2154,7 +2211,7 @@ export const observeInstructionProjection = (
     // admissions: nothing writes between them, and every kept path is admitted
     // again by its witness below. The stale-candidate stage between them and
     // every other read admit fresh.
-    const { observedItems, items, plan, staleTargets, missingSources } =
+    const { observedItems, items, plan, staleTargets, missingSources, keyedTargets } =
       yield* withInstructionAdmissionCells((share) =>
         Effect.gen(function* () {
           const observedItems = yield* share(
@@ -2168,7 +2225,11 @@ export const observeInstructionProjection = (
               prospectiveRoots: args.prospectiveRoots ?? [],
             }),
           );
-          const items = observedItems.flatMap((item) => Option.toArray(item.status));
+          // Each reported item stays paired with the row key its classification computed.
+          const keyedItems = observedItems.flatMap(({ status, rowKey }) =>
+            Option.isSome(status) ? [{ item: status.value, rowKey }] : [],
+          );
+          const items = keyedItems.map(({ item }) => item);
           const plan = {
             ...proposed,
             items: proposed.items.filter(
@@ -2187,7 +2248,7 @@ export const observeInstructionProjection = (
           // Candidates are only the alias names actually present at visited
           // directories — a handful in practice — so sequential classification adds
           // no fan-out beyond the walk and keeps the reported order deterministic.
-          const staleTargets = (yield* Effect.forEach(
+          const keyedStaleTargets = (yield* Effect.forEach(
             tree.candidates.filter(
               (candidate) => !desiredTargets.has(path.resolve(candidate.targetPath)),
             ),
@@ -2203,6 +2264,7 @@ export const observeInstructionProjection = (
           ))
             .filter(Option.isSome)
             .map((item) => item.value);
+          const staleTargets = keyedStaleTargets.map(({ item }) => item);
           const missingSources = (yield* share(
             Effect.forEach(plan.roots, (root) =>
               readFileOption(path.join(root, args.config.fileName), args.workspaceRoot).pipe(
@@ -2212,7 +2274,14 @@ export const observeInstructionProjection = (
               ),
             ),
           )).flat();
-          return { observedItems, items, plan, staleTargets, missingSources };
+          return {
+            observedItems,
+            items,
+            plan,
+            staleTargets,
+            missingSources,
+            keyedTargets: [...keyedItems, ...keyedStaleTargets],
+          };
         }),
       );
     const priorRouteTargets = priorRouteTargetsFrom({
@@ -2233,17 +2302,21 @@ export const observeInstructionProjection = (
     });
     // A row is kept only while a copy it records is still observed or about
     // to be written; links, the canonical file, and vanished paths need none.
+    // A target whose classification already keyed it reuses that key.
     const recordedCopies = new Set(
       (yield* Effect.forEach(
-        [...items, ...staleTargets].filter(
-          (item) =>
+        keyedTargets.filter(
+          ({ item }) =>
             isProjectedTarget(item) &&
             (item.observedForm === "copy" ||
               item.observedForm === "none" ||
               item.ownership === "unowned"),
         ),
-        (item) =>
-          observedUnitPath(args.workspaceRoot, item.targetFile).pipe(Effect.map(Option.toArray)),
+        ({ item, rowKey }) =>
+          (rowKey === undefined
+            ? observedUnitPath(args.workspaceRoot, item.targetFile)
+            : Effect.succeed(rowKey)
+          ).pipe(Effect.map(Option.toArray)),
       )).flat(),
     );
     // The `.gitignore` row outlives its region only when no region is wanted

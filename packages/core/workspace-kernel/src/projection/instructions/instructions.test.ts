@@ -36,6 +36,7 @@ import {
   removeInstructionsGitignore,
   resolveInstructionMechanism,
   syncInstructions,
+  withInstructionRowChanges,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
@@ -3373,6 +3374,81 @@ describe("instruction projection reads each prepared input once", () => {
           source: { readLink: 7, stat: 9, realPath: 6 },
           gemini: { readLink: 9, stat: 4, realPath: 4 },
           contentReads: 1,
+        });
+      }),
+    ),
+  );
+
+  it.effect("keys each observed copy once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const synced = yield* syncInstructions({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+          dryRun: false,
+        });
+        const rows = withInstructionRowChanges(NO_ROWS, synced.rowChanges);
+        expect([...rows.keys()].sort()).toEqual(["CLAUDE.md", "GEMINI.md"]);
+        const claude = path.join(ws.root, "CLAUDE.md");
+        const gemini = path.join(ws.root, "GEMINI.md");
+        recording.reset();
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows,
+        });
+        expect(
+          [...snapshot.status.items, ...snapshot.status.staleTargets].map((item) => [
+            item.targetFile,
+            item.health,
+            item.ownership,
+            item.observedForm,
+          ]),
+        ).toEqual([
+          [claude, "ok", "owned-current", "copy"],
+          [gemini, "stale", "owned-current", "copy"],
+        ]);
+        expect(snapshot.orphanRows).toEqual([]);
+        expect({
+          claude: resolutions(recording, claude),
+          gemini: resolutions(recording, gemini),
+          root: recording.counts(ws.root)["realPath"] ?? 0,
+        }).toEqual({
+          // Classification keys each copy; the row check reuses that key.
+          claude: { readLink: 8, stat: 8, realPath: 6 },
+          gemini: { readLink: 8, stat: 8, realPath: 6 },
+          root: 28,
+        });
+      }),
+    ),
+  );
+
+  it.effect("keys absent alias targets as before", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(snapshot.status.items.map((item) => item.ownership)).toEqual(["absent", "absent"]);
+        expect({
+          claude: resolutions(recording, path.join(ws.root, "CLAUDE.md")),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+        }).toEqual({
+          claude: { readLink: 8, stat: 4, realPath: 0 },
+          gemini: { readLink: 8, stat: 4, realPath: 0 },
         });
       }),
     ),

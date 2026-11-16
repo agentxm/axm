@@ -66,6 +66,7 @@ import {
   materializeSkillCanonical,
   materializeSkillCanonicalReadingSkillMd,
   removeSkillAgentArtifact,
+  removeSkillAgentArtifactForSources,
 } from "./materialization.js";
 import {
   configuredSkillsToDiskRefs,
@@ -267,15 +268,13 @@ export const SkillManagerLive = Layer.effect(
         ),
       );
       for (const output of obsolete) {
-        for (const source of sourcePaths) {
-          yield* removeSkillAgentArtifact({
-            targetDir: path.dirname(output.path),
-            sanitizedName: output.entryName,
-            canonicalSkillSrcPath: source,
-            baseDir,
-            nativeRoots,
-          });
-        }
+        yield* removeSkillAgentArtifactForSources({
+          targetDir: path.dirname(output.path),
+          sanitizedName: output.entryName,
+          canonicalSkillSrcPaths: sourcePaths,
+          baseDir,
+          nativeRoots,
+        });
       }
       const retiredLocations = yield* retiredNativeArtifactLocationOutcomes(previousLocations).pipe(
         Effect.mapError(

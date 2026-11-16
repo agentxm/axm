@@ -46,6 +46,7 @@ import {
   materializeSkillCanonical,
   materializeSkillCanonicalReadingSkillMd,
   removeSkillAgentArtifact,
+  removeSkillAgentArtifactForSources,
   type CanonicalReuseContext,
 } from "./materialization.js";
 
@@ -542,6 +543,173 @@ describe("Skill native inspection over its admitted entry", () => {
         readLink: recording.counts(target).readLink,
         receiptReads: recording.counts(receiptPath).readFile,
       }).toEqual({ readLink: 1, receiptReads: 1 });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+});
+
+describe("Skill native removal over several candidate sources", () => {
+  /** Two candidate canonical sources beside the fixture, each a real skill directory. */
+  const candidates = Effect.gen(function* () {
+    const context = yield* fixture;
+    const { fs, path, args } = context;
+    const first = path.join(args.baseDir, "first", "review");
+    const second = path.join(args.baseDir, "second", "review");
+    for (const directory of [first, second]) {
+      yield* fs.makeDirectory(directory, { recursive: true });
+      yield* fs.writeFileString(path.join(directory, "SKILL.md"), "# Candidate\n");
+    }
+    yield* fs.makeDirectory(args.targetDir, { recursive: true });
+    return { ...context, first, second };
+  });
+
+  /** A copy at the target whose receipt names `owner`. */
+  const copiedFrom = (owner: string) =>
+    Effect.gen(function* () {
+      const context = yield* candidates;
+      const { fs, path, target } = context;
+      yield* fs.makeDirectory(target);
+      yield* fs.writeFileString(path.join(target, "SKILL.md"), "# Candidate\n");
+      const resolved = yield* resolveNativeReferent(
+        owner === "first" ? context.first : context.second,
+      );
+      expect(Option.isSome(yield* captureCopiedDirectory(target, resolved))).toBe(true);
+      return { ...context, receiptPath: yield* copiedDirectoryReceiptPath(target) };
+    });
+
+  const recordedRemoval = (
+    fs: FileSystem.FileSystem,
+    args: Parameters<typeof removeSkillAgentArtifactForSources>[0],
+  ) =>
+    Effect.gen(function* () {
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      recording.reset();
+      const outcome = yield* removeSkillAgentArtifactForSources(args).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.result,
+      );
+      return { outcome, recording };
+    });
+
+  const removalArgs = (
+    args: Effect.Success<typeof fixture>["args"],
+    canonicalSkillSrcPaths: ReadonlyArray<string>,
+  ) => ({
+    targetDir: args.targetDir,
+    sanitizedName: args.sanitizedName,
+    canonicalSkillSrcPaths,
+    baseDir: args.baseDir,
+    nativeRoots: args.nativeRoots,
+  });
+
+  it.effect("admits a copy owned by its second source and reads its receipt once", () =>
+    Effect.gen(function* () {
+      const { fs, target, args, first, second, receiptPath } = yield* copiedFrom("second");
+      const { outcome, recording } = yield* recordedRemoval(fs, removalArgs(args, [first, second]));
+      expect(outcome._tag).toBe("Success");
+      expect(yield* fs.exists(target)).toBe(false);
+      // The ownership read and retirement's own fresh re-proof.
+      expect({
+        receipt: recording.counts(receiptPath).readFile,
+        entry: recording.counts(target).readLink,
+      }).toEqual({ receipt: 2, entry: 3 });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("admits a link owned by its second source once", () =>
+    Effect.gen(function* () {
+      const { fs, target, args, first, second } = yield* candidates;
+      yield* fs.symlink(second, target);
+      const removal = yield* NativeEntryRemoval;
+      const unlinked: Array<string> = [];
+      const counted = NativeEntryRemoval.of({
+        ...removal,
+        unlink: (entry) =>
+          Effect.sync(() => unlinked.push(entry)).pipe(Effect.andThen(removal.unlink(entry))),
+      });
+      const { outcome, recording } = yield* recordedRemoval(
+        fs,
+        removalArgs(args, [first, second]),
+      ).pipe(Effect.provideService(NativeEntryRemoval, counted));
+      expect(unlinked).toEqual([target]);
+      expect(outcome._tag).toBe("Success");
+      expect(yield* fs.exists(target)).toBe(false);
+      expect(yield* fs.exists(second)).toBe(true);
+      // One admission: the lexical link read and its physical entry's read.
+      expect(recording.counts(target).readLink).toBe(2);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("reads a rejected receipt once and removes nothing", () =>
+    Effect.gen(function* () {
+      const { fs, path, target, args, first, second, receiptPath } = yield* copiedFrom("second");
+      // A replacement directory no longer carries the receipt's identity.
+      yield* fs.rename(target, path.join(args.baseDir, "replaced"));
+      yield* fs.makeDirectory(target);
+      yield* fs.writeFileString(path.join(target, "SKILL.md"), "# Candidate\n");
+      const { outcome, recording } = yield* recordedRemoval(fs, removalArgs(args, [first, second]));
+      expect(outcome._tag).toBe("Success");
+      expect(recording.counts(receiptPath).readFile).toBe(1);
+      expect(yield* fs.readFileString(path.join(target, "SKILL.md"))).toBe("# Candidate\n");
+      expect(yield* fs.exists(receiptPath)).toBe(true);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("still runs each later source afresh after its first source removed the copy", () =>
+    Effect.gen(function* () {
+      const { fs, target, args, first, second, receiptPath } = yield* copiedFrom("first");
+      const { outcome, recording } = yield* recordedRemoval(fs, removalArgs(args, [first, second]));
+      expect(outcome._tag).toBe("Success");
+      expect(yield* fs.exists(target)).toBe(false);
+      expect({
+        receipt: recording.counts(receiptPath).readFile,
+        entry: recording.counts(target).readLink,
+      }).toEqual({ receipt: 2, entry: 5 });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("admits nothing without a candidate source", () =>
+    Effect.gen(function* () {
+      const { fs, args, target } = yield* copiedFrom("first");
+      const { outcome, recording } = yield* recordedRemoval(fs, removalArgs(args, []));
+      expect(outcome._tag).toBe("Success");
+      expect(recording.calls()).toEqual([]);
+      expect(yield* fs.exists(target)).toBe(true);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("reports a later source that cannot be resolved as the removal's failure", () =>
+    Effect.gen(function* () {
+      const { fs, path, target, args, first } = yield* copiedFrom("second");
+      const dangling = path.join(args.baseDir, "dangling-review");
+      yield* fs.symlink(path.join(args.baseDir, "missing"), dangling);
+      const { outcome } = yield* recordedRemoval(fs, removalArgs(args, [first, dangling]));
+      expect(outcome).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          _tag: "SkillMaterializationFailed",
+          detail: `Failed to remove skill artifact at ${args.targetDir}`,
+          cause: { _tag: "NativeLocationError", target: dangling, reason: "dangling-leaf" },
+        },
+      });
+      expect(yield* fs.exists(target)).toBe(true);
     }).pipe(
       Effect.scoped,
       Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),

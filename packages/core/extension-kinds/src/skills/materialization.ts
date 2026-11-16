@@ -21,6 +21,7 @@ import {
   resolveNativeReferent,
   NativeLocationError,
   NativeEntryRemoval,
+  type NativeEntryAddress,
   captureCopiedDirectory,
   copiedDirectoryReceiptPath,
   copiedDirectoryIsCurrentAt,
@@ -462,13 +463,58 @@ export const ensureSkillAgentArtifact = (args: SkillAgentArtifactArgs) =>
     ),
   );
 
-export const removeSkillAgentArtifact = (args: {
+interface SkillAgentArtifactRemoval {
   readonly targetDir: string;
   readonly sanitizedName: string;
   readonly canonicalSkillSrcPath?: string;
   readonly baseDir: string;
   readonly nativeRoots: ReadonlyArray<string>;
-}) =>
+}
+
+const asRemovalFailure =
+  (targetDir: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.mapError(
+        (cause) =>
+          new SkillMaterializationFailed({
+            detail: `Failed to remove skill artifact at ${targetDir}`,
+            cause,
+          }),
+      ),
+    );
+
+/** The parent-directory unit a projected entry's created directories were recorded under. */
+const parentDirectoriesTarget = (entryPath: string) => ({
+  path: entryPath,
+  unit: JSON.stringify(["skill-parent-directories", entryPath]),
+});
+
+/** Retire a copied entry whose receipt this removal just proved owned. */
+const retireOwnedCopy = (entryPath: string) =>
+  Effect.gen(function* () {
+    const authority = yield* NativeWriteAuthority;
+    yield* protectWorkspacePath(entryPath);
+    if (yield* retireCopiedDirectory(entryPath, retireWorkspacePath))
+      yield* recordFootprint({ path: entryPath, change: "modified" });
+    yield* authority.retireCreatedDirectories(parentDirectoriesTarget(entryPath));
+  });
+
+/** Unlink a link entry whose immediate target this removal just proved owned. */
+const unlinkOwnedLink = (entryPath: string) =>
+  Effect.gen(function* () {
+    const authority = yield* NativeWriteAuthority;
+    yield* protectWorkspacePath(entryPath);
+    // Record the completed mutation before interruption can start restoration.
+    yield* Effect.uninterruptible(
+      (yield* NativeEntryRemoval)
+        .unlink(entryPath)
+        .pipe(Effect.andThen(recordFootprint({ path: entryPath, change: "removed" }))),
+    );
+    yield* authority.retireCreatedDirectories(parentDirectoriesTarget(entryPath));
+  });
+
+const removeOwnedSkillAgentArtifact = (args: SkillAgentArtifactRemoval) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const target = path.join(args.targetDir, args.sanitizedName);
@@ -478,11 +524,7 @@ export const removeSkillAgentArtifact = (args: {
       "entry",
       args.baseDir,
     );
-    const authority = yield* NativeWriteAuthority;
-    const parentTarget = {
-      path: address.entryPath,
-      unit: JSON.stringify(["skill-parent-directories", address.entryPath]),
-    };
+    yield* NativeWriteAuthority;
     if (address.kind === "absent") return;
     if (address.kind === "directory") {
       const receipt = yield* readCopiedDirectory(address.entryPath);
@@ -492,11 +534,7 @@ export const removeSkillAgentArtifact = (args: {
         receipt.value.source !== (yield* resolveNativeReferent(args.canonicalSkillSrcPath))
       )
         return;
-      yield* protectWorkspacePath(address.entryPath);
-      if (yield* retireCopiedDirectory(address.entryPath, retireWorkspacePath))
-        yield* recordFootprint({ path: address.entryPath, change: "modified" });
-      yield* authority.retireCreatedDirectories(parentTarget);
-      return;
+      return yield* retireOwnedCopy(address.entryPath);
     }
     if (
       args.canonicalSkillSrcPath === undefined ||
@@ -509,20 +547,73 @@ export const removeSkillAgentArtifact = (args: {
       path.resolve(path.dirname(address.entryPath), address.linkTarget),
     );
     if (immediate.entryPath !== source || immediate.kind === "symlink") return;
-    yield* protectWorkspacePath(address.entryPath);
-    // Record the completed mutation before interruption can start restoration.
-    yield* Effect.uninterruptible(
-      (yield* NativeEntryRemoval)
-        .unlink(address.entryPath)
-        .pipe(Effect.andThen(recordFootprint({ path: address.entryPath, change: "removed" }))),
+    yield* unlinkOwnedLink(address.entryPath);
+  });
+
+export const removeSkillAgentArtifact = (args: SkillAgentArtifactRemoval) =>
+  removeOwnedSkillAgentArtifact(args).pipe(asRemovalFailure(args.targetDir));
+
+/**
+ * The removal `removeSkillAgentArtifact` makes for each candidate source in
+ * order. Until one of them proves ownership and writes, the entry's admission,
+ * its copy receipt's source and its link's immediate target are what the first
+ * attempt resolved; each source is still resolved, in order. Every source
+ * after a write is removed afresh.
+ */
+export const removeSkillAgentArtifactForSources = (args: {
+  readonly targetDir: string;
+  readonly sanitizedName: string;
+  readonly canonicalSkillSrcPaths: ReadonlyArray<string>;
+  readonly baseDir: string;
+  readonly nativeRoots: ReadonlyArray<string>;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const sources = args.canonicalSkillSrcPaths;
+    if (sources.length === 0) return;
+    const single = (canonicalSkillSrcPath: string) => ({
+      targetDir: args.targetDir,
+      sanitizedName: args.sanitizedName,
+      canonicalSkillSrcPath,
+      baseDir: args.baseDir,
+      nativeRoots: args.nativeRoots,
+    });
+    const afterWrite = (owner: number) =>
+      Effect.forEach(
+        sources.slice(owner + 1),
+        (source) => removeOwnedSkillAgentArtifact(single(source)),
+        { discard: true },
+      );
+    const target = path.join(args.targetDir, args.sanitizedName);
+    const { address } = yield* assertNativeMutationWithinRoots(
+      args.nativeRoots,
+      target,
+      "entry",
+      args.baseDir,
     );
-    yield* authority.retireCreatedDirectories(parentTarget);
-  }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new SkillMaterializationFailed({
-          detail: `Failed to remove skill artifact at ${args.targetDir}`,
-          cause,
-        }),
-    ),
-  );
+    yield* NativeWriteAuthority;
+    if (address.kind === "absent") return;
+    if (address.kind === "directory") {
+      const receipt = yield* readCopiedDirectory(address.entryPath);
+      if (Option.isNone(receipt)) return;
+      const owner = receipt.value.source;
+      for (const [index, source] of sources.entries()) {
+        if (owner !== (yield* resolveNativeReferent(source))) continue;
+        yield* retireOwnedCopy(address.entryPath);
+        return yield* afterWrite(index);
+      }
+      return;
+    }
+    const linkTarget = address.linkTarget;
+    if (address.kind !== "symlink" || linkTarget === undefined) return;
+    let immediate: NativeEntryAddress | undefined;
+    for (const [index, source] of sources.entries()) {
+      const referent = yield* resolveNativeReferent(source);
+      immediate ??= yield* resolveNativeEntry(
+        path.resolve(path.dirname(address.entryPath), linkTarget),
+      );
+      if (immediate.entryPath !== referent || immediate.kind === "symlink") continue;
+      yield* unlinkOwnedLink(address.entryPath);
+      return yield* afterWrite(index);
+    }
+  }).pipe(asRemovalFailure(args.targetDir));

@@ -15,7 +15,6 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   acceptedCanonicalObservation,
-  acceptedResolutionRef,
   computeMaterializedTreeIntegrity,
   DesiredStateReader,
   LockfileReader,
@@ -36,6 +35,7 @@ import {
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { PrepareInstallRequirements } from "./install/vocabulary.js";
+import { acceptedRefFor, type ReconstructedAcceptedRef } from "./publisher-binding.js";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 import {
   computeDistributionTreeIntegrity,
@@ -395,6 +395,7 @@ const blockedStep = <R, O>(
 /** Classify every acquired install proposal against the accepted source authority. */
 export const withSourceSwitches = <R, O>(
   plan: Plan<R, O>,
+  reconstructed: ReadonlyArray<ReconstructedAcceptedRef>,
 ): Effect.Effect<Plan<R, O>, OperationRefused, PrepareInstallRequirements | R> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -426,7 +427,7 @@ export const withSourceSwitches = <R, O>(
         const observeCurrent = acceptedCanonicalObservation(target).pipe(
           Effect.mapError(inspectionRefused),
         );
-        const reconstructPrevious = acceptedResolutionRef(target).pipe(
+        const reconstructPrevious = acceptedRefFor(reconstructed, target).pipe(
           Effect.mapError(reconstructionRefused),
         );
         // Only an accepted row of a desired node can be switched away from.

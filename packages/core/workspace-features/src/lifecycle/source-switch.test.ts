@@ -77,7 +77,7 @@ const classify = (world: InstallWorld, propose: (accepted: ExtensionRef) => Exte
           const accepted = yield* acceptedLockedResolutionRef({ type: "skill", name: SKILL });
           if (Option.isNone(accepted)) throw new Error("The Skill was not accepted");
           const plan = planBinding(propose(accepted.value));
-          const result = yield* withSourceSwitches(plan).pipe(work.provide, Effect.result);
+          const result = yield* withSourceSwitches(plan, []).pipe(work.provide, Effect.result);
           return { plan, result };
         }),
       ),

@@ -16,6 +16,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import {
   acceptedLockedResolutionRef,
+  LockfileReader,
   withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -32,11 +33,13 @@ const HOOK = "guard";
 
 /**
  * One planned step that needs the given external source tree, with the
- * accepted-package observations its planner made, if any.
+ * accepted-package observations its planner made, if any, and, when
+ * `bindsSource`, proposing that tree as the Hook's source binding.
  */
 const planAcquiring = (
   ref: ExtensionRef,
   acceptedContent?: ReadonlyArray<AcceptedContentObservation>,
+  bindsSource = false,
 ): Plan => ({
   _tag: "Plan",
   name: "Update extensions",
@@ -50,6 +53,7 @@ const planAcquiring = (
           label: `Update ${HOOK}`,
           acquisitionRefs: [ref],
           ...(acceptedContent === undefined ? {} : { acceptedContent }),
+          ...(bindsSource ? { sourceBinding: { extensionType: "hook", target: HOOK, ref } } : {}),
           run: Effect.succeed({ result: "success", message: "Updated" }),
         },
       ],
@@ -77,16 +81,19 @@ const acceptedHook = (cleanups: Array<() => void>) =>
 
 /**
  * Settle one proposal derived from the accepted ref inside one planning read
- * phase, counting only the settlement's own work.
+ * phase, counting only the settlement's own work, including each lookup of
+ * the Hook's accepted row.
  */
 const settle = (
   world: InstallWorld,
   propose: (accepted: ExtensionRef) => ExtensionRef,
   reinstall = false,
   acceptedContent?: ReadonlyArray<AcceptedContentObservation>,
+  bindsSource = false,
 ) =>
   Effect.gen(function* () {
     const work = workObservations(false);
+    let acceptedRowLookups = 0;
     const settled = yield* world.workspace.provide(
       withWorkspaceReadView(
         Effect.gen(function* () {
@@ -94,9 +101,18 @@ const settle = (
           if (Option.isNone(accepted)) throw new Error("The Hook was not accepted");
           const proposed = propose(accepted.value);
           const plan = yield* prepareAcquisitionPlan(
-            planAcquiring(proposed, acceptedContent),
+            planAcquiring(proposed, acceptedContent, bindsSource),
             reinstall,
-          ).pipe(work.provide);
+          ).pipe(
+            work.provide,
+            Effect.updateService(LockfileReader, (reader) => ({
+              ...reader,
+              acceptedEntry: (type, name) => {
+                if (type === "hook" && name === HOOK) acceptedRowLookups += 1;
+                return reader.acceptedEntry(type, name);
+              },
+            })),
+          );
           return { accepted: accepted.value, proposed, plan };
         }),
       ),
@@ -107,6 +123,7 @@ const settle = (
       carriesObservations: step !== undefined && "acceptedContent" in step,
       acquisitionRefs: step?.readiness === "error" ? undefined : step?.acquisitionRefs,
       treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
+      acceptedRowLookups,
     };
   });
 
@@ -128,6 +145,9 @@ describe("Acquisition reuse of accepted Registry content", () => {
 
       expect(settled.acquisitionRefs).toEqual([settled.proposed]);
       expect(settled.treeHashes).toBe(0);
+      // The accepted path and the recorded ref; publisher trust compares the
+      // proposal with that same ref.
+      expect(settled.acceptedRowLookups).toBe(3);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -139,6 +159,41 @@ describe("Acquisition reuse of accepted Registry content", () => {
 
       expect(settled.acquisitionRefs).toEqual([]);
       expect(settled.treeHashes).toBe(1);
+      // The accepted path, the recorded ref (presence and reconstruction),
+      // and the observation; the usable verdict reconstructs nothing again.
+      expect(settled.acceptedRowLookups).toBe(4);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reconstructs the accepted ref once for publisher trust and the source switch", () =>
+    Effect.gen(function* () {
+      const world = yield* acceptedHook(cleanups);
+
+      const settled = yield* settle(world, (accepted) => accepted, false, undefined, true);
+
+      expect(settled.acquisitionRefs).toEqual([]);
+      expect(settled.treeHashes).toBe(1);
+      expect(settled.plan.riskConditions ?? []).toEqual([]);
+      // The source switch still reads the accepted row's presence itself.
+      expect(settled.acceptedRowLookups).toBe(5);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("re-acquires drifted content against the same accepted ref for every check", () =>
+    Effect.gen(function* () {
+      const world = yield* acceptedHook(cleanups);
+      const canonical = nodePath.join(
+        world.workspace.root,
+        fileRegistryPackagePath(world.registry, "hooks", HOOK),
+      );
+      fs.writeFileSync(nodePath.join(canonical, "drift.txt"), "Local drift.\n");
+
+      const settled = yield* settle(world, (accepted) => accepted, false, undefined, true);
+
+      expect(settled.acquisitionRefs).toEqual([settled.accepted]);
+      expect(settled.treeHashes).toBe(1);
+      expect(settled.plan.riskConditions ?? []).toEqual([]);
+      expect(settled.acceptedRowLookups).toBe(5);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -200,6 +255,9 @@ describe("Acquisition reuse of accepted Registry content", () => {
 
       expect(settled.acquisitionRefs).toEqual([settled.accepted]);
       expect(settled.treeHashes).toBe(0);
+      // The accepted path and publisher trust's own reconstruction: a
+      // reinstall reconstructs nothing it could share.
+      expect(settled.acceptedRowLookups).toBe(3);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

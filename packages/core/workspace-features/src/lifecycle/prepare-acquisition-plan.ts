@@ -22,7 +22,9 @@ import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
   DesiredStateReader,
+  freezeWorkspaceValue,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalObservation,
   WorkspaceLocation,
   AcceptedResolutionWriter,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -30,7 +32,7 @@ import {
   groupRetainedPackageSteps,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { withPublisherTrust } from "./publisher-binding.js";
+import { withPublisherTrust, type ReconstructedAcceptedRef } from "./publisher-binding.js";
 import { withSourceSwitches } from "./source-switch.js";
 
 /** Authorities whose accepted ref is reconstructed from the accepted row alone. */
@@ -43,6 +45,10 @@ const restoresAcceptedRow = (identity: { readonly authority: string }) =>
 /** Install and update settle external acquisitions through the same planner path. */
 export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
   Effect.gen(function* () {
+    // Accepted refs this call reconstructs from the phase's accepted rows,
+    // each frozen when recorded; publisher trust and the source switch
+    // reconstruct only targets missing here.
+    const reconstructed: Array<ReconstructedAcceptedRef> = [];
     // Every acceptance a plan proposes is classified against the accepted
     // resolution here, so the root, per-type, locator, and configured routes
     // share one publisher-trust rule instead of restating it five times.
@@ -108,13 +114,25 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                   const observed = observedContent?.find(
                     ({ type, name }) => type === target.type && name === target.name,
                   );
-                  const observeUsable =
+                  const planned =
                     observed === undefined
-                      ? usableAcceptedCanonical(target).pipe(
-                          Effect.mapError(inspectionRefused),
-                          Effect.map(Option.isSome),
-                        )
+                      ? undefined
                       : Effect.succeed(observed.usable !== undefined);
+                  const observeUsable =
+                    planned ??
+                    usableAcceptedCanonical(target).pipe(
+                      Effect.mapError(inspectionRefused),
+                      Effect.map(Option.isSome),
+                    );
+                  // A usable package of a node restoring its accepted row
+                  // restores exactly the ref reconstructed from that row, so
+                  // its observation alone decides.
+                  const observeRestorable =
+                    planned ??
+                    usableAcceptedCanonicalObservation(target).pipe(
+                      Effect.mapError(inspectionRefused),
+                      Effect.map(Option.isSome),
+                    );
                   // A sourced Registry, Git, HTTP, or path node restores exactly
                   // the ref its accepted row records. When that ref already
                   // offers other content, the proposal acquires whatever the
@@ -128,8 +146,12 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
                   if (desired?.source !== undefined && restoresAcceptedRow(desired.identity)) {
                     const recorded = yield* Effect.result(acceptedLockedResolutionRef(target));
                     if (Result.isSuccess(recorded)) {
+                      if (Option.isSome(recorded.success))
+                        reconstructed.push(
+                          freezeWorkspaceValue({ ...target, ref: recorded.success.value }),
+                        );
                       if (offersOtherContent(recorded.success)) return true;
-                      return !(yield* observeUsable);
+                      return !(yield* observeRestorable);
                     }
                   }
                   if (!(yield* observeUsable)) return true;
@@ -156,8 +178,9 @@ export const prepareAcquisitionPlan = <R>(input: Plan<R>, reinstall: boolean) =>
         }),
       ),
     };
-    const trusted = yield* withPublisherTrust(plan);
-    const sourceAware = yield* withSourceSwitches(trusted);
+    const shared = freezeWorkspaceValue(reconstructed);
+    const trusted = yield* withPublisherTrust(plan, shared);
+    const sourceAware = yield* withSourceSwitches(trusted, shared);
     const touchesInstructionSurface = (step: PlannedJobStep<R>) => {
       const key = step.key ?? "";
       return [

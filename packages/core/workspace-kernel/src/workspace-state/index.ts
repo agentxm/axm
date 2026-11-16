@@ -144,6 +144,9 @@ export {
 // Managed filesystem primitives
 export { createSymlink } from "./workspace/create-symlink.js";
 
+// Deep protection of an owned value before it is shared
+export { freezeWorkspaceValue } from "./desired/freeze-value.js";
+
 // Read-model record rows + lifecycle views
 export {
   configuredRowsByName,

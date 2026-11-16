@@ -18,6 +18,7 @@ import {
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type NativeProjectionOptions,
+  type PreparedHookWriterRoutes,
 } from "@agentxm/workspace-kernel/materialization";
 
 /**
@@ -181,17 +182,45 @@ const configuredHookWriterTargets = (
         ),
       );
 
-      targets.push({
-        agent,
-        writer: hook.native.entryDialect,
-        settingsKey,
-        declaredPath,
-        configPath: address.referentPath ?? address.entryPath,
-        format: configFile.format,
-      });
+      targets.push(
+        Object.freeze({
+          agent,
+          writer: hook.native.entryDialect,
+          settingsKey,
+          declaredPath,
+          configPath: address.referentPath ?? address.entryPath,
+          format: configFile.format,
+        }),
+      );
     }
-    return targets;
+    return Object.freeze(targets);
   });
+
+/**
+ * The writer routes one manager resolved in one preparation, for that same
+ * manager's later decisions inside its caller's call. Frozen, like the
+ * targets and agents it carries.
+ */
+class IssuedHookWriterRoutes implements PreparedHookWriterRoutes {
+  readonly _tag = "PreparedHookWriterRoutes";
+  readonly issuer: object;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly targets: ReadonlyArray<HookWriterTarget>;
+
+  constructor(
+    issuer: object,
+    configuredAgents: ReadonlyArray<string>,
+    targets: ReadonlyArray<HookWriterTarget>,
+  ) {
+    this.issuer = issuer;
+    this.configuredAgents = configuredAgents;
+    this.targets = targets;
+    Object.freeze(this);
+  }
+}
+
+const sameAgents = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
+  left.length === right.length && left.every((id, index) => id === right[index]);
 
 /** The caller's hash from this same boundary when its root matches exactly; otherwise hashed here. */
 const preparedContentHash = (
@@ -221,9 +250,9 @@ interface FixtureEvidenceReading {
   readonly status: HookEvidenceStatus;
 }
 
-/** A deeply frozen copy, so a recorded status cannot change after its read. */
-const frozenEvidence = (status: HookEvidenceStatus): HookEvidenceStatus => {
-  const copy = structuredClone(status);
+/** A deeply frozen copy, so a recorded value cannot change after it was recorded. */
+const deepFrozenCopy = <T>(value: T): T => {
+  const copy = structuredClone(value);
   const freeze = (value: unknown): void => {
     if (typeof value !== "object" || value === null) return;
     for (const nested of Object.values(value)) freeze(nested);
@@ -232,6 +261,30 @@ const frozenEvidence = (status: HookEvidenceStatus): HookEvidenceStatus => {
   freeze(copy);
   return copy;
 };
+
+/** One owner call's outcomes in name and agent order, as every Hook outcome evaluation returns them. */
+const sortedOutcomes = (
+  groups: ReadonlyArray<ReadonlyArray<ConfiguredAgentOutcome>>,
+): Array<ConfiguredAgentOutcome> =>
+  groups
+    .flat()
+    .sort((left, right) =>
+      left.name === right.name
+        ? left.agentId.localeCompare(right.agentId)
+        : left.name.localeCompare(right.name),
+    );
+
+/**
+ * What one preparation's projected evaluation decided, for the rest of that
+ * same call: the configured agents and writer routes it evaluated with, and
+ * each prospective contributor's outcomes by its position, absent where the
+ * evaluation left that contributor out. Deeply frozen.
+ */
+interface ProjectedEvaluation {
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly targets: ReadonlyArray<HookWriterTarget>;
+  readonly prospectiveOutcomes: ReadonlyArray<ReadonlyArray<ConfiguredAgentOutcome> | undefined>;
+}
 
 const quoteShell = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
 
@@ -305,6 +358,8 @@ export const HookManagerLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const baseDir = location.baseDir;
+    // Writer routes this manager issued are read back only by this manager.
+    const routeIssuer = {};
 
     // Active materializations and waiters retain a package key; the map closes
     // with this manager layer.
@@ -604,7 +659,7 @@ export const HookManagerLive = Layer.effect(
                       root: contributor.root,
                       contentHash,
                       configurationHash,
-                      status: frozenEvidence(fixtureEvidence),
+                      status: deepFrozenCopy(fixtureEvidence),
                     });
                 }
               }
@@ -638,14 +693,11 @@ export const HookManagerLive = Layer.effect(
             }),
           { concurrency: 1 },
         );
+        const outcomeGroups = groups.map(({ outcomes }) => outcomes);
         return {
-          outcomes: groups
-            .flatMap(({ outcomes }) => outcomes)
-            .sort((left, right) =>
-              left.name === right.name
-                ? left.agentId.localeCompare(right.agentId)
-                : left.name.localeCompare(right.name),
-            ),
+          outcomes: sortedOutcomes(outcomeGroups),
+          /** Each contributor's outcomes, in the order of `contributors`. */
+          groups: outcomeGroups,
           readings: Object.freeze(
             groups.flatMap(({ reading }) => (reading === undefined ? [] : [reading])),
           ),
@@ -789,7 +841,7 @@ export const HookManagerLive = Layer.effect(
     /**
      * Build the hook plans, observe them as the pre-write refusal, and hand
      * that to `use`, with the fixture receipt statuses this call read for the
-     * prospective contributors.
+     * prospective contributors and what its projected evaluation decided.
      */
     const observedHookProjectionPlans = <A, E, R>(
       prospective: ReadonlyArray<RenderedHookContributor>,
@@ -797,6 +849,7 @@ export const HookManagerLive = Layer.effect(
       use: (
         observed: ObservedProjectionPlans<ExtensionManagerFailure, ManagerRequirements>,
         prospectiveEvidence: ReadonlyArray<FixtureEvidenceReading>,
+        projected: ProjectedEvaluation,
       ) => Effect.Effect<A, E, R>,
     ) =>
       Effect.gen(function* () {
@@ -833,17 +886,36 @@ export const HookManagerLive = Layer.effect(
         const disabledWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
           ({ name }) => disabledNames.has(name),
         );
-        const contributors = [...retained, ...prospective]
+        // Each prospective contributor keeps its position, so its outcomes
+        // are found again by position rather than by a name it may share.
+        const positioned: ReadonlyArray<{
+          readonly contributor: RenderedHookContributor;
+          readonly prospectiveIndex?: number;
+        }> = [
+          ...retained.map((contributor) => ({ contributor })),
+          ...prospective.map((contributor, prospectiveIndex) => ({
+            contributor,
+            prospectiveIndex,
+          })),
+        ];
+        const evaluated = positioned
           .filter(
-            ({ name }) =>
+            ({ contributor: { name } }) =>
               !options?.hookWithdrawals?.some((declaration) => declaration.name === name),
           )
-          .map((contributor) => {
-            const configuration = options?.hookConfigurations?.get(contributor.name);
-            return configuration === undefined ? contributor : { ...contributor, configuration };
+          .map((entry) => {
+            const configuration = options?.hookConfigurations?.get(entry.contributor.name);
+            return configuration === undefined
+              ? entry
+              : { ...entry, contributor: { ...entry.contributor, configuration } };
           })
-          .sort((a, b) => a.marker.localeCompare(b.marker));
-        const { outcomes, readings } = yield* evaluateConfiguredOutcomesWithEvidence({
+          .sort((a, b) => a.contributor.marker.localeCompare(b.contributor.marker));
+        const contributors = evaluated.map(({ contributor }) => contributor);
+        const {
+          outcomes,
+          groups: outcomeGroups,
+          readings,
+        } = yield* evaluateConfiguredOutcomesWithEvidence({
           configuredAgents,
           targets,
           contributors,
@@ -860,6 +932,19 @@ export const HookManagerLive = Layer.effect(
               .join("; "),
           });
         }
+        const projected: ProjectedEvaluation = Object.freeze({
+          configuredAgents: Object.freeze([...configuredAgents]),
+          targets,
+          prospectiveOutcomes: Object.freeze(
+            prospective.map((_, index) => {
+              const group =
+                outcomeGroups[
+                  evaluated.findIndex(({ prospectiveIndex }) => prospectiveIndex === index)
+                ];
+              return group === undefined ? undefined : deepFrozenCopy(group);
+            }),
+          ),
+        });
         // Every reachable Hook contributor is decided from desired state
         // alone, so hook units never exclude one.
         const selectNative = (agentId: string) => () =>
@@ -953,7 +1038,7 @@ export const HookManagerLive = Layer.effect(
           }),
         );
         return yield* withObservedProjectionPlans(nativePlans, (observed) =>
-          use(observed, readings),
+          use(observed, readings, projected),
         );
       });
 
@@ -987,13 +1072,21 @@ export const HookManagerLive = Layer.effect(
     > = (ref, state, options) =>
       Effect.gen(function* () {
         const configuredAgents = yield* (yield* planningSettings).configuredAgents;
-        const targets = yield* configuredHookWriterTargets(
-          configuredAgents,
-          location.scope,
-          baseDir,
-          path.dirname(location.runtimeDir),
-          location.nativeDirectoryInputs,
-        );
+        // The routes the caller's preparation resolved in this call, when
+        // this manager issued them for these same agents.
+        const prepared = options?.writerRoutes;
+        const targets =
+          prepared instanceof IssuedHookWriterRoutes &&
+          prepared.issuer === routeIssuer &&
+          sameAgents(prepared.configuredAgents, configuredAgents)
+            ? prepared.targets
+            : yield* configuredHookWriterTargets(
+                configuredAgents,
+                location.scope,
+                baseDir,
+                path.dirname(location.runtimeDir),
+                location.nativeDirectoryInputs,
+              );
         const manifest = yield* readManifestForRef(ref, options?.acceptedContent);
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
@@ -1076,45 +1169,59 @@ export const HookManagerLive = Layer.effect(
         const acceptedContent = Object.freeze(
           preparedRefs.flatMap(({ observed }) => (observed === undefined ? [] : [observed])),
         );
-        const configuredAgents =
-          options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
-        const targets = yield* configuredHookWriterTargets(
-          configuredAgents,
-          location.scope,
-          baseDir,
-          path.dirname(location.runtimeDir),
-          location.nativeDirectoryInputs,
-        );
-        return yield* observedHookProjectionPlans(prepared, options, (observed, readings) =>
-          Effect.gen(function* () {
-            for (const contributor of prepared)
-              for (const plan of observed.plans) {
-                yield* assertNoPhysicalOverlap(contributor.inputRoot, plan.targetFile).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new HookDefinitionInvalid({
-                        detail: "Hook native target overlaps its input source",
-                        cause,
-                      }),
-                  ),
-                );
-              }
-            // The projected evaluation above read these contributors' receipts
-            // in this call with the same inputs; only those it did not read are read here.
-            const agentOutcomes = yield* evaluateConfiguredOutcomes({
-              configuredAgents,
-              targets,
-              contributors: prepared,
-              state: "projected",
-              readings,
-            });
-            return yield* use({
-              observed,
-              agentOutcomes,
-              acquisitions: prepared.map(({ name, treeIntegrity }) => ({ name, treeIntegrity })),
-              acceptedContent,
-            });
-          }),
+        return yield* observedHookProjectionPlans(
+          prepared,
+          options,
+          (observed, readings, projected) =>
+            Effect.gen(function* () {
+              for (const contributor of prepared)
+                for (const plan of observed.plans) {
+                  yield* assertNoPhysicalOverlap(contributor.inputRoot, plan.targetFile).pipe(
+                    Effect.mapError(
+                      (cause) =>
+                        new HookDefinitionInvalid({
+                          detail: "Hook native target overlaps its input source",
+                          cause,
+                        }),
+                    ),
+                  );
+                }
+              // The projected evaluation above evaluated these contributors in
+              // this call with the same agents, routes and inputs; only those it
+              // left out are evaluated here, with the receipts it read.
+              const unevaluated = prepared.filter(
+                (_, index) => projected.prospectiveOutcomes[index] === undefined,
+              );
+              const evaluatedHere =
+                unevaluated.length === 0
+                  ? []
+                  : (yield* evaluateConfiguredOutcomesWithEvidence({
+                      configuredAgents: projected.configuredAgents,
+                      targets: projected.targets,
+                      contributors: unevaluated,
+                      state: "projected",
+                      readings,
+                    })).groups;
+              const agentOutcomes = sortedOutcomes(
+                prepared.map((contributor, index) => {
+                  const shared = projected.prospectiveOutcomes[index];
+                  return shared === undefined
+                    ? (evaluatedHere[unevaluated.indexOf(contributor)] ?? [])
+                    : structuredClone(shared);
+                }),
+              );
+              return yield* use({
+                observed,
+                agentOutcomes,
+                acquisitions: prepared.map(({ name, treeIntegrity }) => ({ name, treeIntegrity })),
+                acceptedContent,
+                writerRoutes: new IssuedHookWriterRoutes(
+                  routeIssuer,
+                  projected.configuredAgents,
+                  projected.targets,
+                ),
+              });
+            }),
         );
       });
     const prepareProjection: HookManagerService["prepareProjection"] = (refs, options) =>

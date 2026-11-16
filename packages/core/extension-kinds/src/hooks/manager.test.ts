@@ -9,7 +9,9 @@ import {
   computePackageContentHash,
   hookConfigurationHash,
   hookReceiptFilename,
+  SettingsReader,
   type Settings,
+  type SettingsReaderService,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   existsSync,
@@ -24,7 +26,7 @@ import {
 } from "node:fs";
 import { arch, platform as hostPlatform, tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath as fromFileUrl, pathToFileURL } from "node:url";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
@@ -47,7 +49,11 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager, type ManagerRequirements } from "@agentxm/workspace-kernel/materialization";
+import {
+  HookManager,
+  type ManagerRequirements,
+  type PreparedHookWriterRoutes,
+} from "@agentxm/workspace-kernel/materialization";
 import {
   applyPlannedProjections,
   applyProjectionPlans,
@@ -141,8 +147,27 @@ const makeHookManagerLayer = (
     readonly hooks?: ReadonlyArray<string>;
     /** Native platform services; a recording filesystem replaces the platform one. */
     readonly platform?: typeof NativePlatformTest;
+    /** Counts the manager's own reads of the configured Hook entries. */
+    readonly hookEntryReads?: { count: number };
   },
 ) => {
+  const hookEntryReads = options?.hookEntryReads;
+  // Only the manager reads through this wrapper; every other service reads the test settings directly.
+  const managerSettings =
+    hookEntryReads === undefined
+      ? Layer.empty
+      : Layer.effect(
+          SettingsReader,
+          Effect.gen(function* () {
+            const reader = yield* SettingsReader;
+            const entries: SettingsReaderService["entries"] = (type) =>
+              Effect.suspend(() => {
+                if (type === "hook") hookEntryReads.count += 1;
+                return reader.entries(type);
+              });
+            return { ...reader, entries };
+          }),
+        );
   const hookNames = options?.hooks ?? [];
   const axmDir = nodePath.join(workspaceRoot, ".axm");
   const entries = Object.fromEntries(
@@ -163,6 +188,7 @@ const makeHookManagerLayer = (
       ),
     );
   return HookManagerLive.pipe(
+    Layer.provide(managerSettings),
     Layer.provideMerge(WorkspaceCatalogLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provideMerge(NativeWriteAuthorityLive),
@@ -204,6 +230,8 @@ const makeHookManagerLayer = (
     ),
   );
 };
+
+type HookManagerShape = ServiceMap.Service.Shape<typeof HookManager>;
 
 describe("HookManager", () => {
   it.effect("refuses an entrypoint symlink escaping the package before native publication", () =>
@@ -793,6 +821,7 @@ describe("HookManager", () => {
         manager: ServiceMap.Service.Shape<typeof HookManager>,
         recording: FileSystemRecording,
       ) => Effect.Effect<A, E, ManagerRequirements>,
+      layerOptions?: Omit<NonNullable<Parameters<typeof makeHookManagerLayer>[1]>, "platform">,
     ) =>
       Effect.gen(function* () {
         const { fileSystem, recording } = makeRecordingFileSystem(
@@ -807,7 +836,7 @@ describe("HookManager", () => {
         return yield* Effect.gen(function* () {
           const manager = yield* HookManager;
           return yield* use(manager, recording);
-        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { platform })));
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { ...layerOptions, platform })));
       });
 
     const receiptAccesses = (recording: FileSystemRecording, receiptPath: string) =>
@@ -1003,5 +1032,312 @@ describe("HookManager", () => {
         }
       }),
     );
+
+    describe("within one preparation", () => {
+      /** A workspace with the `audit` and `lint` packages and no native Hook settings yet. */
+      const inWorkspace = <A, E, R>(
+        use: (workspace: {
+          readonly root: string;
+          readonly settingsPath: string;
+          readonly audit: LocalHookRef;
+          readonly lint: LocalHookRef;
+        }) => Effect.Effect<A, E, R>,
+      ) =>
+        Effect.gen(function* () {
+          const root = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-one-call-"));
+          try {
+            const auditRoot = nodePath.join(root, "source-audit");
+            const lintRoot = nodePath.join(root, "source-lint");
+            writeHookPackage(auditRoot, "audit");
+            writeHookPackage(lintRoot, "lint");
+            return yield* use({
+              root,
+              settingsPath: nodePath.join(root, ".claude/settings.json"),
+              audit: makeLocalHookRef("audit", auditRoot),
+              lint: makeLocalHookRef("lint", lintRoot),
+            });
+          } finally {
+            rmSync(root, { recursive: true, force: true });
+          }
+        });
+      /** The route probes of the native settings file that `effect` makes. */
+      const settingsProbes = <A, E, R>(
+        recording: FileSystemRecording,
+        settingsPath: string,
+        effect: Effect.Effect<A, E, R>,
+      ) =>
+        Effect.gen(function* () {
+          recording.reset();
+          const value = yield* effect;
+          return {
+            value,
+            probes: recording.calls({ path: settingsPath, method: "readLink" }).length,
+          };
+        });
+
+      it.effect("resolves the configured Hook writer routes once per preparation", () =>
+        inWorkspace(({ root, settingsPath, audit, lint }) =>
+          Effect.gen(function* () {
+            const counted = yield* withRecordedManager(root, (manager, recording) =>
+              Effect.gen(function* () {
+                const probe = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+                  settingsProbes(recording, settingsPath, effect).pipe(
+                    Effect.map(({ probes }) => probes),
+                  );
+                return {
+                  nothingPrepared: yield* probe(manager.projectionPlans()),
+                  onePrepared: yield* probe(manager.prepareProjection([audit])),
+                  twoPrepared: yield* probe(manager.prepareProjection([audit, lint])),
+                };
+              }),
+            );
+            // Resolving the routes probes the absent settings file twice; the
+            // plan observation and each prepared input's overlap check probe
+            // it too. Measured before the preparation shared its resolution:
+            // 9, 15 and 19.
+            expect(counted).toEqual({ nothingPrepared: 9, onePrepared: 13, twoPrepared: 17 });
+          }),
+        ),
+      );
+
+      it.effect(
+        "hands a preparation's writer routes to the same manager's outcome evaluation",
+        () =>
+          inWorkspace(({ root, settingsPath, audit }) =>
+            Effect.gen(function* () {
+              const counted = yield* withRecordedManager(root, (manager, recording) =>
+                Effect.gen(function* () {
+                  const writerRoutes = yield* manager.observedPrepareProjection(
+                    [audit],
+                    undefined,
+                    ({ writerRoutes }) => Effect.succeed(writerRoutes),
+                  );
+                  const handed = yield* settingsProbes(
+                    recording,
+                    settingsPath,
+                    manager.configuredAgentOutcomesForRef?.(
+                      audit,
+                      "projected",
+                      writerRoutes === undefined ? {} : { writerRoutes },
+                    ) ?? Effect.die("no outcome evaluation"),
+                  );
+                  const resolved = yield* settingsProbes(
+                    recording,
+                    settingsPath,
+                    manager.configuredAgentOutcomesForRef?.(audit, "projected") ??
+                      Effect.die("no outcome evaluation"),
+                  );
+                  return { handed, resolved };
+                }),
+              );
+              expect(counted.handed.value).toEqual(counted.resolved.value);
+              expect(counted.handed.value).toMatchObject([
+                { name: "audit", agentId: "claude-code", path: ".claude/settings.json" },
+              ]);
+              // Measured before the preparation handed its routes on: 2 and 2.
+              expect({ handed: counted.handed.probes, resolved: counted.resolved.probes }).toEqual({
+                handed: 0,
+                resolved: 2,
+              });
+            }),
+          ),
+      );
+
+      it.effect(
+        "resolves the routes afresh for writer routes of other agents or another manager",
+        () =>
+          inWorkspace(({ root, settingsPath, audit }) =>
+            Effect.gen(function* () {
+              const prepare = (
+                manager: HookManagerShape,
+                configuredAgents?: ReadonlyArray<string>,
+              ) =>
+                manager.observedPrepareProjection(
+                  [audit],
+                  configuredAgents === undefined ? undefined : { configuredAgents },
+                  ({ writerRoutes }) => Effect.succeed(writerRoutes),
+                );
+              const evaluate = (
+                manager: HookManagerShape,
+                recording: FileSystemRecording,
+                writerRoutes: PreparedHookWriterRoutes | undefined,
+              ) =>
+                settingsProbes(
+                  recording,
+                  settingsPath,
+                  manager.configuredAgentOutcomesForRef?.(
+                    audit,
+                    "projected",
+                    writerRoutes === undefined ? {} : { writerRoutes },
+                  ) ?? Effect.die("no outcome evaluation"),
+                );
+              const anotherManagers = yield* withRecordedManager(root, (manager) =>
+                prepare(manager),
+              );
+              const otherManager = yield* withRecordedManager(root, (manager, recording) =>
+                evaluate(manager, recording, anotherManagers),
+              );
+              const otherAgents = yield* withRecordedManager(root, (manager, recording) =>
+                prepare(manager, ["claude-code", "devin"]).pipe(
+                  Effect.flatMap((writerRoutes) => evaluate(manager, recording, writerRoutes)),
+                ),
+              );
+              expect(otherAgents.value).toEqual(otherManager.value);
+              expect({
+                otherManager: otherManager.probes,
+                otherAgents: otherAgents.probes,
+              }).toEqual({
+                otherManager: 2,
+                otherAgents: 2,
+              });
+            }),
+          ),
+      );
+
+      it.effect("observes a retargeted settings directory in a later preparation", () =>
+        inWorkspace(({ root, audit }) =>
+          Effect.gen(function* () {
+            const paths = yield* withRecordedManager(root, (manager) =>
+              Effect.gen(function* () {
+                const path = manager
+                  .prepareProjection([audit])
+                  .pipe(Effect.map(({ agentOutcomes }) => agentOutcomes.map(({ path }) => path)));
+                const first = yield* path;
+                mkdirSync(nodePath.join(root, "routed"));
+                symlinkSync("routed", nodePath.join(root, ".claude"));
+                return { first, second: yield* path };
+              }),
+            );
+            expect(paths).toEqual({
+              first: [".claude/settings.json"],
+              second: ["routed/settings.json"],
+            });
+          }),
+        ),
+      );
+
+      it.effect("refuses an unwritable writer route before observing any plan", () =>
+        inWorkspace(({ root, settingsPath, audit }) =>
+          Effect.gen(function* () {
+            const outside = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-outside-"));
+            try {
+              symlinkSync(outside, nodePath.join(root, ".claude"));
+              let used = false;
+              const failure = yield* withRecordedManager(root, (manager) =>
+                manager
+                  .observedPrepareProjection([audit], undefined, () =>
+                    Effect.sync(() => {
+                      used = true;
+                    }),
+                  )
+                  .pipe(Effect.flip),
+              );
+              expect(failure).toMatchObject({
+                _tag: "HookDefinitionInvalid",
+                detail: `Hook native location is not writable: ${settingsPath}`,
+              });
+              expect(used).toBe(false);
+              expect(existsSync(nodePath.join(outside, "settings.json"))).toBe(false);
+            } finally {
+              rmSync(outside, { recursive: true, force: true });
+            }
+          }),
+        ),
+      );
+
+      it.effect("evaluates each prepared contributor's outcomes once per preparation", () =>
+        inWorkspace(({ root, audit }) =>
+          Effect.gen(function* () {
+            yield* writeReceipt(root, fromFileUrl(audit.location), "corrupt");
+            const hookEntryReads = { count: 0 };
+            const counted = yield* withRecordedManager(
+              root,
+              (manager) =>
+                Effect.gen(function* () {
+                  const reads = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+                    Effect.gen(function* () {
+                      hookEntryReads.count = 0;
+                      const value = yield* effect;
+                      return { value, reads: hookEntryReads.count };
+                    });
+                  const nothingPrepared = yield* reads(manager.projectionPlans());
+                  const prepared = yield* reads(manager.prepareProjection([audit]));
+                  // A withdrawn prepared contributor is left out of the projected
+                  // evaluation, so its outcomes are evaluated on their own.
+                  const withdrawn = yield* manager.prepareProjection([audit], {
+                    hookWithdrawals: [
+                      {
+                        name: "audit",
+                        ref: "@acme/hooks/audit",
+                        root: canonicalRootOf(root, fromFileUrl(audit.location)),
+                        scope: "project",
+                      },
+                    ],
+                  });
+                  return {
+                    nothingPrepared: nothingPrepared.reads,
+                    prepared: prepared.reads,
+                    outcomes: prepared.value.agentOutcomes,
+                    withdrawnOutcomes: withdrawn.agentOutcomes,
+                  };
+                }),
+              { hookEntryReads },
+            );
+            expect(counted.outcomes).toMatchObject([
+              {
+                name: "audit",
+                agentId: "claude-code",
+                hook: { fixtureEvidence: { state: "invalid" } },
+              },
+            ]);
+            expect(counted.withdrawnOutcomes).toEqual(counted.outcomes);
+            // The configuration, the projected evaluation and the rendering
+            // each read the entries; measured before the outcomes were shared:
+            // 1 and 4.
+            expect({
+              nothingPrepared: counted.nothingPrepared,
+              prepared: counted.prepared,
+            }).toEqual({ nothingPrepared: 1, prepared: 3 });
+          }),
+        ),
+      );
+
+      it.effect(
+        "keeps each prepared contributor's outcomes in a preparation out of marker order",
+        () =>
+          inWorkspace(({ root }) =>
+            Effect.gen(function* () {
+              const configuration = { mode: { type: "string" } };
+              const auditRoot = nodePath.join(root, "configured-audit");
+              const lintRoot = nodePath.join(root, "configured-lint");
+              writeHookPackage(auditRoot, "audit", { configuration });
+              writeHookPackage(lintRoot, "lint", { configuration });
+              yield* writeReceipt(root, auditRoot, { configuration: { mode: "strict" } });
+              yield* writeReceipt(root, lintRoot, { configuration: { mode: "strict" } });
+              const prepared = yield* withRecordedManager(root, (manager) =>
+                manager.prepareProjection(
+                  [makeLocalHookRef("lint", lintRoot), makeLocalHookRef("audit", auditRoot)],
+                  {
+                    hookConfigurations: new Map([
+                      ["audit", { mode: "strict" }],
+                      ["lint", { mode: "relaxed" }],
+                    ]),
+                  },
+                ),
+              );
+              expect(
+                prepared.agentOutcomes.map(({ name, hook }) => ({
+                  name,
+                  state: hook?.fixtureEvidence.state,
+                })),
+              ).toEqual([
+                { name: "audit", state: "historical" },
+                { name: "lint", state: "stale" },
+              ]);
+              expect(prepared.acquisitions.map(({ name }) => name)).toEqual(["lint", "audit"]);
+            }),
+          ),
+      );
+    });
   });
 });

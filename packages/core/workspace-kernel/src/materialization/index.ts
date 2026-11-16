@@ -49,6 +49,7 @@ export {
   SubagentManager,
   type HookManagerService,
   type PreparedHookProjection,
+  type PreparedHookWriterRoutes,
   type HookMaterializationFacts,
   type KnowledgeManagerService,
   type KnowledgeMaterializationFacts,

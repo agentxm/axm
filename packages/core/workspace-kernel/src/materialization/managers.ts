@@ -471,6 +471,15 @@ export interface PreparedHookProjection {
   }>;
 }
 
+/**
+ * The Hook writer routes one preparation resolved, handed back to the manager
+ * that issued them inside its caller's own call. Opaque: only that manager
+ * reads them, and any other manager resolves the routes itself.
+ */
+export interface PreparedHookWriterRoutes {
+  readonly _tag: "PreparedHookWriterRoutes";
+}
+
 export interface HookManagerService
   extends
     InstallMaterialization<
@@ -510,6 +519,8 @@ export interface HookManagerService
       readonly observed: ManagerObservedProjectionPlans;
       /** This call's observations of the Registry Hooks' accepted packages, for this call's caller. */
       readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+      /** The writer routes this call resolved, for this call's caller. */
+      readonly writerRoutes?: PreparedHookWriterRoutes;
     }
   >;
   readonly aggregateProjectionObservation: Effect.Effect<
@@ -543,6 +554,11 @@ export interface HookManagerService
     options?: {
       /** Observations of accepted packages the caller's preparation made in this same call. */
       readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+      /**
+       * Writer routes the caller's preparation resolved in this same call,
+       * taken for the same configured agents instead of resolving them again.
+       */
+      readonly writerRoutes?: PreparedHookWriterRoutes;
     },
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,

@@ -232,9 +232,9 @@ describe("Acquisition reuse of accepted Registry content", () => {
 
       expect(settled.acquisitionRefs).toEqual([settled.proposed]);
       expect(settled.treeHashes).toBe(0);
-      // The accepted path and the recorded ref; publisher trust compares the
-      // proposal with that same ref.
-      expect(settled.acceptedRowLookups).toBe(3);
+      // The accepted path and the recorded ref, built from the row its own
+      // lookup read; publisher trust compares the proposal with that same ref.
+      expect(settled.acceptedRowLookups).toBe(2);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -246,9 +246,10 @@ describe("Acquisition reuse of accepted Registry content", () => {
 
       expect(settled.acquisitionRefs).toEqual([]);
       expect(settled.treeHashes).toBe(1);
-      // The accepted path, the recorded ref (presence and reconstruction),
-      // and the observation; the usable verdict reconstructs nothing again.
-      expect(settled.acceptedRowLookups).toBe(4);
+      // The accepted path, the recorded ref (one lookup for its presence and
+      // reconstruction), and the observation; the usable verdict reconstructs
+      // nothing again.
+      expect(settled.acceptedRowLookups).toBe(3);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -262,7 +263,7 @@ describe("Acquisition reuse of accepted Registry content", () => {
       expect(settled.treeHashes).toBe(1);
       expect(settled.plan.riskConditions ?? []).toEqual([]);
       // The source switch still reads the accepted row's presence itself.
-      expect(settled.acceptedRowLookups).toBe(5);
+      expect(settled.acceptedRowLookups).toBe(4);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -293,9 +294,9 @@ describe("Acquisition reuse of accepted Registry content", () => {
           "ready",
         ]);
         // The second Hook's accepted path, then publisher trust's and the
-        // source switch's own reads, presence and reconstruction, exactly as
-        // when nothing else was reconstructed.
-        expect(settled.lookups).toEqual({ [HOOK]: 5, [OTHER_HOOK]: 6 });
+        // source switch's own reads, one lookup each for presence and
+        // reconstruction, exactly as when nothing else was reconstructed.
+        expect(settled.lookups).toEqual({ [HOOK]: 4, [OTHER_HOOK]: 4 });
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -324,7 +325,7 @@ describe("Acquisition reuse of accepted Registry content", () => {
           detail: `The accepted resolution for hook:${OTHER_HOOK} could not be read, so the proposed publisher binding cannot be checked.`,
         }),
       ]);
-      expect(settled.lookups).toEqual({ [HOOK]: 4, [OTHER_HOOK]: 1 });
+      expect(settled.lookups).toEqual({ [HOOK]: 3, [OTHER_HOOK]: 1 });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -342,7 +343,7 @@ describe("Acquisition reuse of accepted Registry content", () => {
       expect(settled.acquisitionRefs).toEqual([settled.accepted]);
       expect(settled.treeHashes).toBe(1);
       expect(settled.plan.riskConditions ?? []).toEqual([]);
-      expect(settled.acceptedRowLookups).toBe(5);
+      expect(settled.acceptedRowLookups).toBe(4);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -406,7 +407,7 @@ describe("Acquisition reuse of accepted Registry content", () => {
       expect(settled.treeHashes).toBe(0);
       // The accepted path and publisher trust's own reconstruction: a
       // reinstall reconstructs nothing it could share.
-      expect(settled.acceptedRowLookups).toBe(3);
+      expect(settled.acceptedRowLookups).toBe(2);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

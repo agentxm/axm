@@ -122,7 +122,7 @@ describe("Agent removal instruction planning", () => {
         // the same plans would add a source read, a lockfile read and a
         // bundle stat.
         sourceReads: 2,
-        lockfileReads: 9,
+        lockfileReads: 8,
         bundleStats: 1,
       });
     }).pipe(provideRecording);
@@ -144,7 +144,7 @@ describe("Agent removal instruction planning", () => {
           errorMessage: undefined,
         }),
         sourceReads: 1,
-        lockfileReads: 5,
+        lockfileReads: 4,
         bundleStats: 0,
       });
     }).pipe(provideRecording);

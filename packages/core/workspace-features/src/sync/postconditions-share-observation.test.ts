@@ -382,11 +382,11 @@ describe("Post-write verification observation", () => {
       });
       expect(observation.summary(workspace.root)).toEqual({
         settingsParses: 14,
-        lockfileParses: 14,
+        lockfileParses: 13,
         presenceSettingsParses: 1,
         presenceLockfileParses: 1,
         settingsContentReads: 22,
-        lockfileContentReads: 17,
+        lockfileContentReads: 16,
         observationPhases: 2,
         verificationPhases: [verified("operation"), verified("closure")],
       });
@@ -411,11 +411,11 @@ describe("Post-write verification observation", () => {
       const result = yield* workspace.provide(observation.observed(withdrawMcpServer("demo")));
       expect(describeOutcome(result).units.map((unit) => unit.state)).toEqual(["committed"]);
       expect(observation.summary(workspace.root)).toEqual({
-        settingsParses: 16,
+        settingsParses: 14,
         lockfileParses: 3,
         presenceSettingsParses: 4,
         presenceLockfileParses: 2,
-        settingsContentReads: 26,
+        settingsContentReads: 24,
         lockfileContentReads: 7,
         observationPhases: 1,
         verificationPhases: [],

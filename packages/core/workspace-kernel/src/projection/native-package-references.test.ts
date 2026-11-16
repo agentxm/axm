@@ -377,6 +377,46 @@ describe("native reference probes within one inspection", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("probes every path live again in each inspection sharing one read view", () =>
+    Effect.gen(function* () {
+      const { base, path, workspaceRoot, packageRoot, inspect, probes } = yield* fixture;
+      const file = path.join(workspaceRoot, ".mcp.json");
+      const candidate = path.join(workspaceRoot, "tools/server.js");
+      yield* base.writeFileString(path.join(packageRoot, "server.js"), "");
+      yield* base.writeFileString(
+        file,
+        JSON.stringify({ mcpServers: { other: { command: "node", args: ["tools/server.js"] } } }),
+      );
+      const observe = Effect.map(inspect, (references) => ({
+        references,
+        file: probes(file),
+        candidate: probes(candidate),
+      }));
+      const { first, second } = yield* withNativePackageReferenceReadView(
+        Effect.gen(function* () {
+          const first = yield* observe;
+          // The candidate now resolves into the package although its native config is unchanged.
+          yield* base.remove(candidate);
+          yield* base.symlink(path.join(packageRoot, "server.js"), candidate);
+          return { first, second: yield* observe };
+        }),
+      );
+      const probedOnce = { access: 1, realPath: 1 };
+      expect(first).toEqual({ references: [], file: probedOnce, candidate: probedOnce });
+      expect(second).toEqual({
+        references: [
+          {
+            path: file,
+            evidence: "possible-reference",
+            readers: projectReaders(path, workspaceRoot, "mcp-server", file),
+          },
+        ],
+        file: probedOnce,
+        candidate: probedOnce,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("probes an absent shared native config file once and no candidate", () =>
     Effect.gen(function* () {
       const { path, workspaceRoot, inspect, probes } = yield* fixture;

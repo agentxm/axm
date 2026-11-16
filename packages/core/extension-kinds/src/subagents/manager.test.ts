@@ -1829,6 +1829,114 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(layer));
     });
 
+    /**
+     * The accepted package renders under a native name other than its own, and
+     * that name's file is recorded: its stem is no declared name, so orphan
+     * cleanup derives every declared Subagent's names.
+     */
+    const renamedNativeFixture = () => {
+      const fixture = registryCanonicalFixture();
+      nodeFs.writeFileSync(
+        fixture.manifest,
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+          core: { name: "reviewer", instructions: "src/planner.md" },
+        }),
+      );
+      return {
+        ...fixture,
+        instructions: nodePath.join(fixture.canonicalDir, "src", "planner.md"),
+      };
+    };
+
+    it.effect("derives orphan cleanup's names from each declared Subagent's one load", () => {
+      const { canonicalDir, manifest, instructions, layer } = renamedNativeFixture();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const accepted = yield* AcceptedResolutionWriter;
+        const native = yield* recordNativeFile(
+          nodePath.join(tmpDir, "project"),
+          ".claude/agents/reviewer.md",
+          "Reviewer as AXM wrote it\n",
+        );
+        const observed = workObservations(false);
+        recording.reset();
+        const result = yield* manager
+          .materializeUninstall({ target: { type: "subagent", name: "planner" } })
+          .pipe(observed.provide);
+        // The removal's observation and orphan cleanup's observation of the
+        // declared Subagent each read the manifest as text, load the package
+        // and hash the tree; orphan cleanup's names come from its own load.
+        expect({
+          manifest: recording.contentReads(manifest),
+          instructions: recording.contentReads(instructions),
+          treeHashes: observed.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+        }).toEqual({ manifest: 6, instructions: 4, treeHashes: 2 });
+        expect(nodeFs.existsSync(native)).toBe(false);
+        expect(result.observation.targets).toEqual([
+          { path: ".claude/agents/reviewer.md", agentIds: ["claude-code"] },
+        ]);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
+        expect(nodeFs.existsSync(canonicalDir)).toBe(false);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("treats nothing as orphaned when a declared package cannot be loaded", () => {
+      const { instructions, layer } = renamedNativeFixture();
+      nodeFs.rmSync(instructions);
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const accepted = yield* AcceptedResolutionWriter;
+        const native = yield* recordNativeFile(
+          nodePath.join(tmpDir, "project"),
+          ".claude/agents/reviewer.md",
+          "Reviewer as AXM wrote it\n",
+        );
+        const result = yield* manager.materializeDeactivate({
+          target: { type: "subagent", name: "planner" },
+        });
+        // Without a loadable package no declared names are known, so the
+        // recorded file of another name is kept with its row.
+        expect(nodeFs.existsSync(native)).toBe(true);
+        expect(result.observation.targets).toEqual([]);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(1);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("observes a projection's orphans from each declared Subagent's one load", () => {
+      const { canonicalDir, manifest, instructions, layer } = renamedNativeFixture();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        yield* recordNativeFile(
+          nodePath.join(tmpDir, "project"),
+          ".claude/agents/reviewer.md",
+          "Reviewer as AXM wrote it\n",
+        );
+        const ref = makeLocalSubagentRef("planner", canonicalDir);
+        const observed = workObservations(false);
+        recording.reset();
+        yield* manager
+          .projectionObservation(ref, { sourceRoot: canonicalDir })
+          .pipe(observed.provide);
+        // The projection loads its own package once; orphan cleanup's
+        // observation of the declared Subagent reads the manifest as text,
+        // loads the package and hashes the tree, and names it from that load.
+        expect({
+          manifest: recording.contentReads(manifest),
+          instructions: recording.contentReads(instructions),
+          treeHashes: observed.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
+            .length,
+        }).toEqual({ manifest: 4, instructions: 3, treeHashes: 1 });
+      }).pipe(Effect.provide(layer));
+    });
+
     it.effect("retires a canonical package whose content cannot be loaded", () => {
       const { canonicalDir, manifest, layer } = registryCanonicalFixture();
       // The manifest names an instruction file the package does not hold.

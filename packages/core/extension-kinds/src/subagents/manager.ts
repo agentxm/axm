@@ -30,7 +30,6 @@ import {
   sanitizeName,
   computeMaterializedTreeIntegrity,
   computePackageContentHash,
-  acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
   removableAcceptedCanonicalPath,
   type AcceptedCanonicalObservation,
@@ -486,13 +485,21 @@ export const SubagentManagerLive = Layer.effect(
           ]),
         );
       });
-    /** `acceptedNamesFrom` over a fresh observation of the accepted Subagent. */
+    /**
+     * `acceptedNamesFrom` over a fresh observation of the accepted Subagent,
+     * naming it from the package that observation's payload check loaded.
+     */
     const acceptedNames = (name: string) =>
       Effect.gen(function* () {
-        const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name }).pipe(
-          Effect.option,
+        const captured = yield* acceptedCanonicalObservationCapturing({
+          type: "subagent",
+          name,
+        }).pipe(Effect.option);
+        return yield* acceptedNamesFrom(
+          name,
+          Option.flatMap(captured, (capture) => capture.observed),
+          Option.flatMap(captured, (capture) => capture.subagentPackage ?? Option.none()),
         );
-        return yield* acceptedNamesFrom(name, Option.flatten(canonical), Option.none());
       });
     /**
      * Stems of recorded Subagent files that no declared Subagent names, by its

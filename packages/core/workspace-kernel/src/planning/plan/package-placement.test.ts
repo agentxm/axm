@@ -1,7 +1,12 @@
+import * as nodeFs from "node:fs";
+import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { expect, it } from "@effect/vitest";
+import * as Result from "effect/Result";
+import { describe, expect, it } from "@effect/vitest";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
@@ -10,6 +15,12 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { testRegistryEndpoint } from "@agentxm/registry-client/testing";
 import { NativePlatformTest } from "../../locations/testing.js";
+import {
+  LOCKFILE_VERSION,
+  packageAddressClaimForRef,
+  type Lockfile,
+} from "../../workspace-state/index.js";
+import { WorkspaceReadTest, makeRegistrySkillLockEntry } from "../../workspace-state/testing.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 import { preflightPackagePlacement } from "./package-placement.js";
 
@@ -58,3 +69,152 @@ it.effect("allows an accepted exposure alongside a newer acquisition at the same
     );
   }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
 );
+
+describe("one placement preflight over repeated claims", () => {
+  const otherRef = (): RegistrySkillRef => ({ ...ref("1.0.0"), owner: decodeHandleSync("@other") });
+  const acceptedReview = {
+    lockfileVersion: LOCKFILE_VERSION,
+    skills: {
+      review: makeRegistrySkillLockEntry({
+        owner: decodeHandleSync("@acme"),
+        name: "review",
+        endpoint: testRegistryEndpoint,
+      }),
+    },
+  } satisfies Lockfile;
+
+  /** Run one preflight through a recording port over a real temporary workspace. */
+  const preflight = (
+    acquisitionRefs: ReadonlyArray<RegistrySkillRef>,
+    exposureRefs: ReadonlyArray<RegistrySkillRef>,
+    options: {
+      readonly lockfile?: Lockfile;
+      readonly arrange?: (acquiredRoot: string) => void;
+    } = {},
+  ) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const workspace = yield* makeSpecWorkspace("axm-placement-");
+      const acquiredRoot = path.join(workspace.root, "agent_extensions");
+      const address = (selected: RegistrySkillRef) => {
+        const claim = packageAddressClaimForRef(selected);
+        if (Result.isFailure(claim)) throw new Error(claim.failure.detail);
+        return path.join(acquiredRoot, ...claim.success.address.split("/"));
+      };
+      options.arrange?.(acquiredRoot);
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      const outcome = yield* preflightPackagePlacement(acquisitionRefs, exposureRefs).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provide(
+          WorkspaceReadTest({
+            baseDir: workspace.root,
+            runtimeDir: workspace.workspaceDir,
+            ...(options.lockfile === undefined ? {} : { lockfile: options.lockfile }),
+          }),
+        ),
+        Effect.result,
+      );
+      return { outcome, recording, acquiredRoot, destination: address(ref("1.0.0")), address };
+    });
+
+  it.effect("resolves an unaccepted destination and its scratch boundaries once per package", () =>
+    Effect.gen(function* () {
+      const { outcome, recording, destination } = yield* preflight([ref("1.1.0")], [ref("1.0.0")]);
+      expect(outcome).toEqual(
+        Result.succeed([destination, `${destination}.axm-staging`, `${destination}.axm-backup`]),
+      );
+      for (const target of [destination, `${destination}.axm-staging`, `${destination}.axm-backup`])
+        expect({
+          target,
+          stat: recording.calls({ path: target, method: "stat" }).length,
+          readLink: recording.calls({ path: target, method: "readLink" }).length,
+        }).toEqual({ target, stat: 1, readLink: 2 });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("resolves an accepted destination once when the same package is selected again", () =>
+    Effect.gen(function* () {
+      const { outcome, recording, destination } = yield* preflight([ref("1.0.0")], [], {
+        lockfile: acceptedReview,
+        arrange: (acquiredRoot) =>
+          nodeFs.mkdirSync(
+            nodePath.join(acquiredRoot, "registry.example.test", "@acme", "skills", "review"),
+            { recursive: true },
+          ),
+      });
+      expect(outcome).toEqual(Result.succeed([destination]));
+      expect(recording.counts(destination)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+      expect(recording.calls({ path: `${destination}.axm-staging` })).toEqual([]);
+      expect(recording.calls({ path: `${destination}.axm-backup` })).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("names the first claim of a repeated package when an alias overlaps it", () =>
+    Effect.gen(function* () {
+      const { outcome, destination, address } = yield* preflight([ref("1.0.0"), otherRef()], [], {
+        lockfile: acceptedReview,
+        arrange: (acquiredRoot) => {
+          const review = nodePath.join(
+            acquiredRoot,
+            "registry.example.test",
+            "@acme",
+            "skills",
+            "review",
+          );
+          const alias = nodePath.join(
+            acquiredRoot,
+            "registry.example.test",
+            "@other",
+            "skills",
+            "review",
+          );
+          nodeFs.mkdirSync(review, { recursive: true });
+          nodeFs.mkdirSync(nodePath.dirname(alias), { recursive: true });
+          nodeFs.symlinkSync(review, alias);
+        },
+      });
+      const otherClaim = packageAddressClaimForRef(otherRef());
+      const reviewClaim = packageAddressClaimForRef(ref("1.0.0"));
+      if (Result.isFailure(otherClaim) || Result.isFailure(reviewClaim))
+        throw new Error("fixture refs must have addresses");
+      expect(address(otherRef())).not.toBe(destination);
+      expect(outcome).toEqual(
+        Result.fail(
+          expect.objectContaining({
+            category: "conflict",
+            detail: `Retained package source addresses overlap through filesystem aliases: ${reviewClaim.success.packageKey} at ${nodeFs.realpathSync(destination)} and ${otherClaim.success.packageKey} at ${otherClaim.success.address}`,
+          }),
+        ),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("still refuses scratch content beside a package selected twice", () =>
+    Effect.gen(function* () {
+      const { outcome, destination } = yield* preflight([ref("1.1.0")], [ref("1.0.0")], {
+        arrange: (acquiredRoot) =>
+          nodeFs.mkdirSync(
+            nodePath.join(
+              acquiredRoot,
+              "registry.example.test",
+              "@acme",
+              "skills",
+              "review.axm-backup",
+            ),
+            { recursive: true },
+          ),
+      });
+      const claim = packageAddressClaimForRef(ref("1.0.0"));
+      if (Result.isFailure(claim)) throw new Error(claim.failure.detail);
+      expect(nodeFs.existsSync(`${destination}.axm-backup`)).toBe(true);
+      expect(outcome).toEqual(
+        Result.fail(
+          expect.objectContaining({
+            category: "conflict",
+            detail: `Retained package destination ${claim.success.address}.axm-backup contains content without accepted ownership; move it before installing this source`,
+          }),
+        ),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});

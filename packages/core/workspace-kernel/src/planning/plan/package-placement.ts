@@ -91,7 +91,14 @@ export const preflightPackagePlacement = (
     const path = yield* Path.Path;
     const acceptedKeys = new Set(accepted.success.map((claim) => claim.packageKey));
     const physicalClaims: Array<{ readonly packageKey: string; readonly address: string }> = [];
+    // An accepted binding and a selected component of one package, or several
+    // components of it, claim the same destination. Its first resolution in this
+    // call is the check; a repeat could only report what that one already did.
+    const examined = new Set<string>();
     for (const claim of [...accepted.success, ...selected]) {
+      const identity = JSON.stringify([claim.packageKey, claim.address]);
+      if (examined.has(identity)) continue;
+      examined.add(identity);
       const destination = path.join(layout.acquiredRoot, ...claim.address.split("/"));
       if (selected.some((item) => item.packageKey === claim.packageKey)) paths.push(destination);
       const observed = yield* resolveNativeEntry(destination).pipe(

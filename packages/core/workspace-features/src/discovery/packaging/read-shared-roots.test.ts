@@ -342,6 +342,62 @@ describe("package readers share ecosystem roots within one read", () => {
     }),
   );
 
+  it.effect("probes each Cabal project's own dist-newstyle", () =>
+    Effect.gen(function* () {
+      vi.stubEnv("HOME", "/home/user");
+      const cabal = (name: string) => `name: ${name}\nx-agent-extensions: ${extensions(name)}\n`;
+      const pair = ["alpha", "beta"] as const;
+      const outcome = yield* readRecorded({
+        files: Object.fromEntries(
+          pair.map((name) => [`/two/dist-newstyle/build/${name}-1.0.0/${name}.cabal`, cabal(name)]),
+        ),
+        packages: ["one", "two"].flatMap((project) =>
+          pair.map((name) => detected("hackage", name, `/${project}/project.cabal`)),
+        ),
+      });
+      expect(outcome.recording.counts("/one/dist-newstyle")).toEqual({ access: 1 });
+      expect(outcome.recording.counts("/two/dist-newstyle")).toEqual({ access: 1 });
+      expect(outcome.results).toEqual([
+        pair.map((name) => [name, [`@acme/skills/${name}`]] as const),
+      ]);
+    }),
+  );
+
+  it.effect("lists each pixi project's own environments and conda-meta", () =>
+    Effect.gen(function* () {
+      const projects = ["one", "two"] as const;
+      const pair = ["alpha", "beta"] as const;
+      const outcome = yield* readRecorded({
+        files: Object.fromEntries(
+          projects.flatMap((project) =>
+            pair.map((name) => [
+              `/${project}/.pixi/envs/default/conda-meta/${name}-1.0.0/agent-extensions.json`,
+              agentExtensionsJson(`${project}-${name}`),
+            ]),
+          ),
+        ),
+        packages: projects.flatMap((project) =>
+          pair.map((name) => detected("mojo", name, `/${project}/pixi.toml`)),
+        ),
+      });
+      for (const project of projects) {
+        expect(outcome.recording.counts(`/${project}/.pixi/envs`)).toEqual({
+          access: 1,
+          readDirectory: 1,
+        });
+        expect(outcome.recording.counts(`/${project}/.pixi/envs/default/conda-meta`)).toEqual({
+          access: 1,
+          readDirectory: 1,
+        });
+      }
+      expect(outcome.results).toEqual([
+        projects.flatMap((project) =>
+          pair.map((name) => [name, [`@acme/skills/${project}-${name}`]] as const),
+        ),
+      ]);
+    }),
+  );
+
   it.effect("probes the Deno cache roots once for every JSR package", () =>
     Effect.gen(function* () {
       const registry = "/deno/registries/jsr.io";

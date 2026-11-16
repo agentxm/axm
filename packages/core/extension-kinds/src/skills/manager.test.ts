@@ -366,7 +366,7 @@ describe("skill install retirement of a renamed projection", () => {
       }).toEqual({
         entry: { readLink: 6, stat: 3, realPath: 2 },
         source: { realPath: 10, readLink: 5, stat: 5 },
-        shared: { realPath: 11, makeDirectory: 1, readDirectory: 5 },
+        shared: { realPath: 10, makeDirectory: 1, readDirectory: 5 },
         reader: { realPath: 2, readLink: 2, readDirectory: 1 },
       });
       expect(nodeFs.existsSync(projection())).toBe(false);

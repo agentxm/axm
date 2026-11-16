@@ -131,6 +131,15 @@ export const readCopiedDirectory = (directory: string) =>
     return yield* readResolvedCopiedDirectory(directory, yield* resolveNativeEntry(directory));
   }).pipe(Effect.catch(() => Effect.succeedNone));
 
+/**
+ * `readCopiedDirectory` of an entry the caller's admission just resolved, with
+ * only reads of other paths since.
+ */
+export const readCopiedDirectoryAt = (address: NativeEntryAddress) =>
+  readResolvedCopiedDirectory(address.entryPath, address).pipe(
+    Effect.catch(() => Effect.succeedNone),
+  );
+
 const readResolvedCopiedDirectory = (directory: string, address: NativeEntryAddress) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -390,6 +399,19 @@ export const copiedDirectoryIsCurrentWith = (
     }
     return seen === total;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
+
+/**
+ * `copiedDirectoryIsCurrent` of an entry the caller's admission just resolved,
+ * with only reads of other paths since.
+ */
+export const copiedDirectoryIsCurrentAt = (address: NativeEntryAddress, source: string) =>
+  Effect.gen(function* () {
+    const receipt = yield* readCopiedDirectoryAt(address);
+    return (
+      Option.isSome(receipt) &&
+      (yield* copiedDirectoryIsCurrentWith(address.entryPath, receipt.value, source))
+    );
+  });
 
 /** Repeated synchronization does not rewrite a current bounded copy or its foreign siblings. */
 export const copiedDirectoryIsCurrent = (directory: string, source: string) =>

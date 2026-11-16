@@ -23,9 +23,10 @@ import {
   NativeEntryRemoval,
   captureCopiedDirectory,
   copiedDirectoryReceiptPath,
-  copiedDirectoryIsCurrent,
+  copiedDirectoryIsCurrentAt,
   copiedDirectoryCanReplaceWith,
   readCopiedDirectory,
+  readCopiedDirectoryAt,
   retireCopiedDirectory,
 } from "@agentxm/workspace-kernel/locations";
 import { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
@@ -331,10 +332,8 @@ export const inspectSkillAgentArtifact = (
       ownedPreviousLink =
         previousSources.includes(immediate.entryPath) && immediate.kind !== "symlink";
     }
-    if (
-      !args.requiresPackageContext &&
-      (yield* copiedDirectoryIsCurrent(address.entryPath, source))
-    )
+    // The admission just resolved this entry; only other paths were read since.
+    if (!args.requiresPackageContext && (yield* copiedDirectoryIsCurrentAt(address, source)))
       return {
         address,
         source,
@@ -343,7 +342,11 @@ export const inspectSkillAgentArtifact = (
         ownedPreviousLink: false,
       };
     if (address.kind !== "absent" && !ownedPreviousLink) {
-      const receipt = yield* readCopiedDirectory(address.entryPath);
+      // Only a directory can carry a copy receipt; its ownership read resolves it live.
+      const receipt =
+        address.kind === "directory"
+          ? yield* readCopiedDirectory(address.entryPath)
+          : yield* readCopiedDirectoryAt(address);
       if (
         Option.isNone(receipt) ||
         (receipt.value.source !== source && !previousSources.includes(receipt.value.source))

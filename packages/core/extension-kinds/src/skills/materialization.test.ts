@@ -473,6 +473,82 @@ describe("Skill native materialization", () => {
   );
 });
 
+describe("Skill native inspection over its admitted entry", () => {
+  /** Inspect through a recording filesystem, reset after setup. */
+  const recordedInspection = (
+    fs: FileSystem.FileSystem,
+    args: Parameters<typeof inspectSkillAgentArtifact>[0],
+  ) =>
+    Effect.gen(function* () {
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      recording.reset();
+      const inspection = yield* inspectSkillAgentArtifact(args).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.result,
+      );
+      return { inspection, recording };
+    });
+
+  it.effect("resolves an absent new skill entry only for its admission and overlap check", () =>
+    Effect.gen(function* () {
+      const { fs, target, args } = yield* fixture;
+      const { inspection, recording } = yield* recordedInspection(fs, args);
+      expect(inspection).toMatchObject({ _tag: "Success", success: { state: "ready" } });
+      const counts = recording.counts(target);
+      expect({ readLink: counts.readLink, stat: counts.stat }).toEqual({ readLink: 4, stat: 2 });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("refuses a foreign link entry from its admitted resolution", () =>
+    Effect.gen(function* () {
+      const { fs, path, target, args } = yield* fixture;
+      const foreign = path.join(args.baseDir, "foreign", "review");
+      yield* fs.makeDirectory(foreign, { recursive: true });
+      yield* fs.makeDirectory(args.targetDir, { recursive: true });
+      yield* fs.symlink(foreign, target);
+      const { inspection, recording } = yield* recordedInspection(fs, args);
+      expect(inspection).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          _tag: "SkillMaterializationFailed",
+          detail: `Preserved unowned skill artifact at ${target}`,
+        },
+      });
+      expect({
+        readLink: recording.counts(target).readLink,
+        parentListings: recording.counts(args.targetDir).readDirectory,
+      }).toEqual({ readLink: 2, parentListings: 1 });
+      expect(yield* fs.readLink(target)).toBe(foreign);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
+  it.effect("decides a current copied skill from its admitted resolution", () =>
+    Effect.gen(function* () {
+      const { fs, path, source, target, args } = yield* fixture;
+      yield* fs.makeDirectory(target, { recursive: true });
+      yield* fs.writeFileString(path.join(target, "SKILL.md"), "# Source must survive\n");
+      const canonicalSource = yield* resolveNativeReferent(source);
+      expect(Option.isSome(yield* captureCopiedDirectory(target, canonicalSource))).toBe(true);
+      const receiptPath = yield* copiedDirectoryReceiptPath(target);
+      const { inspection, recording } = yield* recordedInspection(fs, args);
+      expect(inspection).toMatchObject({ _tag: "Success", success: { state: "current" } });
+      expect({
+        readLink: recording.counts(target).readLink,
+        receiptReads: recording.counts(receiptPath).readFile,
+      }).toEqual({ readLink: 1, receiptReads: 1 });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+});
+
 const REGISTRY = decodeRegistryEndpointSync("https://registry.example.test");
 
 const registrySkillRef = (owner: string, name: string): RegistrySkillRef => ({

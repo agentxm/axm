@@ -58,11 +58,13 @@ export {
   copiedDirectoryReceiptPath,
   captureCopiedDirectory,
   copiedDirectoryIsCurrent,
+  copiedDirectoryIsCurrentAt,
   copiedDirectoryIsCurrentWith,
   copiedDirectoryCanReplace,
   copiedDirectoryCanReplaceWith,
   copiedDirectoryOwnsPath,
   readCopiedDirectory,
+  readCopiedDirectoryAt,
   retireCopiedDirectory,
 } from "./copied-directory.js";
 

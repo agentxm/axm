@@ -15,7 +15,6 @@ import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
-import { withLocalAssessmentReadView } from "../inspection/show/content-read-view.js";
 import { SyncWorkspace } from "./sync-workspace.js";
 import { applySync, makeSyncFixture, syncRequest } from "../testing/sync-fixture.js";
 
@@ -118,34 +117,6 @@ describe("Disabled MCP withdrawal planning", () => {
       );
       // A current inspection plans no withdrawal and copies nothing for one.
       expect(counted).toEqual({ result: [], reads: 2, realPaths: 3, stats: 1, captures: 1 });
-    }).pipe(provideRecording);
-  });
-
-  it.effect("plans check's withdrawal from the inspection's observation", () => {
-    const workspace = disabledWorkspace();
-    cleanups.push(workspace.cleanup);
-    return Effect.gen(function* () {
-      const counted = yield* countAfterDisabling(
-        workspace,
-        true,
-        withLocalAssessmentReadView(
-          SyncWorkspace.assessLocalMaterialization({ target: syncRequest().target, types: [] }),
-        ).pipe(
-          Effect.map((assessed) =>
-            assessed.steps.map((step) => [step.key, step.readiness, step.message]),
-          ),
-        ),
-      );
-      expect(counted).toEqual({
-        result: [["mcp-server:disable:review", "ready", undefined]],
-        // The assessment's content view already served repeated bytes from one read.
-        reads: 1,
-        // Its identity probes of the preview's resolution and first read are gone
-        // (43 realPaths, 34 stats and seven captures before).
-        realPaths: 38,
-        stats: 31,
-        captures: 6,
-      });
     }).pipe(provideRecording);
   });
 

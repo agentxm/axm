@@ -39,6 +39,7 @@ import {
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  capturedManifestFor,
   computeExtensionPathsForLayout,
   McpSourceKey,
   type McpServerLockEntry,
@@ -291,10 +292,19 @@ export const installMcpServer: (
     const resolutionKey = Option.getOrUndefined(resolution)?.key;
     const nativeComponent =
       ref.refType === "local" || ref.refType === "git-hosted" ? ref.nativeComponent : undefined;
-    const manifest =
-      nativeComponent === undefined
-        ? Option.map(yield* readMcpServerManifestAt(canonicalPath), frozenManifest)
-        : Option.none<McpServerManifest>();
+    // A kept accepted tree's manifest is the decode its observation made at
+    // this same root; any other install reads the manifest it acquired.
+    const manifest: Option.Option<McpServerManifest> =
+      nativeComponent !== undefined
+        ? Option.none()
+        : yield* Option.match(
+            capturedManifestFor(path, facts.capturedManifest, canonicalPath, "mcp-server"),
+            {
+              onSome: (kept) => Effect.succeed(Option.some(kept)),
+              onNone: () =>
+                Effect.map(readMcpServerManifestAt(canonicalPath), Option.map(frozenManifest)),
+            },
+          );
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];

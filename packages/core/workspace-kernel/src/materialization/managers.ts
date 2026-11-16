@@ -49,6 +49,7 @@ import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement
 import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { ProjectionDigest, TreeIntegrity } from "../workspace-state/index.js";
+import type { CapturedManifest } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
@@ -125,6 +126,12 @@ export interface McpServerMaterializationFacts extends AcquiredContentFacts {
     readonly resolutionKey: Option.Option<string>;
     readonly retainShared: boolean;
   }>;
+  /**
+   * The manifest text the observation that kept an accepted tree read, and its
+   * decode; present only when the install wrote nothing and that observation
+   * found the tree usable.
+   */
+  readonly capturedManifest?: Option.Option<CapturedManifest>;
 }
 
 /** What a Pack materialization observed: the acquired content identity alone. */

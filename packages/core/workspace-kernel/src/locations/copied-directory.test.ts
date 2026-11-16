@@ -179,3 +179,233 @@ describe("copied receipt consumers", () => {
     }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
   );
 });
+
+/** A source and its copy, each with files, a relative link and a nested directory. */
+const treeFixture = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* fs
+    .makeTempDirectoryScoped({ prefix: "axm-copy-entries-" })
+    .pipe(Effect.flatMap(resolveNativeReferent));
+  const source = path.join(root, "source");
+  const copy = path.join(root, "copy");
+  const fresh = path.join(root, "fresh");
+  for (const directory of [source, copy, fresh]) {
+    yield* fs.makeDirectory(path.join(directory, "scripts"), { recursive: true });
+    for (const name of ["a.txt", "b.txt"])
+      yield* fs.writeFileString(path.join(directory, name), `Original ${name}\n`);
+    yield* fs.writeFileString(path.join(directory, "scripts", "run.sh"), "echo run\n");
+    yield* fs.symlink("a.txt", path.join(directory, "link"));
+  }
+  const receipt = yield* captureCopiedDirectory(copy, source);
+  if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+  const { fileSystem, recording } = makeRecordingFileSystem(fs);
+  const recorded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.gen(function* () {
+      recording.reset();
+      return yield* effect.pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+    });
+  const stats = (directory: string) =>
+    Object.fromEntries(
+      ["", "a.txt", "scripts", path.join("scripts", "run.sh"), "link"].map((relative) => [
+        relative === "" ? "." : relative,
+        recording.calls({ path: path.join(directory, relative), method: "stat" }).length,
+      ]),
+    );
+  return { fs, path, source, copy, fresh, receipt: receipt.value, recorded, recording, stats };
+});
+
+describe("one copied entry check", () => {
+  it.effect("stats a copied directory's root once while reading its receipt", () =>
+    Effect.gen(function* () {
+      const { copy, recorded, stats } = yield* treeFixture;
+      expect(Option.isSome(yield* recorded(readCopiedDirectory(copy)))).toBe(true);
+      expect(stats(copy)["."]).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("stats each copied entry once while deciding currency and replacement", () =>
+    Effect.gen(function* () {
+      const { copy, source, receipt, recorded, stats } = yield* treeFixture;
+      expect(yield* recorded(copiedDirectoryIsCurrentWith(copy, receipt, source))).toBe(true);
+      expect({ copy: stats(copy), source: stats(source) }).toEqual({
+        copy: { ".": 0, "a.txt": 1, scripts: 1, "scripts/run.sh": 1, link: 1 },
+        source: { ".": 0, "a.txt": 1, scripts: 1, "scripts/run.sh": 1, link: 0 },
+      });
+      expect(yield* recorded(copiedDirectoryCanReplaceWith(copy, receipt))).toBe(true);
+      expect(stats(copy)).toEqual({
+        ".": 0,
+        "a.txt": 1,
+        scripts: 1,
+        "scripts/run.sh": 1,
+        link: 1,
+      });
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("stats each entry of a new copy once while capturing it", () =>
+    Effect.gen(function* () {
+      const { fresh, source, recorded, stats } = yield* treeFixture;
+      expect(Option.isSome(yield* recorded(captureCopiedDirectory(fresh, source)))).toBe(true);
+      expect(stats(fresh)).toEqual({
+        ".": 1,
+        "a.txt": 1,
+        scripts: 1,
+        "scripts/run.sh": 1,
+        link: 1,
+      });
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("stats an owned child once while proving and retiring it", () =>
+    Effect.gen(function* () {
+      const { fs, path, copy, recorded, stats } = yield* treeFixture;
+      expect(yield* recorded(copiedDirectoryOwnsPath(copy, path.join(copy, "a.txt")))).toBe(true);
+      expect(stats(copy)["a.txt"]).toBe(1);
+      expect(yield* recorded(copiedDirectoryOwnsPath(copy, path.join(copy, "scripts")))).toBe(true);
+      expect(stats(copy)["scripts"]).toBe(1);
+      expect(yield* recorded(retireCopiedDirectory(copy))).toBe(true);
+      expect(stats(copy)).toEqual({
+        ".": 1,
+        "a.txt": 1,
+        scripts: 1,
+        "scripts/run.sh": 1,
+        link: 1,
+      });
+      expect(yield* fs.exists(copy)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("still refuses a copied subdirectory replaced by identical contents", () =>
+    Effect.gen(function* () {
+      const { fs, path, copy, source, receipt } = yield* treeFixture;
+      const scripts = path.join(copy, "scripts");
+      yield* fs.remove(scripts, { recursive: true });
+      yield* fs.makeDirectory(scripts);
+      yield* fs.writeFileString(path.join(scripts, "run.sh"), "echo run\n");
+      expect(yield* copiedDirectoryIsCurrentWith(copy, receipt, source)).toBe(false);
+      expect(yield* copiedDirectoryCanReplaceWith(copy, receipt)).toBe(false);
+      expect(yield* copiedDirectoryOwnsPath(copy, scripts)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+});
+
+/** A package root whose nested directory holds a file and `links` relative links to it. */
+const linkedTree = (directory: string, links: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* fs.makeDirectory(path.join(directory, "sub"), { recursive: true });
+    yield* fs.writeFileString(path.join(directory, "sub", "a"), "payload\n");
+    for (const [index, target] of links.entries())
+      yield* fs.symlink(target, path.join(directory, "sub", `l${index + 1}`));
+  });
+
+const linkWalkFixture = (sourceLinks: ReadonlyArray<string>, copyLinks = sourceLinks) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs
+      .makeTempDirectoryScoped({ prefix: "axm-copy-links-" })
+      .pipe(Effect.flatMap(resolveNativeReferent));
+    const source = path.join(root, "source");
+    const copy = path.join(root, "copy");
+    yield* linkedTree(source, sourceLinks);
+    yield* linkedTree(copy, copyLinks);
+    const { fileSystem, recording } = makeRecordingFileSystem(fs);
+    const recorded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.gen(function* () {
+        recording.reset();
+        return yield* effect.pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+      });
+    const rootRealPaths = (directory: string) =>
+      recording.calls({ path: directory, method: "realPath" }).length;
+    return { fs, fileSystem, source, copy, recorded, rootRealPaths };
+  });
+
+describe("contained-link checks within one tree walk", () => {
+  const relative = ["a", "a", "a"];
+
+  it.effect("resolves a captured copy's root once for all of its links", () =>
+    Effect.gen(function* () {
+      const { copy, source, recorded, rootRealPaths } = yield* linkWalkFixture(relative);
+      expect(Option.isSome(yield* recorded(captureCopiedDirectory(copy, source)))).toBe(true);
+      expect(rootRealPaths(copy)).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("resolves a source root once for all of its links while checking currency", () =>
+    Effect.gen(function* () {
+      const { copy, source, recorded, rootRealPaths } = yield* linkWalkFixture(relative);
+      const receipt = yield* captureCopiedDirectory(copy, source);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+      expect(yield* recorded(copiedDirectoryIsCurrentWith(copy, receipt.value, source))).toBe(true);
+      expect(rootRealPaths(source)).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("never resolves the root of a tree without links", () =>
+    Effect.gen(function* () {
+      const { copy, source, recorded, rootRealPaths } = yield* linkWalkFixture([]);
+      const receipt = yield* recorded(captureCopiedDirectory(copy, source));
+      expect(rootRealPaths(copy)).toBe(0);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+      expect(yield* recorded(copiedDirectoryIsCurrentWith(copy, receipt.value, source))).toBe(true);
+      expect(rootRealPaths(source)).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("refuses an absolute link before resolving the root", () =>
+    Effect.gen(function* () {
+      const absolute = yield* linkWalkFixture(["/absolute"], ["a"]);
+      const receipt = yield* captureCopiedDirectory(absolute.copy, absolute.source);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+      expect(
+        yield* absolute.recorded(
+          copiedDirectoryIsCurrentWith(absolute.copy, receipt.value, absolute.source),
+        ),
+      ).toBe(false);
+      expect(absolute.rootRealPaths(absolute.source)).toBe(0);
+
+      const refused = yield* linkWalkFixture(["a"], ["/absolute"]);
+      expect(
+        yield* refused
+          .recorded(captureCopiedDirectory(refused.copy, refused.source))
+          .pipe(Effect.flip),
+      ).toMatchObject({ _tag: "NativeLocationError", reason: "escape" });
+      expect(refused.rootRealPaths(refused.copy)).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+
+  it.effect("reports a root that cannot be resolved at its first relative link", () =>
+    Effect.gen(function* () {
+      const { fs, copy, source } = yield* linkWalkFixture(relative);
+      const receipt = yield* captureCopiedDirectory(copy, source);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
+      yield* fs.remove(yield* copiedDirectoryReceiptPath(copy));
+      const denied = (root: string) => {
+        const failure = PlatformError.systemError({
+          _tag: "PermissionDenied",
+          module: "FileSystem",
+          method: "realPath",
+          pathOrDescriptor: root,
+        });
+        return {
+          ...fs,
+          realPath: (target) => (target === root ? Effect.fail(failure) : fs.realPath(target)),
+        } satisfies FileSystem.FileSystem;
+      };
+      expect(
+        yield* captureCopiedDirectory(copy, source).pipe(
+          Effect.provideService(FileSystem.FileSystem, denied(copy)),
+          Effect.flip,
+        ),
+      ).toMatchObject({ _tag: "NativeLocationError", target: copy, reason: "unreadable" });
+      expect(
+        yield* copiedDirectoryIsCurrentWith(copy, receipt.value, source).pipe(
+          Effect.provideService(FileSystem.FileSystem, denied(source)),
+        ),
+      ).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
+});

@@ -4,9 +4,17 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { NativeLocationError, resolveNativeEntry } from "./native-address.js";
-import { validateContainedLink } from "./contained-link.js";
-import { nativeInode, nativeLinkIdentity } from "./native-inode.js";
+import {
+  NativeLocationError,
+  observeNativeReferent,
+  resolveNativeEntry,
+  resolveObservedNativeEntry,
+  type NativeEntryAddress,
+  type NativeReferentObservation,
+  type ObservedNativeEntry,
+} from "./native-address.js";
+import { containedLinkValidator } from "./contained-link.js";
+import { nativeLinkIdentity } from "./native-inode.js";
 
 /** Management evidence is a sibling, never an upstream payload member. */
 export const copiedDirectoryReceiptPath = (directory: string) =>
@@ -46,16 +54,16 @@ const sameIdentity = (left: typeof Identity.Type, right: typeof Identity.Type) =
   left.birthtime === right.birthtime &&
   left.mode === right.mode;
 
-const identityOf = (info: FileSystem.File.Info) =>
-  Option.all({ inode: nativeInode(info), birthtime: info.birthtime }).pipe(
-    Option.filter(({ birthtime }) => birthtime.getTime() > 0),
-    Option.map(({ inode, birthtime }) => ({
-      device: info.dev.toString(),
-      inode,
-      birthtime: birthtime.getTime(),
-      mode: info.mode,
-    })),
-  );
+const identityOfObserved = ({ device, inode, birthtime, mode }: NativeReferentObservation) =>
+  inode === undefined || birthtime === undefined || !(birthtime > 0)
+    ? Option.none()
+    : Option.some({ device, inode, birthtime, mode });
+
+const identityOf = (info: FileSystem.File.Info) => identityOfObserved(observeNativeReferent(info));
+
+/** The identity of an ordinary entry from the followed stat that resolved it. */
+const observedIdentity = (observed: ObservedNativeEntry) =>
+  Option.flatMap(observed.referent, identityOfObserved);
 
 /** Record exactly the files created by a copy. The root identity expires on replacement. */
 export const captureCopiedDirectory = (directory: string, source: string) =>
@@ -70,6 +78,7 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
     const files: Array<{ path: string; integrity: string; identity: typeof Identity.Type }> = [];
     const links: Array<CopiedDirectoryReceipt["links"][number]> = [];
     const directories: Array<{ path: string; identity: typeof Identity.Type }> = [];
+    const validateContainedLink = containedLinkValidator(directory);
     const pending = [""];
     while (pending.length > 0) {
       const relative = pending.pop();
@@ -77,15 +86,20 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
       for (const name of yield* fs.readDirectory(path.join(directory, relative))) {
         const child = path.join(relative, name);
         const absolute = path.join(directory, child);
-        const address = yield* resolveNativeEntry(absolute);
+        const observed = yield* resolveObservedNativeEntry(absolute);
+        const address = observed.address;
         if (address.kind === "symlink" && address.linkTarget !== undefined) {
-          yield* validateContainedLink(directory, absolute, address.linkTarget);
+          yield* validateContainedLink(absolute, address.linkTarget);
           const linkIdentity = yield* nativeLinkIdentity(absolute);
           if (Option.isNone(linkIdentity)) return Option.none<CopiedDirectoryReceipt>();
           links.push({ path: child, target: address.linkTarget, identity: linkIdentity.value });
           continue;
         }
-        const childIdentity = identityOf(yield* fs.stat(absolute));
+        // An ordinary entry's resolution already stat'd it; anything else is observed live.
+        const childIdentity =
+          address.kind === "file" || address.kind === "directory"
+            ? observedIdentity(observed)
+            : identityOf(yield* fs.stat(absolute));
         if (Option.isNone(childIdentity)) return Option.none<CopiedDirectoryReceipt>();
         if (address.kind === "directory") {
           directories.push({ path: child, identity: childIdentity.value });
@@ -114,9 +128,21 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
 /** Invalid, missing, replaced, or symlinked copies carry no deletion authority. */
 export const readCopiedDirectory = (directory: string) =>
   Effect.gen(function* () {
+    const observed = yield* resolveObservedNativeEntry(directory);
+    // The resolution's followed stat is the directory's current identity.
+    return yield* readResolvedCopiedDirectory(directory, observed.address, () =>
+      Effect.succeed(observedIdentity(observed)),
+    );
+  }).pipe(Effect.catch(() => Effect.succeedNone));
+
+const readResolvedCopiedDirectory = <E, R>(
+  directory: string,
+  address: NativeEntryAddress,
+  currentIdentity: () => Effect.Effect<Option.Option<typeof Identity.Type>, E, R>,
+) =>
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const address = yield* resolveNativeEntry(directory);
     if (address.kind !== "directory") return Option.none<CopiedDirectoryReceipt>();
     const receiptPath = yield* copiedDirectoryReceiptPath(directory);
     const receiptAddress = yield* resolveNativeEntry(receiptPath);
@@ -128,7 +154,7 @@ export const readCopiedDirectory = (directory: string) =>
         Effect.option,
       );
     if (Option.isNone(receipt)) return receipt;
-    const current = identityOf(yield* fs.stat(directory));
+    const current = yield* currentIdentity();
     if (Option.isNone(current)) return Option.none<CopiedDirectoryReceipt>();
     const expected = receipt.value.identity;
     if (!sameIdentity(current.value, expected)) return Option.none<CopiedDirectoryReceipt>();
@@ -149,7 +175,7 @@ export const readCopiedDirectory = (directory: string) =>
     )
       return Option.none<CopiedDirectoryReceipt>();
     return receipt;
-  }).pipe(Effect.catch(() => Effect.succeedNone));
+  });
 
 /** Only unchanged, ordinary files from the receipt are eligible for retirement. */
 const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectoryReceipt) =>
@@ -159,9 +185,10 @@ const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectoryReceipt
     return yield* Effect.filter(receipt.files, (file) =>
       Effect.gen(function* () {
         const absolute = path.join(directory, file.path);
-        const address = yield* resolveNativeEntry(absolute);
+        const observed = yield* resolveObservedNativeEntry(absolute);
+        const address = observed.address;
         if (address.kind !== "file" || address.entryPath !== absolute) return false;
-        const identity = identityOf(yield* fs.stat(absolute));
+        const identity = observedIdentity(observed);
         if (Option.isNone(identity) || !sameIdentity(identity.value, file.identity)) return false;
         return sha512Integrity(yield* fs.readFile(absolute)) === file.integrity;
       }).pipe(Effect.catch(() => Effect.succeed(false))),
@@ -193,7 +220,6 @@ const unchangedCopiedLinks = (directory: string, receipt: CopiedDirectoryReceipt
 /** Exact child ownership from a live creation receipt, without claiming foreign siblings. */
 export const copiedDirectoryOwnsPath = (directory: string, target: string) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const receipt = yield* readCopiedDirectory(directory);
     if (Option.isNone(receipt)) return false;
@@ -206,9 +232,10 @@ export const copiedDirectoryOwnsPath = (directory: string, target: string) =>
       return (yield* unchangedCopiedLinks(directory, { ...receipt.value, links })).length === 1;
     const entry = receipt.value.directories.find((entry) => entry.path === relative);
     if (entry === undefined) return false;
-    const address = yield* resolveNativeEntry(target);
+    const observed = yield* resolveObservedNativeEntry(target);
+    const address = observed.address;
     if (address.kind !== "directory" || address.entryPath !== target) return false;
-    const identity = identityOf(yield* fs.stat(target));
+    const identity = observedIdentity(observed);
     return Option.isSome(identity) && sameIdentity(identity.value, entry.identity);
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
@@ -243,14 +270,11 @@ export const copiedDirectoryCanReplaceWith = (directory: string, receipt: Copied
         const expectedDirectory = receipt.directories.find((entry) => entry.path === child);
         if (expectedDirectory === undefined) continue;
         const absolute = path.join(directory, child);
-        const address = yield* resolveNativeEntry(absolute);
-        const identity = identityOf(yield* fs.stat(absolute));
-        if (
-          address.kind !== "directory" ||
-          address.entryPath !== absolute ||
-          Option.isNone(identity) ||
-          !sameIdentity(identity.value, expectedDirectory.identity)
-        )
+        const entry = yield* resolveObservedNativeEntry(absolute);
+        if (entry.address.kind !== "directory" || entry.address.entryPath !== absolute)
+          return false;
+        const identity = observedIdentity(entry);
+        if (Option.isNone(identity) || !sameIdentity(identity.value, expectedDirectory.identity))
           return false;
         pending.push(child);
       }
@@ -289,9 +313,10 @@ export const retireCopiedDirectory = <E = never, R = never>(
       (a, b) => b.path.length - a.path.length,
     )) {
       const child = path.join(directory, entry.path);
-      const address = yield* resolveNativeEntry(child);
+      const observed = yield* resolveObservedNativeEntry(child);
+      const address = observed.address;
       if (address.kind !== "directory" || address.entryPath !== child) continue;
-      const identity = identityOf(yield* fs.stat(child));
+      const identity = observedIdentity(observed);
       if (
         Option.isSome(identity) &&
         sameIdentity(identity.value, entry.identity) &&
@@ -324,9 +349,10 @@ export const copiedDirectoryIsCurrentWith = (
     if (receipt.source !== source) return false;
     for (const entry of receipt.directories) {
       const absolute = path.join(directory, entry.path);
-      const address = yield* resolveNativeEntry(absolute);
+      const observed = yield* resolveObservedNativeEntry(absolute);
+      const address = observed.address;
       if (address.kind !== "directory" || address.entryPath !== absolute) return false;
-      const identity = identityOf(yield* fs.stat(absolute));
+      const identity = observedIdentity(observed);
       if (Option.isNone(identity) || !sameIdentity(identity.value, entry.identity)) return false;
     }
     const currentFiles = yield* unchangedCopiedFiles(directory, receipt);
@@ -336,6 +362,7 @@ export const copiedDirectoryIsCurrentWith = (
     const expectedFiles = new Map(receipt.files.map((file) => [file.path, file]));
     const expectedLinks = new Map(receipt.links.map((link) => [link.path, link.target]));
     const expectedDirectories = new Set(receipt.directories.map((entry) => entry.path));
+    const validateContainedLink = containedLinkValidator(source);
     const pending = [""];
     let seen = 0;
     const total = expectedFiles.size + expectedLinks.size + expectedDirectories.size;
@@ -349,7 +376,7 @@ export const copiedDirectoryIsCurrentWith = (
         const absolute = path.join(source, child);
         const link = yield* fs.readLink(absolute).pipe(Effect.option);
         if (Option.isSome(link)) {
-          yield* validateContainedLink(source, absolute, link.value);
+          yield* validateContainedLink(absolute, link.value);
           if (expectedLinks.get(child) !== link.value) return false;
           continue;
         }

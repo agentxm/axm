@@ -24,6 +24,22 @@ import { ProjectionTargetUnsupported } from "./errors.js";
 
 const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
 
+/** The key of a resolved entry beneath an already resolved physical scope root. */
+const keyBeneathPhysicalRoot = (
+  root: string,
+  entry: Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const entryPath = yield* entry;
+    const relative = path.relative(root, entryPath);
+    return decodeUnitPath(path.sep === "/" ? relative : relative.split(path.sep).join("/"));
+  });
+
 /** The key of a resolved entry beneath the physical scope root, resolved live. */
 const keyBeneathScopeRoot = (
   scopeRoot: string,
@@ -33,13 +49,10 @@ const keyBeneathScopeRoot = (
   NativeLocationError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const root = yield* resolveNativeReferent(scopeRoot);
-    const entryPath = yield* entry;
-    const relative = path.relative(root, entryPath);
-    return decodeUnitPath(path.sep === "/" ? relative : relative.split(path.sep).join("/"));
-  });
+  Effect.flatMap(resolveNativeReferent(scopeRoot), (root) => keyBeneathPhysicalRoot(root, entry));
+
+const targetEntry = (target: string) =>
+  Effect.map(resolveNativeEntry(target), ({ entryPath }) => entryPath);
 
 /**
  * A native path as a POSIX scope-relative row key, or `None` when its physical
@@ -53,11 +66,21 @@ export const scopeUnitPath = (
   Option.Option<ProjectionUnitPath>,
   NativeLocationError,
   FileSystem.FileSystem | Path.Path
-> =>
-  keyBeneathScopeRoot(
-    scopeRoot,
-    Effect.map(resolveNativeEntry(target), ({ entryPath }) => entryPath),
-  );
+> => keyBeneathScopeRoot(scopeRoot, targetEntry(target));
+
+/**
+ * {@link scopeUnitPath} beneath a scope root the caller's own read-only work
+ * resolved with `resolveNativeReferent`, with nothing written since; the
+ * target's entry is still resolved live.
+ */
+export const scopeUnitPathBeneath = (
+  physicalRoot: string,
+  target: string,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> => keyBeneathPhysicalRoot(physicalRoot, targetEntry(target));
 
 /**
  * {@link scopeUnitPath} of an entry the caller has just resolved for the same

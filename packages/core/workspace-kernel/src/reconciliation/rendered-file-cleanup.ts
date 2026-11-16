@@ -10,6 +10,7 @@ import {
   combineNativeLocationOutcomes,
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
+  resolveNativeReferent,
   retireCopiedDirectory,
   type NativeLocationOutcome,
 } from "../locations/index.js";
@@ -28,7 +29,7 @@ import {
   retiredNativeArtifactLocationOutcomes,
   observeAgentOutputs,
   captureAgentOutputAuthority,
-  scopeUnitPath,
+  scopeUnitPathBeneath,
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
@@ -223,9 +224,13 @@ export const reconcileAgentOutputs = (
       )).projections,
       "subagents",
     );
+    // The physical scope root, resolved live by this call's first residue
+    // decision and keying every later one; no decision, no resolution.
+    const physicalScopeRoot = yield* Effect.cached(resolveNativeReferent(location.baseDir));
     const residueDecision = (output: AgentOutputObservation) =>
       Effect.gen(function* () {
-        const unit = yield* scopeUnitPath(location.baseDir, output.path).pipe(
+        const unit = yield* physicalScopeRoot.pipe(
+          Effect.flatMap((root) => scopeUnitPathBeneath(root, output.path)),
           Effect.mapError((cause) =>
             cleanupFailure("Cannot locate a recorded Subagent output", cause),
           ),

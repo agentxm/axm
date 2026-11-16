@@ -257,6 +257,7 @@ export {
 export { captureNativeArtifactLocations } from "./native-artifact-locations.js";
 export { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
 export { projectionUnitPathOfEntry } from "./unit-path.js";
+export { scopeUnitPathBeneath } from "./unit-path.js";
 export {
   reconcileNativeManagedRegion,
   refreshNativeRegionReaders,

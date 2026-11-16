@@ -20,6 +20,8 @@ import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { deriveOperationOutcome, type Plan } from "@agentxm/workspace-kernel/operations";
+import { HookManager } from "@agentxm/workspace-kernel/materialization";
+import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import {
   acceptedLockedResolutionRef,
   withWorkspaceReadView,
@@ -169,27 +171,90 @@ describe("Hook install planning of an accepted Registry Hook", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("hashes as before when installing another version over an intact Hook", () =>
+  it.effect("prepares another version over an intact Hook from the fetched package", () =>
     Effect.gen(function* () {
       const installed = yield* acceptedHook;
-      installed.registry.writeHook(HOOK, [{ version: "1.0.0" }, { version: "2.0.0" }]);
+      // The later release binds a different event, so the projected binding
+      // shows which release's manifest decode the preparation used.
+      installed.registry.writeHook(HOOK, [
+        { version: "1.0.0" },
+        {
+          version: "2.0.0",
+          files: {
+            "hook.json": JSON.stringify({
+              owner: "@acme",
+              type: "hook",
+              name: HOOK,
+              version: "2.0.0",
+              description: `The ${HOOK} hook.`,
+              implementations: [
+                {
+                  id: "claude-code",
+                  protocol: "claude-code",
+                  bindings: [
+                    {
+                      id: "release",
+                      event: "PostToolUse",
+                      handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+                    },
+                  ],
+                },
+              ],
+            }),
+          },
+        },
+      ]);
+      const releaseRequest = installRequest({
+        type: "hook",
+        subject: { kind: "source", source: `@acme/hooks/${HOOK}@2.0.0` },
+      });
+      const recorder = makeRecordingFileSystem(yield* FileSystem.FileSystem);
       const work = workObservations(false);
 
-      yield* installed.workspace.provide(
-        InstallExtensions.prepare(
-          installRequest({
-            type: "hook",
-            subject: { kind: "source", source: `@acme/hooks/${HOOK}@2.0.0` },
-          }),
-        ).pipe(work.provide),
-      );
+      const candidate = yield* installed.workspace
+        .provide(InstallExtensions.prepare(releaseRequest).pipe(work.provide))
+        .pipe(Effect.provideService(FileSystem.FileSystem, recorder.fileSystem));
 
-      // The accepted row selects other content, so its observation frames no
-      // package hash: the same counts as before the preparation took digests.
-      expect({ treeHashes: treeHashes(work), packageHashes: packageHashes(work) }).toEqual({
-        treeHashes: 6,
-        packageHashes: 3,
-      });
+      // The accepted row selects other content, so the preparation's
+      // observation frames no package hash and lends no manifest decode.
+      // Measured before: canonicalManifestReads 13, unchanged when the
+      // preparation took its observation's decode; the two fewer reads are
+      // the retained 1.0.0 contributor's selections framing its package hash
+      // from their observations' walks.
+      expect({
+        treeHashes: treeHashes(work),
+        packageHashes: packageHashes(work),
+        canonicalManifestReads: recorder.recording.contentReads(
+          nodePath.join(canonicalHookRoot(installed), "hook.json"),
+        ),
+      }).toEqual({ treeHashes: 6, packageHashes: 3, canonicalManifestReads: 11 });
+      expect(candidate.execution.plan.jobs[0]?.steps[0]?.artifact?.version).toBe("2.0.0");
+
+      // The Hook preparation of the release, beside the intact 1.0.0 package,
+      // projects the fetched release's manifest decode, not the one its
+      // observation made of the accepted package.
+      const prepared = yield* installed.workspace.provide(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const accepted = yield* acceptedLockedResolutionRef({ type: "hook", name: HOOK });
+            if (Option.isNone(accepted) || accepted.value.type !== "hook")
+              return yield* Effect.die("The Hook was not accepted");
+            const [release] = yield* (yield* SourceHostProviders).find(accepted.value.source, {
+              names: [HOOK],
+              type: "hook",
+              owner: Option.none(),
+              versionRange: Option.some("2.0.0"),
+            });
+            if (release?.type !== "hook") return yield* Effect.die("The release was not found");
+            return yield* (yield* HookManager).prepareProjection([release]);
+          }),
+        ),
+      );
+      expect(
+        prepared.agentOutcomes.flatMap(
+          (outcome) => outcome.hook?.bindings.map(({ id, event }) => ({ id, event })) ?? [],
+        ),
+      ).toEqual([{ id: "release", event: "PostToolUse" }]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

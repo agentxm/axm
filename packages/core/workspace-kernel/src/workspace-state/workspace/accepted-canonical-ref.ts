@@ -46,6 +46,7 @@ import {
   type CapturedSubagentPackage,
   type ObservedTreeDigests,
 } from "./canonical-observation.js";
+import type { CapturedTreeWalk } from "./materialized-tree.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
@@ -455,6 +456,7 @@ const observeDesiredCanonicalCapturingWith = (
   desired: DesiredExtensionNode,
   current?: AcceptedEntryOptions,
   digestAcceptedTree?: (accepted: LockEntry) => boolean,
+  retainTreeWalk?: boolean,
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -463,6 +465,7 @@ const observeDesiredCanonicalCapturingWith = (
     return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, {
       lockfile,
       ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+      ...(retainTreeWalk === true ? { retainTreeWalk } : {}),
     });
   });
 
@@ -480,12 +483,13 @@ const observeAcceptedCanonicalCapturing = (
     readonly judged?: ReturnType<typeof judgeCanonicalBeforeContent>;
     readonly lockfile?: Lockfile | undefined;
     readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+    readonly retainTreeWalk?: boolean;
   },
 ) =>
   Effect.gen(function* () {
-    const { verifiedTree, judged, digestAcceptedTree } = prepared;
+    const { verifiedTree, judged, digestAcceptedTree, retainTreeWalk } = prepared;
     const reader = yield* LockfileReader;
-    const { observation, manifest, subagentPackage, digests } =
+    const { observation, manifest, subagentPackage, digests, treeWalk } =
       yield* observeCanonicalExtensionCapturing({
         layout,
         desired,
@@ -493,6 +497,7 @@ const observeAcceptedCanonicalCapturing = (
         ...(verifiedTree === undefined ? {} : { verifiedTree }),
         ...(judged === undefined ? {} : { judged }),
         ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+        ...(retainTreeWalk === true ? { retainTreeWalk } : {}),
       });
     const observed: AcceptedCanonicalObservation = {
       desired,
@@ -511,7 +516,13 @@ const observeAcceptedCanonicalCapturing = (
           },
         }),
     };
-    return { observed, manifest, subagentPackage, digests };
+    return {
+      observed,
+      manifest,
+      subagentPackage,
+      digests,
+      treeWalk: Option.fromUndefinedOr(treeWalk),
+    };
   });
 
 /**
@@ -573,13 +584,19 @@ export const acceptedCanonicalObservationCapturing = (
 const acceptedCanonicalObservationDigesting = (
   { type, name, desired: proposed }: AcceptedCanonicalRefArgs,
   digestAcceptedTree?: (accepted: LockEntry) => boolean,
+  retainTreeWalk?: boolean,
 ) =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
     if (proposed !== undefined) {
-      const { observed, manifest, subagentPackage, digests } =
-        yield* observeDesiredCanonicalCapturingWith(proposed, undefined, digestAcceptedTree);
-      return { observed: Option.some(observed), manifest, subagentPackage, digests };
+      const { observed, manifest, subagentPackage, digests, treeWalk } =
+        yield* observeDesiredCanonicalCapturingWith(
+          proposed,
+          undefined,
+          digestAcceptedTree,
+          retainTreeWalk,
+        );
+      return { observed: Option.some(observed), manifest, subagentPackage, digests, treeWalk };
     }
     const graph = yield* desiredState.graph();
     const desired = graph.nodes.find((node) => node.type === type && node.name === name);
@@ -589,15 +606,38 @@ const acceptedCanonicalObservationDigesting = (
         manifest: Option.none<CapturedManifest>(),
         subagentPackage: undefined,
         digests: Option.none<ObservedTreeDigests>(),
+        treeWalk: Option.none<CapturedTreeWalk>(),
       };
-    const { observed, manifest, subagentPackage, digests } =
+    const { observed, manifest, subagentPackage, digests, treeWalk } =
       yield* observeDesiredCanonicalCapturingWith(
         desired,
         currentGraph(desiredState, graph),
         digestAcceptedTree,
+        retainTreeWalk,
       );
-    return { observed: Option.some(observed), manifest, subagentPackage, digests };
+    return { observed: Option.some(observed), manifest, subagentPackage, digests, treeWalk };
   });
+
+/**
+ * Observe like `acceptedCanonicalObservation`, also handing the caller the
+ * strict walk the observation made of the accepted tree when it ends usable,
+ * for that caller's one further digest of the same tree in the same read
+ * phase. The walk is never retained here or on the observation.
+ */
+export const acceptedCanonicalObservationWalking = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  {
+    readonly observed: Option.Option<AcceptedCanonicalObservation>;
+    readonly treeWalk: Option.Option<CapturedTreeWalk>;
+  },
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.map(
+    acceptedCanonicalObservationDigesting(args, undefined, true),
+    ({ observed, treeWalk }) => ({ observed, treeWalk }),
+  );
 
 export const acceptedCanonicalObservation = (
   args: AcceptedCanonicalRefArgs,

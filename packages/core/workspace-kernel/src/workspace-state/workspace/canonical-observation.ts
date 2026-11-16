@@ -9,6 +9,8 @@ import {
   computeMaterializedTreeDigestsMatching,
   computeMaterializedTreeIntegrity,
   computeMaterializedTreeIntegrityReading,
+  computeMaterializedTreeIntegrityWalking,
+  type CapturedTreeWalk,
   type TreeIntegrity,
   type WalkedFileText,
 } from "./materialized-tree.js";
@@ -114,6 +116,13 @@ interface ObserveCanonicalArgs {
    * ends usable.
    */
   readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+  /**
+   * Asks for the strict walk of the accepted tree as the observation made
+   * it, handed out only from a walk whose integrity is the accepted one, by
+   * an observation that ends usable. Not honoured alongside
+   * `digestAcceptedTree`, or where a verified digest stands for the walk.
+   */
+  readonly retainTreeWalk?: boolean;
 }
 
 /**
@@ -582,6 +591,8 @@ interface CanonicalObservationCapture {
    * digest different, and reported it a materialization mismatch.
    */
   readonly mismatchedTree?: ObservedTreeMismatch;
+  /** Present when the caller asked for it and the observation ended usable. */
+  readonly treeWalk?: CapturedTreeWalk;
 }
 
 const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
@@ -675,6 +686,7 @@ export const observeCanonicalExtensionCapturing = ({
   verifiedTree,
   judged: prejudged,
   digestAcceptedTree,
+  retainTreeWalk,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservationCapture,
   never,
@@ -904,6 +916,7 @@ export const observeCanonicalExtensionCapturing = ({
                 : Option.none<ObservedTreeDigests>(),
           )
         : undefined;
+    let treeWalk: CapturedTreeWalk | undefined;
     if (!workspaceAuthored && accepted !== undefined) {
       const judged =
         digested !== undefined
@@ -912,7 +925,26 @@ export const observeCanonicalExtensionCapturing = ({
               verifiedTree.root === root &&
               verifiedTree.accepted === accepted
             ? { matches: verifiedTree.integrity === accepted.treeIntegrity }
-            : yield* observeTreeAgainstAccepted(root, accepted);
+            : retainTreeWalk === true
+              ? yield* Effect.map(
+                  Effect.result(computeMaterializedTreeIntegrityWalking(root)),
+                  (walked) => {
+                    if (Result.isFailure(walked)) return { matches: false };
+                    if (walked.success.integrity === accepted.treeIntegrity) {
+                      treeWalk = Option.getOrUndefined(walked.success.walk);
+                      return { matches: true };
+                    }
+                    return {
+                      matches: false,
+                      mismatch: Object.freeze({
+                        root,
+                        acceptedIntegrity: accepted.treeIntegrity,
+                        observed: walked.success.integrity,
+                      }),
+                    };
+                  },
+                )
+              : yield* observeTreeAgainstAccepted(root, accepted);
       if (!judged.matches) {
         const mismatched = captured(
           {
@@ -946,7 +978,7 @@ export const observeCanonicalExtensionCapturing = ({
       );
     }
 
-    return captured(
+    const usable = captured(
       {
         type: desired.type,
         name: desired.name,
@@ -956,6 +988,7 @@ export const observeCanonicalExtensionCapturing = ({
       subagentPackage,
       digested ?? Option.none(),
     );
+    return treeWalk === undefined ? usable : { ...usable, treeWalk };
   });
 
 export const observeCanonicalExtension = (

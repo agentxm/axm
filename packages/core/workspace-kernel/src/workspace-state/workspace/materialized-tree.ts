@@ -79,18 +79,21 @@ interface PackageContentEntry {
  * also comes back with the bytes it was hashed from, for one caller to frame
  * a second digest without reading the tree again. When `retainText` names the
  * exact path the walk reads a regular file at, that file's bytes also come
- * back decoded as `readFileString` decodes them, unless decoding fails.
+ * back decoded as `readFileString` decodes them, unless decoding fails. When
+ * `captureWalk` is set, the walk also comes back as it observed it.
  */
 const strictTreeDigest = (
   root: string,
   options: MaterializedTreeIntegrityOptions,
   retainPayloads: boolean,
   retainText?: ReadonlySet<string>,
+  captureWalk?: boolean,
 ): Effect.Effect<
   {
     readonly integrity: TreeIntegrity;
     readonly entries: ReadonlyArray<PackageContentEntry>;
     readonly texts?: ReadonlyMap<string, string>;
+    readonly walk?: CapturedTreeWalk;
   },
   MaterializedTreeInvalid,
   FileSystem.FileSystem | Path.Path
@@ -100,6 +103,17 @@ const strictTreeDigest = (
     const path = yield* Path.Path;
     const files: MaterializedEntry[] = [];
     const caseFoldedPaths = new Map<string, string>();
+    const captured =
+      captureWalk === true
+        ? {
+            names: new Map<string, ReadonlyArray<string>>(),
+            facts: new Map<string, Map<string, WalkedEntryFacts>>(),
+            bytes: new Map<string, Uint8Array>(),
+          }
+        : undefined;
+    // Captured listings are keyed as a platform-joined relative directory.
+    const listingKey = (relativeDirectory: string) =>
+      relativeDirectory === "" ? "" : path.join(...relativeDirectory.split("/"));
 
     const walk = (
       directory: string,
@@ -114,6 +128,11 @@ const strictTreeDigest = (
             ),
           );
         const ordered = [...entries].sort((left, right) => left.localeCompare(right, "en"));
+        const listedFacts = new Map<string, WalkedEntryFacts>();
+        if (captured !== undefined) {
+          captured.names.set(listingKey(relativeDirectory), Object.freeze([...entries]));
+          captured.facts.set(listingKey(relativeDirectory), listedFacts);
+        }
         for (const entry of ordered) {
           if (
             entry.length === 0 ||
@@ -156,10 +175,17 @@ const strictTreeDigest = (
             yield* validateContainedLink(root, absolutePath, target).pipe(
               Effect.mapError((cause) => treeError(root, `unsafe symlink: ${relativePath}`, cause)),
             );
+            if (captured !== undefined)
+              listedFacts.set(entry, Object.freeze({ kind: "link", target }));
             if (options.includeFile?.(relativePath) !== false)
               files.push({ kind: "symlink", relativePath, target });
             continue;
           }
+          if (captured !== undefined)
+            listedFacts.set(
+              entry,
+              Object.freeze({ kind: "entry", type: info.type, mode: info.mode }),
+            );
           if (info.type === "Directory") {
             files.push({ kind: "directory", relativePath });
             yield* walk(absolutePath, relativePath);
@@ -215,6 +241,9 @@ const strictTreeDigest = (
         payloadBytes += content.byteLength;
         frame(hash, content);
         retain(`file:${file.executable}`, file.relativePath, content);
+        // A distribution never reads Git administration, so its bytes are not kept.
+        if (captured !== undefined && !file.relativePath.split("/").includes(".git"))
+          captured.bytes.set(file.relativePath, content);
         if (texts !== undefined && retainText?.has(file.absolutePath) === true) {
           const text = decodedText(content);
           if (text !== undefined) texts.set(file.absolutePath, text);
@@ -234,8 +263,58 @@ const strictTreeDigest = (
       integrity: decodeTreeIntegrity(`${TREE_INTEGRITY_PREFIX}${hash.digest("hex")}`),
       entries,
       ...(texts === undefined ? {} : { texts }),
+      ...(captured === undefined
+        ? {}
+        : {
+            walk: Object.freeze({
+              names: (relativeDirectory: string) => captured.names.get(relativeDirectory),
+              facts: (relativeDirectory: string, name: string) =>
+                captured.facts.get(relativeDirectory)?.get(name),
+              bytes: (relativePath: string) => {
+                // A copy: a Node buffer's `slice` would share the read bytes.
+                const read = captured.bytes.get(relativePath);
+                return read === undefined ? undefined : new Uint8Array(read);
+              },
+            }),
+          }),
     };
   });
+
+/** What a strict walk observed of one listed entry, without following it. */
+type WalkedEntryFacts =
+  | { readonly kind: "link"; readonly target: string }
+  | ({ readonly kind: "entry" } & Pick<FileSystem.File.Info, "type" | "mode">);
+
+/**
+ * One strict walk of a tree as it observed it: each directory's names in
+ * listing order, keyed by the directory's path relative to the root ("" for
+ * the root, joined with the platform separator), what it observed of each
+ * entry, and a copy of the bytes it read of each regular file outside Git
+ * administration, by its "/"-joined relative path.
+ */
+export interface CapturedTreeWalk {
+  readonly names: (relativeDirectory: string) => ReadonlyArray<string> | undefined;
+  readonly facts: (relativeDirectory: string, name: string) => WalkedEntryFacts | undefined;
+  readonly bytes: (relativePath: string) => Uint8Array | undefined;
+}
+
+/**
+ * The strict walk of `computeMaterializedTreeIntegrity`, also returning the
+ * walk as it observed it, for one caller that digests the same tree again
+ * within the same read phase. Its failures, their order and its work
+ * observation are those of `computeMaterializedTreeIntegrity`.
+ */
+export const computeMaterializedTreeIntegrityWalking = (
+  root: string,
+): Effect.Effect<
+  { readonly integrity: TreeIntegrity; readonly walk: Option.Option<CapturedTreeWalk> },
+  MaterializedTreeInvalid,
+  FileSystem.FileSystem | Path.Path
+> =>
+  strictTreeDigest(root, {}, false, undefined, true).pipe(
+    Effect.map(({ integrity, walk }) => ({ integrity, walk: Option.fromUndefinedOr(walk) })),
+    (effect) => withWork("axm.hash.materialized-tree", effect),
+  );
 
 /** The text `readFileString` without an encoding yields for `bytes`, or `undefined` where it fails. */
 const decodedText = (bytes: Uint8Array): string | undefined => {

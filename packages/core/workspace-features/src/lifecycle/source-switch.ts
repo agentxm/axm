@@ -15,6 +15,7 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationWalking,
   computeMaterializedTreeIntegrity,
   DesiredStateReader,
   LockfileReader,
@@ -215,11 +216,17 @@ const classifyPackMembers = (
 
 const ComparableManifestSchema = Schema.Struct({ publish: Schema.optional(Schema.Unknown) });
 
+/**
+ * The comparable digest of the tree at `directory`. `walked` is the strict
+ * walk an observation made of that same tree in this read phase, which the
+ * distribution digest replays instead of walking it again.
+ */
 const comparableTreeIntegrity = (
   directory: string,
   ref: ExtensionRef,
   compareWithRegistry: boolean,
   originalFiles?: { readonly directory: string; readonly publicationBoundaryRoot?: string },
+  walked?: Parameters<typeof computeDistributionTreeIntegrity>[3],
 ): Effect.Effect<string, OperationRefused, PrepareInstallRequirements> =>
   Effect.gen(function* () {
     if (!compareWithRegistry) {
@@ -234,7 +241,7 @@ const comparableTreeIntegrity = (
       );
     }
     if (ref.refType === "registry") {
-      return yield* computeDistributionTreeIntegrity(directory).pipe(
+      return yield* computeDistributionTreeIntegrity(directory, undefined, undefined, walked).pipe(
         Effect.mapError((cause) =>
           installRefused({ category: "validation", detail: cause.detail, cause }),
         ),
@@ -324,7 +331,7 @@ const comparableTreeIntegrity = (
       directory,
       selection,
       { path: manifestName, bytes: manifestBytes },
-      context?.listing,
+      walked ?? context?.listing,
     ).pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "validation", detail: cause.detail, cause }),
@@ -470,7 +477,15 @@ export const withSourceSwitches = <R, O>(
           steps.push(step);
           continue;
         }
-        const current = yield* observeCurrent;
+        // A comparison with a Registry digests the accepted tree again; the
+        // observation's own walk of it serves that digest.
+        const { observed: current, treeWalk } =
+          (previous.value.refType === "registry" || proposal.ref.refType === "registry") &&
+          sourceIdentity(previous.value) === sourceIdentity(proposal.ref)
+            ? yield* acceptedCanonicalObservationWalking(target).pipe(
+                Effect.mapError(inspectionRefused),
+              )
+            : { observed: yield* observeCurrent, treeWalk: Option.none() };
         if (Option.isNone(current) || current.value.accepted === undefined) {
           steps.push(step);
           continue;
@@ -505,7 +520,13 @@ export const withSourceSwitches = <R, O>(
         const compareWithRegistry =
           sourceFamily(previous.value) === "registry" || sourceFamily(proposal.ref) === "registry";
         const beforeTree = compareWithRegistry
-          ? yield* comparableTreeIntegrity(acceptedPath, previous.value, true)
+          ? yield* comparableTreeIntegrity(
+              acceptedPath,
+              previous.value,
+              true,
+              undefined,
+              Option.getOrUndefined(treeWalk),
+            )
           : current.value.accepted.treeIntegrity;
         const afterTree = yield* proposedTreeIntegrity(proposal.ref, compareWithRegistry);
         const beforeGuarantees: ReadonlyArray<string> =

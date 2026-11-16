@@ -151,7 +151,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("accepted canonical reu
   });
 
   /** Observe an accepted Git Skill whose tree `drift` changes after acceptance. */
-  const observeDrifted = (drift: (canonical: string) => void, verified = false) =>
+  const observeDrifted = (
+    drift: (canonical: string) => void,
+    verified = false,
+    retainTreeWalk = false,
+  ) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, root), {
@@ -176,6 +180,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("accepted canonical reu
         layout,
         desired,
         accepted,
+        ...(retainTreeWalk ? { retainTreeWalk } : {}),
         ...(verified
           ? {
               verifiedTree: {
@@ -221,6 +226,23 @@ layer(NodeServices.layer, { excludeTestServices: true })("accepted canonical reu
       const { capture } = yield* observeDrifted(editSkill, true);
       expect(capture.observation.status).toBe("materialization-mismatch");
       expect(capture.mismatchedTree).toBeUndefined();
+    }),
+  );
+
+  it.effect("hands out its strict walk only from a usable observation that asked for it", () =>
+    Effect.gen(function* () {
+      const usable = yield* observeDrifted(() => undefined, false, true);
+      expect(usable.capture.observation.status).toBe("usable");
+      expect(usable.capture.treeWalk?.names("src")).toEqual(["SKILL.md"]);
+      const unrequested = yield* observeDrifted(() => undefined);
+      expect(unrequested.capture.treeWalk).toBeUndefined();
+      const drifted = yield* observeDrifted(editSkill, false, true);
+      expect(drifted.capture.observation.status).toBe("materialization-mismatch");
+      expect(drifted.capture.treeWalk).toBeUndefined();
+      expect(drifted.capture.mismatchedTree?.root).toBe(drifted.canonical);
+      const verified = yield* observeDrifted(() => undefined, true, true);
+      expect(verified.capture.observation.status).toBe("usable");
+      expect(verified.capture.treeWalk).toBeUndefined();
     }),
   );
 });

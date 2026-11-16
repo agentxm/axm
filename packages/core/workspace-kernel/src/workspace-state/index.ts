@@ -75,6 +75,7 @@ export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
   computeMaterializedTreeDigests,
   computeMaterializedTreeIntegrity,
+  computeMaterializedTreeIntegrityWalking,
   MaterializedTreeInvalid,
   TreeIntegritySchema,
   type TreeIntegrity,
@@ -238,6 +239,7 @@ export {
   prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
+  acceptedCanonicalObservationWalking,
   acceptedCanonicalObservationOfKeptRoot,
   acceptedCanonicalObservationPath,
   observeDesiredCanonical,

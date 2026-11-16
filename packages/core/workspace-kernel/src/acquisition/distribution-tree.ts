@@ -31,6 +31,11 @@ type ListedDistributionEntry =
 interface DistributionTreeListing {
   readonly names: (relativeDirectory: string) => ReadonlyArray<string> | undefined;
   readonly facts: (relativeDirectory: string, name: string) => ListedDistributionEntry | undefined;
+  /**
+   * A copy of the bytes that walk read of the regular file at a "/"-joined
+   * relative path, when it read them.
+   */
+  readonly bytes?: (relativePath: string) => Uint8Array | undefined;
 }
 
 /**
@@ -44,8 +49,9 @@ interface DistributionTreeListing {
  *
  * `listing` replays the directory listings, link targets, entry types and
  * modes the caller's walk of this same `root` observed, in the order this
- * walk would observe them. Any directory or entry it does not hold is
- * observed live. Contained-link validation and file reads always run live.
+ * walk would observe them, and the bytes of regular files it read. Any
+ * directory, entry or file it does not hold is observed live. Contained-link
+ * validation always runs live.
  */
 export const computeDistributionTreeIntegrity = (
   root: string,
@@ -144,7 +150,7 @@ export const computeDistributionTreeIntegrity = (
               bytes:
                 preparedManifest?.path === relative
                   ? preparedManifest.bytes.slice()
-                  : yield* fs.readFile(absolute),
+                  : (listing?.bytes?.(relative) ?? (yield* fs.readFile(absolute))),
             });
         } else
           return yield* new DistributionTreeInvalid({

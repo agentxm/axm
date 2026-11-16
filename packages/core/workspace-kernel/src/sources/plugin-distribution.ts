@@ -46,6 +46,8 @@ export interface PluginSkillDistribution {
   readonly format: DistributionDescriptor["format"];
   readonly manifestPath?: string;
   readonly skills: ReadonlyArray<string>;
+  /** The physical path of the plugin directory this distribution was read from. */
+  readonly resolvedRoot: string;
 }
 
 /** Read distribution declarations; unknown vendor metadata does not gate acquisition. */
@@ -87,6 +89,7 @@ export const readPluginDistribution = (
             category: "validation",
             detail: `Plugin path escapes its package: ${target}`,
           });
+        return resolved;
       });
     for (const format of formats) {
       if (
@@ -221,7 +224,6 @@ export const readPluginDistribution = (
           ))
         )
           continue;
-        yield* assertContained(selected);
         if (format.format === "codex") {
           const pending = [{ directory: selected, depth: 0 }];
           const seen = new Set<string>();
@@ -234,8 +236,8 @@ export const readPluginDistribution = (
           while (pending.length > 0) {
             const current = pending.pop();
             if (current === undefined) continue;
-            yield* assertContained(current.directory);
-            const physical = yield* fs.realPath(current.directory).pipe(Effect.mapError(failure));
+            // The skills root is first contained here, as each directory beneath it is.
+            const physical = yield* assertContained(current.directory);
             if (seen.has(physical)) continue;
             seen.add(physical);
             if (
@@ -260,6 +262,7 @@ export const readPluginDistribution = (
           }
           continue;
         }
+        yield* assertContained(selected);
         if (
           format.format !== "agent-plugins" &&
           (yield* fs
@@ -289,6 +292,7 @@ export const readPluginDistribution = (
         format: format.format,
         ...(exists ? { manifestPath: format.manifestPath } : {}),
         skills: [...skills].sort(),
+        resolvedRoot,
       });
     }
     return Option.none();

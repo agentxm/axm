@@ -113,27 +113,18 @@ const matchesPortableSkillFilter = (
     )) &&
   Option.isNone(filter.owner);
 
-export const inspectExtensionPackage = (
+/** Inspect a manifest package from the entries its directory was listed with. */
+const inspectManifestPackageEntries = (
   directory: string,
-  defaultOwner: Option.Option<Handle> = Option.none(),
-  selectedType?: ExtensionType,
+  entries: ReadonlyArray<string>,
+  defaultOwner: Option.Option<Handle>,
+  selectedType: ExtensionType | undefined,
 ): Effect.Effect<
   DiscoveredManifestExtensionPackage,
   SourceNotResolvable,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const entries = yield* fs.readDirectory(directory).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `AXM package directory could not be read: ${directory}`,
-            cause,
-          }),
-      ),
-    );
     const manifestEntries = entries
       .filter((entry) => {
         const type = extensionTypeForManifestFilename(entry);
@@ -175,6 +166,30 @@ export const inspectExtensionPackage = (
       ),
     );
     return { kind: "manifest", standing: "offered", directory, identity, manifest };
+  });
+
+export const inspectExtensionPackage = (
+  directory: string,
+  defaultOwner: Option.Option<Handle> = Option.none(),
+  selectedType?: ExtensionType,
+): Effect.Effect<
+  DiscoveredManifestExtensionPackage,
+  SourceNotResolvable,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(directory).pipe(
+      Effect.mapError(
+        (cause) =>
+          new SourceNotResolvable({
+            category: "validation",
+            detail: `AXM package directory could not be read: ${directory}`,
+            cause,
+          }),
+      ),
+    );
+    return yield* inspectManifestPackageEntries(directory, entries, defaultOwner, selectedType);
   });
 
 const sourceName = (value: string): ExtensionName => {
@@ -467,8 +482,9 @@ export const discoverExtensionPackages = (
         );
         if (manifests.length > 0) {
           const candidates = yield* Effect.forEach(manifests.sort(), (manifest) =>
-            inspectExtensionPackage(
+            inspectManifestPackageEntries(
               directory,
+              entries,
               workspace.owner,
               extensionTypeForManifestFilename(manifest),
             ).pipe(

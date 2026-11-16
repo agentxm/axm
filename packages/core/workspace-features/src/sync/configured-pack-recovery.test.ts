@@ -21,7 +21,7 @@ import { afterEach } from "vitest";
 import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { withMcpInspectionReadView } from "@agentxm/workspace-kernel/projection";
-import { StepFailureConversion } from "@agentxm/workspace-kernel/reconciliation";
+import { StepFailureConversion, targetFromRef } from "@agentxm/workspace-kernel/reconciliation";
 import {
   DesiredStateReader,
   withWorkspaceObservationReadView,
@@ -105,7 +105,7 @@ const planRecovery = (workspace: SyncFixture) =>
             readiness: step?.readiness,
             errorMessage: step?.readiness === "error" ? step.errorMessage : undefined,
             acquisitionRefs: (step?.acquisitionRefs ?? []).map(
-              (ref) => `${ref.type}:${ref.type === "pack" ? ref.pack.name : ref.refType}`,
+              (ref) => `${ref.type}:${targetFromRef(ref).name}`,
             ),
             treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
               .length,
@@ -140,6 +140,26 @@ describe("configured-Pack recovery planning", () => {
 
       expect(planned).toMatchObject({ recovered: true, acquisitionRefs: ["pack:toolkit"] });
       expect(planned.treeHashes).toBe(4);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("acquires again only the member whose accepted tree is missing", () =>
+    Effect.gen(function* () {
+      const { registry, workspace } = yield* acceptedPack(["fresh", "steady"]);
+      fs.rmSync(packageRoot(registry, workspace, "packs", PACK), { recursive: true });
+      fs.rmSync(packageRoot(registry, workspace, "skills", "steady"), { recursive: true });
+
+      const planned = yield* planRecovery(workspace);
+
+      // A missing member does not block planning; its own observation, not
+      // its neighbor's, decides that it is acquired while the usable one is
+      // reused.
+      expect(planned).toMatchObject({
+        recovered: true,
+        acquisitionRefs: ["pack:toolkit", "skill:steady"],
+      });
+      expect(planned.readiness).not.toBe("error");
+      expect(planned.treeHashes).toBe(2);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

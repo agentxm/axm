@@ -382,11 +382,11 @@ describe("Post-write verification observation", () => {
       });
       expect(observation.summary(workspace.root)).toEqual({
         settingsParses: 14,
-        lockfileParses: 13,
+        lockfileParses: 11,
         presenceSettingsParses: 1,
         presenceLockfileParses: 1,
         settingsContentReads: 22,
-        lockfileContentReads: 16,
+        lockfileContentReads: 14,
         observationPhases: 2,
         verificationPhases: [verified("operation"), verified("closure")],
       });

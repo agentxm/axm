@@ -693,16 +693,37 @@ export const observeCanonicalExtensionCapturing = ({
         });
       }
 
-      const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
-      if (Result.isFailure(raw)) {
-        return uncaptured({
-          type: desired.type,
-          name: desired.name,
-          status: "corrupt",
-          path: root,
-        });
+      // SKILL.md must be readable text. A strict walk that matched the
+      // accepted tree and read SKILL.md at exactly this path as a regular
+      // file has shown that; anything else reads it, and an unreadable
+      // SKILL.md is corrupt before the tree is judged a mismatch.
+      const verified =
+        verifiedTree !== undefined &&
+        verifiedTree.root === root &&
+        verifiedTree.accepted === accepted;
+      const walked = verified
+        ? undefined
+        : yield* Effect.result(computeMaterializedTreeIntegrityReading(root, [skillMdPath]));
+      const walkedMatch =
+        walked !== undefined &&
+        Result.isSuccess(walked) &&
+        walked.success.integrity === accepted.treeIntegrity;
+      const readByWalk =
+        walkedMatch &&
+        Result.isSuccess(walked) &&
+        Option.isSome(walked.success.read.text(skillMdPath));
+      if (!readByWalk) {
+        const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
+        if (Result.isFailure(raw)) {
+          return uncaptured({
+            type: desired.type,
+            name: desired.name,
+            status: "corrupt",
+            path: root,
+          });
+        }
       }
-      if (!(yield* treeMatchesAccepted(root, accepted))) {
+      if (walked === undefined ? !(yield* treeMatchesAccepted(root, accepted)) : !walkedMatch) {
         return uncaptured({
           type: desired.type,
           name: desired.name,

@@ -214,9 +214,9 @@ export const RuleManagerLive = Layer.effect(
         Effect.mapError((cause) => new RuleDefinitionInvalid({ detail: cause.detail, cause })),
       );
 
-    const sourceFileTarget = () =>
+    /** The instruction source target, read through `phase` when one is current. */
+    const sourceFileTargetIn = (phase: Effect.Success<ReturnType<typeof workspaceReadPhaseFor>>) =>
       Effect.gen(function* () {
-        const phase = yield* workspaceReadPhaseFor(location);
         const config = yield* (phase?.readers.settings ?? settings).instructionsConfig;
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
@@ -245,11 +245,18 @@ export const RuleManagerLive = Layer.effect(
               }),
           ),
         );
-        return {
+        return Object.freeze({
           relative: relative.value,
           absolute: address.referentPath ?? address.entryPath,
-        };
+        });
       });
+    const sourceFileTarget = () =>
+      workspaceReadPhaseFor(location).pipe(Effect.flatMap(sourceFileTargetIn));
+    type SourceFileTarget = Effect.Effect<
+      Effect.Success<ReturnType<typeof sourceFileTarget>>,
+      Effect.Error<ReturnType<typeof sourceFileTarget>>,
+      Effect.Services<ReturnType<typeof sourceFileTarget>>
+    >;
 
     const readRuleBody = (packageRoot: string) =>
       fs.readFileString(path.join(packageRoot, "src", RULE_BODY_FILENAME)).pipe(
@@ -419,9 +426,10 @@ export const RuleManagerLive = Layer.effect(
     const makeRulesProjectionPlan = (
       prospective: ReadonlyArray<RenderedRuleContributor> = [],
       options?: NativeProjectionOptions,
+      sourceTarget: SourceFileTarget = sourceFileTarget(),
     ) =>
       Effect.gen(function* () {
-        const target = yield* sourceFileTarget();
+        const target = yield* sourceTarget;
         const phase = yield* workspaceReadPhaseFor(location);
         const currentSettings = phase?.readers.settings ?? settings;
         const currentLocks = phase?.readers.locks ?? lockfile;
@@ -511,6 +519,23 @@ export const RuleManagerLive = Layer.effect(
       use,
     ) =>
       Effect.gen(function* () {
+        // The instruction source target, resolved at this call's first demand,
+        // after the first input is fetched, and taken by its later demands
+        // while the same read phase, or none, is current.
+        const resolved = yield* Ref.make(
+          Option.none<{
+            readonly phase: Effect.Success<ReturnType<typeof workspaceReadPhaseFor>>;
+            readonly target: Effect.Success<SourceFileTarget>;
+          }>(),
+        );
+        const target: SourceFileTarget = Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          const prior = yield* Ref.get(resolved);
+          if (Option.isSome(prior) && prior.value.phase === phase) return prior.value.target;
+          const current = yield* sourceFileTargetIn(phase);
+          yield* Ref.set(resolved, Option.some({ phase, target: current }));
+          return current;
+        });
         const prospective = yield* Effect.forEach(
           refs,
           (ref) =>
@@ -520,7 +545,7 @@ export const RuleManagerLive = Layer.effect(
                   ref.refType === "registry"
                     ? (yield* sources.fetch(ref)).directory
                     : fromFileLocation(ref.location);
-                const nativeTarget = yield* sourceFileTarget();
+                const nativeTarget = yield* target;
                 yield* assertNoPhysicalOverlap(source, nativeTarget.absolute).pipe(
                   Effect.mapError(
                     (cause) =>
@@ -559,7 +584,7 @@ export const RuleManagerLive = Layer.effect(
           { concurrency: 1 },
         );
         return yield* withObservedProjectionPlans(
-          [yield* makeRulesProjectionPlan(prospective, options)],
+          [yield* makeRulesProjectionPlan(prospective, options, target)],
           use,
         );
       });

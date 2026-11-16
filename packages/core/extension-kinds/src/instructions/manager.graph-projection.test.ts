@@ -23,10 +23,13 @@ import {
   AcceptedResolutionWriterTest,
   MockWorkspaceTransactionScope,
   treeIntegrityOfSync,
+  extensionName,
+  handle,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
@@ -37,7 +40,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
-import { makeRecordingFileSystem } from "@agentxm/test-support";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   SourceHostProviders,
@@ -55,6 +58,7 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
+import type { LocalRuleRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { RuleManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 
@@ -503,5 +507,100 @@ describe("RuleManager graph-derived region projection", () => {
       expect(error).toMatchObject({ _tag: "DesiredStateIncomplete" });
       expect(readInstructions()).toBe("# Project\n");
     }).pipe(Effect.provide(layer));
+  });
+
+  describe("prepared Rule inputs", () => {
+    const localRuleRef = (name: string): LocalRuleRef => {
+      const root = nodePath.join(baseDir, "rules", name);
+      return {
+        type: "rule",
+        refType: "local",
+        owner: handle(OWNER),
+        name: extensionName(name),
+        source: { type: "local", path: root },
+        sourcePath: nodePath.join("rules", name),
+        location: pathToFileURL(root).href,
+        rule: { name: extensionName(name) },
+      };
+    };
+    /** A manager with no installed Rules whose filesystem records every call after setup. */
+    const recordedLayer = () => {
+      const holder: { recording?: FileSystemRecording } = {};
+      const layer = makeTestLayer({
+        graph: completeGraph([]),
+        locked: decodeLockMap({}),
+        fileSystem: (native) => {
+          const recorded = makeRecordingFileSystem(native);
+          holder.recording = recorded.recording;
+          return recorded.fileSystem;
+        },
+      });
+      return { layer, holder };
+    };
+
+    it.effect("resolves the instruction source target once per preparation", () => {
+      writeAuthoredRulePackage("alpha");
+      writeAuthoredRulePackage("beta");
+      const { layer, holder } = recordedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        /** The route probes of the instruction file that `effect` makes. */
+        const probes = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          Effect.gen(function* () {
+            holder.recording?.reset();
+            yield* effect;
+            return holder.recording?.calls({ path: instructionsPath(), method: "readLink" }).length;
+          });
+        const counted = {
+          nothingPrepared: yield* probes(
+            manager.observedProjectionPlans(undefined, (observed) =>
+              Effect.succeed(observed.plans),
+            ),
+          ),
+          noRefs: yield* probes(manager.prepareProjection([])),
+          oneRef: yield* probes(manager.prepareProjection([localRuleRef("alpha")])),
+          twoRefs: yield* probes(
+            manager.prepareProjection([localRuleRef("alpha"), localRuleRef("beta")]),
+          ),
+        };
+        // Resolving the target probes the absent instruction file twice; the
+        // plan observation and each input's overlap check probe it too.
+        // Measured before one preparation shared its resolution: 11, 11, 17
+        // and 23.
+        expect(counted).toEqual({ nothingPrepared: 11, noRefs: 11, oneRef: 15, twoRefs: 19 });
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("refuses an unwritable instruction source at the first prepared input", () => {
+      writeAuthoredRulePackage("alpha");
+      writeAuthoredRulePackage("beta");
+      const outside = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-rules-outside-"));
+      nodeFs.writeFileSync(nodePath.join(outside, "AGENTS.md"), "# Elsewhere\n");
+      nodeFs.symlinkSync(nodePath.join(outside, "AGENTS.md"), instructionsPath());
+      const { layer, holder } = recordedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        holder.recording?.reset();
+        const failure = yield* manager
+          .prepareProjection([localRuleRef("alpha"), localRuleRef("beta")])
+          .pipe(Effect.flip);
+        expect(failure).toMatchObject({
+          _tag: "RuleDefinitionInvalid",
+          detail: "Rule instruction source is not writable: AGENTS.md",
+        });
+        // The second input is never read once the first input's target is refused.
+        expect(
+          holder.recording?.contentReads(nodePath.join(baseDir, "rules", "beta", "rule.json")),
+        ).toBe(0);
+        expect(nodeFs.readFileSync(nodePath.join(outside, "AGENTS.md"), "utf8")).toBe(
+          "# Elsewhere\n",
+        );
+      }).pipe(
+        Effect.provide(layer),
+        Effect.ensuring(
+          Effect.sync(() => nodeFs.rmSync(outside, { recursive: true, force: true })),
+        ),
+      );
+    });
   });
 });

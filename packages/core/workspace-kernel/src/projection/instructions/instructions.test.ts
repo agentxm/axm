@@ -2881,7 +2881,7 @@ describe("instruction projection reads each prepared input once", () => {
           contentReads: recording.contentReads(ws.source),
           witnessHashes: witnessHashes(observations.facts),
         }).toEqual({
-          source: { readFile: 1, readLink: 6, realPath: 5, stat: 7 },
+          source: { readFile: 1, readLink: 6, realPath: 5, stat: 6 },
           contentReads: 1,
           witnessHashes: 4,
         });
@@ -3243,7 +3243,7 @@ describe("instruction projection reads each prepared input once", () => {
           },
         }).toEqual({
           // The early read and the region's witness share one content read.
-          observed: { git: 1, gitignore: { readFile: 1, readLink: 6, realPath: 5, stat: 7 } },
+          observed: { git: 1, gitignore: { readFile: 1, readLink: 6, realPath: 5, stat: 6 } },
           readiness: { git: 0, gitignore: {} },
         });
       }),
@@ -3291,7 +3291,7 @@ describe("instruction projection reads each prepared input once", () => {
           witnessHashes: witnessHashes(observations.facts),
         }).toEqual({
           // Both links name the source: its entry is resolved once for both, not twice each.
-          source: { readLink: 7, stat: 10, realPath: 6 },
+          source: { readLink: 7, stat: 7, realPath: 6 },
           claude: { readLink: 9, stat: 4, realPath: 4 },
           gemini: { readLink: 9, stat: 4, realPath: 4 },
           contentReads: 1,
@@ -3371,7 +3371,7 @@ describe("instruction projection reads each prepared input once", () => {
           contentReads: recording.contentReads(ws.source),
         }).toEqual({
           // The link's referent is the source itself: one resolution serves both.
-          source: { readLink: 7, stat: 9, realPath: 6 },
+          source: { readLink: 7, stat: 7, realPath: 6 },
           gemini: { readLink: 9, stat: 4, realPath: 4 },
           contentReads: 1,
         });
@@ -3424,8 +3424,8 @@ describe("instruction projection reads each prepared input once", () => {
           root: recording.counts(ws.root)["realPath"] ?? 0,
         }).toEqual({
           // Classification keys each copy; the row check reuses that key.
-          claude: { readLink: 8, stat: 8, realPath: 6 },
-          gemini: { readLink: 8, stat: 8, realPath: 6 },
+          claude: { readLink: 8, stat: 7, realPath: 6 },
+          gemini: { readLink: 8, stat: 7, realPath: 6 },
           root: 28,
         });
       }),

@@ -90,7 +90,7 @@ describe("runtime directory proof", () => {
           (fact) => fact.kind === "axm.native.canonical-path",
         ).length,
       }).toEqual({
-        target: { access: 1, realPath: 1, stat: 2, readLink: 1 },
+        target: { access: 1, realPath: 1, stat: 1, readLink: 1 },
         canonicalPaths: 2,
       });
     }).pipe(Effect.scoped, Effect.provide(platform)),
@@ -168,11 +168,9 @@ const CREATION_SEQUENCE: ReadonlyArray<string> = [
   "readLink:failure",
   "stat:success",
   "realPath:success",
-  "stat:success",
   "readLink:failure",
   "stat:success",
   "realPath:success",
-  "stat:success",
 ];
 
 /** Errors carry no schema; their tags, fields and nested causes are the compared surface. */

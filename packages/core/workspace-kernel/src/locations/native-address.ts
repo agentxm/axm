@@ -201,9 +201,46 @@ export const resolveExistingNativeSpelling = (
     return yield* resolveReferentWith(real, listedNativeSpelling);
   });
 
+/**
+ * The followed stat that a resolution made of an entry's referent, as plain
+ * values. It describes the same object `referentPath` names.
+ */
+export interface NativeReferentObservation {
+  readonly type: FileSystem.File.Type;
+  readonly device: string;
+  readonly inode: string | undefined;
+  /** Milliseconds; undefined where the host reports no birth time. */
+  readonly birthtime: number | undefined;
+  readonly mode: number;
+}
+
+/** The plain identity values of one followed stat. */
+export const observeNativeReferent = (info: FileSystem.File.Info): NativeReferentObservation => ({
+  type: info.type,
+  device: info.dev.toString(),
+  inode: Option.getOrUndefined(nativeInode(info)),
+  birthtime: Option.getOrUndefined(Option.map(info.birthtime, (time) => time.getTime())),
+  mode: info.mode,
+});
+
+/**
+ * An entry's address with the followed stat its resolution made, none when that
+ * stat found nothing. Valid only within the check that resolved it.
+ */
+export interface ObservedNativeEntry {
+  readonly address: NativeEntryAddress;
+  readonly referent: Option.Option<NativeReferentObservation>;
+}
+
 export const resolveNativeEntry = (
   target: string,
 ): Effect.Effect<NativeEntryAddress, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(resolveObservedNativeEntry(target), ({ address }) => address);
+
+/** `resolveNativeEntry`, keeping the followed stat that produced the address. */
+export const resolveObservedNativeEntry = (
+  target: string,
+): Effect.Effect<ObservedNativeEntry, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -226,19 +263,22 @@ export const resolveNativeEntry = (
         if (referentPath === lexicalPath) {
           const inode = nativeInode(info.value);
           return {
-            lexicalPath,
-            entryPath: referentPath,
-            referentPath,
-            kind:
-              info.value.type === "File"
-                ? "file"
-                : info.value.type === "Directory"
-                  ? "directory"
-                  : "other",
-            linkTarget: undefined,
-            device: info.value.dev.toString(),
-            inode: Option.getOrUndefined(inode),
-            links: Option.getOrUndefined(Option.map(info.value.nlink, String)),
+            address: {
+              lexicalPath,
+              entryPath: referentPath,
+              referentPath,
+              kind:
+                info.value.type === "File"
+                  ? "file"
+                  : info.value.type === "Directory"
+                    ? "directory"
+                    : "other",
+              linkTarget: undefined,
+              device: info.value.dev.toString(),
+              inode: Option.getOrUndefined(inode),
+              links: Option.getOrUndefined(Option.map(info.value.nlink, String)),
+            },
+            referent: Option.some(observeNativeReferent(info.value)),
           };
         }
       }
@@ -288,25 +328,29 @@ export const resolveNativeEntry = (
         : entryPath;
     const inode = Option.isSome(info) ? nativeInode(info.value) : Option.none<string>();
     return {
-      lexicalPath,
-      // Referent resolution supplies observed spelling for existing non-links, including case aliases.
-      entryPath: Option.isNone(link) && referentPath !== undefined ? referentPath : canonicalEntry,
-      referentPath,
-      kind: Option.isSome(link)
-        ? "symlink"
-        : Option.isNone(info)
-          ? "absent"
-          : info.value.type === "File"
-            ? "file"
-            : info.value.type === "Directory"
-              ? "directory"
-              : "other",
-      linkTarget: Option.getOrUndefined(link),
-      device: Option.isSome(info) ? info.value.dev.toString() : undefined,
-      inode: Option.getOrUndefined(inode),
-      links: Option.isSome(info)
-        ? Option.getOrUndefined(Option.map(info.value.nlink, String))
-        : undefined,
+      address: {
+        lexicalPath,
+        // Referent resolution supplies observed spelling for existing non-links, including case aliases.
+        entryPath:
+          Option.isNone(link) && referentPath !== undefined ? referentPath : canonicalEntry,
+        referentPath,
+        kind: Option.isSome(link)
+          ? "symlink"
+          : Option.isNone(info)
+            ? "absent"
+            : info.value.type === "File"
+              ? "file"
+              : info.value.type === "Directory"
+                ? "directory"
+                : "other",
+        linkTarget: Option.getOrUndefined(link),
+        device: Option.isSome(info) ? info.value.dev.toString() : undefined,
+        inode: Option.getOrUndefined(inode),
+        links: Option.isSome(info)
+          ? Option.getOrUndefined(Option.map(info.value.nlink, String))
+          : undefined,
+      },
+      referent: Option.map(info, observeNativeReferent),
     };
   });
 
@@ -472,3 +516,7 @@ export const assertResolvedNativeMutationWithin = (args: {
 /** Reuse only the physical spelling prefix freshly observed by this admission. */
 export const resolveNativeEntryWithin = (target: string, physicalRoot: string) =>
   resolveNativeEntry(target).pipe(Effect.provideService(NativeSpellingRoot, physicalRoot));
+
+/** `resolveNativeEntryWithin`, keeping the followed stat that produced the address. */
+export const resolveObservedNativeEntryWithin = (target: string, physicalRoot: string) =>
+  resolveObservedNativeEntry(target).pipe(Effect.provideService(NativeSpellingRoot, physicalRoot));

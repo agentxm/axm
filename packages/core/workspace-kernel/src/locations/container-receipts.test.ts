@@ -1,4 +1,8 @@
-import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import {
+  FileSystemRecorder,
+  layerRecordingFileSystem,
+  type FileSystemRecording,
+} from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -13,6 +17,7 @@ import {
   recordContainerReceipt,
   updateContainerReceipts,
   updateContainerReceiptsSequence,
+  verifyContainerIdentity,
   type ContainerIdentity,
   type ContainerReceipt,
 } from "./index.js";
@@ -112,9 +117,9 @@ describe("container receipt store updates", () => {
         const retiredStore = parentWork();
 
         expect({ oneAnchorProof, changedWrite, unchangedEntries, retiredStore }).toEqual({
-          oneAnchorProof: { realPath: 2, stat: 3, readLink: 1 },
+          oneAnchorProof: { realPath: 2, stat: 2, readLink: 1 },
           // One anchor capture; nothing is re-proved when no directory is created.
-          changedWrite: { realPath: 2, stat: 3, readLink: 1 },
+          changedWrite: { realPath: 2, stat: 2, readLink: 1 },
           unchangedEntries: { realPath: 0, stat: 0, readLink: 0 },
           retiredStore: { realPath: 0, stat: 0, readLink: 0 },
         });
@@ -403,6 +408,104 @@ describe("container receipt store update sequences", () => {
           ["lock"],
         ]);
         expect(sequence).toEqual(single);
+      }),
+    ),
+  );
+});
+
+describe("one container identity capture", () => {
+  /** A physical temporary root holding `native/config.json`, with the recording reset. */
+  const captureFixture = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const recording = yield* FileSystemRecorder;
+    const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+    const directory = path.join(root, "native");
+    const target = path.join(directory, "config.json");
+    yield* fs.makeDirectory(directory);
+    yield* fs.writeFileString(target, "{}");
+    recording.reset();
+    return { fs, path, recording, root, directory, target };
+  });
+
+  const work = (recording: FileSystemRecording, target: string) => {
+    const counts = recording.counts(target);
+    return {
+      stat: counts.stat ?? 0,
+      realPath: counts.realPath ?? 0,
+      readLink: counts.readLink ?? 0,
+    };
+  };
+
+  it.effect("stats a native root that is also the identity owner once", () =>
+    withRecordedFileSystem(
+      Effect.gen(function* () {
+        const { recording, root, target } = yield* captureFixture;
+        const identity = yield* captureContainerIdentity({ nativeRoot: root, target });
+        expect(identity.root.path).toBe(root);
+        expect(identity.root).toEqual(identity.owner);
+        expect(identity.root.identity).not.toBe(identity.owner.identity);
+        expect(work(recording, root)).toEqual({ stat: 1, realPath: 1, readLink: 0 });
+
+        // The next capture observes the root afresh.
+        recording.reset();
+        expect(yield* verifyContainerIdentity(identity, { nativeRoot: root, target })).toBe(true);
+        expect(work(recording, root)).toEqual({ stat: 1, realPath: 1, readLink: 0 });
+      }),
+    ),
+  );
+
+  it.effect("still stats an owner and a distinct native root once each", () =>
+    withRecordedFileSystem(
+      Effect.gen(function* () {
+        const { recording, root, directory, target } = yield* captureFixture;
+        yield* captureContainerIdentity({
+          nativeRoot: directory,
+          identityOwnerRoot: root,
+          target,
+        });
+        expect(work(recording, root).stat).toBe(1);
+        expect(work(recording, directory).stat).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("stats the container entry once, during its resolution", () =>
+    withRecordedFileSystem(
+      Effect.gen(function* () {
+        const { recording, root, target } = yield* captureFixture;
+        const identity = yield* captureContainerIdentity({ nativeRoot: root, target });
+        expect(work(recording, target)).toEqual({ stat: 1, realPath: 1, readLink: 1 });
+
+        // Verification recaptures the entry live.
+        recording.reset();
+        expect(yield* verifyContainerIdentity(identity, { nativeRoot: root, target })).toBe(true);
+        expect(work(recording, target)).toEqual({ stat: 1, realPath: 1, readLink: 1 });
+      }),
+    ),
+  );
+
+  it.effect("identifies a linked container by its referent's followed stat", () =>
+    withRecordedFileSystem(
+      Effect.gen(function* () {
+        const { fs, path, recording, root, target } = yield* captureFixture;
+        const link = path.join(root, "link.json");
+        yield* fs.symlink(path.join("native", "config.json"), link);
+        recording.reset();
+        const identity = yield* captureContainerIdentity({ nativeRoot: root, target: link });
+        // The link entry's followed stat during resolution is the only stat of the container.
+        expect({
+          link: work(recording, link).stat,
+          referent: work(recording, target).stat,
+        }).toEqual({ link: 1, referent: 0 });
+        const referent = yield* fs.stat(target);
+        expect(identity.physicalPath).toBe(target);
+        expect(identity.entry).toEqual({
+          device: referent.dev.toString(),
+          inode: String(Option.getOrThrow(referent.ino)),
+          birthtime: Option.getOrThrow(referent.birthtime).getTime(),
+          mode: referent.mode,
+        });
       }),
     ),
   );

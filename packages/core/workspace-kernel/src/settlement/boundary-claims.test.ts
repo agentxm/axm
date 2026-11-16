@@ -235,7 +235,7 @@ describe("physical boundary admission timing", () => {
             (fact) => fact.kind === "axm.native.canonical-path",
           ).length,
         }).toEqual({
-          scratch: { access: 1, realPath: 1, stat: 2, readLink: 1 },
+          scratch: { access: 1, realPath: 1, stat: 1, readLink: 1 },
           canonicalPaths: 3,
         });
       }

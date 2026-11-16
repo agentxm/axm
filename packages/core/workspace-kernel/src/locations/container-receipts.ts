@@ -9,12 +9,14 @@ import * as Schema from "effect/Schema";
 
 import {
   assertResolvedNativeMutationWithin,
+  observeNativeReferent,
   resolveNativeEntryWithin,
+  resolveObservedNativeEntryWithin,
   NativeLocationError,
   resolveNativeEntry,
   resolveNativeReferent,
+  type NativeReferentObservation,
 } from "./native-address.js";
-import { nativeInode } from "./native-inode.js";
 
 const EntryIdentity = Schema.Struct({
   device: Schema.String,
@@ -90,14 +92,10 @@ export interface ContainerIdentityContext {
   readonly aliases?: ReadonlyArray<string>;
 }
 
-const identityOf = (target: string, info: FileSystem.File.Info) =>
+const identityOfObserved = (target: string, observed: NativeReferentObservation) =>
   Effect.gen(function* () {
-    const inode = nativeInode(info);
-    if (
-      Option.isNone(inode) ||
-      Option.isNone(info.birthtime) ||
-      info.birthtime.value.getTime() <= 0
-    ) {
+    const { inode, birthtime } = observed;
+    if (inode === undefined || birthtime === undefined || birthtime <= 0) {
       return yield* Effect.fail(
         new NativeLocationError({
           target,
@@ -106,13 +104,11 @@ const identityOf = (target: string, info: FileSystem.File.Info) =>
         }),
       );
     }
-    return {
-      device: info.dev.toString(),
-      inode: inode.value,
-      birthtime: info.birthtime.value.getTime(),
-      mode: info.mode,
-    };
+    return { device: observed.device, inode, birthtime, mode: observed.mode };
   });
+
+const identityOf = (target: string, info: FileSystem.File.Info) =>
+  identityOfObserved(target, observeNativeReferent(info));
 
 /** Capture proof only after a successful managed creation/publication. */
 export const captureContainerIdentity = (
@@ -142,7 +138,7 @@ export const captureContainerIdentity = (
         : ownerRoot === nativeRoot
           ? rootPath
           : yield* resolveNativeReferent(ownerRoot);
-    const address = yield* resolveNativeEntryWithin(target, rootPath);
+    const { address, referent } = yield* resolveObservedNativeEntryWithin(target, rootPath);
     yield* assertResolvedNativeMutationWithin({
       physicalRoot: rootPath,
       physicalOwnerRoot,
@@ -157,7 +153,8 @@ export const captureContainerIdentity = (
         reason: "unreadable",
         cause: "container-absent",
       });
-    const rootInfo = yield* fs.stat(rootPath);
+    // A native root that is the identity owner was stat'd as the owner in this capture.
+    const rootInfo = nativeRoot === identityOwnerRoot ? ownerInfo : yield* fs.stat(rootPath);
     if (rootInfo.type !== "Directory")
       return yield* new NativeLocationError({
         target: nativeRoot,
@@ -165,14 +162,17 @@ export const captureContainerIdentity = (
         cause: "native-root-not-directory",
       });
     const root = { path: rootPath, identity: yield* identityOf(rootPath, rootInfo) };
-    const entryInfo = yield* fs.stat(physicalPath);
+    // The resolution's followed stat already observed the object physicalPath names.
+    const entryInfo = Option.isSome(referent)
+      ? referent.value
+      : observeNativeReferent(yield* fs.stat(physicalPath));
     if (entryInfo.type !== "File" && entryInfo.type !== "Directory")
       return yield* new NativeLocationError({
         target,
         reason: "unreadable",
         cause: "container-shape-unsupported",
       });
-    const entry = yield* identityOf(physicalPath, entryInfo);
+    const entry = yield* identityOfObserved(physicalPath, entryInfo);
     const parents: Array<typeof LocatedIdentity.Type> = [];
     let parent = path.dirname(physicalPath);
     while (parent !== rootPath && physicalPath !== rootPath) {

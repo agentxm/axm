@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
 import { withDetailedWork } from "@agentxm/workspace-kernel/locations/testing";
+import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { serveBareRepository } from "../../testing/git-repositories.js";
 import { writeLocalRulePackage, writeLocalSkillPackage } from "../../testing/local-packages.js";
@@ -23,11 +24,12 @@ interface ConfiguredGitEntry {
  * Install each entry from one served repository whose `main` and `other`
  * branches (and tag `v1`) hold the skills `alpha` and `beta` and the rule
  * `gamma`, then prepare a configured update sweep and count the Git checkouts
- * its discovery clones and the remote ref listings it takes.
+ * its discovery clones and the remote ref listings it takes. With `apply`, the
+ * prepared sweep is then applied, uncounted, and its units are reported.
  */
 const sweepGitEntriesCounting = (
   entries: ReadonlyArray<ConfiguredGitEntry>,
-  options: { readonly reinstall?: boolean } = {},
+  options: { readonly reinstall?: boolean; readonly apply?: boolean } = {},
 ) => {
   const { workspace, cleanup } = makeInstallWorld();
   return Effect.gen(function* () {
@@ -80,8 +82,20 @@ const sweepGitEntriesCounting = (
         const candidate = yield* UpdateExtensions.prepare(
           configuredUpdateRequest(options.reinstall === true ? { reinstall: true } : {}),
         ).pipe(withDetailedWork(tracer));
+        const units =
+          options.apply === true && candidate.outcome !== "nothing-configured"
+            ? (yield* UpdateExtensions.previewOrApply(
+                candidate,
+                preapprovedPlanExecution,
+              )).resolution.units.map((unit) => ({
+                label: unit.label,
+                state: unit.state,
+                message: unit.message,
+              }))
+            : [];
         return {
           candidate,
+          units,
           checkouts: spans.filter((span) => span.name === "Git.shallowClone").length,
           listings: spans.filter((span) => span.name === "Git.listRemoteRefs").length,
         };
@@ -122,15 +136,31 @@ describe("configured update Git checkouts", () => {
 describe("configured update Git remote ref listings", () => {
   it.effect("lists one Git URL's remote refs once for every entry pinned to a tag", () =>
     Effect.gen(function* () {
-      const sweep = yield* sweepGitEntriesCounting([
-        { type: "skill", name: "alpha", revision: "v1" },
-        { type: "skill", name: "beta", revision: "v1" },
-        { type: "rule", name: "gamma", revision: "v1" },
-      ]);
-      expect({ outcome: sweep.candidate.outcome, listings: sweep.listings }).toEqual({
-        outcome: "planned",
-        listings: 1,
-      });
+      const sweep = yield* sweepGitEntriesCounting(
+        [
+          { type: "skill", name: "alpha", revision: "v1" },
+          { type: "skill", name: "beta", revision: "v1" },
+          { type: "rule", name: "gamma", revision: "v1" },
+        ],
+        { apply: true },
+      );
+      expect({
+        outcome: sweep.candidate.outcome,
+        checkouts: sweep.checkouts,
+        listings: sweep.listings,
+      }).toEqual({ outcome: "planned", checkouts: 0, listings: 1 });
+      // Every entry still judged its tag against the shared listing and held.
+      expect(sweep.units).toEqual(
+        [
+          { label: "skills/alpha", name: "alpha" },
+          { label: "skills/beta", name: "beta" },
+          { label: "rules/gamma", name: "gamma" },
+        ].map(({ label, name }) => ({
+          label,
+          state: "unchanged",
+          message: `${name} is pinned to Git tag v1 and is unchanged`,
+        })),
+      );
     }),
   );
 

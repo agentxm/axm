@@ -87,8 +87,8 @@ export interface AgentOutputInventory {
   /**
    * Present only when requested: the skill containers, entries and expected
    * sources this inventory resolved, failures included. It serves the caller's
-   * classification of these outputs before its first write and is never write
-   * authority.
+   * classification of these outputs before the caller's next write and is never
+   * write authority.
    */
   readonly skillLocations?: NativeLocationSet;
 }

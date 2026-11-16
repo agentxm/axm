@@ -1,7 +1,8 @@
 /**
- * Withdrawing a skill's native projection: the copy receipt the output
- * inventory proved is not read again only to classify the removal target,
- * while the removal's source check and the retirement still read it fresh.
+ * Withdrawing a skill's native projection, on removal or when an install
+ * renames it: the copy receipt and the resolutions the output inventory made
+ * are not repeated only to classify the withdrawn target, while the removal's
+ * admission, source check and the retirement still observe it fresh.
  */
 
 import * as nodeFs from "node:fs";
@@ -31,9 +32,12 @@ import {
 } from "@agentxm/workspace-kernel/projection/live";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
+import * as Ref from "effect/Ref";
 import {
   SettingsSchema,
   UNCONSTRAINED_DESIRED_NODE,
+  WorkspaceLocation,
+  resolveWorkspaceExtensionRef,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
@@ -270,6 +274,140 @@ describe("skill projection withdrawal", () => {
       expect(failure).toMatchObject({
         _tag: "SkillDefinitionInvalid",
         detail: "Cannot observe native Skill removal targets",
+        cause: { _tag: "NativeLocationError", target: shared, reason: "unreadable" },
+      });
+      expect(nodeFs.readlinkSync(reader)).toBe(source);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+});
+
+/** Give the authored skill a new native name while it keeps its package identity. */
+const renameAuthoredSkill = (source: string, nativeName: string) =>
+  nodeFs.writeFileSync(
+    nodePath.join(source, "SKILL.md"),
+    `---\nname: ${nativeName}\ndescription: ${NAME} skill\n---\n\nUse ${NAME}.\n`,
+  );
+
+/** One install of the authored skill, recorded from its start. */
+const installRecorded = Effect.gen(function* () {
+  const manager = yield* SkillManager;
+  const location = yield* WorkspaceLocation;
+  const ref = yield* resolveWorkspaceExtensionRef({
+    settingsName: NAME,
+    source: "workspace",
+    expectedType: "skill",
+    layout: yield* Ref.get(location.layout),
+    scope: location.scope,
+  });
+  if (ref.type !== "skill") return yield* Effect.die("Expected a skill ref");
+  const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+  recording.reset();
+  const facts = yield* manager
+    .materializeInstall({ ref })
+    .pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+  return { facts, recording };
+});
+
+const renamed = () => nodePath.join(baseDir, ".agents", "skills", "reviewer");
+
+describe("skill install retirement of a renamed projection", () => {
+  it.effect("reads a renamed copy's receipt for inventory, source check and retirement only", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      const receiptPath = yield* writeCopiedProjection(source);
+      renameAuthoredSkill(source, "reviewer");
+
+      const { facts, recording } = yield* installRecorded;
+
+      // Classifying the renamed copy for retirement takes the receipt presence
+      // the inventory just proved.
+      expect(recording.contentReads(receiptPath)).toBe(3);
+      expect(nodeFs.existsSync(projection())).toBe(false);
+      expect(nodeFs.existsSync(renamed())).toBe(true);
+      expect(facts.observation.nativeLocations).toEqual([
+        expect.objectContaining({
+          address: { kind: "entry", path: projection() },
+          mechanism: "copied-directory",
+          ownership: "absent",
+          policyReasons: ["workspace-shared-skills"],
+          state: "removed",
+        }),
+        expect.objectContaining({ address: { kind: "entry", path: renamed() }, state: "created" }),
+      ]);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("resolves a renamed link for the inventory, write admission and retirement only", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.mkdirSync(nodePath.dirname(projection()), { recursive: true });
+      nodeFs.symlinkSync(source, projection());
+      renameAuthoredSkill(source, "reviewer");
+
+      const { facts, recording } = yield* installRecorded;
+
+      // Classifying the renamed link for retirement takes the inventory's
+      // resolutions of the entry and of every skill container.
+      expect({
+        entry: recording.counts(projection()),
+        source: recording.counts(source),
+        shared: recording.counts(nodePath.dirname(projection())),
+        reader: recording.counts(nodePath.join(baseDir, ".claude", "skills")),
+      }).toEqual({
+        entry: { readLink: 6, stat: 3, realPath: 2 },
+        source: { realPath: 10, readLink: 5, stat: 5 },
+        shared: { realPath: 11, makeDirectory: 1, readDirectory: 5 },
+        reader: { realPath: 2, readLink: 2, readDirectory: 1 },
+      });
+      expect(nodeFs.existsSync(projection())).toBe(false);
+      expect(facts.observation.nativeLocations?.[0]).toMatchObject({
+        address: { kind: "entry", path: projection() },
+        mechanism: "symlink",
+        ownership: "absent",
+        state: "removed",
+      });
+    }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("resolves nothing more when an install renames no projection", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.mkdirSync(nodePath.dirname(projection()), { recursive: true });
+      nodeFs.symlinkSync(source, projection());
+
+      const { recording } = yield* installRecorded;
+
+      expect({
+        entry: recording.counts(projection()),
+        source: recording.counts(source),
+        shared: recording.counts(nodePath.dirname(projection())),
+      }).toEqual({
+        entry: { readLink: 5, stat: 3, realPath: 3 },
+        source: { realPath: 6, readLink: 3, stat: 3 },
+        shared: { realPath: 5, readDirectory: 4 },
+      });
+      expect(nodeFs.readlinkSync(projection())).toBe(source);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("fails before any retirement when the shared skill directory cannot be resolved", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      const reader = nodePath.join(baseDir, ".claude", "skills", NAME);
+      nodeFs.mkdirSync(nodePath.dirname(reader), { recursive: true });
+      nodeFs.symlinkSync(source, reader);
+      renameAuthoredSkill(source, "reviewer");
+      const shared = nodePath.dirname(projection());
+      nodeFs.mkdirSync(nodePath.dirname(shared), { recursive: true });
+      nodeFs.symlinkSync(shared, shared);
+
+      const failure = yield* installRecorded.pipe(Effect.flip);
+
+      // The install's own grouping resolves the shared directory first, so the
+      // refusal precedes any projection write or retirement.
+      expect(failure).toMatchObject({
+        _tag: "SkillDefinitionInvalid",
+        detail: "Cannot resolve physical Skill locations",
         cause: { _tag: "NativeLocationError", target: shared, reason: "unreadable" },
       });
       expect(nodeFs.readlinkSync(reader)).toBe(source);

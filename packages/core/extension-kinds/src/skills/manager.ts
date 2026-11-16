@@ -220,6 +220,7 @@ export const SkillManagerLive = Layer.effect(
         declaredMcpNames: new Set(),
         expectedHooks: [],
         authoredSkills: { layout: currentLayout(), entries: yield* settings.entries("skill") },
+        retainSkillLocations: true,
       }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
       const obsolete = inventory.ownedResidue.filter(
         (output) =>
@@ -233,10 +234,20 @@ export const SkillManagerLive = Layer.effect(
         agents: yield* agentRepo.all,
         configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
         sharedSkillPolicy: true,
+        // Only pure filtering separates the inventory from this classification;
+        // the removals below still admit and prove each entry afresh.
+        ...(inventory.skillLocations === undefined
+          ? {}
+          : { locationSet: inventory.skillLocations }),
         targets: obsolete.map((output) => ({
           path: output.path,
           kind: "skill" as const,
           state: "unchanged" as const,
+          // The inventory just proved this copy from its receipt; only the
+          // presence crosses, and the removal still reads the receipt itself.
+          ...(output.proof === "copied-directory-receipt"
+            ? { copyReceipt: { directory: output.path, present: true } }
+            : {}),
         })),
       }).pipe(
         Effect.mapError(

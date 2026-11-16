@@ -954,32 +954,54 @@ describe("HookManager", () => {
                 makeLocalHookRef("single", singleRoot),
               ]);
               const singleCounts = rootResolutions(singleRoot);
+              const runtimeFileChecks = () =>
+                runtimeFiles.map((file) => ({
+                  realPath: recording.calls({ path: file, method: "realPath" }).length,
+                  stat: recording.calls({ path: file, method: "stat" }).length,
+                }));
               recording.reset();
               const assets = yield* manager.prepareProjection([
                 makeLocalHookRef("assets", assetsRoot),
               ]);
+              const assetsCounts = {
+                rootResolutions: rootResolutions(assetsRoot),
+                runtimeFileChecks: runtimeFileChecks(),
+              };
+              // A later preparation of the same package resolves its root
+              // again: the resolved root does not outlive one validation.
+              recording.reset();
+              const again = yield* manager.prepareProjection([
+                makeLocalHookRef("assets", assetsRoot),
+              ]);
               return {
-                prepared: [...single.acquisitions, ...assets.acquisitions].map(({ name }) => name),
-                rootResolutions: { single: singleCounts, assets: rootResolutions(assetsRoot) },
-                runtimeFileChecks: runtimeFiles.map((file) => ({
-                  realPath: recording.calls({ path: file, method: "realPath" }).length,
-                  stat: recording.calls({ path: file, method: "stat" }).length,
-                })),
+                prepared: [
+                  ...single.acquisitions,
+                  ...assets.acquisitions,
+                  ...again.acquisitions,
+                ].map(({ name }) => name),
+                single: singleCounts,
+                assets: assetsCounts,
+                again: {
+                  rootResolutions: rootResolutions(assetsRoot),
+                  runtimeFileChecks: runtimeFileChecks(),
+                },
               };
             }),
           );
           // One resolution checks the runtime files and one the input's
           // overlap with the native target, however many files the package
           // declares. Measured before the root was resolved once per runtime
-          // file: 2 and 4.
+          // file: 2 and 4 (and 4 again).
+          const eachFileOnce = [
+            { realPath: 1, stat: 1 },
+            { realPath: 1, stat: 1 },
+            { realPath: 1, stat: 1 },
+          ];
           expect(counted).toEqual({
-            prepared: ["single", "assets"],
-            rootResolutions: { single: 2, assets: 2 },
-            runtimeFileChecks: [
-              { realPath: 1, stat: 1 },
-              { realPath: 1, stat: 1 },
-              { realPath: 1, stat: 1 },
-            ],
+            prepared: ["single", "assets", "assets"],
+            single: 2,
+            assets: { rootResolutions: 2, runtimeFileChecks: eachFileOnce },
+            again: { rootResolutions: 2, runtimeFileChecks: eachFileOnce },
           });
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

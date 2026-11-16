@@ -3248,4 +3248,133 @@ describe("instruction projection reads each prepared input once", () => {
       }),
     ),
   );
+
+  /** Calls naming `target` for the methods that resolve a native entry; `exists` probes are stats. */
+  const resolutions = (
+    recording: { readonly counts: (path: string) => Readonly<Record<string, number | undefined>> },
+    target: string,
+  ) => {
+    const counts = recording.counts(target);
+    return {
+      readLink: counts["readLink"] ?? 0,
+      stat: counts["stat"] ?? 0,
+      realPath: counts["realPath"] ?? 0,
+    };
+  };
+
+  it.effect("resolves a source shared by link aliases once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({
+          links: { "CLAUDE.md": "AGENTS.md", "GEMINI.md": "AGENTS.md" },
+        });
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "owned-current", "symlink"],
+        ]);
+        expect({
+          source: resolutions(recording, ws.source),
+          // The links themselves are classified and witnessed as before.
+          claude: resolutions(recording, path.join(ws.root, "CLAUDE.md")),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+          contentReads: recording.contentReads(ws.source),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({
+          // Both links name the source: its entry is resolved once for both, not twice each.
+          source: { readLink: 7, stat: 10, realPath: 6 },
+          claude: { readLink: 9, stat: 4, realPath: 4 },
+          gemini: { readLink: 9, stat: 4, realPath: 4 },
+          contentReads: 1,
+          witnessHashes: 4,
+        });
+      }),
+    ),
+  );
+
+  it.effect("classifies each link alias by its own referent and a new link before writing", () =>
+    recorded(
+      Effect.gen(function* () {
+        const ws = yield* workspace({
+          links: { "CLAUDE.md": "AGENTS.md", "GEMINI.md": "other.md" },
+        });
+        fs.writeFileSync(path.join(ws.root, "other.md"), "# Workspace\n");
+        const mixed = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(
+          mixed.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "unowned", "symlink"],
+        ]);
+        // A link created after observation is classified live before anything is written.
+        const gemini = path.join(ws.root, "GEMINI.md");
+        fs.rmSync(gemini);
+        const planned = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(planned.status.items.map((item) => item.ownership)).toEqual([
+          "owned-current",
+          "absent",
+        ]);
+        fs.symlinkSync("other.md", gemini);
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot: planned,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            detail: `Instruction reconciliation would overwrite files with unknown ownership: ${gemini}`,
+          });
+        expect(fs.readlinkSync(gemini)).toBe("other.md");
+      }),
+    ),
+  );
+
+  it.effect("resolves a stale link's referent and its source once when they coincide", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "GEMINI.md": "AGENTS.md" } });
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(
+          snapshot.status.staleTargets.map((item) => [
+            item.targetFile,
+            item.ownership,
+            item.observedForm,
+          ]),
+        ).toEqual([[path.join(ws.root, "GEMINI.md"), "owned-current", "symlink"]]);
+        expect({
+          source: resolutions(recording, ws.source),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+          contentReads: recording.contentReads(ws.source),
+        }).toEqual({
+          // The link's referent is the source itself: one resolution serves both.
+          source: { readLink: 7, stat: 9, realPath: 6 },
+          gemini: { readLink: 9, stat: 4, realPath: 4 },
+          contentReads: 1,
+        });
+      }),
+    ),
+  );
 });

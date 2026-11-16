@@ -757,7 +757,8 @@ const withInstructionReadCells = <A, E, R>(
  * one observation, which run with no write between them. A key names the
  * resolved roots, the resolved path and the owner root, so an admission under
  * other roots is never reused. Witnesses, prepare and every read outside those
- * two stages admit their paths fresh.
+ * two stages admit their paths fresh. The planned items also share the entry
+ * resolutions that classify their links, under keys of their own.
  */
 type InstructionAdmission = Effect.Effect<
   Option.Option<NativeEntryAddress>,
@@ -1159,6 +1160,24 @@ const resolveLinkTarget = (path: Path.Path, linkPath: string, linkTarget: string
   path.resolve(path.dirname(linkPath), linkTarget);
 
 /**
+ * The entry that classifies a link's referent or source. Inside a stage that
+ * shares admissions it is resolved once per path for that stage; elsewhere it
+ * is resolved live.
+ */
+const linkClassificationEntry = (target: string): InstructionAdmission =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const fresh = resolveNativeEntry(target).pipe(Effect.option);
+    const admissions = yield* Effect.serviceOption(InstructionAdmissionCells);
+    return Option.isSome(admissions)
+      ? yield* admissions.value.admit(
+          JSON.stringify(["link-classification", path.resolve(target)]),
+          fresh,
+        )
+      : yield* fresh;
+  });
+
+/**
  * An observed path's row key. Observation is total: a path that leaves, or
  * cannot be located beneath, the scope root has no key and so no recorded row.
  */
@@ -1205,8 +1224,11 @@ const observeTargetPath = (args: {
     if (Option.isSome(linkTarget)) {
       const resolved = resolveLinkTarget(path, args.targetPath, linkTarget.value);
       const resolves = yield* fileExists(resolved);
-      const direct = yield* resolveNativeEntry(resolved).pipe(Effect.option);
-      const source = yield* resolveNativeEntry(args.sourcePath).pipe(Effect.option);
+      const direct = yield* linkClassificationEntry(resolved);
+      // A link to the source's own path names one entry; resolving it again finds the same.
+      const source = isSamePath(path, resolved, args.sourcePath)
+        ? direct
+        : yield* linkClassificationEntry(args.sourcePath);
       return observed(
         Option.isSome(direct) &&
           Option.isSome(source) &&
@@ -1435,9 +1457,11 @@ const observeStaleCandidate = (
     if (Option.isSome(linkTarget)) {
       const resolved = resolveLinkTarget(path, candidate.targetPath, linkTarget.value);
       const direct = yield* resolveNativeEntry(resolved).pipe(Effect.option);
-      const source = yield* resolveNativeEntry(path.join(candidate.root, sourceFileName)).pipe(
-        Effect.option,
-      );
+      const sourcePath = path.join(candidate.root, sourceFileName);
+      // A link to the source's own path names one entry; resolving it again finds the same.
+      const source = isSamePath(path, resolved, sourcePath)
+        ? direct
+        : yield* resolveNativeEntry(sourcePath).pipe(Effect.option);
       if (
         Option.isNone(direct) ||
         Option.isNone(source) ||

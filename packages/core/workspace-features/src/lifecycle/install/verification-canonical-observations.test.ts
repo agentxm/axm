@@ -1,10 +1,13 @@
 /**
- * After an apply, configured-agent verification observes each enabled
- * subject's canonical package once inside its fresh observation phase: the
- * native observer of that subject's type takes the verification's own
- * observation of the identical desired node and accepted row instead of
- * hashing and decoding the same tree again. Every other package, and every
- * subject the verification found unusable, is still observed by the observer.
+ * After an apply, configured-agent verification hands its own observation of
+ * each enabled subject to that subject's native observer inside its fresh
+ * observation phase. The Subagent observer, and the Rule, Knowledge and Hook
+ * contributor selections, take the verification's observation of the
+ * identical desired node and accepted row instead of hashing and decoding
+ * the same tree again, which saves one observation per subject. Every other
+ * package, every subject the verification found unusable, and every
+ * workspace-authored Subagent is still observed by its observer; the Hook
+ * outcomes call still observes the subject itself.
  *
  * An apply that leaves an extension enabled through activation, update or
  * a retained uninstall runs this verification after its writes; an install
@@ -13,17 +16,23 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import type { FileRegistry } from "@agentxm/registry-client/testing";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   ConfiguredAgentOutcomesProvider,
+  type ConfiguredAgentOutcomesProviderService,
+  type ConfiguredAgentOutcomesRequest,
   CurrentWorkspaceReadPhase,
+  DEFAULT_AUTHORED_DIRECTORIES,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -43,9 +52,16 @@ import {
   installRequest,
   makeInstallWorld,
 } from "../../testing/install-world.js";
+import { writeMinimalPackage } from "../../testing/local-packages.js";
+import { applySync, expectResolved } from "../../testing/sync-fixture.js";
 import { applyActivationAcceptingExecutionChanges } from "../activation/test-helpers.js";
 
 const AGENTS = ["claude-code"];
+
+const recordedNodeServices = Layer.provideMerge(
+  layerRecordingFileSystem(NodeFileSystem.layer),
+  NodeServices.layer,
+);
 
 const treeHashes = (work: ReturnType<typeof workObservations>) =>
   work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length;
@@ -187,6 +203,75 @@ describe("After-apply verification of a Subagent observes its canonical package 
     },
     { timeout: 60_000 },
   );
+
+  it.effect(
+    "a usable workspace-authored Subagent beside an acquired one is not handed an observation",
+    () => {
+      const world = makeInstallWorld({ settings: { subagents: { planner: "workspace" } } });
+      world.registry.writeSubagent("reviewer", [{ version: "1.0.0" }]);
+      const authored = writeMinimalPackage(
+        path.join(world.workspace.root, DEFAULT_AUTHORED_DIRECTORIES.subagent, "planner"),
+        "subagent",
+        { name: "planner" },
+      );
+      const manifest = path.join(authored, "subagent.json");
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* install("subagent", "reviewer");
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            const live = yield* ConfiguredAgentOutcomesProvider;
+            const observeSubagents = live.byExtensionType.subagent;
+            if (observeSubagents === undefined) return yield* Effect.die("no Subagent observer");
+            const handed: Array<ConfiguredAgentOutcomesRequest["rows"][number]> = [];
+            const recording: ConfiguredAgentOutcomesProviderService = {
+              byExtensionType: {
+                ...live.byExtensionType,
+                subagent: (request) =>
+                  Effect.suspend(() => {
+                    handed.push(...request.rows);
+                    return observeSubagents(request);
+                  }),
+              },
+            };
+            yield* verify([
+              { type: "subagent", name: "planner" },
+              { type: "subagent", name: "reviewer" },
+            ]).pipe(Effect.provideService(ConfiguredAgentOutcomesProvider, recording));
+            expect(
+              handed.map((row) => [row.name, row.acceptedCanonical !== undefined] as const),
+            ).toEqual([
+              ["planner", false],
+              ["reviewer", true],
+            ]);
+
+            // The authored Subagent's own verification does the same work as
+            // before any observation was handed over: no tree hash, one
+            // package hash and one physical read of its manifest.
+            const files = yield* FileSystemRecorder;
+            const work = workObservations(false);
+            files.reset();
+            const readback = yield* verify([{ type: "subagent", name: "planner" }]).pipe(
+              work.provide,
+            );
+            expect(treeHashes(work)).toBe(0);
+            expect(work.facts.filter((fact) => fact.kind === "axm.hash.package")).toHaveLength(1);
+            expect(files.contentReads(manifest)).toBe(1);
+            const answer = readback.get("subagent:planner");
+            expect(JSON.stringify(answer)).toBe(
+              JSON.stringify(yield* ownAnswer("subagent", "planner", true)),
+            );
+            expect(
+              answer !== undefined &&
+                answer.agentOutcomes.length > 0 &&
+                answer.agentOutcomes.every((outcome) => outcome.outcome === "current"),
+            ).toBe(true);
+          }),
+        )
+        .pipe(Effect.provide(recordedNodeServices), Effect.ensuring(Effect.sync(world.cleanup)));
+    },
+    { timeout: 60_000 },
+  );
 });
 
 const publishers: Record<
@@ -202,7 +287,7 @@ const publishers: Record<
 
 const plurals = { rule: "rules", knowledge: "knowledge", hook: "hooks" } as const;
 
-describe("After-apply verification of an aggregate contributor observes its canonical package once", () => {
+describe("After-apply verification hands its observation of an aggregate contributor to the contributor selection", () => {
   // Each verification below selects `subject`; `other` is an enabled
   // contributor of the same type that the verification does not select.
   const rows: ReadonlyArray<{
@@ -267,6 +352,14 @@ describe("After-apply verification of an aggregate contributor observes its cano
             yield* install(type, "subject");
             drift(world, plurals[type], "subject");
             const readback = yield* Effect.exit(verify([{ type, name: "subject" }]));
+            // The drift makes the subject unusable, so the selection is handed
+            // a non-usable observation.
+            expect(
+              readback._tag === "Failure" ||
+                readback.value
+                  .get(`${type}:subject`)
+                  ?.agentOutcomes.some((outcome) => outcome.outcome !== "current"),
+            ).toBe(true);
             const own = yield* Effect.exit(ownAnswer(type, "subject", false));
             expect(
               JSON.stringify(

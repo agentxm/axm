@@ -26,6 +26,8 @@ import {
   decodeMcpServerManifestAt,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
+  resolveConfiguredMcpTargetAdmissions,
+  mcpTargetAdmissionKey,
   observeNativeMcpTargets,
   readNativeMcpValues,
   McpDefinitionInvalid,
@@ -42,6 +44,7 @@ import {
   type McpTargetGroup,
 } from "../../agent-adapters/index.js";
 import {
+  NativeResolutionRoot,
   combineNativeLocationOutcomes,
   type NativeDirectoryInputs,
   type NativeLocationOutcome,
@@ -183,6 +186,8 @@ const mcpInspectionsCurrent = (inspections: ReadonlyArray<AgentMcpServerInspecti
 const inspectActual = (args: {
   readonly target: McpConfigTarget;
   readonly configPath: string;
+  /** The native file at `configPath`, absent as none. */
+  readonly read: Effect.Effect<Option.Option<string>, McpInspectionError, FileSystem.FileSystem>;
   readonly serversPath: ReadonlyArray<string>;
   readonly serverName: string;
   readonly expected: McpInspectionExpectation;
@@ -196,7 +201,7 @@ const inspectActual = (args: {
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
-    const raw = yield* readNativeMcpConfig(args.configPath);
+    const raw = yield* args.read;
     if (Option.isNone(raw)) return { status: "absent", fields: [] };
 
     const actual = yield* readNativeMcpEntry({
@@ -234,20 +239,49 @@ const terminalInspection = (args: {
   ...(args.expected === undefined ? {} : { expected: args.expected }),
 });
 
+/**
+ * Resolves the configured targets one inspection plans against, with the
+ * admission key of every writer target its own resolution admitted live.
+ * Targets that another resolution admitted carry no keys.
+ */
+type InspectionTargetResolver = (
+  args: InspectDesiredMcpServerArgs,
+) => ReturnType<typeof resolveConfiguredMcpTargetAdmissions>;
+
+const resolveInspectionTargets: InspectionTargetResolver = (args) =>
+  resolveConfiguredMcpTargetAdmissions(args);
+
+/**
+ * Re-admitting a physical target its resolution just admitted under the same
+ * scope and native root yields that same path, so only a target without such
+ * an admission in this inspection is admitted again.
+ */
 const absolutePathFor = (
   workspaceRoot: string,
   target: McpConfigTarget | undefined,
-): Effect.Effect<string, McpInspectionError, FileSystem.FileSystem | Path.Path> =>
-  target === undefined
-    ? Effect.succeed("")
+  admitted: ReadonlyArray<string>,
+): Effect.Effect<string, McpInspectionError, FileSystem.FileSystem | Path.Path> => {
+  if (target === undefined) return Effect.succeed("");
+  const key = mcpTargetAdmissionKey(target);
+  return key !== undefined && admitted.includes(key)
+    ? Effect.succeed(target.path)
     : resolveAgentMcpConfigTargetPath(workspaceRoot, target);
+};
+
+/** One lazy read per projected native file, shared by the agents of one inspection. */
+type InspectionReads = ReadonlyArray<{
+  readonly path: string;
+  readonly read: Effect.Effect<Option.Option<string>, McpInspectionError, FileSystem.FileSystem>;
+}>;
 
 const inspectPlannedAgent = (
   args: InspectDesiredMcpServerArgs,
   agent: McpAgentTargetPlan,
+  admitted: ReadonlyArray<string>,
+  reads: InspectionReads,
 ): Effect.Effect<AgentMcpServerInspection, McpInspectionError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const absolutePath = yield* absolutePathFor(args.workspaceRoot, agent.target);
+    const absolutePath = yield* absolutePathFor(args.workspaceRoot, agent.target, admitted);
     switch (agent._tag) {
       case "unsupported":
       case "nothing-runnable":
@@ -292,6 +326,9 @@ const inspectPlannedAgent = (
         const actual = yield* inspectActual({
           target: agent.target,
           configPath: absolutePath,
+          read:
+            reads.find((shared) => shared.path === absolutePath)?.read ??
+            readNativeMcpConfig(absolutePath),
           serversPath: agent.config.serversPath,
           serverName: args.node.name,
           expected: { _tag: "projected", entry: agent.entry, warnings: agent.warnings },
@@ -311,9 +348,13 @@ const inspectPlannedAgent = (
   });
 
 /** Without a source manifest, native presence cannot prove projected currency. */
-const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs, probeFailed: boolean) =>
-  resolveConfiguredMcpTargets(args).pipe(
-    Effect.map((groups) =>
+const inspectUnavailableSource = (
+  args: InspectDesiredMcpServerArgs,
+  probeFailed: boolean,
+  resolveTargets: InspectionTargetResolver,
+) =>
+  resolveTargets(args).pipe(
+    Effect.map(({ groups }) =>
       args.agentIds.flatMap((agentId) => {
         const unresolved = unresolvedMcpAgentTargets(agentId, args.scope, groups);
         return [
@@ -379,9 +420,12 @@ const inspectedDeclaration = (
 };
 
 /** Disabled declarations select withdrawal without depending on runnable source content. */
-const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
+const inspectDisabledMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
+) =>
   Effect.gen(function* () {
-    const groups = yield* resolveConfiguredMcpTargets(args);
+    const { groups } = yield* resolveTargets(args);
     const inspections: AgentMcpServerInspection[] = [];
     const nativeLocations: NativeLocationOutcome[] = [];
     for (const agentId of args.agentIds) {
@@ -467,13 +511,25 @@ const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
  */
 const inspectDesiredMcpServerUncached = (
   args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
+): Effect.Effect<
+  DesiredMcpServerInspection,
+  McpInspectionError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  args.node.enabled === false
+    ? inspectDisabledMcpServer(args, resolveTargets)
+    : inspectEnabledMcpServer(args, resolveTargets);
+
+const inspectEnabledMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
 ): Effect.Effect<
   DesiredMcpServerInspection,
   McpInspectionError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    if (args.node.enabled === false) return yield* inspectDisabledMcpServer(args);
     const state = args.state ?? "current";
     const declaration = inspectedDeclaration(args.node, args.entry);
     if (declaration === undefined) {
@@ -489,7 +545,11 @@ const inspectDesiredMcpServerUncached = (
     const observed = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot))
         return {
-          inspections: yield* inspectUnavailableSource(args, source.diagnostics.length > 0),
+          inspections: yield* inspectUnavailableSource(
+            args,
+            source.diagnostics.length > 0,
+            resolveTargets,
+          ),
           nativeLocations: [],
           conflict: Option.none<string>(),
         };
@@ -506,7 +566,7 @@ const inspectDesiredMcpServerUncached = (
           : yield* decodeMcpServerManifestAt(
               path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
             );
-      const groups = yield* resolveConfiguredMcpTargets(args);
+      const { groups, admitted } = yield* resolveTargets(args);
       const plan = planMcpServerTargets({
         groups,
         agentIds: args.agentIds,
@@ -534,9 +594,28 @@ const inspectDesiredMcpServerUncached = (
       const conflict = Option.fromUndefinedOr(
         plan.agents.flatMap((agent) => (agent._tag === "blocked" ? [agent.reason] : []))[0],
       );
+      // Agents that share a native file judge it from one read, each in its own order.
+      const reads: InspectionReads =
+        state === "projected"
+          ? []
+          : Object.freeze(
+              yield* Effect.forEach(
+                [
+                  ...new Set(
+                    plan.agents.flatMap((agent) =>
+                      agent._tag === "projected" ? [agent.target.path] : [],
+                    ),
+                  ),
+                ],
+                (path) =>
+                  Effect.map(Effect.cached(readNativeMcpConfig(path)), (read) =>
+                    Object.freeze({ path, read }),
+                  ),
+              ),
+            );
       const inspections = yield* Effect.forEach(
         plan.agents,
-        (agent) => inspectPlannedAgent(args, agent),
+        (agent) => inspectPlannedAgent(args, agent, admitted, reads),
         {
           concurrency: 16,
         },
@@ -718,10 +797,18 @@ export const collectNativeAgentMcpServers = (
     };
   });
 
+type InspectDesiredMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+) => Effect.Effect<
+  DesiredMcpServerInspection,
+  McpInspectionError,
+  FileSystem.FileSystem | Path.Path
+>;
+
 class McpInspectionReadView extends Context.Service<
   McpInspectionReadView,
   {
-    readonly inspect: typeof inspectDesiredMcpServerUncached;
+    readonly inspect: InspectDesiredMcpServer;
     readonly phase: Effect.Success<typeof CurrentWorkspaceReadPhase>;
     readonly isActive: () => boolean;
     readonly close: () => void;
@@ -750,16 +837,54 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
       inherited.value.close();
     }
     const cells = new Map<string, ReturnType<typeof inspectDesiredMcpServerUncached>>();
+    const targetCells = new Map<
+      string,
+      {
+        readonly fs: FileSystem.FileSystem;
+        readonly path: Path.Path;
+        readonly groups: ReturnType<typeof resolveConfiguredMcpTargets>;
+      }
+    >();
     let active = true;
     const isActive = () => active && (phase === undefined || phase.isActive());
     const close = () => {
       active = false;
       cells.clear();
+      targetCells.clear();
     };
-    const inspect: typeof inspectDesiredMcpServerUncached = (args) =>
+    // Configured targets do not depend on the connection, so every inspection
+    // in the phase plans against one resolution, each with its own copy.
+    // Admissions made by another inspection's resolution are not this
+    // inspection's own, so they carry no admission keys.
+    const resolveTargets: InspectionTargetResolver = (args) =>
       Effect.gen(function* () {
         if (!isActive() || (yield* CurrentWorkspaceReadPhase) !== phase)
-          return yield* inspectDesiredMcpServerUncached(args);
+          return yield* resolveConfiguredMcpTargetAdmissions(args);
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const targetArgs = {
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          agentIds: args.agentIds,
+          nativeDirectoryInputs: args.nativeDirectoryInputs,
+        };
+        const key = JSON.stringify({
+          ...targetArgs,
+          nativeResolutionRoot: (yield* NativeResolutionRoot) ?? null,
+        });
+        const previous = targetCells.get(key);
+        // A consumer observing through another file system resolves live.
+        if (previous !== undefined && (previous.fs !== fs || previous.path !== path))
+          return yield* resolveConfiguredMcpTargetAdmissions(args);
+        const groups =
+          previous?.groups ?? (yield* Effect.cached(resolveConfiguredMcpTargets(targetArgs)));
+        if (previous === undefined && isActive()) targetCells.set(key, { fs, path, groups });
+        return { groups: structuredClone(yield* groups), admitted: Object.freeze([]) };
+      });
+    const inspect: InspectDesiredMcpServer = (args) =>
+      Effect.gen(function* () {
+        if (!isActive() || (yield* CurrentWorkspaceReadPhase) !== phase)
+          return yield* inspectDesiredMcpServerUncached(args, resolveInspectionTargets);
         const key = JSON.stringify({
           nativeDirectoryInputs: args.nativeDirectoryInputs,
           workspaceRoot: args.workspaceRoot,
@@ -772,7 +897,7 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
         });
         const previous = cells.get(key);
         if (previous !== undefined) return yield* previous;
-        const cell = yield* Effect.cached(inspectDesiredMcpServerUncached(args));
+        const cell = yield* Effect.cached(inspectDesiredMcpServerUncached(args, resolveTargets));
         const selected = cells.get(key) ?? cell;
         if (isActive()) cells.set(key, selected);
         return yield* selected;
@@ -785,10 +910,10 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
   });
 
 /** Use the phase's detailed observation when one is explicitly in scope. */
-export const inspectDesiredMcpServer: typeof inspectDesiredMcpServerUncached = (args) =>
+export const inspectDesiredMcpServer: InspectDesiredMcpServer = (args) =>
   Effect.gen(function* () {
     const view = yield* Effect.serviceOption(McpInspectionReadView);
     return yield* Option.isSome(view)
       ? view.value.inspect(args)
-      : inspectDesiredMcpServerUncached(args);
+      : inspectDesiredMcpServerUncached(args, resolveInspectionTargets);
   });

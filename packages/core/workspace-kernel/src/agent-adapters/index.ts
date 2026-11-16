@@ -142,6 +142,8 @@ export {
   configuredMcpCapability,
   declaredMcpWriterTargets,
   resolveConfiguredMcpTargets,
+  resolveConfiguredMcpTargetAdmissions,
+  mcpTargetAdmissionKey,
   observeNativeMcpTargets,
   isConfigurableAgentId,
   type McpTargetGroup,

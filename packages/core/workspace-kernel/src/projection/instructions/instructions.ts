@@ -68,7 +68,7 @@ import {
   type WholeFileLastWrite,
 } from "../whole-file-decision.js";
 import { decideOutputDeletion, retainedOutputDetail } from "../deletion-guard.js";
-import { scopeUnitPath } from "../unit-path.js";
+import { scopeUnitPath, scopeUnitPathOfEntry } from "../unit-path.js";
 import {
   ProjectionOutputPosture,
   REPLACE_UNRECORDED_FLAG,
@@ -2669,7 +2669,8 @@ const preparePhysicalInstructionTargets = (
         sourceFile,
         observedPaths: [...(prior?.observedPaths ?? []), item.targetFile, item.sourceFile],
         sourcePaths: [...(prior?.sourcePaths ?? []), item.sourceFile],
-        unit: yield* scopeUnitPath(workspaceRoot, item.targetFile),
+        // Keyed from the entry this iteration's own target admission resolved.
+        unit: yield* scopeUnitPathOfEntry(workspaceRoot, address.entryPath),
       });
     }
     return [...targets.values()];

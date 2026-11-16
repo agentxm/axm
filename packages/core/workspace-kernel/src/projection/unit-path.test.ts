@@ -6,7 +6,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { resolveNativeEntry } from "../locations/index.js";
-import { projectionUnitPath, projectionUnitPathOfEntry, scopeUnitPath } from "./unit-path.js";
+import {
+  projectionUnitPath,
+  projectionUnitPathOfEntry,
+  scopeUnitPath,
+  scopeUnitPathOfEntry,
+} from "./unit-path.js";
 
 /** A physical scope root and a link naming it, as an aliased temp or checkout path would. */
 const aliasedRoot = Effect.gen(function* () {
@@ -107,6 +112,31 @@ describe("projection row keys", () => {
       );
       expect(unlocatedEntry).toEqual(unlocated);
       expect(unlocatedEntry).toMatchObject({ failure: { _tag: "ProjectionTargetUnsupported" } });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("key a resolved scope entry exactly as its path", () =>
+    Effect.gen(function* () {
+      const { base, physical, alias } = yield* aliasedRoot;
+      fs.writeFileSync(path.join(physical, "AGENTS.md"), "# Source\n");
+      fs.symlinkSync("AGENTS.md", path.join(physical, "CLAUDE.md"));
+      fs.mkdirSync(path.join(base, "outside"));
+      fs.symlinkSync(path.join(base, "outside"), path.join(alias, "escape"), "dir");
+      for (const [root, target] of [
+        [alias, path.join(alias, "CLAUDE.md")],
+        [physical, path.join(alias, "AGENTS.md")],
+        [alias, path.join(physical, "PLANNED.md")],
+        [alias, path.join(alias, "escape", "CLAUDE.md")],
+        [path.join(base, "missing-root"), path.join(physical, "AGENTS.md")],
+      ] as const) {
+        const { entryPath } = yield* resolveNativeEntry(target);
+        expect(yield* scopeUnitPathOfEntry(root, entryPath).pipe(Effect.result)).toEqual(
+          yield* scopeUnitPath(root, target).pipe(Effect.result),
+        );
+      }
+      expect(yield* scopeUnitPathOfEntry(alias, path.join(physical, "CLAUDE.md"))).toEqual(
+        Option.some("CLAUDE.md"),
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

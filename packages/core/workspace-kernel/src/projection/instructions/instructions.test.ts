@@ -3495,6 +3495,37 @@ describe("instruction projection reads each prepared input once", () => {
     target: string,
   ) => ({ ...recording.counts(target) });
 
+  it.effect("keys each prepared copy from its own entry admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ copies: ["GEMINI.md"] });
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(snapshot.status.items.map((item) => [item.ownership, item.observedForm])).toEqual([
+          ["owned-unrecorded-identical", "copy"],
+        ]);
+        recording.reset();
+        const records = yield* recordIdenticalInstructionCopies(snapshot);
+        expect(records.map((change) => change.path)).toEqual(["GEMINI.md"]);
+        expect({
+          target: allCalls(recording, path.join(ws.root, "GEMINI.md")),
+          rootRealPaths: recording.counts(ws.root)["realPath"] ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        }).toEqual({
+          // Prepare's entry admission, its classification and the record's
+          // witness; the row key reuses the admitted entry and still resolves
+          // the workspace root live.
+          target: { readFile: 2, readLink: 7, realPath: 6, stat: 7 },
+          rootRealPaths: 17,
+          sourceReads: 2,
+        });
+      }),
+    ),
+  );
+
   it.effect("checks the .gitignore fences once before an alias write", () =>
     recorded(
       Effect.gen(function* () {

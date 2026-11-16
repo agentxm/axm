@@ -59,6 +59,19 @@ export const scopeUnitPath = (
     Effect.map(resolveNativeEntry(target), ({ entryPath }) => entryPath),
   );
 
+/**
+ * {@link scopeUnitPath} of an entry the caller has just resolved for the same
+ * target, with nothing written since; the scope root is still resolved live.
+ */
+export const scopeUnitPathOfEntry = (
+  scopeRoot: string,
+  entryPath: string,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> => keyBeneathScopeRoot(scopeRoot, Effect.succeed(entryPath));
+
 const plannedTargetKey = (
   target: string,
   key: Effect.Effect<

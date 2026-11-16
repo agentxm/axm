@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -68,6 +69,22 @@ export const resolvePluginRoot = (
     );
   });
 
+/** How a skills root is walked: Codex descends, Agent Plugins skips a root SKILL.md. */
+type SkillsWalk = "codex" | "agent-plugins" | "skill-root";
+
+/**
+ * What one completed distribution read of a directory observed: each plugin
+ * manifest it probed, with the text it read when the manifest exists, and the
+ * skills each skills root it walked contributed. Immutable; only steps that
+ * completed are recorded.
+ */
+export interface PluginDistributionObservations {
+  readonly manifests: HashMap.HashMap<string, Option.Option<string>>;
+  readonly skillRoots: HashMap.HashMap<string, ReadonlyArray<string>>;
+}
+
+const skillRootKey = (walk: SkillsWalk, selected: string) => JSON.stringify([walk, selected]);
+
 /**
  * Read distribution declarations; unknown vendor metadata does not gate
  * acquisition. Every path is joined to, and reported from, the lexical
@@ -79,9 +96,37 @@ export const readPluginDistribution = (
   options: {
     readonly physicalRoot: string;
     readonly selection?: PluginMarketplaceSelection;
+    readonly observed?: PluginDistributionObservations;
   },
 ): Effect.Effect<
   Option.Option<PluginSkillDistribution>,
+  SourceNotResolvable,
+  FileSystem.FileSystem | Path.Path
+> =>
+  observePluginDistribution(directory, options).pipe(
+    Effect.map(({ distribution }) => distribution),
+  );
+
+/**
+ * Read a directory's distribution, as `readPluginDistribution` does, and
+ * return what that read observed. `observed`, when given, is what an earlier
+ * read of this same lexical directory observed within the same inspection:
+ * the manifest probes and reads and the skills-root walks it recorded are
+ * taken from it in place, and every step it did not record, together with
+ * every selection-dependent check, runs live in today's order.
+ */
+export const observePluginDistribution = (
+  directory: string,
+  options: {
+    readonly physicalRoot: string;
+    readonly selection?: PluginMarketplaceSelection;
+    readonly observed?: PluginDistributionObservations;
+  },
+): Effect.Effect<
+  {
+    readonly distribution: Option.Option<PluginSkillDistribution>;
+    readonly observations: PluginDistributionObservations;
+  },
   SourceNotResolvable,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -90,6 +135,10 @@ export const readPluginDistribution = (
     const path = yield* Path.Path;
     const resolvedRoot = options.physicalRoot;
     const selection = options.selection;
+    const observed = options.observed;
+    let manifests = HashMap.empty<string, Option.Option<string>>();
+    let skillRoots = HashMap.empty<string, ReadonlyArray<string>>();
+    const observations = (): PluginDistributionObservations => ({ manifests, skillRoots });
     const assertContained = (target: string) =>
       Effect.gen(function* () {
         const resolved = yield* fs.realPath(target).pipe(
@@ -117,26 +166,36 @@ export const readPluginDistribution = (
       )
         continue;
       const manifestPath = path.join(directory, format.manifestPath);
-      const exists = yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)));
+      const prior =
+        observed === undefined ? Option.none() : HashMap.get(observed.manifests, manifestPath);
+      const exists = Option.isSome(prior)
+        ? Option.isSome(prior.value)
+        : yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)));
+      if (!exists) manifests = HashMap.set(manifests, manifestPath, Option.none());
       if (!exists && (selection === undefined || format.format !== selection.format)) continue;
       if (!exists && format.format === "codex")
         return yield* new SourceNotResolvable({
           category: "validation",
           detail: `Codex marketplace package is missing its plugin manifest: ${directory}`,
         });
-      if (exists) yield* assertContained(manifestPath);
       const raw = !exists
         ? "{}"
-        : yield* fs.readFileString(manifestPath).pipe(
-            Effect.mapError(
-              (cause) =>
-                new SourceNotResolvable({
-                  category: "validation",
-                  detail: `Plugin manifest could not be read: ${manifestPath}`,
-                  cause,
-                }),
-            ),
-          );
+        : Option.isSome(prior) && Option.isSome(prior.value)
+          ? prior.value.value
+          : yield* Effect.gen(function* () {
+              yield* assertContained(manifestPath);
+              return yield* fs.readFileString(manifestPath).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new SourceNotResolvable({
+                      category: "validation",
+                      detail: `Plugin manifest could not be read: ${manifestPath}`,
+                      cause,
+                    }),
+                ),
+              );
+            });
+      if (exists) manifests = HashMap.set(manifests, manifestPath, Option.some(raw));
       const document = yield* Schema.decodeUnknownEffect(
         Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
       )(raw).pipe(Effect.option);
@@ -220,6 +279,92 @@ export const readPluginDistribution = (
               ? [...paths(decoded.skills), ...paths(entryHints.skills)]
               : ["skills", ...paths(decoded.skills), ...paths(entryHints.skills)];
       const skills = new Set<string>();
+      const walk: SkillsWalk =
+        format.format === "codex" || format.format === "agent-plugins"
+          ? format.format
+          : "skill-root";
+      // The skills one root contributes, from its exists probe onward.
+      const rootSkills = (selected: string) =>
+        Effect.gen(function* () {
+          const contributed: Array<string> = [];
+          if (
+            !(yield* fs.exists(selected).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SourceNotResolvable({
+                    category: "validation",
+                    detail: `Plugin path could not be inspected: ${selected}`,
+                    cause,
+                  }),
+              ),
+            ))
+          )
+            return contributed;
+          if (walk === "codex") {
+            const pending = [{ directory: selected, depth: 0 }];
+            const seen = new Set<string>();
+            const failure = (cause: unknown) =>
+              new SourceNotResolvable({
+                category: "validation",
+                detail: `Codex skill directory could not be inspected: ${selected}`,
+                cause,
+              });
+            while (pending.length > 0) {
+              const current = pending.pop();
+              if (current === undefined) continue;
+              // The skills root is first contained here, as each directory beneath it is.
+              const physical = yield* assertContained(current.directory);
+              if (seen.has(physical)) continue;
+              seen.add(physical);
+              if (
+                yield* fs
+                  .exists(path.join(current.directory, "SKILL.md"))
+                  .pipe(Effect.mapError(failure))
+              ) {
+                yield* assertContained(path.join(current.directory, "SKILL.md"));
+                contributed.push(current.directory);
+                continue;
+              }
+              if (current.depth === DISCOVERY_MAX_DEPTH) continue;
+              const children = yield* fs
+                .readDirectory(current.directory)
+                .pipe(Effect.mapError(failure));
+              for (const child of [...children].sort().reverse()) {
+                const next = path.join(current.directory, child);
+                const info = yield* fs.stat(next).pipe(Effect.mapError(failure));
+                if (info.type === "Directory")
+                  pending.push({ directory: next, depth: current.depth + 1 });
+              }
+            }
+            return contributed;
+          }
+          yield* assertContained(selected);
+          if (
+            walk !== "agent-plugins" &&
+            (yield* fs
+              .exists(path.join(selected, "SKILL.md"))
+              .pipe(Effect.catch(() => Effect.succeed(false))))
+          ) {
+            yield* assertContained(path.join(selected, "SKILL.md"));
+            contributed.push(selected);
+            return contributed;
+          }
+          const entries = yield* fs
+            .readDirectory(selected)
+            .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+          for (const entry of [...entries].sort()) {
+            const skill = path.join(selected, entry);
+            if (
+              yield* fs
+                .exists(path.join(skill, "SKILL.md"))
+                .pipe(Effect.catch(() => Effect.succeed(false)))
+            ) {
+              yield* assertContained(path.join(skill, "SKILL.md"));
+              contributed.push(skill);
+            }
+          }
+          return contributed;
+        });
       for (const relative of roots) {
         const selected = path.resolve(directory, relative);
         const selectedRelative = path.relative(directory, selected);
@@ -229,89 +374,24 @@ export const readPluginDistribution = (
             detail: `Plugin skill path escapes its package: ${relative}`,
           });
         }
-        if (
-          !(yield* fs.exists(selected).pipe(
-            Effect.mapError(
-              (cause) =>
-                new SourceNotResolvable({
-                  category: "validation",
-                  detail: `Plugin path could not be inspected: ${selected}`,
-                  cause,
-                }),
-            ),
-          ))
-        )
-          continue;
-        if (format.format === "codex") {
-          const pending = [{ directory: selected, depth: 0 }];
-          const seen = new Set<string>();
-          const failure = (cause: unknown) =>
-            new SourceNotResolvable({
-              category: "validation",
-              detail: `Codex skill directory could not be inspected: ${selected}`,
-              cause,
-            });
-          while (pending.length > 0) {
-            const current = pending.pop();
-            if (current === undefined) continue;
-            // The skills root is first contained here, as each directory beneath it is.
-            const physical = yield* assertContained(current.directory);
-            if (seen.has(physical)) continue;
-            seen.add(physical);
-            if (
-              yield* fs
-                .exists(path.join(current.directory, "SKILL.md"))
-                .pipe(Effect.mapError(failure))
-            ) {
-              yield* assertContained(path.join(current.directory, "SKILL.md"));
-              skills.add(current.directory);
-              continue;
-            }
-            if (current.depth === DISCOVERY_MAX_DEPTH) continue;
-            const children = yield* fs
-              .readDirectory(current.directory)
-              .pipe(Effect.mapError(failure));
-            for (const child of [...children].sort().reverse()) {
-              const next = path.join(current.directory, child);
-              const info = yield* fs.stat(next).pipe(Effect.mapError(failure));
-              if (info.type === "Directory")
-                pending.push({ directory: next, depth: current.depth + 1 });
-            }
-          }
-          continue;
-        }
-        yield* assertContained(selected);
-        if (
-          format.format !== "agent-plugins" &&
-          (yield* fs
-            .exists(path.join(selected, "SKILL.md"))
-            .pipe(Effect.catch(() => Effect.succeed(false))))
-        ) {
-          yield* assertContained(path.join(selected, "SKILL.md"));
-          skills.add(selected);
-          continue;
-        }
-        const entries = yield* fs
-          .readDirectory(selected)
-          .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-        for (const entry of [...entries].sort()) {
-          const skill = path.join(selected, entry);
-          if (
-            yield* fs
-              .exists(path.join(skill, "SKILL.md"))
-              .pipe(Effect.catch(() => Effect.succeed(false)))
-          ) {
-            yield* assertContained(path.join(skill, "SKILL.md"));
-            skills.add(skill);
-          }
-        }
+        const key = skillRootKey(walk, selected);
+        const recorded =
+          observed === undefined ? Option.none() : HashMap.get(observed.skillRoots, key);
+        const contributed = Option.isSome(recorded)
+          ? recorded.value
+          : Object.freeze(yield* rootSkills(selected));
+        skillRoots = HashMap.set(skillRoots, key, contributed);
+        for (const skill of contributed) skills.add(skill);
       }
-      return Option.some({
-        format: format.format,
-        ...(exists ? { manifestPath: format.manifestPath } : {}),
-        skills: [...skills].sort(),
-        resolvedRoot,
-      });
+      return {
+        distribution: Option.some({
+          format: format.format,
+          ...(exists ? { manifestPath: format.manifestPath } : {}),
+          skills: [...skills].sort(),
+          resolvedRoot,
+        }),
+        observations: observations(),
+      };
     }
-    return Option.none();
+    return { distribution: Option.none(), observations: observations() };
   });

@@ -384,3 +384,186 @@ describe("plugin root resolution within one directory's inspection", () => {
     }),
   );
 });
+
+describe("a marketplace that lists its own root", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-discovery-self-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const skillDocument = (name: string) =>
+    `---\nname: ${name}\ndescription: The ${name} skill\n---\n`;
+  const skillsOnly: ExtensionPackageFilter = { ...everything, type: "skill" };
+  const at = (...segments: ReadonlyArray<string>) => path.join(tempDir, ...segments);
+  const directories = (
+    discovered: Effect.Success<ReturnType<typeof discover>>["discovered"],
+  ): ReadonlyArray<string> =>
+    discovered._tag === "Success" ? discovered.success.map((candidate) => candidate.directory) : [];
+  const count = (
+    recording: FileSystemRecording,
+    method: "access" | "readDirectory" | "readFile" | "realPath",
+    target: string,
+  ) => recording.calls({ method, path: target }).length;
+
+  /** A Claude plugin at the marketplace root, beside a non-Agent-Plugins `plugin.json`. */
+  const writeRootPlugin = (entry: Readonly<Record<string, unknown>> = {}) => {
+    write(at(".claude-plugin", "marketplace.json"), {
+      plugins: [{ name: "p", source: "./", ...entry }],
+    });
+    write(at(".claude-plugin", "plugin.json"), { name: "p" });
+    write(at("plugin.json"), { $schema: "https://example.com/plugin.schema.json", name: "p" });
+    write(at("skills", "a", "SKILL.md"), skillDocument("a"));
+    write(at("skills", "b", "SKILL.md"), skillDocument("b"));
+  };
+
+  it.effect("reads the root's plugin manifests and skills once for its own member", () =>
+    Effect.gen(function* () {
+      writeRootPlugin();
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(directories(discovered)).toStrictEqual([at("skills", "a"), at("skills", "b")]);
+      expect({
+        readClaudeManifest: count(recording, "readFile", at(".claude-plugin", "plugin.json")),
+        readPluginJson: count(recording, "readFile", at("plugin.json")),
+        probeClaudeManifest: count(recording, "access", at(".claude-plugin", "plugin.json")),
+        probePluginJson: count(recording, "access", at("plugin.json")),
+        probeCodexManifest: count(recording, "access", at(".codex-plugin", "plugin.json")),
+        probeSkills: count(recording, "access", at("skills")),
+        listSkills: count(recording, "readDirectory", at("skills")),
+        probeA: count(recording, "access", at("skills", "a", "SKILL.md")),
+        probeB: count(recording, "access", at("skills", "b", "SKILL.md")),
+        resolveSkills: count(recording, "realPath", at("skills")),
+        resolveClaudeManifest: count(recording, "realPath", at(".claude-plugin", "plugin.json")),
+        resolvePluginJson: count(recording, "realPath", at("plugin.json")),
+        resolveA: count(recording, "realPath", at("skills", "a", "SKILL.md")),
+        resolveB: count(recording, "realPath", at("skills", "b", "SKILL.md")),
+        resolveRoot: count(recording, "realPath", tempDir),
+        readMarketplace: count(recording, "readFile", at(".claude-plugin", "marketplace.json")),
+      }).toStrictEqual({
+        readClaudeManifest: 1,
+        readPluginJson: 1,
+        probeClaudeManifest: 1,
+        probePluginJson: 1,
+        probeCodexManifest: 1,
+        probeSkills: 1,
+        listSkills: 1,
+        probeA: 1,
+        probeB: 1,
+        resolveSkills: 1,
+        resolveClaudeManifest: 1,
+        resolvePluginJson: 1,
+        resolveA: 1,
+        resolveB: 1,
+        // The inspection's root, and the member's own containment check.
+        resolveRoot: 2,
+        readMarketplace: 1,
+      });
+    }),
+  );
+
+  it.effect("probes an entry's own skill path live when it replaces the default root", () =>
+    Effect.gen(function* () {
+      writeRootPlugin({ skills: ["./skills/a"] });
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(directories(discovered)).toStrictEqual([at("skills", "a")]);
+      expect({
+        probeA: count(recording, "access", at("skills", "a")),
+        resolveA: count(recording, "realPath", at("skills", "a")),
+        // Once as a child of the default root, once as the entry's own root.
+        probeASkill: count(recording, "access", at("skills", "a", "SKILL.md")),
+        resolveASkill: count(recording, "realPath", at("skills", "a", "SKILL.md")),
+        readClaudeManifest: count(recording, "readFile", at(".claude-plugin", "plugin.json")),
+      }).toStrictEqual({
+        probeA: 1,
+        resolveA: 1,
+        probeASkill: 2,
+        resolveASkill: 2,
+        readClaudeManifest: 1,
+      });
+    }),
+  );
+
+  it.effect("refuses a strict: false entry that conflicts with the root's manifest", () =>
+    Effect.gen(function* () {
+      writeRootPlugin({ strict: false, skills: ["./skills/a"] });
+
+      const { discovered } = yield* discover(tempDir, skillsOnly);
+
+      expect(discovered._tag).toBe("Failure");
+      if (discovered._tag === "Failure")
+        expect(discovered.failure.detail).toBe(
+          `Claude marketplace entry conflicts with plugin manifest under strict: false: ${tempDir}`,
+        );
+    }),
+  );
+
+  it.effect("refuses a Codex root member whose Codex manifest the root does not hold", () =>
+    Effect.gen(function* () {
+      write(at(".agents", "plugins", "marketplace.json"), {
+        plugins: [{ name: "p", source: { source: "local", path: "./" } }],
+      });
+      write(at(".claude-plugin", "plugin.json"), { name: "p" });
+      write(at("skills", "a", "SKILL.md"), skillDocument("a"));
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(discovered._tag).toBe("Failure");
+      if (discovered._tag === "Failure")
+        expect(discovered.failure.detail).toBe(
+          `Codex marketplace package is missing its plugin manifest: ${tempDir}`,
+        );
+      expect(count(recording, "access", at(".codex-plugin", "plugin.json"))).toBe(1);
+    }),
+  );
+
+  it.effect("walks a Codex root's skills again in the Claude layout its member selects", () =>
+    Effect.gen(function* () {
+      write(at(".claude-plugin", "marketplace.json"), {
+        plugins: [{ name: "p", source: "./" }],
+      });
+      write(at(".codex-plugin", "plugin.json"), { name: "p" });
+      write(at("skills", "a", "SKILL.md"), skillDocument("a"));
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(directories(discovered)).toStrictEqual([at("skills", "a")]);
+      expect({
+        probeClaudeManifest: count(recording, "access", at(".claude-plugin", "plugin.json")),
+        listSkills: count(recording, "readDirectory", at("skills")),
+        resolveSkills: count(recording, "realPath", at("skills")),
+      }).toStrictEqual({ probeClaudeManifest: 1, listSkills: 2, resolveSkills: 2 });
+    }),
+  );
+
+  it.effect("keeps a member below the root at its own reads", () =>
+    Effect.gen(function* () {
+      write(at(".claude-plugin", "marketplace.json"), {
+        plugins: [{ name: "p", source: "./plugin" }],
+      });
+      write(at(".claude-plugin", "plugin.json"), { name: "root" });
+      write(at("plugin", ".claude-plugin", "plugin.json"), { name: "p" });
+      write(at("plugin", "skills", "a", "SKILL.md"), skillDocument("a"));
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(directories(discovered)).toStrictEqual([at("plugin", "skills", "a")]);
+      expect({
+        readRootManifest: count(recording, "readFile", at(".claude-plugin", "plugin.json")),
+        readMemberManifest: count(
+          recording,
+          "readFile",
+          at("plugin", ".claude-plugin", "plugin.json"),
+        ),
+        listMemberSkills: count(recording, "readDirectory", at("plugin", "skills")),
+      }).toStrictEqual({ readRootManifest: 1, readMemberManifest: 1, listMemberSkills: 1 });
+    }),
+  );
+});

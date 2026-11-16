@@ -29,6 +29,7 @@ import {
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 import {
+  observePluginDistribution,
   readPluginDistribution,
   resolvePluginRoot,
   type PluginSkillDistribution,
@@ -369,13 +370,14 @@ export const discoverExtensionPackages = (
           : yield* resolvePluginRoot(directory).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
             );
-        const plugin =
+        const inspected =
           physicalRoot === undefined
-            ? Option.none()
-            : yield* readPluginDistribution(directory, { physicalRoot }).pipe(
+            ? undefined
+            : yield* observePluginDistribution(directory, { physicalRoot }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
               );
+        const plugin = inspected?.distribution ?? Option.none();
         const components = (
           packageDirectory: string,
           distribution: PluginSkillDistribution,
@@ -471,9 +473,15 @@ export const discoverExtensionPackages = (
         if (Option.isSome(marketplace)) {
           const members = yield* Effect.forEach(marketplace.value, (member) =>
             Effect.gen(function* () {
+              // A member at the marketplace root reads what this inspection
+              // already observed of that same directory; any other member
+              // reads its own.
               const distribution = yield* readPluginDistribution(member.directory, {
                 physicalRoot: member.physicalDirectory,
                 selection: member.selection,
+                ...(member.directory === directory && inspected !== undefined
+                  ? { observed: inspected.observations }
+                  : {}),
               });
               return Option.isNone(distribution)
                 ? []

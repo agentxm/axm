@@ -11,6 +11,7 @@
  */
 import { writeFileSync } from "node:fs";
 import * as nodePath from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -20,11 +21,17 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import {
+  agentOutputAuthorityFrom,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
+import {
   collectMaterializeSteps,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
   DesiredStateReader,
+  SettingsReader,
+  unresolvedPackRoutes,
   WorkspaceLocation,
   type DesiredStateReaderService,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -174,6 +181,105 @@ describe("Materialization planning's desired-state evaluation", () => {
               evaluations: 1,
               // Two evaluations and one prior agent-set read fewer (11, 5, 15 and 7 before).
               reads: { settings: 8, inherited: 3, lockfile: 13, pack: 5 },
+            });
+          }),
+        )
+        .pipe(provideRecording);
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "derives the prior output authority from the committed workspace, not from a proposal",
+    () => {
+      const workspace = plannedWorkspace();
+      cleanups.push(workspace.cleanup);
+      writeAuthoredRule(workspace.root, "lint", "Lint every change.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            const committed = yield* captureAgentOutputAuthority();
+            // The proposal adds a Rule the committed workspace does not declare.
+            const current = yield* (yield* SettingsReader).settings;
+            const review = current.rules?.["review"];
+            if (review === undefined) throw new Error("Expected the committed Rule");
+            const settings = { ...current, rules: { ...current.rules, lint: review } };
+            const proposal = yield* (yield* DesiredStateReader).evaluate({ settings });
+            const proposed = yield* agentOutputAuthorityFrom(Effect.succeed(proposal));
+            const adapter = yield* StepFailureConversion;
+            const { result, evaluations } = yield* countEvaluations(
+              collectMaterializeSteps({
+                desiredState: proposal.graph,
+                settings,
+                selection: { target: Option.none(), types: [] },
+                inventories: "presence",
+                adapter,
+              }),
+            );
+            if (result._tag !== "Success") throw new Error("Expected step collection to succeed");
+            const prior = result.success.ruleProjection.priorAuthority;
+            const ruleRegions = (authority: typeof committed | undefined) =>
+              (authority?.expectedRegions.rule ?? []).map((region) => region.name).sort();
+            expect({
+              proposed: ruleRegions(proposed),
+              prior: ruleRegions(prior),
+              committedPrior: isDeepStrictEqual(prior, committed),
+              evaluations,
+            }).toEqual({
+              proposed: ["lint", "review"],
+              // The proposal's Rule is not yet the workspace's output.
+              prior: ["review"],
+              committedPrior: true,
+              evaluations: 1,
+            });
+          }),
+        )
+        .pipe(provideRecording);
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "withholds native insertion while the committed workspace's Pack routes are unresolved",
+    () => {
+      const workspace = plannedWorkspace();
+      cleanups.push(workspace.cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            // The proposal no longer configures the Pack, so its own routes are all resolved.
+            const current = yield* (yield* SettingsReader).settings;
+            const settings = { ...current, packs: {} };
+            const proposal = yield* (yield* DesiredStateReader).graph({ settings });
+            workspace.remove("packs/bundle/pack.json");
+            const committed = yield* (yield* DesiredStateReader).graph();
+            const adapter = yield* StepFailureConversion;
+            const { result, evaluations } = yield* countEvaluations(
+              collectMaterializeSteps({
+                desiredState: proposal,
+                settings,
+                configuredAgents: ["claude-code", "gemini-cli"],
+                selection: { target: Option.none(), types: [] },
+                inventories: "presence",
+                adapter,
+              }),
+            );
+            if (result._tag !== "Success") throw new Error("Expected step collection to succeed");
+            expect({
+              committedUnresolved: unresolvedPackRoutes(committed).length,
+              proposedUnresolved: unresolvedPackRoutes(proposal).length,
+              eligibleAgents: [
+                ...(result.success.ruleProjection.nativeInsertionEligibleAgentIds ?? []),
+              ],
+              evaluations,
+            }).toEqual({
+              committedUnresolved: 1,
+              proposedUnresolved: 0,
+              // The added agent would be eligible if the proposal stood in for the committed graph.
+              eligibleAgents: [],
+              evaluations: 1,
             });
           }),
         )

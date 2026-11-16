@@ -3552,6 +3552,35 @@ describe("instruction projection reads each prepared input once", () => {
     ),
   );
 
+  it.effect("probes an existing target its content admission refuses before classifying it", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const target = path.join(ws.root, "CLAUDE.md");
+        yield* host.writeFileString(path.join(outside, "CLAUDE.md"), "# Foreign\n");
+        // A hard link is an ordinary file whose content admission is refused.
+        fs.linkSync(path.join(outside, "CLAUDE.md"), target);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([["claude-code", "unowned", "file"]]);
+        // The refused admission reads nothing, so the path's existence probe decides.
+        expect({
+          access: recording.counts(target)["access"] ?? 0,
+          contentReads: recording.contentReads(target),
+        }).toEqual({ access: 1, contentReads: 0 });
+        expect(fs.readFileSync(target, "utf8")).toBe("# Foreign\n");
+      }),
+    ),
+  );
+
   it.effect("prepares an absent target without probing it again after its admission", () =>
     recorded(
       Effect.gen(function* () {

@@ -133,8 +133,11 @@ export interface AcceptedEntryOptions {
 interface DesiredStateCandidateInputs {
   readonly settings?: Settings;
   /**
-   * The other scope's settings document exactly as the caller read it in the
-   * same call, in place of reading it again.
+   * The other scope's current settings document, exactly as the caller read it
+   * through the same workspace documents earlier in its call, in place of
+   * reading it again. It is never a proposal. A read phase's reader does not
+   * take it: it reads that scope from the phase's own document, which is what
+   * such a read returns while the phase is active.
    */
   readonly inheritedSettings?: Settings;
   readonly acceptedResolutions?: Lockfile;

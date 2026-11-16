@@ -4,9 +4,13 @@
  * `agent-settings(agentId)` origins.
  */
 
+import * as nodeFs from "node:fs";
+import * as os from "node:os";
+import * as nodePath from "node:path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
@@ -211,6 +215,50 @@ layer(Path.layer, { excludeTestServices: true })("agent-settings scanner", (it) 
         ]);
         expect(recording.counts(sharedPath)).toEqual({ access: 1 });
       }),
+    );
+
+    const scanTwiceAround = (workspaceRoot: string) =>
+      Effect.gen(function* () {
+        const settingsPath = nodePath.join(workspaceRoot, ".qoder", "settings.json");
+        const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+        const path = yield* Path.Path;
+        const base = yield* FileSystem.FileSystem;
+        const { fileSystem, recording } = makeRecordingFileSystem(base);
+        const scan = makeAgentSettingsScanner({
+          fs: fileSystem,
+          path,
+          workspaceRoot,
+          scope: "project",
+          diagnostics: makeDiagnostics(ref),
+        });
+        const agentIds = (occurrences: ReadonlyArray<{ readonly agentId: string }>) =>
+          occurrences.map((occurrence) => occurrence.agentId);
+
+        const first = yield* scan;
+        expect(recording.counts(settingsPath)).toEqual({ access: 1 });
+        expect(agentIds(first)).toEqual([]);
+
+        recording.reset();
+        nodeFs.mkdirSync(nodePath.dirname(settingsPath), { recursive: true });
+        nodeFs.writeFileSync(settingsPath, "{}");
+        const second = yield* scan;
+
+        expect(recording.counts(settingsPath)).toEqual({ access: 1 });
+        expect(agentIds(second)).toEqual(["qoder", "qoder-cn"]);
+        expect(second.map((occurrence) => occurrence.contentLocation)).toEqual([
+          settingsPath,
+          settingsPath,
+        ]);
+        expect(yield* Ref.get(ref)).toEqual([]);
+      });
+
+    it.effect("probes the shared path again in a later scan and sees a newly created file", () =>
+      Effect.acquireUseRelease(
+        Effect.sync(() => nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "agent-settings-shared-"))),
+        (workspaceRoot) => scanTwiceAround(workspaceRoot),
+        (workspaceRoot) =>
+          Effect.sync(() => nodeFs.rmSync(workspaceRoot, { recursive: true, force: true })),
+      ).pipe(Effect.provide(NodeFileSystem.layer)),
     );
 
     it.effect("an absent shared settings file yields nothing after one probe", () =>

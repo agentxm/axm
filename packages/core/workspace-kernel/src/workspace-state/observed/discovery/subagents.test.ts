@@ -200,6 +200,37 @@ describe("scanAllSubagentFiles over directories shared by several agents", () =>
     ),
   );
 
+  it.effect("scans a shared directory again in a later call and sees its new entries", () =>
+    recorded(
+      Effect.gen(function* () {
+        setUpSharedDirectories();
+        const recording = yield* FileSystemRecorder;
+        const agentsDir = path.resolve(tempDir, ".agents/agents");
+        yield* scanAllSubagentFiles(tempDir);
+        recording.reset();
+        fs.writeFileSync(path.join(agentsDir, "d.md"), "# D");
+
+        const result = yield* scanAllSubagentFiles(tempDir);
+
+        expect(recording.counts(agentsDir)).toEqual({ access: 1, readDirectory: 1 });
+        expect(recording.counts(path.join(agentsDir, "d.md"))).toEqual({ stat: 1 });
+        const shared = ["a.md", "b.md", "d.md"].map((name) => path.join(".agents/agents", name));
+        expect(
+          result
+            .filter((summary) => summary.subagentDir === ".agents/agents")
+            .map((summary) => ({
+              agentId: summary.agentId,
+              files: summary.files.map((file) => file.path).sort(),
+            })),
+        ).toEqual([
+          { agentId: "antigravity", files: shared },
+          { agentId: "antigravity-cli", files: shared },
+          { agentId: "goose", files: shared },
+        ]);
+      }),
+    ),
+  );
+
   it.effect("attributes a failed shared scan to the first agent that declares it", () => {
     const agentsDir = path.resolve(tempDir, ".agents/agents");
     const injected = PlatformError.systemError({

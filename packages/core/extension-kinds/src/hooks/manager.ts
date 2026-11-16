@@ -86,6 +86,7 @@ import type {
   HookEvidenceStatus,
 } from "@agentxm/workspace-kernel/operations";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   type HookBinding,
   type HookManifest,
@@ -377,21 +378,30 @@ export const HookManagerLive = Layer.effect(
     // package dir.
     const materializePackage = (
       ref: HookExtensionRef,
-      force = false,
-      nativeInsertionEligible = false,
+      force: boolean,
+      nativeInsertionEligible: boolean,
+      frameContentHash: boolean,
     ) =>
       Effect.scoped(
         Effect.flatMap(
           RcMap.get(packageMaterializeLocks, `${baseDir}\u0000${ref.hook.name}`),
           (lock) =>
-            lock.withPermits(1)(materializePackageUnlocked(ref, force, nativeInsertionEligible)),
+            lock.withPermits(1)(
+              materializePackageUnlocked(ref, force, nativeInsertionEligible, frameContentHash),
+            ),
         ),
       );
 
+    /**
+     * The package root and its materialized-tree integrity. A workspace
+     * package's strict walk also frames its package content hash when
+     * `frameContentHash` is set; every other package hashes nothing here.
+     */
     const materializePackageUnlocked = (
       ref: HookExtensionRef,
       force: boolean,
       nativeInsertionEligible: boolean,
+      frameContentHash: boolean,
     ) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
@@ -408,12 +418,20 @@ export const HookManagerLive = Layer.effect(
             canonicalPath,
             invalid: (detail) => new HookDefinitionInvalid({ detail }),
           });
+          if (!frameContentHash)
+            return {
+              packageRoot: ref.location,
+              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+              contentHash: Option.none<SourceHash>(),
+            };
+          const digests = yield* provide(computeMaterializedTreeDigests(ref.location));
           return {
             packageRoot: ref.location,
-            treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+            treeIntegrity: digests.treeIntegrity,
+            contentHash: Option.some(digests.contentHash),
           };
         }
-        return yield* acquireCanonicalForRef({
+        const acquired = yield* acquireCanonicalForRef({
           ref,
           type: "hook",
           baseDir,
@@ -426,6 +444,11 @@ export const HookManagerLive = Layer.effect(
             detail: (target) => `Failed to copy hook extension files to ${target}`,
           },
         });
+        return {
+          packageRoot: acquired.packageRoot,
+          treeIntegrity: acquired.treeIntegrity,
+          contentHash: Option.none<SourceHash>(),
+        };
       });
 
     const readManifest = (packageRoot: string) =>
@@ -1237,7 +1260,21 @@ export const HookManagerLive = Layer.effect(
     const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
     )(function* ({ ref, force, nativeInsertionEligible, preparedSourceHash }) {
-      const materialized = yield* materializePackage(ref, force === true, nativeInsertionEligible);
+      // A caller's hash of this exact workspace package root stands for the
+      // hash here: nothing in this install writes the package tree. A
+      // workspace package's root is its location.
+      const preparedHash =
+        ref.refType === "workspace" &&
+        preparedSourceHash !== undefined &&
+        path.resolve(preparedSourceHash.root) === path.resolve(ref.location)
+          ? Option.some(preparedSourceHash.hash)
+          : Option.none<SourceHash>();
+      const materialized = yield* materializePackage(
+        ref,
+        force === true,
+        nativeInsertionEligible === true,
+        Option.isNone(preparedHash),
+      );
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
@@ -1250,14 +1287,12 @@ export const HookManagerLive = Layer.effect(
             )
           : Option.none<string>();
 
-      // A caller's hash of this exact workspace package root stands for the
-      // hash here: nothing in this install writes the package tree.
-      const sourceHash =
-        ref.refType === "workspace" &&
-        preparedSourceHash !== undefined &&
-        path.resolve(preparedSourceHash.root) === path.resolve(packageRoot)
-          ? preparedSourceHash.hash
-          : yield* computePackageContentHash(packageRoot);
+      // Otherwise a workspace package's strict walk framed the hash; any
+      // other package is hashed here.
+      const sourceHash = yield* Option.match(
+        Option.orElse(preparedHash, () => materialized.contentHash),
+        { onSome: Effect.succeed, onNone: () => computePackageContentHash(packageRoot) },
+      );
       return {
         observation: NO_MATERIALIZATION_OBSERVATION,
         treeIntegrity: Option.some(materialized.treeIntegrity),

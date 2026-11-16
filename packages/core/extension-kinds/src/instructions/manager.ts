@@ -28,6 +28,7 @@ import {
   computeExtensionPathsForLayout,
   computePackageContentHash,
   computeMaterializedTreeIntegrity,
+  computeMaterializedTreeDigests,
   MaterializedFileTargetSchema,
   acceptedCanonicalObservation,
   capturedManifestFor,
@@ -73,6 +74,7 @@ import {
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   assertNoPhysicalOverlap,
   assertNativeMutationWithinRoots,
@@ -168,10 +170,16 @@ export const RuleManagerLive = Layer.effect(
     // state commits, so the closure reads back what the render projected.
     const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
 
+    /**
+     * The package root and its materialized-tree integrity. A workspace
+     * package's strict walk also frames its package content hash when
+     * `frameContentHash` is set; every other package hashes nothing here.
+     */
     const materializePackage = (
       ref: RuleExtensionRef,
-      force = false,
-      nativeInsertionEligible = false,
+      force: boolean,
+      nativeInsertionEligible: boolean,
+      frameContentHash: boolean,
     ) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
@@ -188,12 +196,20 @@ export const RuleManagerLive = Layer.effect(
             canonicalPath,
             invalid: (detail) => new RuleDefinitionInvalid({ detail }),
           });
+          if (!frameContentHash)
+            return {
+              packageRoot: ref.location,
+              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+              contentHash: Option.none<SourceHash>(),
+            };
+          const digests = yield* provide(computeMaterializedTreeDigests(ref.location));
           return {
             packageRoot: ref.location,
-            treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+            treeIntegrity: digests.treeIntegrity,
+            contentHash: Option.some(digests.contentHash),
           };
         }
-        return yield* acquireCanonicalForRef({
+        const acquired = yield* acquireCanonicalForRef({
           ref,
           type: "rule",
           baseDir,
@@ -206,6 +222,11 @@ export const RuleManagerLive = Layer.effect(
             detail: (target) => `Failed to copy rule package files to ${target}`,
           },
         });
+        return {
+          packageRoot: acquired.packageRoot,
+          treeIntegrity: acquired.treeIntegrity,
+          contentHash: Option.none<SourceHash>(),
+        };
       });
 
     const readManifest = (packageRoot: string) =>
@@ -596,7 +617,21 @@ export const RuleManagerLive = Layer.effect(
     const materializeInstall: RuleManagerService["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
     )(function* ({ ref, force, nativeInsertionEligible, preparedSourceHash }) {
-      const materialized = yield* materializePackage(ref, force === true, nativeInsertionEligible);
+      // A caller's hash of this exact workspace package root stands for the
+      // hash here: nothing in this install writes the package tree. A
+      // workspace package's root is its location.
+      const preparedHash =
+        ref.refType === "workspace" &&
+        preparedSourceHash !== undefined &&
+        path.resolve(preparedSourceHash.root) === path.resolve(ref.location)
+          ? Option.some(preparedSourceHash.hash)
+          : Option.none<SourceHash>();
+      const materialized = yield* materializePackage(
+        ref,
+        force === true,
+        nativeInsertionEligible === true,
+        Option.isNone(preparedHash),
+      );
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
@@ -609,14 +644,12 @@ export const RuleManagerLive = Layer.effect(
             )
           : Option.none<string>();
 
-      // A caller's hash of this exact workspace package root stands for the
-      // hash here: nothing in this install writes the package tree.
-      const sourceHash =
-        ref.refType === "workspace" &&
-        preparedSourceHash !== undefined &&
-        path.resolve(preparedSourceHash.root) === path.resolve(packageRoot)
-          ? preparedSourceHash.hash
-          : yield* computePackageContentHash(packageRoot);
+      // Otherwise a workspace package's strict walk framed the hash; any
+      // other package is hashed here.
+      const sourceHash = yield* Option.match(
+        Option.orElse(preparedHash, () => materialized.contentHash),
+        { onSome: Effect.succeed, onNone: () => computePackageContentHash(packageRoot) },
+      );
       return {
         observation: NO_MATERIALIZATION_OBSERVATION,
         treeIntegrity: Option.some(materialized.treeIntegrity),

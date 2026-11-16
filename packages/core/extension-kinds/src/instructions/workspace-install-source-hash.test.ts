@@ -15,7 +15,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { RuleManager } from "@agentxm/workspace-kernel/materialization";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
@@ -126,7 +128,10 @@ const managerLayer = () => {
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(
-      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+      Layer.provideMerge(
+        RegistryTransportTest(FetchHttpClient.layer),
+        Layer.provideMerge(layerRecordingFileSystem(NodeFileSystem.layer), NativePlatformTest),
+      ),
     ),
   );
 };
@@ -181,6 +186,49 @@ describe("RuleManager.materializeInstall of a workspace-authored package", () =>
       expect(yield* install({ root: elsewhere, hash: foreign })).toEqual({
         recorded: Option.some(fresh),
         hashes: 1,
+      });
+    }).pipe(Effect.provide(managerLayer()));
+  });
+
+  it.effect("walks and reads the package once when it hashes the package itself", () => {
+    const root = writeAuthoredPackage();
+    const elsewhere = nodePath.join(baseDir, "elsewhere");
+    writeFiles(elsewhere, { "other.txt": "other\n" });
+    return Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      const { listed, install } = yield* listedInstall;
+      const foreign = yield* computePackageContentHash(elsewhere);
+      const counted = (preparedSourceHash?: Parameters<typeof install>[0]) =>
+        Effect.gen(function* () {
+          recording.reset();
+          const installed = yield* install(preparedSourceHash);
+          return {
+            ...installed,
+            payloadReads: recording.contentReads(nodePath.join(root, "src/RULE.md")),
+            manifestReads: recording.contentReads(nodePath.join(root, "rule.json")),
+            rootListings: recording.counts(root).readDirectory ?? 0,
+          };
+        });
+      const fresh = yield* computePackageContentHash(root);
+      // The strict walk reads each file once and the install reads its
+      // manifest; a handed hash of this root hashes nothing more. Measured
+      // before the package hash was framed from the strict walk: 2 payload
+      // reads, 3 manifest reads and 2 root listings when hashing here.
+      const hashedHere = {
+        recorded: Option.some(fresh),
+        hashes: 1,
+        payloadReads: 1,
+        manifestReads: 2,
+        rootListings: 1,
+      };
+      expect(yield* counted()).toEqual(hashedHere);
+      expect(yield* counted({ root: elsewhere, hash: foreign })).toEqual(hashedHere);
+      expect(yield* counted(listed)).toEqual({
+        recorded: Option.some(listed.hash),
+        hashes: 0,
+        payloadReads: 1,
+        manifestReads: 2,
+        rootListings: 1,
       });
     }).pipe(Effect.provide(managerLayer()));
   });

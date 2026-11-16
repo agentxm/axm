@@ -19,7 +19,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
@@ -670,6 +670,35 @@ describe("lint contributor observations", () => {
       );
     },
     { timeout: 60_000 },
+  );
+
+  it.effect(
+    "decodes an installed Knowledge manifest once for its rule subject and inspection",
+    () => {
+      const workspace = syncedContributors();
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const [manifest] = nodeFs
+            .readdirSync(workspace.root, { recursive: true, encoding: "utf8" })
+            .filter((entry) =>
+              entry.endsWith(nodePath.join("knowledge", "handbook", "knowledge.json")),
+            );
+          expect(manifest).toBeDefined();
+          if (manifest === undefined) return;
+          const text = nodeFs.readFileSync(nodePath.join(workspace.root, manifest), "utf8");
+          const parse = vi.spyOn(JSON, "parse");
+          const exit = yield* Effect.exit(contributorLint(workspace));
+          const parses = parse.mock.calls.filter(([input]) => input === text).length;
+          parse.mockRestore();
+          expect(exit._tag).toBe("Success");
+          // The run's canonical observation, its read model's canonical scan and
+          // the rule subject each parse the manifest; the package inspection
+          // decodes the subject's text from the scan's parse.
+          expect(parses).toBe(3);
+        }),
+      );
+    },
   );
 
   it.effect("observes for itself once lint's observation phase has ended", () => {

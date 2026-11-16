@@ -25,6 +25,11 @@ const missingManifestDescription = (): KnowledgeDiagnostic =>
 
 interface KnowledgePackageReadOptions {
   /**
+   * The manifest text the caller has just read from exactly the manifest
+   * path, decoded in place of reading the file again.
+   */
+  readonly manifestText?: string;
+  /**
    * A JSON value parsed earlier from exactly the manifest text at exactly the
    * manifest path, used in place of parsing that text again.
    */
@@ -37,13 +42,12 @@ export const readKnowledgePackageManifest = Effect.fnUntraced(function* (
   options?: KnowledgePackageReadOptions,
 ) {
   const path = yield* Path.Path;
-  const { manifest } = yield* readExtensionManifest(
-    packageRoot,
-    "knowledge",
-    options?.parsedManifestText === undefined
-      ? undefined
-      : { parsedText: options.parsedManifestText },
-  );
+  const { manifest } = yield* readExtensionManifest(packageRoot, "knowledge", {
+    ...(options?.manifestText === undefined ? {} : { text: options.manifestText }),
+    ...(options?.parsedManifestText === undefined
+      ? {}
+      : { parsedText: options.parsedManifestText }),
+  });
   const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
   return { sourceRoot, manifest };
 });

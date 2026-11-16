@@ -1,7 +1,9 @@
 import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import * as Layer from "effect/Layer";
-import { expect, it } from "@effect/vitest";
+import { afterEach, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import * as Predicate from "effect/Predicate";
@@ -14,8 +16,11 @@ import {
 import {
   buildPackRuleContexts,
   buildSkillRuleContexts,
+  isManifestJsonParseFailure,
   platformCanonicalLintConfig,
 } from "@agentxm/extension-content/lint";
+import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
 import { collectRenderedFindings, evaluateAllCatalogs } from "../../runner.js";
 import { instructionsAgentSupportedRule } from "../workspace/instructions-agent-supported.js";
@@ -510,6 +515,178 @@ it.layer(noNativeRemoval)("buildLintWorkspace manifest JSON population", (it) =>
       expect(documentAccesses).toEqual([]);
       // The supplied lockfile, not the one on disk, decides the installed rows.
       expect(lintWorkspace.view.installedSkills).toEqual([]);
+    }),
+  );
+});
+
+/**
+ * An installed Knowledge bundle's rule subject holds its loose manifest JSON
+ * and its package inspection. Reads of the manifest are counted at the
+ * filesystem and parses at `JSON.parse` for exactly the manifest text; the
+ * read model's own canonical scan reads and parses the manifest once to learn
+ * the bundle's identity.
+ */
+const HANDBOOK_ROOT = `${WORKSPACE_ROOT}/agent_extensions/agentxm/@acme/knowledge/handbook`;
+const HANDBOOK_MANIFEST = `${HANDBOOK_ROOT}/knowledge.json`;
+
+const handbookManifest = {
+  owner: "@acme",
+  type: "knowledge",
+  name: "handbook",
+  version: "1.0.0",
+  description: "Fixture knowledge",
+  format: { name: "okf", version: "0.2" },
+  bundleRoot: "src",
+};
+
+const handbookLock = {
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: "@acme", name: "handbook" },
+  resolved: {
+    version: "1.0.0",
+    integrity: `sha512-${"A".repeat(86)}==`,
+    publisherBindingId: "hbnd_test",
+  },
+  treeIntegrity,
+};
+
+/**
+ * The Knowledge fixture with `knowledge.json` holding exactly `manifest`, or
+ * absent, and locked so the bundle's root stays known.
+ */
+const knowledgeWithManifest = (manifest: string | { readonly _tag: "absent" }): FixtureSpec => {
+  const spec = fixtureWithKnowledge();
+  return {
+    ...spec,
+    project: {
+      ...spec.project,
+      lockfile: { _tag: "valid", contents: { ...lockfile, knowledge: { handbook: handbookLock } } },
+      axmExtensions: {
+        ...spec.project?.axmExtensions,
+        "agentxm/@acme/knowledge/handbook/knowledge.json": manifest,
+      },
+    },
+  };
+};
+
+/** Count `JSON.parse` calls over each exact text, from the moment it is called. */
+const countParses = () => {
+  const parse = vi.spyOn(JSON, "parse");
+  return (text: string) => parse.mock.calls.filter(([input]) => input === text).length;
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/**
+ * Build the lint workspace over a recording filesystem with the default
+ * package inspection, recording from the build onwards.
+ */
+const buildRecorded = (
+  spec: FixtureSpec,
+  selectsPackage?: (type: string, name: string) => boolean,
+) =>
+  Effect.gen(function* () {
+    const deps = yield* buildFixture(spec);
+    const text = deps.files.get(HANDBOOK_MANIFEST);
+    const unshared = yield* inspectKnowledgePackage(HANDBOOK_ROOT).pipe(
+      Effect.provideService(FileSystem.FileSystem, deps.fs),
+      Effect.provideService(Path.Path, deps.path),
+      Effect.option,
+    );
+    const { fileSystem, recording } = makeRecordingFileSystem(deps.fs);
+    recording.reset();
+    const parses = countParses();
+    const lintWorkspace = yield* buildLintWorkspace({
+      nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+      platform: { fs: fileSystem, path: deps.path },
+      workspaceRoot: deps.workspaceRoot,
+      userHome: deps.userHome,
+      scope: "project",
+      ...(selectsPackage === undefined ? {} : { selectsPackage }),
+    });
+    const contexts = lintWorkspace.view.knowledgeContexts;
+    const manifestPath =
+      contexts[0]?.packageRoot === undefined
+        ? HANDBOOK_MANIFEST
+        : deps.path.join(contexts[0].packageRoot, "knowledge.json");
+    return {
+      unshared,
+      subjects: contexts.map((context) => context.subject),
+      counts: recording.counts(manifestPath),
+      parses: text === undefined ? 0 : parses(text),
+    };
+  });
+
+it.layer(noNativeRemoval)("buildLintWorkspace Knowledge manifest reads", (it) => {
+  it.effect("reads and decodes a bundle's manifest once for its subject and its inspection", () =>
+    Effect.gen(function* () {
+      const { unshared, subjects, counts, parses } = yield* buildRecorded(fixtureWithKnowledge());
+      // One read for the canonical scan and one for the subject; the
+      // inspection decodes the subject's text from the scan's parse.
+      expect(counts).toEqual({ readFile: 2, access: 1 });
+      expect(parses).toBe(2);
+      expect(Option.isSome(unshared)).toBe(true);
+      expect(subjects).toEqual([
+        {
+          knowledgeJson: handbookManifest,
+          inspection: Option.getOrUndefined(unshared)?.inspection,
+        },
+      ]);
+      expect(subjects[0]?.inspection?.diagnostics.map(({ code }) => code)).not.toContain(
+        "missing-manifest-description",
+      );
+    }),
+  );
+
+  it.effect("still warns about an empty manifest description", () =>
+    Effect.gen(function* () {
+      const { unshared, subjects } = yield* buildRecorded(
+        knowledgeWithManifest(JSON.stringify({ ...handbookManifest, description: "" })),
+      );
+      expect(subjects[0]?.inspection?.diagnostics.map(({ code }) => code)).toContain(
+        "missing-manifest-description",
+      );
+      expect(subjects[0]?.inspection).toEqual(Option.getOrUndefined(unshared)?.inspection);
+    }),
+  );
+
+  it.effect("keeps invalid manifest JSON visible and leaves the bundle uninspected", () =>
+    Effect.gen(function* () {
+      const { unshared, subjects, counts, parses } = yield* buildRecorded(
+        knowledgeWithManifest("{ nope"),
+      );
+      expect(Option.isNone(unshared)).toBe(true);
+      expect(subjects).toHaveLength(1);
+      expect(isManifestJsonParseFailure(subjects[0]?.knowledgeJson)).toBe(true);
+      expect(subjects[0]?.inspection).toBeUndefined();
+      // The inspection decodes the subject's text, but a failed parse is
+      // never shared: the scan, the subject and the inspection each parse.
+      expect(counts).toEqual({ readFile: 2, access: 1 });
+      expect(parses).toBe(3);
+    }),
+  );
+
+  it.effect("lets the inspection probe an absent manifest for itself", () =>
+    Effect.gen(function* () {
+      // The subject's presence probe and the inspection's own read attempt.
+      const { subjects, counts } = yield* buildRecorded(knowledgeWithManifest({ _tag: "absent" }));
+      expect(subjects).toEqual([{ knowledgeJson: undefined }]);
+      expect(counts).toEqual({ readFile: 1, access: 1 });
+    }),
+  );
+
+  it.effect("adds no manifest read for an unselected bundle", () =>
+    Effect.gen(function* () {
+      const { subjects, counts, parses } = yield* buildRecorded(
+        fixtureWithKnowledge(),
+        (type) => type !== "knowledge",
+      );
+      expect(subjects).toEqual([]);
+      // Only the canonical scan reads it.
+      expect(counts).toEqual({ readFile: 1 });
+      expect(parses).toBe(1);
     }),
   );
 });

@@ -226,15 +226,18 @@ export interface ObservedProjectionPlans<E, R> {
 }
 
 /**
- * Observe `plans` as the producer's pre-write refusal, then run `use` with a
- * handle that hands those observations to the first consumer. The handle
- * closes when `use` ends, however it ends, so a later take observes fresh.
+ * Run `use` with a handle that hands `observations` to the first consumer.
+ * They are the producer's own observations of exactly these plans, in plan
+ * order, made in the running owner call with nothing written since. The
+ * handle closes when `use` ends, however it ends, so a later take observes
+ * fresh.
  */
-export const withObservedProjectionPlans = <E, R, A, E2, R2>(
+export const withHandedProjectionObservations = <E, R, A, E2, R2>(
   plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  observations: ReadonlyArray<ProjectionUnitObservation>,
   use: (observed: ObservedProjectionPlans<E, R>) => Effect.Effect<A, E2, R2>,
-): Effect.Effect<A, E | E2, R | R2> =>
-  Effect.flatMap(observeProjectionPlans(plans), (observations) => {
+): Effect.Effect<A, E2, R2> =>
+  Effect.suspend(() => {
     let held: ReadonlyArray<ProjectionUnitObservation> | undefined = observations;
     const take = Effect.sync(() => {
       const taken = held;
@@ -249,6 +252,19 @@ export const withObservedProjectionPlans = <E, R, A, E2, R2>(
       ),
     );
   });
+
+/**
+ * Observe `plans` as the producer's pre-write refusal, then run `use` with a
+ * handle that hands those observations to the first consumer. The handle
+ * closes when `use` ends, however it ends, so a later take observes fresh.
+ */
+export const withObservedProjectionPlans = <E, R, A, E2, R2>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  use: (observed: ObservedProjectionPlans<E, R>) => Effect.Effect<A, E2, R2>,
+): Effect.Effect<A, E | E2, R | R2> =>
+  Effect.flatMap(observeProjectionPlans(plans), (observations) =>
+    withHandedProjectionObservations(plans, observations, use),
+  );
 
 /** Plans a caller retained from an earlier owner call: every observation is fresh. */
 export const unobservedProjectionPlans = <E, R>(

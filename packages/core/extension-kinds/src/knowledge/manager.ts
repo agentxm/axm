@@ -67,6 +67,7 @@ import {
 } from "@agentxm/workspace-kernel/materialization";
 import {
   applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   formatProjectionExclusions,
   planAggregateProjection,
   type ProjectionContributorExclusion,
@@ -83,8 +84,10 @@ import {
   resolveKnowledgeInstructionEntry,
   captureAgentOutputAuthority,
   withObservedProjectionPlans,
+  withHandedProjectionObservations,
   handedOverCanonicalObservation,
   type NativeRegionSource,
+  type ProjectionUnitObservation,
 } from "@agentxm/workspace-kernel/projection";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
@@ -697,6 +700,25 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
+    /** The discovery region's observation from one dry run of `contributors`. */
+    const discoveryObservation = (
+      result: Effect.Success<ReturnType<typeof runKnowledgeProjectionAdapter>>,
+      contributors: ReadonlyArray<KnowledgeDiscoveryBundle>,
+      instructionsTarget: { readonly path: string },
+    ): ProjectionUnitObservation => ({
+      unitId: "knowledge:discovery-region",
+      nativeLocations: result.nativeLocations,
+      path: `${instructionsTarget.path}#knowledge`,
+      owner: KNOWLEDGE_REGION_OWNER,
+      present: result.present,
+      current: !result.changed,
+      expectedContributors: contributors.map(({ owner, name }) => `${owner}/knowledge/${name}`),
+      ...Option.match(result.lastWrite, {
+        onNone: () => ({}),
+        onSome: (lastWrite) => ({ lastWrite }),
+      }),
+    });
+
     /**
      * Plan the discovery region. A caller that resolved these same options'
      * projection inputs earlier in its own call, in the read phase still
@@ -764,21 +786,9 @@ export const KnowledgeManagerLive = Layer.effect(
                 eligible,
                 dryRun: true,
               }).pipe(
-                Effect.map((result) => ({
-                  unitId: "knowledge:discovery-region",
-                  nativeLocations: result.nativeLocations,
-                  path: `${instructionsTarget.path}#knowledge`,
-                  owner: KNOWLEDGE_REGION_OWNER,
-                  present: result.present,
-                  current: !result.changed,
-                  expectedContributors: input.contributors.map(
-                    ({ owner, name }) => `${owner}/knowledge/${name}`,
-                  ),
-                  ...Option.match(result.lastWrite, {
-                    onNone: () => ({}),
-                    onSome: (lastWrite) => ({ lastWrite }),
-                  }),
-                })),
+                Effect.map((result) =>
+                  discoveryObservation(result, input.contributors, instructionsTarget),
+                ),
               ),
             apply: (input) =>
               runKnowledgeProjectionAdapter({
@@ -971,6 +981,7 @@ export const KnowledgeManagerLive = Layer.effect(
           ...result,
           warnings: formatProjectionExclusions({ exclusions, targetFile: instructionsTarget.path }),
           selection,
+          contributors,
         };
       });
 
@@ -1086,31 +1097,41 @@ export const KnowledgeManagerLive = Layer.effect(
         });
         if (!dryRun) {
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
+          const aliases = nativeProjection?.instructionAliases;
           // With nothing published, the plan takes this call's inputs and the
-          // discovery dry run's selection, both frozen; after a publication it
-          // resolves, observes and inspects the published state for itself.
-          const plans =
+          // discovery dry run's selection, both frozen, and that dry run, which
+          // rendered exactly this plan's unit, is its pre-write observation.
+          // After a publication the plan resolves, selects and observes the
+          // published state for itself, and hands that observation on.
+          const apply =
             prepared.length === 0 && shared !== undefined
-              ? makeKnowledgeProjectionPlan(
-                  [],
-                  nativeProjection,
-                  undefined,
-                  shared,
-                  ownedFrozen(discovery.selection),
-                ).pipe(
-                  Effect.flatMap((plan) =>
-                    withObservedProjectionPlans([plan], (observed) =>
-                      Effect.succeed(observed.plans),
-                    ),
-                  ),
-                )
-              : projectionPlans(nativeProjection);
-          yield* plans.pipe(
-            Effect.flatMap((plans) =>
-              applyInstructionSurfacePlans(plans, nativeProjection?.instructionAliases),
-            ),
-            Effect.provideService(AcceptedResolutionWriter, accepted),
-          );
+              ? Effect.gen(function* () {
+                  const plan = yield* makeKnowledgeProjectionPlan(
+                    [],
+                    nativeProjection,
+                    undefined,
+                    shared,
+                    ownedFrozen(discovery.selection),
+                  );
+                  const observation = discoveryObservation(
+                    { ...discovery, nativeLocations: structuredClone(discovery.nativeLocations) },
+                    discovery.contributors,
+                    shared.instructionsTarget,
+                  );
+                  return yield* withHandedProjectionObservations(
+                    [plan],
+                    [
+                      plan.exclusions.length === 0
+                        ? observation
+                        : { ...observation, exclusions: plan.exclusions },
+                    ],
+                    (observed) => applyObservedInstructionSurfacePlans(observed, aliases),
+                  );
+                })
+              : observedProjectionPlans(nativeProjection, (observed) =>
+                  applyObservedInstructionSurfacePlans(observed, aliases),
+                );
+          yield* apply.pipe(Effect.provideService(AcceptedResolutionWriter, accepted));
         }
         return {
           changed: prepared.length > 0 || discovery.changed,

@@ -1234,6 +1234,7 @@ describe("KnowledgeManager", () => {
         workspaceRoot: string,
         read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">,
         run: (manager: KnowledgeManagerService, reset: () => void) => Effect.Effect<A, E, R>,
+        acceptedResolutionWriter?: Partial<AcceptedResolutionWriterService>,
       ) =>
         Effect.gen(function* () {
           let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
@@ -1251,6 +1252,7 @@ describe("KnowledgeManager", () => {
             Effect.provide(
               managerLayer(workspaceRoot, {
                 read: read.graph === undefined ? read : { ...read, graph: deepFrozen(read.graph) },
+                ...(acceptedResolutionWriter === undefined ? {} : { acceptedResolutionWriter }),
                 fileSystem: (native) => {
                   const recorded = makeRecordingFileSystem(native);
                   recording = recorded.recording;
@@ -1486,6 +1488,114 @@ describe("KnowledgeManager", () => {
             } finally {
               rmSync(outside, { recursive: true, force: true });
             }
+          }),
+        ),
+      );
+
+      for (const run of ["preview", "apply", "restoring apply"] as const)
+        it.effect(`renders the discovery region's dry run once in a sync ${run}`, () =>
+          withWorkspace((workspaceRoot) =>
+            Effect.gen(function* () {
+              const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+                { name: "handbook", enabled: true },
+              ]);
+              if (run === "restoring apply")
+                makeRestorable(workspaceRoot, canonicalRootOf("handbook"), "handbook");
+              const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+              writeFileSync(instructionsPath, "# Project\n");
+              const { outcome, recording } = yield* recordedSync(
+                workspaceRoot,
+                read,
+                syncOnce(run === "preview"),
+              );
+
+              expect(outcome).toMatchObject({
+                _tag: "Success",
+                success: {
+                  changed: true,
+                  warnings: [],
+                  artifacts: [{ path: "AGENTS.md", change: "updated" }],
+                  nativeLocations: [
+                    {
+                      address: { kind: "region", path: instructionsPath, region: "knowledge" },
+                      state: "created",
+                    },
+                  ],
+                },
+              });
+              // Each region dry run reads the instruction file once; the
+              // write reads it again under its exclusive lock and after it.
+              expect(recording?.contentReads(instructionsPath)).toBe(
+                { preview: 1, apply: 10, "restoring apply": 11 }[run],
+              );
+              const instructions = readFileSync(instructionsPath, "utf8");
+              if (run === "preview") expect(instructions).toBe("# Project\n");
+              else {
+                expect(instructions).toContain("# Project\n");
+                expect(instructions).toContain(
+                  "[handbook](agent_extensions/_local/project/sources/handbook/src/index.md)",
+                );
+              }
+            }),
+          ),
+        );
+
+      it.effect("leaves a current discovery region with its warnings unchanged on apply", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { read } = acquiredBundles(
+              workspaceRoot,
+              [
+                { name: "handbook", enabled: true },
+                { name: "playbook", enabled: true },
+              ],
+              new Set(["playbook"]),
+            );
+            const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+            writeFileSync(instructionsPath, "# Project\n");
+            // Recorded region rows persist from one sync to the next.
+            const rows = new Map<ProjectionUnitPath, RecordedProjectionRow>();
+            const { outcome, recording } = yield* recordedSync(
+              workspaceRoot,
+              read,
+              (manager, reset) =>
+                Effect.gen(function* () {
+                  const first = yield* manager.sync({ dryRun: false });
+                  const written = readFileSync(instructionsPath, "utf8");
+                  reset();
+                  const second = yield* manager.sync({ dryRun: false });
+                  return { first, written, second };
+                }),
+              {
+                projectionRows: (kind) =>
+                  Effect.sync(() => (kind === "knowledge" ? new Map(rows) : new Map())),
+                stageProjections: (changes) =>
+                  Effect.sync(() => {
+                    for (const change of changes) {
+                      if (change.kind !== "knowledge") continue;
+                      if (change.row === undefined) rows.delete(change.path);
+                      else
+                        rows.set(change.path, {
+                          row: change.row,
+                          stale: change.row.gen === undefined,
+                        });
+                    }
+                  }),
+              },
+            );
+
+            expect(outcome._tag).toBe("Success");
+            if (outcome._tag !== "Success") return;
+            const { first, written, second } = outcome.success;
+            expect(first.changed).toBe(true);
+            expect(second).toMatchObject({ changed: false, artifacts: [] });
+            expect(second.warnings).toEqual(first.warnings);
+            expect(second.warnings).toEqual([expect.stringContaining("playbook")]);
+            expect(readFileSync(instructionsPath, "utf8")).toBe(written);
+            expect(recording?.writes(instructionsPath)).toBe(0);
+            // The discovery dry run finds the region current; the write's own
+            // read under its exclusive lock confirms it.
+            expect(recording?.contentReads(instructionsPath)).toBe(2);
           }),
         ),
       );

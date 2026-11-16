@@ -47,6 +47,7 @@ export {
   planSingletonProjection,
   unobservedProjectionPlans,
   withObservedProjectionPlans,
+  withHandedProjectionObservations,
   type ObservedProjectionPlans,
   type ProjectionPlan,
   type ProjectionRenderInput,

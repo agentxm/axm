@@ -264,6 +264,8 @@ describe("copied skill classification within one cleanup call", () => {
     Effect.gen(function* () {
       const fixture = yield* copiedSkill;
       // An uninstall preparation's inventory, observed in its own read phase.
+      // It retains its skill resolutions, so only the inventory's origin, not
+      // the presence of those resolutions, keeps them from being lent.
       const prepared = yield* Effect.gen(function* () {
         const location = yield* WorkspaceLocation;
         return yield* observeAgentOutputs({
@@ -274,8 +276,10 @@ describe("copied skill classification within one cleanup call", () => {
           expectedNames: names(["review"]),
           authoredSkills: { layout: yield* Ref.get(location.layout), entries: {} },
           ...authority({ expectedSkillSources: { review: [fixture.source] } }),
+          retainSkillLocations: true,
         });
       }).pipe(Effect.provide(cleanupLayer(fixture.root)));
+      expect(prepared.skillLocations).toBeDefined();
       const { result, recording } = yield* reconcileRecorded(fixture.root, {
         ...args(fixture.source, true),
         dryRun: true,

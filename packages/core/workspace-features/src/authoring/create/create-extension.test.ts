@@ -234,6 +234,69 @@ describe("CreateExtension prepared work", () => {
     }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
   });
 
+  it.effect("resolves each skill destination entry and the root once while preparing", () => {
+    const created = workspaceFor();
+    const targets = [".claude/skills/review", ".agents/skills/review"].map((relative) =>
+      nodePath.join(created.root, relative),
+    );
+    const counted = (calls: ReadonlyArray<RecordedFileSystemCall>, target: string) => ({
+      readLink: calls.filter((call) => call.method === "readLink" && call.path === target).length,
+      stat: calls.filter((call) => call.method === "stat" && call.path === target).length,
+      realPath: calls.filter((call) => call.method === "realPath" && call.path === target).length,
+    });
+    return Effect.gen(function* () {
+      const { prepare, apply } = yield* prepareAndApply("skill");
+      // While preparing, each destination's entry is resolved by its check and
+      // classified from that resolution, and the workspace root is resolved
+      // once as the native root for both checks.
+      expect({
+        targets: targets.map((target) => counted(prepare.calls, target)),
+        root: counted(prepare.calls, created.root),
+      }).toEqual({
+        targets: [
+          { readLink: 3, stat: 2, realPath: 0 },
+          { readLink: 3, stat: 2, realPath: 0 },
+        ],
+        root: { readLink: 1, stat: 1, realPath: 6 },
+      });
+      // Under the lock every destination check and classification resolves afresh.
+      expect({
+        targets: targets.map((target) => counted(apply.calls, target)),
+        root: counted(apply.calls, created.root),
+      }).toEqual({
+        targets: [
+          { readLink: 28, stat: 16, realPath: 4 },
+          { readLink: 28, stat: 16, realPath: 4 },
+        ],
+        root: { readLink: 75, stat: 240, realPath: 246 },
+      });
+      const step = prepare.value.execution.plan.jobs[0]?.steps[0];
+      const planned = step?.artifact?.nativeLocations ?? [];
+      expect(
+        planned.map(({ address, ownership, state, policyReasons }) => ({
+          address,
+          ownership,
+          state,
+          policyReasons,
+        })),
+      ).toEqual([
+        {
+          address: { kind: "entry", path: targets[1] },
+          ownership: "absent",
+          state: "created",
+          policyReasons: ["workspace-shared-skills"],
+        },
+        {
+          address: { kind: "entry", path: targets[0] },
+          ownership: "absent",
+          state: "created",
+          policyReasons: [],
+        },
+      ]);
+      expect(planned[1]?.configuredConsumers).toEqual(["claude-code"]);
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
+
   it.effect("refuses a skill whose agent directory is retargeted after preparation", () => {
     const created = workspaceFor();
     fs.mkdirSync(nodePath.join(created.root, ".skills-a"), { recursive: true });

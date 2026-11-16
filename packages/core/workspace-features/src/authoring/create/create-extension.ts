@@ -83,11 +83,14 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import {
   CodingAgentRepository,
+  captureNativeArtifactLocations,
   nativeArtifactLocationOutcomes,
 } from "@agentxm/workspace-kernel/projection";
 import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
+  resolveNativeEntry,
+  type NativeEntryAddress,
 } from "@agentxm/workspace-kernel/locations";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryContext } from "@agentxm/registry-client";
@@ -571,30 +574,76 @@ const prepareCreateExtension: (
     Effect.gen(function* () {
       if (request.type !== "skill") return [];
       const current = precomputed ?? (yield* skillTargetLocations());
+      const nativeRoots = nativeAuthorityRoots(
+        path,
+        { workspaceRoot: locationService.baseDir, scope: locationService.scope },
+        locationService.nativeDirectoryInputs,
+      );
+      // While preparing, each destination check reuses the native roots the
+      // first one resolved, and the classification below takes the entries
+      // these checks resolved; nothing is written in between. Under the lock
+      // every check and the classification resolve afresh.
+      const asserted: Array<{ readonly path: string; readonly address: NativeEntryAddress }> = [];
+      let observedRoots:
+        | Effect.Success<ReturnType<typeof assertNativeMutationWithinRoots>>["rootResolutions"]
+        | undefined;
       for (const target of current.locations) {
         const targetPath = path.join(target.targetDir, name);
-        const { address } = yield* assertNativeMutationWithinRoots(
-          nativeAuthorityRoots(
-            path,
-            { workspaceRoot: locationService.baseDir, scope: locationService.scope },
-            locationService.nativeDirectoryInputs,
-          ),
+        const assertion = yield* assertNativeMutationWithinRoots(
+          nativeRoots,
           targetPath,
           "entry",
           locationService.baseDir,
+          undefined,
+          precomputed === undefined ? undefined : observedRoots,
         );
+        const { address } = assertion;
         if (address.kind !== "absent")
           return yield* authoringRefused({
             category: "validation",
             detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
           });
+        observedRoots = assertion.rootResolutions;
+        asserted.push(Object.freeze({ path: path.resolve(targetPath), address }));
       }
+      const agents = yield* (yield* CodingAgentRepository).all;
+      const configuredAgentIds = new Set(yield* settings.configuredAgents);
+      const prepared =
+        precomputed === undefined || asserted.length === 0
+          ? undefined
+          : {
+              asserted: Object.freeze(asserted),
+              readerLocations: yield* captureNativeArtifactLocations({
+                workspaceRoot: locationService.baseDir,
+                scope: locationService.scope,
+                agents,
+                kinds: ["skill"],
+                sharedSkillPolicy: true,
+                entries: [],
+              }),
+              live: yield* Effect.context<FileSystem.FileSystem | Path.Path>(),
+            };
       return yield* nativeArtifactLocationOutcomes({
         workspaceRoot: locationService.baseDir,
         scope: locationService.scope,
-        agents: yield* (yield* CodingAgentRepository).all,
-        configuredAgentIds: new Set(yield* settings.configuredAgents),
+        agents,
+        configuredAgentIds,
         sharedSkillPolicy: true,
+        ...(prepared === undefined
+          ? {}
+          : {
+              readers: prepared.readerLocations.readers,
+              locationSet: {
+                entry: (target: string) => {
+                  const key = path.resolve(target);
+                  const found = prepared.asserted.find((entry) => entry.path === key);
+                  return found === undefined
+                    ? resolveNativeEntry(key).pipe(Effect.provideContext(prepared.live))
+                    : Effect.succeed(found.address);
+                },
+                referent: prepared.readerLocations.locationSet.referent,
+              },
+            }),
         targets: current.locations.map((target) => ({
           path: path.join(target.targetDir, name),
           kind: "skill" as const,

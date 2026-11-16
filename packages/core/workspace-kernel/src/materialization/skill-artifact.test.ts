@@ -86,6 +86,33 @@ describe("skill install target grouping", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("resolves every spelling again in a later grouping and sees a retarget", () =>
+    Effect.gen(function* () {
+      const { fs, path, root, shared, claude, group, realPaths } = yield* groupingFixture;
+      const alias = path.join(root, "alias");
+      yield* fs.symlink(shared, alias);
+      const targets: ReadonlyArray<InstallableSkillTarget> = [
+        { agentId: "roo", targetDir: alias },
+        { agentId: "kilo", targetDir: alias },
+      ];
+      expect(yield* group(targets)).toEqual([{ targetDir: shared, agentIds: ["roo", "kilo"] }]);
+      expect({ shared: realPaths(shared), alias: realPaths(alias) }).toEqual({
+        shared: 1,
+        alias: 1,
+      });
+      yield* fs.remove(alias);
+      yield* fs.symlink(claude, alias);
+      expect(yield* group(targets)).toEqual([
+        { targetDir: shared, agentIds: [] },
+        { targetDir: claude, agentIds: ["roo", "kilo"] },
+      ]);
+      expect({ shared: realPaths(shared), alias: realPaths(alias) }).toEqual({
+        shared: 1,
+        alias: 1,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("fails at the first unresolvable spelling with that spelling", () =>
     Effect.gen(function* () {
       const { fs, path, root, shared, group, realPaths } = yield* groupingFixture;

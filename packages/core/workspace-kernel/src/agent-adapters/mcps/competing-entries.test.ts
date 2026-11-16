@@ -6,9 +6,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
+import { NativeLocationError } from "../../locations/index.js";
 import { NativePlatformTest, workObservations } from "../../locations/testing.js";
 import { readNativeMcpConfig } from "./native-config.js";
 import { readCompetingMcpEntries } from "./competing-entries.js";
@@ -94,14 +94,7 @@ describe("competing-entry reads of the target's own container", () => {
           ? {
               read: readNativeMcpConfig,
               referent: (configPath) =>
-                Effect.fail(
-                  PlatformError.systemError({
-                    _tag: "PermissionDenied",
-                    module: "FileSystem",
-                    method: "realPath",
-                    pathOrDescriptor: configPath,
-                  }),
-                ),
+                Effect.fail(new NativeLocationError({ target: configPath, reason: "unreadable" })),
             }
           : undefined,
       ).pipe(observations.provide, Effect.result);

@@ -477,36 +477,48 @@ const runInstallOperation = Effect.fnUntraced(
     args: InstallOperationArgs<TRef, TMaterialization, F, R>,
   ): Effect.fn.Return<JobStepResult, CallerStepFailure<F> | StepFailure, R | RecipeRequirements> {
     const target = targetFromRef(args.ref);
-    // The desired-state graph is the one authority for what the workspace
-    // already holds for this target.
-    const priorGraph = yield* (yield* DesiredStateReader).graph();
-    const configured = priorGraph.nodes.find(
-      (node) => node.type === target.type && node.name === target.name,
+    // The write-free preflight shares one document view; it ends before the
+    // transaction, whose readers and writers observe the workspace afresh.
+    const { priorGraph, satisfied, priorAuthority } = yield* withWorkspaceReadView(
+      Effect.gen(function* () {
+        // The desired-state graph is the one authority for what the workspace
+        // already holds for this target.
+        const priorGraph = yield* (yield* DesiredStateReader).graph();
+        const configured = priorGraph.nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
+        const authority = evaluateSourceAuthority({
+          target: {
+            ...target,
+            identity:
+              configured === undefined ? toStepKey(target) : desiredPackageKey(configured.identity),
+          },
+          relationship: { kind: "root" },
+          requested: desiredIdentityOfRef(args.ref),
+          ...(configured === undefined ? {} : { configured: { identity: configured.identity } }),
+          allowWorkspaceReplacement:
+            args.sourceReplacements?.some(
+              (replacement) => replacement.type === target.type && replacement.name === target.name,
+            ) === true,
+        });
+        if (authority.kind === "blocked") {
+          return yield* new SourceAuthorityBlocked({
+            detail: authority.fact.detail,
+            recovery: authority.fact.recovery,
+          });
+        }
+        const satisfied =
+          args.sourceReplacements?.length || args.hookConfiguration !== undefined
+            ? Option.none()
+            : yield* observeSatisfiedInstall(args);
+        const priorAuthority =
+          Option.isNone(satisfied) &&
+          (target.type === "hook" || target.type === "rule" || target.type === "knowledge")
+            ? yield* captureAgentOutputAuthority()
+            : undefined;
+        return { priorGraph, satisfied, priorAuthority };
+      }),
     );
-    const authority = evaluateSourceAuthority({
-      target: {
-        ...target,
-        identity:
-          configured === undefined ? toStepKey(target) : desiredPackageKey(configured.identity),
-      },
-      relationship: { kind: "root" },
-      requested: desiredIdentityOfRef(args.ref),
-      ...(configured === undefined ? {} : { configured: { identity: configured.identity } }),
-      allowWorkspaceReplacement:
-        args.sourceReplacements?.some(
-          (replacement) => replacement.type === target.type && replacement.name === target.name,
-        ) === true,
-    });
-    if (authority.kind === "blocked") {
-      return yield* new SourceAuthorityBlocked({
-        detail: authority.fact.detail,
-        recovery: authority.fact.recovery,
-      });
-    }
-    const satisfied =
-      args.sourceReplacements?.length || args.hookConfiguration !== undefined
-        ? Option.none()
-        : yield* observeSatisfiedInstall(args);
     if (Option.isSome(satisfied)) {
       const presentation =
         args.buildArtifact === undefined
@@ -538,10 +550,6 @@ const runInstallOperation = Effect.fnUntraced(
             }),
       } satisfies JobStepResult;
     }
-    const priorAuthority =
-      target.type === "hook" || target.type === "rule" || target.type === "knowledge"
-        ? yield* captureAgentOutputAuthority()
-        : undefined;
     const installedBefore = yield* manager.isInstalled({ target });
     const { value: transaction, footprint } = yield* observeFootprint(
       runWorkspaceTransaction({

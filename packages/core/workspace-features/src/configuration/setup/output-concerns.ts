@@ -43,6 +43,10 @@ export const observeSetupOutputConcerns = (
           : [],
     );
     const projectReaders = new Map<string, Array<string>>();
+    // Agents often declare the same read directory under the same spelling;
+    // this observation resolves each spelling once. Other spellings of one
+    // directory still resolve on their own.
+    const readDirectories = new Map<string, string>();
     for (const id of agentIds.filter(isConfigurableAgentId)) {
       const agent = yield* repository.get(id);
       for (const location of yield* agent.resolveNativeReadLocations({
@@ -50,8 +54,16 @@ export const observeSetupOutputConcerns = (
         scope,
         kind: "skill",
       })) {
-        const resolved = yield* resolveNativeReferent(location.path).pipe(Effect.result);
-        const directory = Result.isSuccess(resolved) ? resolved.success : location.path;
+        const known = readDirectories.get(location.path);
+        const directory =
+          known ??
+          (yield* resolveNativeReferent(location.path).pipe(
+            Effect.result,
+            Effect.map((resolved) =>
+              Result.isSuccess(resolved) ? resolved.success : location.path,
+            ),
+          ));
+        readDirectories.set(location.path, directory);
         projectReaders.set(directory, [...(projectReaders.get(directory) ?? []), id]);
       }
     }

@@ -309,24 +309,25 @@ describe("Sync inventory observation", () => {
           expect(deriveOperationOutcome(result)).toBe("applied");
           // Materials only the candidate fingerprints are still read live.
           expect(recording.counts(at("vendor/review"))).toEqual({
-            readLink: 4,
-            stat: 5,
-            realPath: 3,
+            readLink: 2,
+            stat: 3,
+            realPath: 1,
             readDirectory: 2,
           });
           expect(recording.counts(at("vendor/review/skill.json"))).toEqual({
-            readLink: 4,
-            stat: 4,
-            realPath: 2,
+            readLink: 3,
+            stat: 3,
+            realPath: 1,
             open: 1,
             "file.readAlloc": 2,
             readFile: 1,
           });
           // Linking the skill decides from the link entry it has just resolved,
-          // and the closure's post-write check shares one observation of it.
+          // its currency check takes the entry its admission resolved, and the
+          // closure's post-write check shares one observation of it.
           expect(recording.counts(at(".claude/skills/review"))).toEqual({
-            readLink: 28,
-            stat: 19,
+            readLink: 26,
+            stat: 18,
             realPath: 6,
             symlink: 1,
           });
@@ -338,9 +339,11 @@ describe("Sync inventory observation", () => {
             stat: 13,
             readFile: 17,
           });
+          // Each lockfile round trip admits the lockfile once for its prior
+          // identity, and each identity capture stats it once.
           expect(countsOf(recording.counts(at("axm.lock")))).toEqual({
-            readLink: 37,
-            stat: 41,
+            readLink: 35,
+            stat: 33,
             readFile: 25,
           });
           expect(countsOf(recording.counts(userSettings ?? ""))).toEqual({

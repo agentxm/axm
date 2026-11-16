@@ -119,6 +119,9 @@ describe("ForkExtension prepared work", () => {
   // Each preflight run's HookManager takes that run's package hash for the
   // staged root instead of framing its own.
   const sharedPackageHash = { rule: 0, hook: 1 } as const;
+  // The canonical copy under the lock resolves the staged root once for all of
+  // its overlap checks, so it lists that root three fewer times.
+  const sharedCopyRootResolution = 3;
 
   for (const type of ["rule", "hook"] as const)
     it.effect(`hashes an enabled ${type} fork's staged package once while preparing`, () => {
@@ -144,7 +147,7 @@ describe("ForkExtension prepared work", () => {
         // computed for the forked package instead of hashing it again.
         expect(stagedCounts(apply, staged, measured.files)).toEqual({
           hashes: measured.apply.hashes - hashed - 1,
-          rootReadDirectory: measured.apply.rootReadDirectory - shared,
+          rootReadDirectory: measured.apply.rootReadDirectory - shared - sharedCopyRootResolution,
           readFile: measured.apply.readFile.map(
             (count, index) => count - shared - (decoded[index] ?? 0),
           ),
@@ -217,7 +220,7 @@ describe("ForkExtension prepared work", () => {
       });
       expect(stagedCounts(apply, staged, files)).toEqual({
         hashes: 2,
-        rootReadDirectory: 7,
+        rootReadDirectory: 4,
         readFile: [0, 0],
       });
       expect(apply.value.units.map((unit) => unit.artifact)).toEqual([

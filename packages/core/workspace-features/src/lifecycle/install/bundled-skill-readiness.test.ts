@@ -26,8 +26,9 @@ const SHARED_AGENTS = ["codex", "gemini-cli", "zed"];
 // Calls the install transaction makes on `.agents/skills/axm` after its
 // readiness: the ensure-time inspection and the write of the bundled skill.
 // Linking the skill decides from the link entry it has just resolved, so it no
-// longer inspects that absent entry a second time.
-const IN_TRANSACTION_CALLS = 46;
+// longer inspects that absent entry a second time, and the currency check
+// takes the entry its admission resolved.
+const IN_TRANSACTION_CALLS = 43;
 
 /** Calls naming the bundled skill's entry under `dir`, anything inside it, or its copy receipt. */
 const artifactCalls = (recording: FileSystemRecording, root: string, dir: string): number => {
@@ -262,8 +263,8 @@ describe("Bundled AXM skill readiness", () => {
       expect(distinct.applyFailure).toBeUndefined();
       // Each distinct directory's own inspection names it alike in both phases.
       expect({ planned: distinct.planned, applied: distinct.applied }).toEqual({
-        planned: [9, 9],
-        applied: [55, 51],
+        planned: [6, 6],
+        applied: [49, 45],
       });
       // Planning resolves the workspace root as a native root and the canonical
       // source once for both directories; the target walks account for the rest.

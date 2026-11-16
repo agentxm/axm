@@ -237,9 +237,10 @@ describe("authored-step preflight", () => {
     return Effect.gen(function* () {
       const apply = yield* applyLogged("skill");
       // Measured with the separate preflight reads: 8 before the first
-      // snapshot (two resolutions of both destinations) and 94 from it on.
+      // snapshot (two resolutions of both destinations) and 94 from it on,
+      // now 90 since the skill inspection's currency check takes its admitted entry.
       expect(resolutions(apply.calls.beforeSnapshot)).toBe(4);
-      expect(resolutions(apply.calls.fromSnapshot)).toBe(94);
+      expect(resolutions(apply.calls.fromSnapshot)).toBe(90);
     }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
   });
 

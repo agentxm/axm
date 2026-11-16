@@ -152,21 +152,21 @@ describe("forkExtensionPackage", () => {
               listed.filter((relative) => relative === directory).length,
             ]),
           ),
-        ).toEqual({ "": 7, src: 4, "src/nested": 2 });
+        ).toEqual({ "": 4, src: 2, "src/nested": 1 });
         const linkReads = sourceTreeCalls(recording, "readLink");
         // The containment walk reads every entry's link once and the copy
-        // reads none again; each file's further reads are the copy's live
-        // identity and overlap checks.
+        // reads none again; each file's further read is the copy's one live
+        // identity resolution, which its overlap checks share.
         expect(
           Object.fromEntries(
             entries.map((entry) => [entry, linkReads.filter((read) => read === entry).length]),
           ),
         ).toEqual({
-          "skill.json": 3,
+          "skill.json": 2,
           src: 1,
-          "src/SKILL.md": 3,
+          "src/SKILL.md": 2,
           "src/nested": 1,
-          "src/nested/a.md": 3,
+          "src/nested/a.md": 2,
         });
         expect(fs.readFileSync(path.join(targetDir, "src", "nested", "a.md"), "utf8")).toBe("a\n");
       }),

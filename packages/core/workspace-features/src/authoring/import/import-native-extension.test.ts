@@ -190,9 +190,12 @@ describe("ImportNativeExtension prepared work", () => {
       // Under the lock the preflight reads and hashes the staged package
       // fresh; the install records the hash the transaction's own listing
       // computed for the imported package instead of hashing it again.
+      // The canonical copy under the lock resolves the staged root once for all
+      // of its overlap checks, so it lists that root twice less.
       expect(stagedCounts(apply, staged, body)).toEqual({
         ...before.apply,
         hashes: before.apply.hashes - 1,
+        rootReadDirectory: before.apply.rootReadDirectory - 2,
         manifestReads: before.apply.manifestReads - sharedLoad.manifestReads,
         bodyReads: before.apply.bodyReads - sharedLoad.bodyReads,
       });
@@ -211,7 +214,7 @@ describe("ImportNativeExtension prepared work", () => {
       });
       expect(stagedCounts(apply, staged, body)).toEqual({
         hashes: 2,
-        rootReadDirectory: 6,
+        rootReadDirectory: 4,
         manifestReads: 1,
         bodyReads: 1,
       });

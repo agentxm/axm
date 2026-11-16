@@ -156,7 +156,7 @@ describe("importNativeExtensionPackage", () => {
         // The managed-manifest check stats and lists the source once; the other
         // calls are the directory copy's own overlap checks, native path
         // resolution and root scan, which keep reading live.
-        expect(sourceCalls(recording, sourcePath)).toEqual({ stat: 5, readDirectory: 6 });
+        expect(sourceCalls(recording, sourcePath)).toEqual({ stat: 3, readDirectory: 4 });
         expect(fs.readFileSync(path.join(targetDir, "src", "SKILL.md"), "utf8")).toBe(nativeSkill);
         expect(fs.readFileSync(path.join(targetDir, "src", "notes", "a.md"), "utf8")).toBe("a\n");
       }),

@@ -224,13 +224,14 @@ describe("CreateExtension prepared work", () => {
       const { prepare, apply } = yield* prepareAndApply("skill");
       // Measured before preparation reused its first resolution: 16 calls while
       // preparing (two resolutions plus the per-target checks). Applying makes
-      // 98: the authored-step preflight resolves both destinations once in its
+      // 94: the authored-step preflight resolves both destinations once in its
       // shared document phase (4 calls), and from the transaction's first
-      // snapshot on, under the lock, the destinations resolve fresh (94).
+      // snapshot on, under the lock, the destinations resolve fresh (90; the
+      // skill inspection's currency check takes its admitted entry).
       const resolution = resolutionCalls(standalone.calls);
       expect(resolution).toBe(4);
       expect(resolutionCalls(prepare.calls)).toBe(16 - resolution);
-      expect(resolutionCalls(apply.calls)).toBe(98);
+      expect(resolutionCalls(apply.calls)).toBe(94);
     }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
   });
 
@@ -265,10 +266,10 @@ describe("CreateExtension prepared work", () => {
         root: counted(apply.calls, created.root),
       }).toEqual({
         targets: [
-          { readLink: 28, stat: 16, realPath: 4 },
-          { readLink: 28, stat: 16, realPath: 4 },
+          { readLink: 26, stat: 15, realPath: 4 },
+          { readLink: 26, stat: 15, realPath: 4 },
         ],
-        root: { readLink: 75, stat: 240, realPath: 246 },
+        root: { readLink: 75, stat: 180, realPath: 243 },
       });
       const step = prepare.value.execution.plan.jobs[0]?.steps[0];
       const planned = step?.artifact?.nativeLocations ?? [];

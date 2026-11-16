@@ -14,8 +14,10 @@ import {
   type AcceptedContentObservation,
   type Plan,
 } from "@agentxm/workspace-kernel/operations";
+import { registryBindingProposal } from "@agentxm/workspace-kernel/resolution";
 import {
   acceptedLockedResolutionRef,
+  LockfileParseError,
   LockfileReader,
   withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -127,6 +129,91 @@ const settle = (
     };
   });
 
+const OTHER_HOOK = "audit";
+
+/** A workspace that accepted both Hooks from its file Registry. */
+const acceptedHooks = (cleanups: Array<() => void>) =>
+  Effect.gen(function* () {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    for (const name of [HOOK, OTHER_HOOK]) {
+      world.registry.writeHook(name, [{ version: "1.0.0" }]);
+      const installed = yield* world.workspace.provide(
+        applyInstallAcceptingExecutionChanges(
+          installRequest({
+            type: "hook",
+            subject: { kind: "source", source: `@acme/hooks/${name}` },
+          }),
+        ),
+      );
+      expect(deriveOperationOutcome(installed)).toBe("applied");
+    }
+    return world;
+  });
+
+/**
+ * Settle the steps built from both Hooks' accepted refs inside one planning
+ * read phase, counting each lookup of either Hook's accepted row. A `failing`
+ * Hook's accepted row cannot be read in that settlement.
+ */
+const settleBoth = (
+  world: InstallWorld,
+  steps: (accepted: {
+    readonly hook: ExtensionRef;
+    readonly other: ExtensionRef;
+  }) => Plan["jobs"][number]["steps"],
+  failing?: string,
+) =>
+  Effect.gen(function* () {
+    const lookups = { [HOOK]: 0, [OTHER_HOOK]: 0 };
+    const plan = yield* world.workspace.provide(
+      withWorkspaceReadView(
+        Effect.gen(function* () {
+          const hook = yield* acceptedLockedResolutionRef({ type: "hook", name: HOOK });
+          const other = yield* acceptedLockedResolutionRef({ type: "hook", name: OTHER_HOOK });
+          if (Option.isNone(hook) || Option.isNone(other))
+            throw new Error("Both Hooks should be accepted");
+          return yield* prepareAcquisitionPlan(
+            {
+              _tag: "Plan",
+              name: "Update extensions",
+              description: Option.none(),
+              jobs: [{ concurrency: 1, steps: steps({ hook: hook.value, other: other.value }) }],
+            },
+            false,
+          ).pipe(
+            Effect.updateService(LockfileReader, (reader) => ({
+              ...reader,
+              acceptedEntry: (type, name) => {
+                if (type === "hook" && (name === HOOK || name === OTHER_HOOK)) lookups[name] += 1;
+                return type === "hook" && name === failing
+                  ? Effect.fail(
+                      new LockfileParseError({ path: "axm.lock", raw: "", cause: "unreadable" }),
+                    )
+                  : reader.acceptedEntry(type, name);
+              },
+            })),
+          );
+        }),
+      ),
+    );
+    return { plan, lookups };
+  });
+
+/** A ready step of `target` that does whatever `fields` declare. */
+const hookStep = (
+  target: string,
+  fields: Omit<
+    Extract<Plan["jobs"][number]["steps"][number], { readiness: "ready" }>,
+    "readiness" | "label" | "run"
+  >,
+): Plan["jobs"][number]["steps"][number] => ({
+  readiness: "ready",
+  label: `Update ${target}`,
+  ...fields,
+  run: Effect.succeed({ result: "success", message: "Updated" }),
+});
+
 /** The same Registry package one version later. */
 const advanced = (ref: ExtensionRef): ExtensionRef =>
   ref.refType === "registry" ? { ...ref, version: decodeVersionSync("2.0.0") } : ref;
@@ -176,6 +263,68 @@ describe("Acquisition reuse of accepted Registry content", () => {
       expect(settled.plan.riskConditions ?? []).toEqual([]);
       // The source switch still reads the accepted row's presence itself.
       expect(settled.acceptedRowLookups).toBe(5);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "keeps another Hook's accepted ref its own in publisher trust and the source switch",
+    () =>
+      Effect.gen(function* () {
+        const world = yield* acceptedHooks(cleanups);
+
+        // Only the first Hook's acquisition reconstructs its accepted ref; the
+        // second binds its accepted source without acquiring anything.
+        const settled = yield* settleBoth(world, ({ hook, other }) => [
+          hookStep(HOOK, {
+            acquisitionRefs: [hook],
+            sourceBinding: { extensionType: "hook", target: HOOK, ref: hook },
+          }),
+          hookStep(OTHER_HOOK, {
+            acquisitionRefs: [],
+            sourceBinding: { extensionType: "hook", target: OTHER_HOOK, ref: other },
+          }),
+        ]);
+
+        // Neither Hook leaves its accepted locator, so no source switches and
+        // no publisher changes.
+        expect(settled.plan.riskConditions ?? []).toEqual([]);
+        expect(settled.plan.jobs[0]?.steps.map((step) => step.readiness)).toEqual([
+          "ready",
+          "ready",
+        ]);
+        // The second Hook's accepted path, then publisher trust's and the
+        // source switch's own reads, presence and reconstruction, exactly as
+        // when nothing else was reconstructed.
+        expect(settled.lookups).toEqual({ [HOOK]: 5, [OTHER_HOOK]: 6 });
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports another Hook's unreadable accepted row to publisher trust", () =>
+    Effect.gen(function* () {
+      const world = yield* acceptedHooks(cleanups);
+
+      // The second Hook only proposes its accepted publisher binding.
+      const settled = yield* settleBoth(
+        world,
+        ({ hook, other }) => {
+          const registryBinding = registryBindingProposal(other);
+          if (registryBinding === undefined) throw new Error("Expected a Registry binding");
+          return [
+            hookStep(HOOK, { acquisitionRefs: [hook] }),
+            hookStep(OTHER_HOOK, { acquisitionRefs: [], registryBinding }),
+          ];
+        },
+        OTHER_HOOK,
+      );
+
+      expect(settled.plan.riskConditions).toEqual([
+        expect.objectContaining({
+          level: "blocked",
+          id: "accepted-resolution-unreadable",
+          detail: `The accepted resolution for hook:${OTHER_HOOK} could not be read, so the proposed publisher binding cannot be checked.`,
+        }),
+      ]);
+      expect(settled.lookups).toEqual({ [HOOK]: 4, [OTHER_HOOK]: 1 });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

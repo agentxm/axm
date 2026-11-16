@@ -62,7 +62,8 @@ describe("native MCP discovery for import", () => {
         const prepareReads = recording.contentReads(filePath);
 
         expect(discovered.preflight).toEqual(preparedAgain.preflight);
-        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
+        // Discovery's read and the competing-entry read; the preimage is discovery's text.
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 2, prepareReads: 2 });
       }),
     ),
   );
@@ -180,7 +181,7 @@ describe("native MCP discovery for import", () => {
           { kind: "key-path", path: filePath, keys: ["mcpServers", "beta"] },
         ]);
         expect(discovered.preflight).toEqual(prepared.preflight);
-        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 2, prepareReads: 2 });
       }),
     ),
   );

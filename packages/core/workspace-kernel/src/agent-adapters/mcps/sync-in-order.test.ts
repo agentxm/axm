@@ -59,11 +59,13 @@ const inOrder = (
   agentIds: ReadonlyArray<string>,
   root: string,
   candidates: ReadonlyArray<InlineMcpServerCandidate>,
+  discovered?: ReadonlyArray<{ readonly path: string; readonly raw: string }>,
 ) =>
   validateInlineMcpServerTargetsInOrder(
     agentIds,
     { nativeDirectoryInputs, workspaceRoot: root },
     candidates,
+    discovered,
   );
 
 /** Every recorded call other than a content read: the location observations. */
@@ -153,6 +155,45 @@ describe("inline MCP validation in server order", () => {
         // Everything else each server does on its own stays; only two resolutions are gone.
         expect(resolution).toBeGreaterThan(0);
         expect(separateObservations - sharedObservations).toBe(2 * resolution);
+      }),
+    ),
+  );
+
+  it.effect("validates a planned write against the text the caller read at its path", () =>
+    withWorkspace((root) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const file = nodePath.join(root, ".mcp.json");
+        const raw = json({ mcpServers: { foreign: { command: "foreign-server" } } });
+        writeFileSync(file, raw);
+        const candidates = [
+          { serverName: "alpha", entry: remote("https://mcp.example.test/alpha") },
+          { serverName: "beta", entry: remote("https://mcp.example.test/beta") },
+        ];
+
+        recording.reset();
+        const read = yield* inOrder(["claude-code"], root, candidates);
+        const readReads = recording.contentReads(file);
+
+        recording.reset();
+        const handed = yield* inOrder(["claude-code"], root, candidates, [{ path: file, raw }]);
+        const handedReads = recording.contentReads(file);
+
+        recording.reset();
+        // Text read at another spelling of the path is not the planned write's preimage.
+        const elsewhere = yield* inOrder(["claude-code"], root, candidates, [
+          { path: `${root}${nodePath.sep}sub${nodePath.sep}..${nodePath.sep}.mcp.json`, raw },
+        ]);
+        const elsewhereReads = recording.contentReads(file);
+
+        expect(handed).toEqual(read);
+        expect(elsewhere).toEqual(read);
+        // The competing-entry read of the target resolution remains.
+        expect({ readReads, handedReads, elsewhereReads }).toEqual({
+          readReads: 2,
+          handedReads: 1,
+          elsewhereReads: 2,
+        });
       }),
     ),
   );

@@ -382,7 +382,10 @@ export const validateInlineMcpServerTargets = (
  * Validate inline servers in order, as one `validateInlineMcpServerTargets`
  * call per server would, within one read of unchanged native state: the
  * targets are resolved once, before the first server, and each native file is
- * read once. Every server keeps its own plan, alias recheck and reader
+ * read once. `discovered` holds native MCP documents the caller already read in
+ * the same read phase, each by the exact physical path it read; a planned write
+ * at one of those paths is validated against that text instead of reading the
+ * file again. Every server keeps its own plan, alias recheck and reader
  * preflights, and the first failure stops the run. The plans come back in
  * server order, each with its server name.
  */
@@ -390,12 +393,15 @@ export const validateInlineMcpServerTargetsInOrder = (
   agentIds: ReadonlyArray<string>,
   args: InlineMcpTargetArgs,
   candidates: ReadonlyArray<InlineMcpServerCandidate>,
+  discovered: ReadonlyArray<{ readonly path: string; readonly raw: string }> = [],
 ) =>
   Effect.gen(function* () {
     if (candidates.length === 0) return [];
     const resolved = yield* resolveInlineMcpTargets(agentIds, args);
     // Read once per run; a failed read stops the run, so only successes are kept.
-    const preimages = new Map<string, Option.Option<string>>();
+    const preimages = new Map<string, Option.Option<string>>(
+      discovered.map(({ path, raw }) => [path, Option.some(raw)]),
+    );
     const readPreimage: NativeMcpConfigReader = (configPath) => {
       const known = preimages.get(configPath);
       return known !== undefined

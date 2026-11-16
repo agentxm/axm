@@ -82,9 +82,16 @@ const readFailureToConfigurationFailed = (failure: {
     cause: failure,
   });
 
+/** One native MCP document as discovery read it, by the exact physical path it read. */
+interface McpDiscoveredText {
+  readonly path: string;
+  readonly raw: string;
+}
+
 /**
  * Discover the native MCP config sources the configured agents contribute for
- * this workspace scope, with unsupported-format findings.
+ * this workspace scope, with unsupported-format findings and the text of every
+ * source document read, for target validation in the same read phase.
  */
 export const collectMcpNativeSources = (
   location: WorkspaceLocationService,
@@ -95,6 +102,7 @@ export const collectMcpNativeSources = (
     const sources: Array<McpNativeSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
+    const texts: Array<McpDiscoveredText> = [];
     const addSource = (
       filePath: string,
       serversPath: McpNativeSource["serversPath"],
@@ -111,6 +119,7 @@ export const collectMcpNativeSources = (
           Effect.mapError(readFailureToConfigurationFailed),
         );
         if (Option.isNone(raw)) return;
+        texts.push(Object.freeze({ path: filePath, raw: raw.value }));
         if (agentId === "github-copilot-cli" && location.scope === "project") {
           const decoded = yield* decodeJsonMcpConfig(
             filePath,
@@ -239,7 +248,11 @@ export const collectMcpNativeSources = (
         }
       }
     }
-    return { sources, skipped: Array.from(skipped.values()) };
+    return {
+      sources,
+      skipped: Array.from(skipped.values()),
+      texts: Object.freeze([...texts]),
+    };
   });
 
 const adoptNativeMcpEntry = (
@@ -366,28 +379,35 @@ const validateCandidateTargets = (
 
 /**
  * Plan every candidate's inline entry, in candidate order, against one
- * resolution of the targets they share in this read phase.
+ * resolution of the targets they share in this read phase and the documents
+ * discovery read in it.
  */
 const validateCandidatesTargetsInOrder = (
   agentIds: ReadonlyArray<string>,
   location: WorkspaceLocationService,
   candidates: ReadonlyArray<McpAdoptionCandidate>,
+  discovered: ReadonlyArray<McpDiscoveredText>,
 ) =>
   validateInlineMcpServerTargetsInOrder(
     agentIds,
     inlineTargetArgs(location),
     candidates.map(inlineCandidate),
+    discovered,
   ).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
 
 /**
  * Check, in candidate order, that every configured reader accepts each
- * candidate's inline entry, without recomputing the adoption targets.
+ * candidate's inline entry, without recomputing the adoption targets. The
+ * caller vouches that discovery read `discovered` in the same read phase.
  */
-export const validateMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionCandidate>) =>
+export const validateMcpAdoptionTargets = (
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+  discovered: ReadonlyArray<McpDiscoveredText>,
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
-    yield* validateCandidatesTargetsInOrder(agentIds, location, candidates);
+    yield* validateCandidatesTargetsInOrder(agentIds, location, candidates, discovered);
   });
 
 /** The native locations one candidate's planned writes update. */
@@ -433,25 +453,28 @@ const plannedWriteLocations = (
 /**
  * Every configured reader is checked before adoption publishes any desired
  * state. Each adoption's source document is read again and compared with the
- * fingerprint discovery took, unless `sources` is `"discovered-in-this-read-phase"`:
- * the caller then vouches that discovery read those documents in the same
- * read phase, so their fingerprints already stand for what this phase reads,
- * and the candidates share one resolution of their targets.
+ * fingerprint discovery took, unless `sources` carries the documents discovery
+ * read: the caller then vouches that discovery read them in the same read
+ * phase, so their fingerprints already stand for what this phase reads, the
+ * candidates share one resolution of their targets, and a target that is one
+ * of those documents is validated against discovery's text.
  */
 export const prepareMcpAdoptionTargets = (
   candidates: ReadonlyArray<McpAdoptionCandidate>,
-  sources: "verify" | "discovered-in-this-read-phase" = "verify",
+  sources:
+    "verify" | { readonly discoveredInThisReadPhase: ReadonlyArray<McpDiscoveredText> } = "verify",
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
     const locations: Array<NativeLocationOutcome> = [];
-    if (sources === "discovered-in-this-read-phase") {
+    if (sources !== "verify") {
       for (const { serverName, plan } of yield* validateCandidatesTargetsInOrder(
         agentIds,
         location,
         candidates,
+        sources.discoveredInThisReadPhase,
       ))
         locations.push(...plannedWriteLocations(location, path, serverName, plan));
       return combineNativeLocationOutcomes(locations);

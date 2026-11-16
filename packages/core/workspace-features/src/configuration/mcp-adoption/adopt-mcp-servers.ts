@@ -114,7 +114,12 @@ const classifyNativeMcpServers = (names: ReadonlyArray<string>) =>
         })),
       ],
     };
-    return { location, candidates: normalized.candidates, preflight };
+    return {
+      location,
+      candidates: normalized.candidates,
+      preflight,
+      discoveredTexts: discovery.texts,
+    };
   });
 
 /**
@@ -132,7 +137,8 @@ const prepareAdoptMcpServers = (
   SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const { location, candidates, preflight } = yield* classifyNativeMcpServers(names);
+    const { location, candidates, preflight, discoveredTexts } =
+      yield* classifyNativeMcpServers(names);
     return {
       _tag: "AdoptMcpServers",
       preflight,
@@ -141,7 +147,9 @@ const prepareAdoptMcpServers = (
         preflight.conflicts.length > 0
           ? []
           : // Discovery read and fingerprinted every source in this read view.
-            yield* prepareMcpAdoptionTargets(candidates, "discovered-in-this-read-phase"),
+            yield* prepareMcpAdoptionTargets(candidates, {
+              discoveredInThisReadPhase: discoveredTexts,
+            }),
     } satisfies AdoptMcpServersCandidate;
   }).pipe(withWorkspaceReadView);
 
@@ -160,8 +168,9 @@ export interface McpAdoptionDiscovery {
  */
 const discoverAdoptMcpServers = (names: ReadonlyArray<string> = []) =>
   Effect.gen(function* () {
-    const { candidates, preflight } = yield* classifyNativeMcpServers(names);
-    if (preflight.conflicts.length === 0) yield* validateMcpAdoptionTargets(candidates);
+    const { candidates, preflight, discoveredTexts } = yield* classifyNativeMcpServers(names);
+    if (preflight.conflicts.length === 0)
+      yield* validateMcpAdoptionTargets(candidates, discoveredTexts);
     return { _tag: "McpAdoptionDiscovery", preflight } satisfies McpAdoptionDiscovery;
   }).pipe(withWorkspaceReadView);
 

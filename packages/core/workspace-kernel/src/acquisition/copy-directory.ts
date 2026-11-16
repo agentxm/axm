@@ -19,6 +19,7 @@ import * as Data from "effect/Data";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
@@ -56,6 +57,51 @@ const isExcluded = (name: string, forAgentArtifact: boolean): boolean => {
   return AGENT_ARTIFACT_EXCLUDED_NAMES.has(name) || name.startsWith("_");
 };
 
+/**
+ * What a walk of a copy source observed immediately before the copy: each
+ * listed entry's link value and each listed directory's children in listing
+ * order, keyed by the entry's path relative to `root`.
+ */
+interface CopySourceObservation {
+  readonly root: string;
+  readonly links: HashMap.HashMap<string, Option.Option<string>>;
+  readonly children: HashMap.HashMap<string, ReadonlyArray<string>>;
+}
+
+/**
+ * Record a walk of `root` for the copy that immediately follows it.
+ *
+ * `listing` is a recursive directory listing of `root` in the order it was
+ * returned, as paths relative to `root`, each with the outcome of reading its
+ * link value (none when the read failed). A recursive listing descends into
+ * every entry that is a directory, so a listed directory without listed
+ * children is empty.
+ */
+export const observeCopySource = (
+  root: string,
+  listing: Iterable<readonly [relativePath: string, link: Option.Option<string>]>,
+): Effect.Effect<CopySourceObservation, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const links: Array<readonly [string, Option.Option<string>]> = [];
+    const grouped = new Map<string, Array<string>>();
+    for (const [relativePath, link] of listing) {
+      links.push([relativePath, link]);
+      const parent = path.dirname(relativePath);
+      const key = parent === "." ? "" : parent;
+      const siblings = grouped.get(key);
+      if (siblings === undefined) grouped.set(key, [path.basename(relativePath)]);
+      else siblings.push(path.basename(relativePath));
+    }
+    return Object.freeze({
+      root,
+      links: HashMap.fromIterable(links),
+      children: HashMap.fromIterable(
+        Array.from(grouped, ([key, names]) => [key, Object.freeze(names)] as const),
+      ),
+    });
+  });
+
 const scanCopy = (
   src: string,
   dest: string,
@@ -64,9 +110,29 @@ const scanCopy = (
   forAgentArtifact: boolean,
   maxBytes: number,
   maxEntries: number,
+  observation: CopySourceObservation | undefined,
 ) =>
   Effect.gen(function* () {
-    const pending = [{ source: src, target: dest }];
+    // An entry the walk did not list is read live.
+    const readLink = (source: string, key: string): Effect.Effect<Option.Option<string>> => {
+      const observed =
+        observation === undefined ? Option.none() : HashMap.get(observation.links, key);
+      return Option.isSome(observed)
+        ? Effect.succeed(observed.value)
+        : fs.readLink(source).pipe(Effect.option);
+    };
+    const readDirectory = (
+      source: string,
+      key: string,
+    ): Effect.Effect<ReadonlyArray<string>, PlatformError> => {
+      if (observation === undefined) return fs.readDirectory(source);
+      const observed = HashMap.get(observation.children, key);
+      if (Option.isSome(observed)) return Effect.succeed(observed.value);
+      return key === "" || HashMap.has(observation.links, key)
+        ? Effect.succeed([])
+        : fs.readDirectory(source);
+    };
+    const pending = [{ source: src, target: dest, key: "" }];
     const directories: Array<string> = [];
     const files: Array<{ source: string; target: string; mode: number }> = [];
     const links: Array<{ source: string; target: string; value: string }> = [];
@@ -79,9 +145,7 @@ const scanCopy = (
       // The selected source root may itself be an alias. Preserve links within
       // its payload without traversing them, including links back to the root.
       const link =
-        next.source === src
-          ? Option.none<string>()
-          : yield* fs.readLink(next.source).pipe(Effect.option);
+        next.source === src ? Option.none<string>() : yield* readLink(next.source, next.key);
       if (Option.isSome(link)) {
         yield* validateContainedLink(src, next.source, link.value);
         bytes += new TextEncoder().encode(link.value).byteLength;
@@ -93,7 +157,7 @@ const scanCopy = (
       const info = yield* fs.stat(next.source);
       if (info.type === "Directory") {
         directories.push(next.target);
-        const children = (yield* fs.readDirectory(next.source)).filter(
+        const children = (yield* readDirectory(next.source, next.key)).filter(
           (name) => !isExcluded(name, forAgentArtifact),
         );
         entries += children.length;
@@ -104,6 +168,7 @@ const scanCopy = (
           pending.push({
             source: path.join(next.source, name),
             target: path.join(next.target, name),
+            key: next.key === "" ? name : path.join(next.key, name),
           });
         }
       } else if (info.type === "File") {
@@ -140,6 +205,13 @@ export type CopyExtensionDirectoryOptions = {
   readonly forAgentArtifact?: boolean;
   readonly maxBytes?: number;
   readonly maxEntries?: number;
+  /**
+   * A walk of `src` from {@link observeCopySource}, valid only for a copy that
+   * immediately follows that walk with no write in between. The scan takes
+   * link values and directory listings from it instead of reading them again;
+   * every other read and check stays live. Ignored for a different `src`.
+   */
+  readonly sourceObservation?: CopySourceObservation;
 };
 
 /**
@@ -190,6 +262,7 @@ export const copyExtensionDirectory = (
       options?.forAgentArtifact ?? false,
       maxBytes,
       maxEntries,
+      options?.sourceObservation?.root === src ? options.sourceObservation : undefined,
     );
     // A destination may alias any source member, not only its corresponding
     // filename. Capture the complete read set before authorizing any write.

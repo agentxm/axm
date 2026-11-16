@@ -21,7 +21,7 @@ import type {
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { copyExtensionDirectory } from "@agentxm/workspace-kernel/acquisition";
+import { copyExtensionDirectory, observeCopySource } from "@agentxm/workspace-kernel/acquisition";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const INITIAL_FORK_VERSION = "0.1.0";
@@ -72,9 +72,12 @@ const validateSourceIdentity = (
         detail: `Fork source changed after it was resolved; expected ${expected.owner}/${expected.type}/${expected.name}@${expected.version}`,
       });
 
-const validateContainedSymlinks = (
-  sourceRoot: string,
-): Effect.Effect<void, ForkPackageInvalid, FileSystem.FileSystem | Path.Path> =>
+/**
+ * Refuse links that do not resolve inside the source, returning what the walk
+ * observed so the copy that immediately follows need not list the tree or read
+ * its links again.
+ */
+const validateContainedSymlinks = (sourceRoot: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -96,13 +99,13 @@ const validateContainedSymlinks = (
           }),
       ),
     );
-    yield* Effect.forEach(
+    const listing = yield* Effect.forEach(
       entries,
       (relativePath) =>
         Effect.gen(function* () {
           const entry = path.join(sourceRoot, relativePath);
           const link = yield* fs.readLink(entry).pipe(Effect.option);
-          if (Option.isNone(link)) return;
+          if (Option.isNone(link)) return [relativePath, link] as const;
           const realTarget = yield* fs.realPath(entry).pipe(
             Effect.mapError(
               (cause) =>
@@ -119,9 +122,11 @@ const validateContainedSymlinks = (
               detail: `Fork source symlink escapes the package root: ${entry}`,
             });
           }
+          return [relativePath, link] as const;
         }),
-      { concurrency: 16, discard: true },
+      { concurrency: 16 },
     );
+    return yield* observeCopySource(sourceRoot, listing);
   });
 
 export const forkExtensionPackage = (
@@ -175,11 +180,13 @@ export const forkExtensionPackage = (
         detail: `Fork source manifest must contain a JSON object: ${sourceManifestPath}`,
       });
     }
-    yield* validateContainedSymlinks(args.sourceDir).pipe(
+    // The walk's observation lives only for the copy that immediately follows
+    // it; nothing writes the source in between.
+    const sourceObservation = yield* validateContainedSymlinks(args.sourceDir).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );
-    yield* copyExtensionDirectory(args.sourceDir, args.targetDir).pipe(
+    yield* copyExtensionDirectory(args.sourceDir, args.targetDir, { sourceObservation }).pipe(
       Effect.mapError(
         (cause) =>
           new ForkPackageFailed({

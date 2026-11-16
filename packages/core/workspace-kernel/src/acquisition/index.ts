@@ -46,6 +46,7 @@ export {
   type CanonicalDirectoryReplacementError,
 } from "./canonical-directory.js";
 export { copyExtensionDirectory, DirectoryCopyLimitExceeded } from "./copy-directory.js";
+export { observeCopySource } from "./copy-directory.js";
 export {
   materializeRegistryPackage,
   materializeRegistryPackageWithTreeIntegrity,

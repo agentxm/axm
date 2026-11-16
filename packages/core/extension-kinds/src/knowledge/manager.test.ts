@@ -1289,6 +1289,38 @@ describe("KnowledgeManager", () => {
           }
         });
 
+      for (const names of [["handbook"], ["handbook", "playbook"]])
+        for (const dryRun of [true, false])
+          it.effect(
+            `observes each usable bundle's canonical tree once while ${dryRun ? "previewing" : "applying"} a sync of ${names.length} bundle(s)`,
+            () =>
+              withWorkspace((workspaceRoot) =>
+                Effect.gen(function* () {
+                  const { canonicalRootOf, read } = acquiredBundles(
+                    workspaceRoot,
+                    names.map((name) => ({ name, enabled: true })),
+                  );
+                  const { outcome, recording, treeHashes } = yield* recordedSync(
+                    workspaceRoot,
+                    read,
+                    syncOnce(dryRun),
+                  );
+
+                  expect(outcome).toMatchObject({ _tag: "Success", success: { warnings: [] } });
+                  for (const name of names) {
+                    const root = canonicalRootOf(name);
+                    // One observation: its manifest read and its tree hash.
+                    expect(recording?.contentReads(nodePath.join(root, "knowledge.json"))).toBe(2);
+                    // Its tree hash and one bundle-body inspection.
+                    expect(recording?.contentReads(nodePath.join(root, "src", "concept.md"))).toBe(
+                      2,
+                    );
+                  }
+                  expect(treeHashes).toBe(names.length);
+                }),
+              ),
+          );
+
       for (const dryRun of [true, false])
         it.effect(
           `observes no bundle while ${dryRun ? "previewing" : "applying"} a sync with none enabled`,
@@ -1312,6 +1344,39 @@ describe("KnowledgeManager", () => {
               }),
             ),
         );
+
+      it.effect("observes a restored bundle and a usable one again after publication", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+              { name: "handbook", enabled: true },
+              { name: "playbook", enabled: true },
+            ]);
+            makeRestorable(workspaceRoot, canonicalRootOf("playbook"), "playbook");
+            const { outcome, recording, treeHashes } = yield* recordedSync(
+              workspaceRoot,
+              read,
+              syncOnce(false),
+            );
+
+            expect(outcome).toMatchObject({ _tag: "Success", success: { changed: true } });
+            const concept = (name: string) =>
+              recording?.contentReads(nodePath.join(canonicalRootOf(name), "src", "concept.md"));
+            // The usable bundle: one observation before publication and one
+            // after it, each with its inspection.
+            expect(concept("handbook")).toBe(4);
+            // The restored bundle's published copy is read as before, including
+            // its observation and inspection once it is published.
+            expect(concept("playbook")).toBe(3);
+            // The usable bundle's two observations, and the restored bundle's
+            // own hashes while it is restored, published and observed.
+            expect(treeHashes).toBe(5);
+            const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
+            expect(instructions).toContain("[handbook]");
+            expect(instructions).toContain("[playbook]");
+          }),
+        ),
+      );
 
       it.effect("reports the same exclusion from a sync preview and its apply", () =>
         withWorkspace((workspaceRoot) =>

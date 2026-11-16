@@ -8,6 +8,7 @@
 
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
+import { arch, platform as hostPlatform } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -37,6 +38,10 @@ import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 import {
   DesiredStateReader,
+  computePackageContentHash,
+  hookConfigurationHash,
+  hookReceiptFilename,
+  usableAcceptedCanonicalRef,
   SettingsIoError,
   SettingsReader,
   type SettingsReaderService,
@@ -395,5 +400,112 @@ describe("HookManager desired-state evaluation", () => {
         hookEntries,
       );
     });
+  });
+
+  describe("a contributor's package root in one projection run", () => {
+    /** The root's real-path resolutions and existence probes during `effect`. */
+    const rootChecks = <A, E, R>(
+      workspace: Workspace,
+      packageRoot: string,
+      effect: Effect.Effect<A, E, R>,
+    ) =>
+      Effect.gen(function* () {
+        workspace.recording.reset();
+        yield* effect;
+        const counts = workspace.recording.counts(packageRoot);
+        return { realPath: counts.realPath ?? 0, exists: counts.access ?? 0 };
+      });
+
+    it.effect("keys a retained contributor's receipt from the root its validation resolved", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          const packageRoot = nodePath.join(workspace.root, "hooks", "audit");
+          const planned = yield* rootChecks(
+            workspace,
+            packageRoot,
+            workspace.manager.projectionPlans(),
+          );
+          const outcomes = yield* rootChecks(
+            workspace,
+            packageRoot,
+            workspace.manager.configuredAgentOutcomes?.("current") ??
+              Effect.die("The Hook manager evaluates configured-agent outcomes"),
+          );
+          // The observation probes the root and the runtime-file validation
+          // resolves it; the plan's native observation resolves it once more.
+          // Measured before the evaluation took the validated root: planned
+          // realPath 3 and exists 2, outcomes realPath 2 and exists 2.
+          expect({ planned, outcomes }).toEqual({
+            planned: { realPath: 2, exists: 1 },
+            outcomes: { realPath: 1, exists: 1 },
+          });
+        }),
+      ),
+    );
+
+    it.effect("keys a prepared contributor's receipt from the canonical root it validated", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          const packageRoot = nodePath.join(workspace.root, "hooks", "audit");
+          const ref = yield* usableAcceptedCanonicalRef({ type: "hook", name: "audit" });
+          if (Option.isNone(ref) || ref.value.type !== "hook")
+            return yield* Effect.die("The authored Hook restores a Hook ref");
+          const hookRef = ref.value;
+          const prepared = yield* rootChecks(
+            workspace,
+            packageRoot,
+            workspace.manager.prepareProjection([hookRef]),
+          );
+          // An authored package is read from its canonical root. Measured
+          // before the evaluation took the validated root: realPath 4 and
+          // exists 1.
+          expect(prepared).toEqual({ realPath: 3, exists: 0 });
+        }),
+      ),
+    );
+
+    it.effect("keys a symlinked package root's receipt from its real path", () =>
+      inWorkspace(["audit"], (workspace) =>
+        Effect.gen(function* () {
+          const linkedRoot = nodePath.join(workspace.root, "hooks", "audit");
+          const realRoot = nodePath.join(workspace.root, "authored-audit");
+          nodeFs.renameSync(linkedRoot, realRoot);
+          nodeFs.symlinkSync(realRoot, linkedRoot);
+          const receiptPath = nodePath.join(
+            workspace.root,
+            ".axm",
+            "hook-tests",
+            hookReceiptFilename(realRoot),
+          );
+          writeFile(
+            receiptPath,
+            JSON.stringify({
+              kind: "fixture-execution",
+              package: "audit",
+              version: "1.0.0",
+              contentHash: yield* computePackageContentHash(realRoot),
+              configurationHash: hookConfigurationHash({}),
+              startedAt: 0,
+              completedAt: 0,
+              cwd: "package-root",
+              scope: "project",
+              platform: { os: hostPlatform(), architecture: arch() },
+              environment: [],
+              environmentFreshness: "historical-only",
+              nativeInvocation: "not-observed",
+              sandboxed: false,
+              fixtures: [],
+              passed: true,
+              receiptPath,
+            }),
+          );
+          const outcomes = yield* workspace.manager.configuredAgentOutcomes?.("current") ??
+            Effect.die("The Hook manager evaluates configured-agent outcomes");
+          expect(
+            outcomes.map(({ name, hook }) => ({ name, state: hook?.fixtureEvidence.state })),
+          ).toEqual([{ name: "audit", state: "historical" }]);
+        }),
+      ),
+    );
   });
 });

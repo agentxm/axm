@@ -492,8 +492,9 @@ export const HookManagerLive = Layer.effect(
         // and held for the rest of this call; each file is still resolved,
         // contained and inspected on its own.
         const resolvedRoot = yield* Effect.cached(fs.realPath(packageRoot));
-        return yield* Effect.forEach(
-          requiredHookRuntimeFiles(manifest),
+        const runtimeFiles = requiredHookRuntimeFiles(manifest);
+        yield* Effect.forEach(
+          runtimeFiles,
           (entry) =>
             Effect.gen(function* () {
               const absolute = path.resolve(packageRoot, entry);
@@ -522,6 +523,13 @@ export const HookManagerLive = Layer.effect(
             }),
           { discard: true },
         );
+        // The root's real path once every runtime file was found contained in
+        // it; none when no file needed it.
+        return runtimeFiles.length === 0
+          ? Option.none<ResolvedPackageRoot>()
+          : Option.some<ResolvedPackageRoot>(
+              Object.freeze({ root: path.resolve(packageRoot), canonical: yield* resolvedRoot }),
+            );
       }).pipe(
         Effect.mapError(
           (cause) =>
@@ -562,7 +570,7 @@ export const HookManagerLive = Layer.effect(
                     onNone: () => readManifest(contributor.packageRoot),
                   },
                 );
-                yield* validatePackageFiles(contributor.packageRoot, manifest);
+                const resolvedRoot = yield* validatePackageFiles(contributor.packageRoot, manifest);
                 const marker = Option.match(contributor.identityOwner, {
                   onSome: (owner) =>
                     formatFqn({
@@ -573,7 +581,7 @@ export const HookManagerLive = Layer.effect(
                   onNone: () =>
                     formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
                 });
-                return {
+                const selected: RenderedHookContributor = {
                   name: contributor.node.name,
                   marker,
                   manifest,
@@ -587,12 +595,30 @@ export const HookManagerLive = Layer.effect(
                     contributor.packageRoot,
                   ),
                 };
+                return { selected, resolvedRoot };
               }),
             { concurrency: 1 },
           ),
         ),
-        Effect.map((resolved) => [...resolved].sort((a, b) => a.marker.localeCompare(b.marker))),
+        Effect.map((resolved) => ({
+          contributors: resolved
+            .map(({ selected }) => selected)
+            .sort((a, b) => a.marker.localeCompare(b.marker)),
+          /** The package roots this selection's validation resolved, for this same call. */
+          resolvedRoots: Object.freeze(
+            resolved.flatMap(({ resolvedRoot }) => Option.toArray(resolvedRoot)),
+          ),
+        })),
       );
+
+    /**
+     * A package root one validation resolved in its owner call: the absolute
+     * root it validated and that root's real path.
+     */
+    interface ResolvedPackageRoot {
+      readonly root: string;
+      readonly canonical: string;
+    }
 
     interface RenderedHookContributor {
       readonly name: string;
@@ -690,6 +716,8 @@ export const HookManagerLive = Layer.effect(
       readonly record?: ReadonlyArray<string>;
       /** The owner call's shared read of the configured Hook entries. */
       readonly hookEntries?: typeof hookEntriesRead;
+      /** The package roots the owner call's validation resolved. */
+      readonly resolvedRoots?: ReadonlyArray<ResolvedPackageRoot>;
     }) =>
       Effect.gen(function* () {
         const entries = yield* args.hookEntries ?? hookEntriesRead;
@@ -717,9 +745,15 @@ export const HookManagerLive = Layer.effect(
                 if (prior !== undefined) fixtureEvidence = structuredClone(prior.status);
                 else {
                   const canonical = path.resolve(baseDir, contributor.root);
-                  const packageRoot = (yield* fs.exists(canonical))
-                    ? yield* fs.realPath(canonical)
-                    : canonical;
+                  // The real path this call's validation resolved for exactly
+                  // this root; otherwise it is resolved here.
+                  const resolved = args.resolvedRoots?.find(({ root }) => root === canonical);
+                  const packageRoot =
+                    resolved !== undefined
+                      ? resolved.canonical
+                      : (yield* fs.exists(canonical))
+                        ? yield* fs.realPath(canonical)
+                        : canonical;
                   fixtureEvidence = yield* readHookEvidence({
                     runtimeDir: location.runtimeDir,
                     packageRoot,
@@ -944,11 +978,15 @@ export const HookManagerLive = Layer.effect(
         prospectiveEvidence: ReadonlyArray<FixtureEvidenceReading>,
         projected: ProjectedEvaluation,
       ) => Effect.Effect<A, E, R>,
-      /**
-       * The live evaluation the same owner call took through this manager's
-       * own reader, with nothing written since; it stands for the plan's own.
-       */
-      preparedEvaluation?: DesiredStateEvaluation,
+      prepared?: {
+        /**
+         * The live evaluation the same owner call took through this manager's
+         * own reader, with nothing written since; it stands for the plan's own.
+         */
+        readonly evaluation?: DesiredStateEvaluation;
+        /** The package roots the same owner call validated for `prospective`. */
+        readonly resolvedRoots?: ReadonlyArray<ResolvedPackageRoot>;
+      },
     ) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
@@ -970,7 +1008,7 @@ export const HookManagerLive = Layer.effect(
           options?.desiredGraph === undefined &&
           phase === undefined &&
           (yield* DesiredStateReader) === desiredState
-            ? Option.some(preparedEvaluation ?? (yield* desiredState.evaluate()))
+            ? Option.some(prepared?.evaluation ?? (yield* desiredState.evaluate()))
             : Option.none();
         const graph =
           options?.desiredGraph ??
@@ -982,7 +1020,7 @@ export const HookManagerLive = Layer.effect(
         // the configured entries; the plans' observations and applies, and
         // `use`, read their own.
         const hookEntries = yield* sharedHookEntries;
-        const retained = yield* selectHookContributors({
+        const selection = yield* selectHookContributors({
           hookEntries,
           graph: {
             ...graph,
@@ -1004,11 +1042,15 @@ export const HookManagerLive = Layer.effect(
         })).expectedHooks.filter(({ name }) => disabledNames.has(name));
         // Each prospective contributor keeps its position, so its outcomes
         // are found again by position rather than by a name it may share.
+        const resolvedRoots = Object.freeze([
+          ...selection.resolvedRoots,
+          ...(prepared?.resolvedRoots ?? []),
+        ]);
         const positioned: ReadonlyArray<{
           readonly contributor: RenderedHookContributor;
           readonly prospectiveIndex?: number;
         }> = [
-          ...retained.map((contributor) => ({ contributor })),
+          ...selection.contributors.map((contributor) => ({ contributor })),
           ...prospective.map((contributor, prospectiveIndex) => ({
             contributor,
             prospectiveIndex,
@@ -1038,6 +1080,7 @@ export const HookManagerLive = Layer.effect(
           state: "projected",
           record: prospective.map(({ name }) => name),
           hookEntries,
+          resolvedRoots,
         });
         const blocked = outcomes.filter(({ outcome }) => outcome === "blocked");
         if (blocked.length > 0) {
@@ -1177,13 +1220,18 @@ export const HookManagerLive = Layer.effect(
         const locked = yield* (phase?.readers.locks ?? lockfile).entries("hook");
         // The selection and the evaluation share one read of the configured entries.
         const hookEntries = yield* sharedHookEntries;
-        const contributors = yield* selectHookContributors({ graph, locked, hookEntries });
+        const { contributors, resolvedRoots } = yield* selectHookContributors({
+          graph,
+          locked,
+          hookEntries,
+        });
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
           targets,
           contributors,
           state,
           hookEntries,
+          resolvedRoots,
         });
       });
 
@@ -1248,7 +1296,7 @@ export const HookManagerLive = Layer.effect(
                   preparedManifest.manifest.type === "hook"
                     ? preparedManifest.manifest
                     : yield* readManifest(root);
-                yield* validatePackageFiles(root, manifest);
+                const validatedRoot = yield* validatePackageFiles(root, manifest);
                 const canonicalPath = computeExtensionPathsForLayout(
                   path.join,
                   currentLayout(),
@@ -1282,6 +1330,12 @@ export const HookManagerLive = Layer.effect(
                     inputRoot: root,
                   },
                   observed,
+                  // The validated root's real path, only when the package was
+                  // read from its canonical root, which its evidence is keyed by.
+                  resolvedRoot: Option.filter(
+                    validatedRoot,
+                    ({ root: validated }) => validated === path.resolve(canonicalPath),
+                  ),
                   // A Registry package's root may be a fetch released with
                   // this scope, so only other roots' decodes are handed on,
                   // frozen with the contributor that holds the same decode.
@@ -1299,6 +1353,9 @@ export const HookManagerLive = Layer.effect(
           { concurrency: 1 },
         );
         const prepared = preparedRefs.map(({ contributor }) => contributor);
+        const resolvedRoots = Object.freeze(
+          preparedRefs.flatMap(({ resolvedRoot }) => Option.toArray(resolvedRoot)),
+        );
         // Each manifest decode this call made of a Hook read from its own
         // directory, for the caller's decisions within its own call.
         const preparedManifests = Object.freeze(
@@ -1341,6 +1398,7 @@ export const HookManagerLive = Layer.effect(
                       contributors: unevaluated,
                       state: "projected",
                       readings,
+                      resolvedRoots,
                     })).groups;
               const agentOutcomes = sortedOutcomes(
                 prepared.map((contributor, index) => {
@@ -1363,6 +1421,7 @@ export const HookManagerLive = Layer.effect(
                 preparedManifests,
               });
             }),
+          { resolvedRoots },
         );
       });
     const prepareProjection: HookManagerService["prepareProjection"] = (refs, options) =>
@@ -1450,7 +1509,7 @@ export const HookManagerLive = Layer.effect(
           [],
           { hookWithdrawals },
           (observed) => Effect.succeed(observed.plans),
-          Option.getOrUndefined(evaluation),
+          Option.isSome(evaluation) ? { evaluation: evaluation.value } : undefined,
         ).pipe(Effect.flatMap(applyProjectionPlans));
       });
 

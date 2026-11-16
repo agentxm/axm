@@ -66,6 +66,7 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
+import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
 import { HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
@@ -1303,38 +1304,67 @@ describe("HookManager", () => {
       );
 
       it.effect(
-        "keeps each prepared contributor's outcomes in a preparation out of marker order",
+        "keeps each prepared contributor's own outcomes beside an installed Hook ordered before them",
         () =>
           inWorkspace(({ root }) =>
             Effect.gen(function* () {
               const configuration = { mode: { type: "string" } };
               const auditRoot = nodePath.join(root, "configured-audit");
               const lintRoot = nodePath.join(root, "configured-lint");
+              const installedRoot = nodePath.join(root, "source-hook");
               writeHookPackage(auditRoot, "audit", { configuration });
               writeHookPackage(lintRoot, "lint", { configuration });
+              // An installed Hook whose marker orders before both prepared ones.
+              writeHookPackage(installedRoot, "aaa");
               yield* writeReceipt(root, auditRoot, { configuration: { mode: "strict" } });
               yield* writeReceipt(root, lintRoot, { configuration: { mode: "strict" } });
-              const prepared = yield* withRecordedManager(root, (manager) =>
-                manager.prepareProjection(
-                  [makeLocalHookRef("lint", lintRoot), makeLocalHookRef("audit", auditRoot)],
-                  {
-                    hookConfigurations: new Map([
-                      ["audit", { mode: "strict" }],
-                      ["lint", { mode: "relaxed" }],
-                    ]),
-                  },
-                ),
+              const lint = makeLocalHookRef("lint", lintRoot);
+              const audit = makeLocalHookRef("audit", auditRoot);
+              const hookConfigurations = new Map([
+                ["audit", { mode: "strict" }],
+                ["lint", { mode: "relaxed" }],
+              ]);
+              const states = (outcomes: ReadonlyArray<ConfiguredAgentOutcome>) =>
+                outcomes.map(({ name, hook }) => ({ name, state: hook?.fixtureEvidence.state }));
+              const prepared = yield* withRecordedManager(
+                root,
+                (manager) =>
+                  Effect.gen(function* () {
+                    yield* manager.materializeInstall({
+                      ref: makeLocalHookRef("aaa", installedRoot),
+                    });
+                    const both = yield* manager.prepareProjection([lint, audit], {
+                      hookConfigurations,
+                    });
+                    // Lint alone is left out of the projected evaluation.
+                    const lintWithdrawn = yield* manager.prepareProjection([lint, audit], {
+                      hookConfigurations,
+                      hookWithdrawals: [
+                        {
+                          name: "lint",
+                          ref: "@acme/hooks/lint",
+                          root: canonicalRootOf(root, lintRoot),
+                          scope: "project",
+                        },
+                      ],
+                    });
+                    return {
+                      both: states(both.agentOutcomes),
+                      lintWithdrawn: states(lintWithdrawn.agentOutcomes),
+                      acquisitions: both.acquisitions.map(({ name }) => name),
+                    };
+                  }),
+                { hooks: ["aaa"] },
               );
-              expect(
-                prepared.agentOutcomes.map(({ name, hook }) => ({
-                  name,
-                  state: hook?.fixtureEvidence.state,
-                })),
-              ).toEqual([
+              const own = [
                 { name: "audit", state: "historical" },
                 { name: "lint", state: "stale" },
-              ]);
-              expect(prepared.acquisitions.map(({ name }) => name)).toEqual(["lint", "audit"]);
+              ];
+              expect(prepared).toEqual({
+                both: own,
+                lintWithdrawn: own,
+                acquisitions: ["lint", "audit"],
+              });
             }),
           ),
       );

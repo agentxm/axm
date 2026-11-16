@@ -151,6 +151,7 @@ export {
 } from "./mcps/targeting.js";
 export {
   removeMcpServerFromAgents,
+  prepareMcpServerRemovals,
   previewMcpServerWithdrawal,
   type ObservedMcpWithdrawal,
   syncInlineMcpServerToAgents,

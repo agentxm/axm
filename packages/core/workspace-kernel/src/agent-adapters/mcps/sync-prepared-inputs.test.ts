@@ -31,7 +31,11 @@ import { makeRecordingNativeWriteAuthority } from "../testing.js";
 import type { McpServerSyncOutcome } from "../agents/coding-agent.js";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
-import { removeMcpServerFromAgents, syncInlineMcpServerToAgents } from "./sync.js";
+import {
+  prepareMcpServerRemovals,
+  removeMcpServerFromAgents,
+  syncInlineMcpServerToAgents,
+} from "./sync.js";
 
 const nativeDirectoryInputs = { skillsDirectoryOverrides: {} };
 
@@ -699,6 +703,166 @@ describe("MCP removal planning reads each container once per co-reader step", ()
           detail: `Invalid MCP config YAML: ${file}`,
         });
         expect(readFileSync(file, "utf8")).toBe(before);
+        expect(observed.authority.records).toEqual([]);
+      }),
+    ),
+  );
+});
+
+describe("MCP withdrawals of several entries share one target preparation", () => {
+  const managedAs = (name: string) => ({
+    ...managed,
+    "x-axm": { ...managed["x-axm"], ext: `@workspace/mcps/${name}` },
+  });
+  const both = json({ mcpServers: { foreign, review: managed, lint: managedAs("lint") } });
+  const removalArgs = (root: string) => ({
+    nativeDirectoryInputs,
+    workspaceRoot: root,
+    disableOnly: true,
+  });
+
+  /** Withdraw both entries with one call each, as separate owners would. */
+  const separately = (root: string, agentIds: ReadonlyArray<string>) =>
+    Effect.forEach(["review", "lint"], (serverName) =>
+      removeMcpServerFromAgents(agentIds, { ...removalArgs(root), serverName, dryRun: true }),
+    );
+
+  /** Withdraw both entries from one preparation, running `between` after the first. */
+  const together = (
+    root: string,
+    agentIds: ReadonlyArray<string>,
+    between: () => void = () => undefined,
+  ) =>
+    Effect.gen(function* () {
+      const removals = yield* prepareMcpServerRemovals(agentIds, removalArgs(root));
+      const first = yield* removals.remove("review", { dryRun: true });
+      between();
+      const second = yield* removals.remove("lint", { dryRun: true });
+      return [first, second];
+    });
+
+  /** Route observations of one path: real paths, link reads and stats. */
+  const routeCalls = (
+    recording: { readonly counts: (path: string) => Readonly<Record<string, number | undefined>> },
+    path: string,
+  ) => {
+    const counts = recording.counts(path);
+    return {
+      realPath: counts["realPath"] ?? 0,
+      readLink: counts["readLink"] ?? 0,
+      stat: counts["stat"] ?? 0,
+    };
+  };
+
+  it.effect("one preparation serves both dry-run withdrawals with the same outcomes", () =>
+    withWorkspace((root) =>
+      Effect.gen(function* () {
+        const file = nodePath.join(root, ".mcp.json");
+        writeFileSync(file, both);
+        const apart = yield* observe(separately(root, ["claude-code"]));
+        writeFileSync(file, both);
+        const shared = yield* observe(together(root, ["claude-code"]));
+        expect(Result.getOrThrow(shared.result)).toEqual(Result.getOrThrow(apart.result));
+        expect(Result.getOrThrow(shared.result).map(labels)).toEqual([
+          [{ tag: "success", targets: [{ path: file, change: "updated", state: "removed" }] }],
+          [{ tag: "success", targets: [{ path: file, change: "updated", state: "removed" }] }],
+        ]);
+        expect(readFileSync(file, "utf8")).toBe(both);
+        expect({
+          reads: apart.recording.contentReads(file),
+          parses: apart.parses,
+          route: routeCalls(apart.recording, file),
+        }).toEqual({ reads: 10, parses: 14, route: { realPath: 44, readLink: 36, stat: 36 } });
+        // The second withdrawal skips the target resolution, its competing-entry
+        // read and the first co-reader check; its render, co-reader check, route
+        // rechecks and dry-run readback stay.
+        expect({
+          reads: shared.recording.contentReads(file),
+          parses: shared.parses,
+          route: routeCalls(shared.recording, file),
+        }).toEqual({ reads: 8, parses: 12, route: { realPath: 40, readLink: 35, stat: 35 } });
+      }),
+    ),
+  );
+
+  it.effect("one preparation keeps each container's first checks in order across groups", () =>
+    withWorkspace((root) =>
+      Effect.gen(function* () {
+        const claude = nodePath.join(root, ".mcp.json");
+        const cursor = nodePath.join(root, ".cursor/mcp.json");
+        mkdirSync(nodePath.dirname(cursor));
+        const reads = (into: Array<string>) => ({
+          beforeRead: (path: string) => {
+            if (path === claude || path === cursor) into.push(nodePath.relative(root, path));
+          },
+        });
+        const agents = ["claude-code", "cursor"];
+        writeFileSync(claude, both);
+        writeFileSync(cursor, both);
+        const first: Array<string> = [];
+        yield* observe(
+          removeMcpServerFromAgents(agents, {
+            ...removalArgs(root),
+            serverName: "review",
+            dryRun: true,
+          }),
+          reads(first),
+        );
+        const apartReads: Array<string> = [];
+        const apart = yield* observe(separately(root, agents), reads(apartReads));
+        const sharedReads: Array<string> = [];
+        const shared = yield* observe(together(root, agents), reads(sharedReads));
+        expect(Result.getOrThrow(shared.result)).toEqual(Result.getOrThrow(apart.result));
+        // The first withdrawal reads exactly as a lone call does; the second
+        // reads only what follows the shared preparation.
+        expect(sharedReads.slice(0, first.length)).toEqual(first);
+        expect(sharedReads.slice(first.length)).toEqual(
+          apartReads.slice(apartReads.length - (sharedReads.length - first.length)),
+        );
+        expect({ apart: apartReads.length, shared: sharedReads.length }).toEqual({
+          apart: 20,
+          shared: 16,
+        });
+      }),
+    ),
+  );
+
+  it.effect("a container corrupted after the first dry run is refused for the second", () =>
+    withWorkspace((root) =>
+      Effect.gen(function* () {
+        const file = nodePath.join(root, ".mcp.json");
+        writeFileSync(file, both);
+        const observed = yield* observe(
+          together(root, ["claude-code"], () => writeFileSync(file, "{broken")),
+        );
+        expect(failureOf(observed.result)).toMatchObject({
+          _tag: "McpConfigInvalid",
+          detail: `Invalid MCP config JSON/JSONC: ${file}`,
+        });
+        expect(readFileSync(file, "utf8")).toBe("{broken");
+        expect(observed.authority.records).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("a route retargeted after the first dry run is refused for the second", () =>
+    withWorkspace((root) =>
+      Effect.gen(function* () {
+        const file = nodePath.join(root, ".mcp.json");
+        const other = nodePath.join(root, "other.json");
+        writeFileSync(file, both);
+        writeFileSync(other, both);
+        const observed = yield* observe(
+          together(root, ["claude-code"], () => {
+            unlinkSync(file);
+            symlinkSync("other.json", file);
+          }),
+        );
+        expect(failureOf(observed.result)).toMatchObject({
+          _tag: "McpConfigInvalid",
+          detail: `MCP location changed before removal: ${file}`,
+        });
+        expect(readFileSync(other, "utf8")).toBe(both);
         expect(observed.authority.records).toEqual([]);
       }),
     ),

@@ -1,5 +1,5 @@
 import {
-  removeMcpServerFromAgents,
+  prepareMcpServerRemovals,
   withNativeConfigObservationView,
   type HookNativeDeclaration,
 } from "../agent-adapters/index.js";
@@ -281,28 +281,32 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
   const nativeWithdrawals: NativeLocationOutcome[] = [];
   const location = yield* WorkspaceLocation;
   const agentIds = yield* (yield* SettingsReader).configuredAgents;
-  for (const node of args.subjects.filter((node) => node.type === "mcp-server")) {
-    const outcomes = yield* removeMcpServerFromAgents(agentIds, {
+  const mcpSubjects = args.subjects.filter((node) => node.type === "mcp-server");
+  if (mcpSubjects.length > 0) {
+    // Every withdrawn connection shares one preparation of the same containers;
+    // each still renders, rechecks and reads back its own entry live.
+    const mcpRemovals = yield* prepareMcpServerRemovals(agentIds, {
       workspaceRoot: location.baseDir,
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       scope: location.scope,
-      serverName: node.name,
       disableOnly: true,
-      dryRun: true,
     });
-    const failed = outcomes.filter((outcome) => outcome._tag === "failed");
-    if (failed.length > 0)
-      return yield* syncRefused({
-        category: "conflict",
-        detail: failed.map((outcome) => outcome.reason).join("; "),
-      });
-    nativeWithdrawals.push(
-      ...outcomes.flatMap((outcome) =>
-        (outcome.targets ?? []).flatMap((target) =>
-          target.nativeLocation === undefined ? [] : [target.nativeLocation],
+    for (const node of mcpSubjects) {
+      const outcomes = yield* mcpRemovals.remove(node.name, { dryRun: true });
+      const failed = outcomes.filter((outcome) => outcome._tag === "failed");
+      if (failed.length > 0)
+        return yield* syncRefused({
+          category: "conflict",
+          detail: failed.map((outcome) => outcome.reason).join("; "),
+        });
+      nativeWithdrawals.push(
+        ...outcomes.flatMap((outcome) =>
+          (outcome.targets ?? []).flatMap((target) =>
+            target.nativeLocation === undefined ? [] : [target.nativeLocation],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
   if (hookWithdrawals.length > 0) {
     const observed = yield* (yield* HookManager).observedProjectionPlans(

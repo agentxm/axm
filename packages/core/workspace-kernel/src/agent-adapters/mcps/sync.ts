@@ -13,7 +13,9 @@ import * as Effect from "effect/Effect";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   CONFIGURABLE_AGENT_IDS,
+  type McpActivationField,
   type McpConfigTarget,
+  type McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../locations/index.js";
 import {
@@ -597,16 +599,43 @@ export interface ObservedMcpWithdrawal {
   }>;
 }
 
-const planMcpRemovals = (
+interface McpRemovalArgs {
+  readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly scope: "project" | "user";
+  readonly disableOnly: boolean;
+  readonly configuredConsumerIds?: ReadonlySet<string>;
+}
+
+/** One container's withdrawal facts that no selected entry name changes. */
+interface PreparedMcpRemovalGroup {
+  readonly path: string;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly declaredTargets: ReadonlyArray<McpConfigTarget>;
+  readonly aliases: ReadonlyArray<string>;
+  readonly target: McpConfigTarget;
+  readonly serversPath: McpServersPath;
+  readonly activationField: McpActivationField;
+  readonly configuredConsumers: ReadonlyArray<string>;
+}
+
+/** A private copy of a servers path. */
+const copyServersPath = ([first, ...rest]: McpServersPath): McpServersPath => [first, ...rest];
+
+interface PreparedMcpRemovals {
+  readonly groups: ReadonlyArray<PreparedMcpRemovalGroup>;
+  readonly unresolved: ReadonlyArray<McpAgentTargetPlan>;
+}
+
+/**
+ * Resolve the configured targets of a withdrawal and check each container
+ * before any entry is selected: its readers, its shared writer, and its
+ * current bytes against every co-reader. The facts are frozen, so one owner
+ * may plan several selected entries from them.
+ */
+const prepareMcpRemovals = (
   agentIds: ReadonlyArray<string>,
-  args: {
-    readonly workspaceRoot: string;
-    readonly nativeDirectoryInputs: NativeDirectoryInputs;
-    readonly scope: "project" | "user";
-    readonly disableOnly: boolean;
-    readonly configuredConsumerIds?: ReadonlySet<string>;
-    readonly selection: { readonly kind: "remove"; readonly serverName: string };
-  },
+  args: McpRemovalArgs,
   observed?: ObservedMcpWithdrawal["targets"],
 ) =>
   Effect.gen(function* () {
@@ -620,7 +649,7 @@ const planMcpRemovals = (
         scope: args.scope,
       })).map((group) => ({ group, read: readNativeMcpConfig(group.path) }));
     const groups = targets.map(({ group }) => group);
-    const plans: Array<McpRemovalGroup> = [];
+    const prepared: Array<PreparedMcpRemovalGroup> = [];
     for (const { group, read } of targets) {
       if (group.unverifiedReaders.length > 0)
         return yield* new McpSharedTargetConflict({ reason: group.unverifiedReaders.join("; ") });
@@ -665,31 +694,62 @@ const planMcpRemovals = (
         writerFormat: shared.target.format,
         raw: Option.getOrElse(raw, () => ""),
       });
-      const names = [args.selection.serverName];
       const configuredConsumers = shared.agentIds.filter(
         (agentId) =>
           agentIds.includes(agentId) &&
           (args.configuredConsumerIds === undefined || args.configuredConsumerIds.has(agentId)),
       );
-      const removal: RemoveAgentMcpConfigsArgs = {
-        workspaceRoot: args.workspaceRoot,
-        serverNames: names,
-        serversPath: shared.config.serversPath,
-        target: shared.target,
-        activationField: shared.config.activationField,
-        disableOnly: args.disableOnly,
-        aliases,
-      };
-      plans.push({
-        nativeDirectoryInputs: args.nativeDirectoryInputs,
-        path: group.path,
-        agentIds: shared.agentIds.filter((agentId) => agentIds.includes(agentId)),
-        configuredConsumers,
-        retained: [],
-        declaredTargets,
-        removal,
-      });
+      const serversPath = copyServersPath(shared.config.serversPath);
+      Object.freeze(serversPath);
+      prepared.push(
+        Object.freeze({
+          path: group.path,
+          agentIds: Object.freeze(shared.agentIds.filter((agentId) => agentIds.includes(agentId))),
+          configuredConsumers: Object.freeze(configuredConsumers),
+          declaredTargets: Object.freeze(declaredTargets),
+          aliases: Object.freeze(aliases),
+          target: shared.target,
+          serversPath,
+          activationField: shared.config.activationField,
+        }),
+      );
     }
+    return Object.freeze({
+      groups: Object.freeze(prepared),
+      unresolved: Object.freeze(
+        agentIds.flatMap((agentId) => unresolvedMcpAgentTargets(agentId, args.scope, groups)),
+      ),
+    });
+  });
+
+/**
+ * Plan withdrawing one selected entry from prepared containers. Each plan is
+ * built afresh, and each declared route, render and co-reader check observes
+ * live before any physical target is changed.
+ */
+const planPreparedMcpRemovals = (
+  prepared: PreparedMcpRemovals,
+  args: McpRemovalArgs,
+  serverName: string,
+) =>
+  Effect.gen(function* () {
+    const plans: Array<McpRemovalGroup> = prepared.groups.map((group) => ({
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
+      path: group.path,
+      agentIds: [...group.agentIds],
+      configuredConsumers: [...group.configuredConsumers],
+      retained: [],
+      declaredTargets: [...group.declaredTargets],
+      removal: {
+        workspaceRoot: args.workspaceRoot,
+        serverNames: [serverName],
+        serversPath: copyServersPath(group.serversPath),
+        target: group.target,
+        activationField: group.activationField,
+        disableOnly: args.disableOnly,
+        aliases: [...group.aliases],
+      },
+    }));
     // Every co-reader's common grammar and every outgoing entry is checked
     // before any physical target is changed.
     for (const plan of plans) {
@@ -716,12 +776,7 @@ const planMcpRemovals = (
         }),
       );
     }
-    return {
-      plans,
-      unresolved: agentIds.flatMap((agentId) =>
-        unresolvedMcpAgentTargets(agentId, args.scope, groups),
-      ),
-    };
+    return { plans, unresolved: prepared.unresolved };
   });
 
 const applyMcpRemovals = (
@@ -952,18 +1007,56 @@ export const previewMcpServerWithdrawal = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    const plans = yield* planMcpRemovals(
-      observed.agentIds,
-      {
-        nativeDirectoryInputs: observed.nativeDirectoryInputs,
-        workspaceRoot: observed.workspaceRoot,
-        scope: observed.scope,
-        disableOnly: true,
-        selection: { kind: "remove", serverName: observed.serverName },
-      },
-      observed.targets,
-    );
+    const args: McpRemovalArgs = {
+      nativeDirectoryInputs: observed.nativeDirectoryInputs,
+      workspaceRoot: observed.workspaceRoot,
+      scope: observed.scope,
+      disableOnly: true,
+    };
+    const prepared = yield* prepareMcpRemovals(observed.agentIds, args, observed.targets);
+    const plans = yield* planPreparedMcpRemovals(prepared, args, observed.serverName);
     return yield* applyMcpRemovals(observed.agentIds, plans, true);
+  });
+
+/** Withdrawals of selected entries from the same configured agents and containers. */
+export interface McpServerRemovals {
+  /** Withdraw one selected entry after all configured physical consumers agree. */
+  readonly remove: (
+    serverName: string,
+    options: { readonly dryRun: boolean },
+  ) => Effect.Effect<
+    ReadonlyArray<McpServerSyncOutcome>,
+    CodingAgentFailure,
+    FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+  >;
+}
+
+/**
+ * Resolve and check the configured containers of one owner's withdrawals
+ * once, then withdraw each selected entry from them in turn. Each withdrawal
+ * still rechecks every declared route, renders and checks its co-readers
+ * against the live container, and reads it back; the owner releases the
+ * prepared facts when it returns.
+ */
+export const prepareMcpServerRemovals = (
+  agentIds: ReadonlyArray<string>,
+  args: Omit<RemoveMcpServerArgs, "serverName" | "dryRun">,
+): Effect.Effect<McpServerRemovals, CodingAgentFailure, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const removalArgs: McpRemovalArgs = {
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
+      workspaceRoot: args.workspaceRoot,
+      scope: args.scope ?? "project",
+      disableOnly: args.disableOnly ?? false,
+    };
+    const prepared = yield* prepareMcpRemovals(agentIds, removalArgs);
+    return {
+      remove: (serverName, options) =>
+        Effect.gen(function* () {
+          const plans = yield* planPreparedMcpRemovals(prepared, removalArgs, serverName);
+          return yield* applyMcpRemovals(agentIds, plans, options.dryRun);
+        }),
+    };
   });
 
 /** Withdraw one selected entry after all configured physical consumers agree. */
@@ -975,13 +1068,6 @@ export const removeMcpServerFromAgents = (
   CodingAgentFailure,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
-  Effect.gen(function* () {
-    const plans = yield* planMcpRemovals(agentIds, {
-      nativeDirectoryInputs: args.nativeDirectoryInputs,
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope ?? "project",
-      disableOnly: args.disableOnly ?? false,
-      selection: { kind: "remove", serverName: args.serverName },
-    });
-    return yield* applyMcpRemovals(agentIds, plans, args.dryRun === true);
-  });
+  Effect.flatMap(prepareMcpServerRemovals(agentIds, args), (removals) =>
+    removals.remove(args.serverName, { dryRun: args.dryRun === true }),
+  );

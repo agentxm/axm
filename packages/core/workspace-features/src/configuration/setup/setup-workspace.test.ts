@@ -234,3 +234,162 @@ describe("setup settings reads", () => {
     }),
   );
 });
+
+describe("setup preparation over an observed settings absence", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  const emptyFixture = () => {
+    const fixture = makeSetupFixture();
+    cleanups.push(fixture.cleanup);
+    return fixture;
+  };
+  const projectSettingsPath = (fixture: SetupFixture) => path.join(fixture.root, "axm.json");
+  const userSettingsPath = (fixture: SetupFixture) =>
+    path.join(fixture.home, ".axm", "workspace", "axm.json");
+
+  /** Prepare only, counting the filesystem calls naming the settings file. */
+  const prepareCounting = (
+    fixture: SetupFixture,
+    setupRequest: SetupWorkspaceRequest,
+    settingsPath: string,
+  ) =>
+    fixture
+      .provide(
+        Effect.gen(function* () {
+          const recording = yield* FileSystemRecorder;
+          recording.reset();
+          const prepared = yield* SetupWorkspace.prepare(setupRequest);
+          if (prepared._tag !== "SetupWorkspace") return yield* Effect.die("approval required");
+          return {
+            settingsExist: prepared.settingsExist,
+            settingsPath: prepared.settingsPath,
+            settingsCalls: recording.counts(settingsPath),
+          };
+        }).pipe(Effect.provide(setupWorkspaceTestLayer(setupRequest))),
+      )
+      .pipe(Effect.provide(recordingPlatform));
+
+  /** A first-use request: interactive, nothing approved in advance. */
+  const firstUseRequest = (
+    root: string,
+    overrides: Partial<Omit<SetupWorkspaceRequest, "projectRoot">> = {},
+  ): SetupWorkspaceRequest => ({
+    scope: "project",
+    agents: ["codex"],
+    nonInteractive: false,
+    ...overrides,
+    projectRoot: decodeAbsolutePathSync(root),
+    telemetryEnabled: false,
+  });
+
+  it.effect("takes the absence observed at the same project path instead of probing", () =>
+    Effect.gen(function* () {
+      const fixture = emptyFixture();
+      const settingsPath = projectSettingsPath(fixture);
+      const prepared = yield* prepareCounting(
+        fixture,
+        firstUseRequest(fixture.root, { observedSettings: { settingsPath, exists: false } }),
+        settingsPath,
+      );
+      expect(prepared).toEqual({ settingsExist: false, settingsPath, settingsCalls: {} });
+    }),
+  );
+
+  it.effect("takes the absence observed at the same user path instead of probing", () =>
+    Effect.gen(function* () {
+      const fixture = emptyFixture();
+      const settingsPath = userSettingsPath(fixture);
+      const prepared = yield* prepareCounting(
+        fixture,
+        firstUseRequest(fixture.root, {
+          scope: "user",
+          observedSettings: { settingsPath, exists: false },
+        }),
+        settingsPath,
+      );
+      expect(prepared).toEqual({ settingsExist: false, settingsPath, settingsCalls: {} });
+    }),
+  );
+
+  it.effect("probes the settings when no absence was observed", () =>
+    Effect.gen(function* () {
+      const fixture = emptyFixture();
+      const settingsPath = projectSettingsPath(fixture);
+      const prepared = yield* prepareCounting(fixture, firstUseRequest(fixture.root), settingsPath);
+      expect(prepared).toEqual({
+        settingsExist: false,
+        settingsPath,
+        settingsCalls: { access: 1 },
+      });
+    }),
+  );
+
+  it.effect("probes the settings when the absence was observed at another path", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWithSettings();
+      const settingsPath = projectSettingsPath(fixture);
+      const prepared = yield* prepareCounting(
+        fixture,
+        firstUseRequest(fixture.root, {
+          observedSettings: {
+            settingsPath: path.join(fixture.root, "nested", "axm.json"),
+            exists: false,
+          },
+        }),
+        settingsPath,
+      );
+      // The existing settings are found, not assumed absent.
+      expect(prepared).toEqual({ settingsExist: true, settingsPath, settingsCalls: { access: 1 } });
+    }),
+  );
+
+  it.effect("keeps every settings check of the setup transaction", () =>
+    Effect.gen(function* () {
+      const run = (observe: boolean) =>
+        Effect.gen(function* () {
+          const fixture = emptyFixture();
+          const settingsPath = projectSettingsPath(fixture);
+          const setupRequest = request(fixture.root, {
+            agents: ["codex"],
+            ...(observe ? { observedSettings: { settingsPath, exists: false as const } } : {}),
+          });
+          return yield* fixture
+            .provide(
+              Effect.gen(function* () {
+                const recording = yield* FileSystemRecorder;
+                recording.reset();
+                const prepared = yield* SetupWorkspace.prepare(setupRequest);
+                if (prepared._tag !== "SetupWorkspace")
+                  return yield* Effect.die("approval required");
+                const transition = yield* SetupWorkspace.previewOrApply(prepared);
+                return {
+                  initialized: transition.initialized,
+                  settingsCalls: recording.counts(settingsPath),
+                  settings: JSON.parse(fixture.readFile("axm.json")),
+                };
+              }).pipe(Effect.provide(setupWorkspaceTestLayer(setupRequest))),
+            )
+            .pipe(Effect.provide(recordingPlatform));
+        });
+      const probed = yield* run(false);
+      const observed = yield* run(true);
+
+      expect(observed.initialized).toBe(true);
+      expect(observed.settings).toEqual(probed.settings);
+      expect(observed.settings.agents).toEqual(["codex"]);
+      // Only preparation's probe is gone; the transaction's own checks stay.
+      expect(observed.settingsCalls).toEqual({
+        ...probed.settingsCalls,
+        access: (probed.settingsCalls.access ?? 0) - 1,
+      });
+    }),
+  );
+
+  const fixtureWithSettings = () => {
+    const fixture = makeSetupFixture({ files: initialized });
+    cleanups.push(fixture.cleanup);
+    return fixture;
+  };
+});

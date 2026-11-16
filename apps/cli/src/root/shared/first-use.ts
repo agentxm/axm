@@ -101,7 +101,8 @@ export const chooseUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetec
 
 /**
  * What an install knows about its scope's agents before a workspace opens: the
- * scope already has settings, its project names agents, or it names none.
+ * scope already has settings, its project names agents, or it names none. A
+ * scope without settings carries the settings path it found absent.
  */
 export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: AbsolutePath) =>
   Effect.gen(function* () {
@@ -109,7 +110,8 @@ export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: A
     const path = yield* Path.Path;
     const project = projectRoot ?? (yield* ExecutionDirectory).path;
     const root = scope === "user" ? yield* resolveUserWorkspaceRoot() : project;
-    const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
+    const settingsPath = path.join(root, "axm.json");
+    const exists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
@@ -132,8 +134,8 @@ export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: A
       detections.flatMap(({ agent, project: detected }) => (detected ? [agent.id] : [])),
     );
     return agents.length > 0
-      ? ({ _tag: "Detected", agents } as const)
-      : ({ _tag: "Undetected", detections } as const);
+      ? ({ _tag: "Detected", agents, settingsPath } as const)
+      : ({ _tag: "Undetected", detections, settingsPath } as const);
   });
 
 /** How a scope without settings came to hold a workspace. */
@@ -158,11 +160,14 @@ const screenFailure = (cause: unknown) =>
 /**
  * Set the scope up as `axm setup` does, asking what it asks. Agents a request
  * names settle that question; a declined plan cancels the command that needed
- * the workspace, having written nothing.
+ * the workspace, having written nothing. A caller that has just found the
+ * settings absent, with nothing asked or written since, may hand that absence
+ * in so preparation does not probe the same path again.
  */
 export const setUpFirstUse = (args: {
   readonly scope: WorkspaceScope;
   readonly agents: ReadonlyArray<string>;
+  readonly observedSettingsAbsentAt?: string;
 }) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
@@ -174,6 +179,11 @@ export const setUpFirstUse = (args: {
       nonInteractive: false,
       projectRoot: executionDirectory.path,
       telemetryEnabled: false,
+      ...(args.observedSettingsAbsentAt === undefined
+        ? {}
+        : {
+            observedSettings: { settingsPath: args.observedSettingsAbsentAt, exists: false },
+          }),
     }).pipe(Effect.mapError(coerceConfigurationFailure));
     if (prepared._tag === "ApprovalRequired") {
       return yield* makeAppError({
@@ -220,7 +230,13 @@ export const withFirstUse =
       if (observed._tag === "Established") return yield* program.pipe(withWorkspace(args.scope));
       const firstUse: FirstUse =
         (yield* canAskUndetectedAgents) && !args.preview
-          ? yield* setUpFirstUse(args)
+          ? // Only a screen check separates this observation from setup's
+            // preparation, so it decides from the absence just observed.
+            yield* setUpFirstUse({
+              scope: args.scope,
+              agents: args.agents,
+              observedSettingsAbsentAt: observed.settingsPath,
+            })
           : {
               _tag: "Minimal",
               agents:

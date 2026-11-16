@@ -250,6 +250,12 @@ export interface SetupWorkspaceRequest {
   readonly projectRoot: AbsolutePath;
   /** Whether telemetry is enabled for this invocation, reported in the outcome. */
   readonly telemetryEnabled: boolean;
+  /**
+   * The settings absence the caller itself observed at `settingsPath` within
+   * the same call, with nothing written since. Preparation uses it in place of
+   * probing only for the identical path; the transaction still checks afresh.
+   */
+  readonly observedSettings?: { readonly settingsPath: string; readonly exists: false };
 }
 
 export interface SetupWorkspaceCandidate {
@@ -308,15 +314,18 @@ export const prepareSetupWorkspace = (
         ? path.join(userWorkspaceRoot, SETTINGS_FILENAME)
         : path.join(request.projectRoot, SETTINGS_FILENAME);
     const fileSystem = yield* FileSystem.FileSystem;
-    const settingsExist = yield* fileSystem.exists(settingsPath).pipe(
-      Effect.mapError((cause) =>
-        configurationRefused({
-          category: "internal",
-          detail: `Failed to inspect setup state: ${workspaceDir}`,
-          cause,
-        }),
-      ),
-    );
+    const settingsExist =
+      request.observedSettings?.settingsPath === settingsPath
+        ? request.observedSettings.exists
+        : yield* fileSystem.exists(settingsPath).pipe(
+            Effect.mapError((cause) =>
+              configurationRefused({
+                category: "internal",
+                detail: `Failed to inspect setup state: ${workspaceDir}`,
+                cause,
+              }),
+            ),
+          );
 
     const unattended = request.nonInteractive || request.yes === true;
     const intentComplete =

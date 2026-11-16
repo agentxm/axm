@@ -1,4 +1,4 @@
-import { removeMcpServerFromAgents } from "../agent-adapters/index.js";
+import { previewMcpServerWithdrawal, removeMcpServerFromAgents } from "../agent-adapters/index.js";
 import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Desired-state materialization planning: select desired nodes, judge
@@ -100,6 +100,7 @@ import {
   captureAgentOutputAuthority,
   expectedProjectionNames,
   inspectDesiredMcpServer,
+  inspectDisabledMcpServerForWithdrawal,
   installedInventoryItem,
   observeMaterializationCurrency,
   makeExtensionConstraintInvariantFact,
@@ -1303,12 +1304,12 @@ export const collectMaterializeSteps = (args: {
       ),
       (node) =>
         Effect.gen(function* () {
-          const inspection = yield* inspectDesiredMcpServer({
+          const { inspection, withdrawal } = yield* inspectDisabledMcpServerForWithdrawal({
             nativeDirectoryInputs: location.nativeDirectoryInputs,
             workspaceRoot: location.baseDir,
             scope: location.scope,
             agentIds: configuredAgents,
-            node,
+            node: { ...node, enabled: false },
             entry: configuredMcpServerEntries[node.name],
             canonicalPaths: [],
           });
@@ -1320,10 +1321,9 @@ export const collectMaterializeSteps = (args: {
             serverName: node.name,
             disableOnly: true,
           };
-          const preview = yield* removeMcpServerFromAgents(configuredAgents, {
-            ...removal,
-            dryRun: true,
-          });
+          // The preview plans from what the inspection just observed in this
+          // read; the step's run resolves and reads its targets live again.
+          const preview = yield* previewMcpServerWithdrawal(yield* withdrawal);
           const failures = preview.filter((outcome) => outcome._tag === "failed");
           if (failures.length > 0)
             return [

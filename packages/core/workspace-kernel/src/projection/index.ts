@@ -229,6 +229,7 @@ export {
 export type { McpInspectionError } from "./mcps/errors.js";
 export {
   inspectDesiredMcpServer,
+  inspectDisabledMcpServerForWithdrawal,
   withMcpInspectionReadView,
   type AgentMcpServerInspection,
   type DesiredMcpServerInspection,

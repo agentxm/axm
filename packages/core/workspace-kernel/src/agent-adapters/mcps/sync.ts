@@ -578,6 +578,25 @@ interface McpRemovalGroup {
   readonly configuredConsumers: ReadonlyArray<string>;
 }
 
+/**
+ * The configured targets of one MCP connection's withdrawal and the bytes of
+ * each target's native file, as one disabled-connection inspection observed
+ * them within the same read of unchanged native state. Each consumer owns its
+ * copy.
+ */
+export interface ObservedMcpWithdrawal {
+  readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly scope: "project" | "user";
+  readonly agentIds: ReadonlyArray<string>;
+  readonly serverName: string;
+  readonly targets: ReadonlyArray<{
+    readonly group: McpTargetGroup;
+    /** The group's native file, absent as none. */
+    readonly raw: Option.Option<string>;
+  }>;
+}
+
 const planMcpRemovals = (
   agentIds: ReadonlyArray<string>,
   args: {
@@ -588,17 +607,21 @@ const planMcpRemovals = (
     readonly configuredConsumerIds?: ReadonlySet<string>;
     readonly selection: { readonly kind: "remove"; readonly serverName: string };
   },
+  observed?: ObservedMcpWithdrawal["targets"],
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const groups = yield* resolveConfiguredMcpTargets({
-      nativeDirectoryInputs: args.nativeDirectoryInputs,
-      agentIds,
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-    });
+    const targets =
+      observed?.map(({ group, raw }) => ({ group, read: Effect.succeed(raw) })) ??
+      (yield* resolveConfiguredMcpTargets({
+        nativeDirectoryInputs: args.nativeDirectoryInputs,
+        agentIds,
+        workspaceRoot: args.workspaceRoot,
+        scope: args.scope,
+      })).map((group) => ({ group, read: readNativeMcpConfig(group.path) }));
+    const groups = targets.map(({ group }) => group);
     const plans: Array<McpRemovalGroup> = [];
-    for (const group of groups) {
+    for (const { group, read } of targets) {
       if (group.unverifiedReaders.length > 0)
         return yield* new McpSharedTargetConflict({ reason: group.unverifiedReaders.join("; ") });
       const consumers = group.members.filter((member) =>
@@ -631,7 +654,7 @@ const planMcpRemovals = (
           ),
         ),
       ].sort();
-      const raw = yield* readNativeMcpConfig(group.path);
+      const raw = yield* read;
       yield* preflightNativeConfigReaders({
         nativeDirectoryInputs: args.nativeDirectoryInputs,
         workspaceRoot: args.workspaceRoot,
@@ -913,6 +936,34 @@ export const syncManifestMcpServerToAgents = (
       );
       return outcome;
     });
+  });
+
+/**
+ * Preview withdrawing a disabled connection's entries from the targets and
+ * native bytes its inspection observed, instead of resolving and reading them
+ * again. Every removal check still runs in order, and each container's render,
+ * co-reader preflight, alias recheck and dry-run readback still observe live.
+ */
+export const previewMcpServerWithdrawal = (
+  observed: ObservedMcpWithdrawal,
+): Effect.Effect<
+  ReadonlyArray<McpServerSyncOutcome>,
+  CodingAgentFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> =>
+  Effect.gen(function* () {
+    const plans = yield* planMcpRemovals(
+      observed.agentIds,
+      {
+        nativeDirectoryInputs: observed.nativeDirectoryInputs,
+        workspaceRoot: observed.workspaceRoot,
+        scope: observed.scope,
+        disableOnly: true,
+        selection: { kind: "remove", serverName: observed.serverName },
+      },
+      observed.targets,
+    );
+    return yield* applyMcpRemovals(observed.agentIds, plans, true);
   });
 
 /** Withdraw one selected entry after all configured physical consumers agree. */

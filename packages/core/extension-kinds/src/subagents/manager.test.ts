@@ -1275,6 +1275,40 @@ describe("SubagentManager", () => {
         );
         expect(phased).toEqual(stale.validated.observed);
         expect(recording.contentReads(native)).toBe(2);
+
+        // A read phase over the preflight's own port shares its bytes only
+        // while it holds; once it ends after the preflight's read, the write
+        // judgment reads the file live.
+        const inOwnPortReadPhase = (isActive: () => boolean) =>
+          Effect.gen(function* () {
+            const fileSystem = yield* FileSystem.FileSystem;
+            recording.reset();
+            const observed = yield* manager
+              .projectionObservation(ref, { sourceRoot: sourceDir, validateDestinations: true })
+              .pipe(
+                Effect.provideService(CurrentWorkspaceReadPhase, {
+                  location: yield* WorkspaceLocation,
+                  observations: false,
+                  stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+                  fileSystem,
+                  readers: {
+                    desired: yield* DesiredStateReader,
+                    settings: yield* SettingsReader,
+                    locks: yield* LockfileReader,
+                  },
+                  records: yield* WorkspaceRecords,
+                  packDocuments: new Map(),
+                  isActive,
+                  endedBy: () => (isActive() ? undefined : "mutation"),
+                  close: () => undefined,
+                }),
+              );
+            return { observed, reads: recording.contentReads(native) };
+          });
+        const held = yield* inOwnPortReadPhase(() => true);
+        expect(held).toEqual({ observed: stale.validated.observed, reads: 1 });
+        const ended = yield* inOwnPortReadPhase(() => recording.contentReads(native) === 0);
+        expect(ended).toEqual({ observed: stale.validated.observed, reads: 2 });
         expect(nodeFs.readFileSync(native, "utf8")).toBe("Edited by hand\n");
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [codingAgentForId("claude-code")] })));
     });

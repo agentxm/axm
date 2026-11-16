@@ -3495,6 +3495,90 @@ describe("instruction projection reads each prepared input once", () => {
     target: string,
   ) => ({ ...recording.counts(target) });
 
+  it.effect("classifies an absent or directory target from its own content admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const absent = yield* workspace({ copies: ["GEMINI.md"] });
+        const occupied = yield* workspace({ copies: ["GEMINI.md"] });
+        yield* (yield* EffectFileSystem.FileSystem).makeDirectory(
+          path.join(occupied.root, "CLAUDE.md"),
+        );
+        const observeBoth = (root: string) =>
+          observeAt(root, {
+            configuredAgents: ["claude-code", "gemini-cli"],
+            symlinkSupported: true,
+          });
+        recording.reset();
+        const absentSnapshot = yield* observeBoth(absent.root);
+        const absentCounts = {
+          claude: allCalls(recording, path.join(absent.root, "CLAUDE.md")),
+          gemini: allCalls(recording, path.join(absent.root, "GEMINI.md")),
+        };
+        recording.reset();
+        const occupiedSnapshot = yield* observeBoth(occupied.root);
+        const occupiedCounts = {
+          claude: allCalls(recording, path.join(occupied.root, "CLAUDE.md")),
+          gemini: allCalls(recording, path.join(occupied.root, "GEMINI.md")),
+        };
+        const classified = (snapshot: InstructionProjectionSnapshot) =>
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]);
+        expect({
+          absent: classified(absentSnapshot),
+          occupied: classified(occupiedSnapshot),
+        }).toEqual({
+          absent: [
+            ["claude-code", "absent", "none"],
+            ["gemini-cli", "owned-unrecorded-identical", "copy"],
+          ],
+          occupied: [
+            ["claude-code", "unowned", "directory"],
+            ["gemini-cli", "owned-unrecorded-identical", "copy"],
+          ],
+        });
+        expect({ absentCounts, occupiedCounts }).toEqual({
+          // The admission that found the target absent or a directory decides
+          // its classification; the copy beside it is classified as before.
+          absentCounts: {
+            claude: { readLink: 8, stat: 4 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 8 },
+          },
+          occupiedCounts: {
+            claude: { readDirectory: 1, readLink: 7, realPath: 5, stat: 7 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 8 },
+          },
+        });
+      }),
+    ),
+  );
+
+  it.effect("prepares an absent target without probing it again after its admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        const applied = yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: TRACKED,
+          snapshot,
+          dryRun: true,
+        });
+        expect(applied.written).toEqual([path.join(ws.root, "GEMINI.md")]);
+        // Prepare's entry and content admissions and its classification's
+        // link check; no probe follows them.
+        expect(allCalls(recording, path.join(ws.root, "GEMINI.md"))).toEqual({
+          readLink: 5,
+          stat: 2,
+        });
+      }),
+    ),
+  );
+
   it.effect("keys each prepared copy from its own entry admission", () =>
     recorded(
       Effect.gen(function* () {

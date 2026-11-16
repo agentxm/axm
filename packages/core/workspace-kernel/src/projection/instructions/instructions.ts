@@ -814,6 +814,8 @@ const withInstructionAdmissionCells = <A, E, R>(
 /** One call's own content admission of a path and, for a readable entry, its referent's bytes. */
 interface AdmittedInstructionRead {
   readonly referentPath: string;
+  /** The entry kind the admission resolved. */
+  readonly kind: NativeEntryAddress["kind"];
   /** False for an absent entry or a directory, which are never read. */
   readonly readable: boolean;
   readonly content: Option.Option<string>;
@@ -855,14 +857,15 @@ const readAdmittedFile = (
     if (Option.isNone(address) || address.value.referentPath === undefined)
       return Option.none<AdmittedInstructionRead>();
     const referentPath = address.value.referentPath;
-    if (address.value.kind === "absent" || address.value.kind === "directory")
-      return Option.some({ referentPath, readable: false, content: Option.none<string>() });
+    const kind = address.value.kind;
+    if (kind === "absent" || kind === "directory")
+      return Option.some({ referentPath, kind, readable: false, content: Option.none<string>() });
     const fresh = fs.readFileString(referentPath).pipe(Effect.option);
     const cells = yield* Effect.serviceOption(InstructionReadCells);
     const content = Option.isSome(cells)
       ? yield* cells.value.read(referentPath, fresh)
       : yield* fresh;
-    return Option.some({ referentPath, readable: true, content });
+    return Option.some({ referentPath, kind, readable: true, content });
   });
 
 const readFileOption = (
@@ -1260,11 +1263,18 @@ const classifyTargetPath = (
       );
     }
 
-    const targetContent = yield* readFileOption(
+    const targetRead = yield* readAdmittedFile(
       args.targetPath,
       args.workspaceRoot,
       args.nativeRoots,
     );
+    // The path is no link, so the entry its admission found absent or a
+    // directory is what probing the path would find.
+    if (Option.isSome(targetRead) && targetRead.value.kind === "absent")
+      return unkeyed(observed("absent", "none"));
+    if (Option.isSome(targetRead) && targetRead.value.kind === "directory")
+      return unkeyed(observed("unowned", "directory"));
+    const targetContent = Option.flatMap(targetRead, (read) => read.content);
     if (Option.isNone(targetContent)) {
       const exists = yield* fs
         .exists(args.targetPath)

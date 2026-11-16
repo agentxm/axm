@@ -574,36 +574,28 @@ const prepareCreateExtension: (
     Effect.gen(function* () {
       if (request.type !== "skill") return [];
       const current = precomputed ?? (yield* skillTargetLocations());
-      const nativeRoots = nativeAuthorityRoots(
-        path,
-        { workspaceRoot: locationService.baseDir, scope: locationService.scope },
-        locationService.nativeDirectoryInputs,
-      );
-      // While preparing, each destination check reuses the native roots the
-      // first one resolved, and the classification below takes the entries
-      // these checks resolved; nothing is written in between. Under the lock
-      // every check and the classification resolve afresh.
+      // While preparing, the classification below takes the entries these
+      // checks resolved; nothing is written in between. Each check still
+      // resolves the native roots itself, and under the lock every check and
+      // the classification resolve afresh.
       const asserted: Array<{ readonly path: string; readonly address: NativeEntryAddress }> = [];
-      let observedRoots:
-        | Effect.Success<ReturnType<typeof assertNativeMutationWithinRoots>>["rootResolutions"]
-        | undefined;
       for (const target of current.locations) {
         const targetPath = path.join(target.targetDir, name);
-        const assertion = yield* assertNativeMutationWithinRoots(
-          nativeRoots,
+        const { address } = yield* assertNativeMutationWithinRoots(
+          nativeAuthorityRoots(
+            path,
+            { workspaceRoot: locationService.baseDir, scope: locationService.scope },
+            locationService.nativeDirectoryInputs,
+          ),
           targetPath,
           "entry",
           locationService.baseDir,
-          undefined,
-          precomputed === undefined ? undefined : observedRoots,
         );
-        const { address } = assertion;
         if (address.kind !== "absent")
           return yield* authoringRefused({
             category: "validation",
             detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
           });
-        observedRoots = assertion.rootResolutions;
         asserted.push(Object.freeze({ path: path.resolve(targetPath), address }));
       }
       const agents = yield* (yield* CodingAgentRepository).all;

@@ -37,6 +37,7 @@ import {
   resolveInstructionMechanism,
   syncInstructions,
   withInstructionRowChanges,
+  type InstructionProjectionRows,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
@@ -3099,7 +3100,8 @@ describe("instruction projection reads each prepared input once", () => {
     ),
   );
 
-  for (const [name, arrange] of [
+  /** A .gitignore the live fence check refuses, arranged in `root`. */
+  const unsafeGitignores = [
     [
       "an escaping link",
       (root: string, outside: string) => {
@@ -3127,7 +3129,9 @@ describe("instruction projection reads each prepared input once", () => {
           "dist/\n# axm:instruction-aliases\n**/CLAUDE.md\n",
         ),
     ],
-  ] as const)
+  ] as const;
+
+  for (const [name, arrange] of unsafeGitignores)
     it.effect(`refuses readiness for a .gitignore with ${name} exactly as the live check`, () =>
       recorded(
         Effect.gen(function* () {
@@ -3155,6 +3159,37 @@ describe("instruction projection reads each prepared input once", () => {
         }),
       ),
     );
+
+  for (const [name, arrange] of unsafeGitignores)
+    for (const dryRun of [true, false])
+      it.effect(
+        `refuses ${dryRun ? "previewing" : "applying"} aliases over a .gitignore with ${name} exactly as the live check`,
+        () =>
+          recorded(
+            Effect.gen(function* () {
+              const host = yield* EffectFileSystem.FileSystem;
+              const ws = yield* workspace({ git: true });
+              const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+              arrange(ws.root, outside);
+              const snapshot = yield* observeAt(ws.root, {
+                configuredAgents: ["claude-code"],
+                config: IGNORED,
+                symlinkSupported: true,
+              });
+              const live = yield* Effect.flip(assertInstructionsGitignoreSafe(ws.root));
+              const refusal = yield* Effect.flip(
+                applyInstructionProjection({
+                  workspaceRoot: ws.root,
+                  config: IGNORED,
+                  snapshot,
+                  dryRun,
+                }),
+              );
+              expect(refusal).toEqual(live);
+              expect(yield* host.exists(path.join(ws.root, "CLAUDE.md"))).toBe(false);
+            }),
+          ),
+      );
 
   it.effect("checks .gitignore readiness live when the observation cannot decide it", () =>
     recorded(
@@ -3449,6 +3484,91 @@ describe("instruction projection reads each prepared input once", () => {
         }).toEqual({
           claude: { readLink: 8, stat: 4, realPath: 0 },
           gemini: { readLink: 8, stat: 4, realPath: 0 },
+        });
+      }),
+    ),
+  );
+
+  /** Every recorded call naming `target`, by method. */
+  const allCalls = (
+    recording: { readonly counts: (path: string) => Readonly<Record<string, number | undefined>> },
+    target: string,
+  ) => ({ ...recording.counts(target) });
+
+  it.effect("checks the .gitignore fences once before an alias write", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const host = yield* EffectFileSystem.FileSystem;
+        const counted = (ws: { readonly git: string; readonly gitignore: string }) => ({
+          git: recording.calls({ path: ws.git }).length,
+          gitignore: allCalls(recording, ws.gitignore),
+          gitignoreReads: recording.contentReads(ws.gitignore),
+        });
+        const applyAt = (
+          root: string,
+          dryRun: boolean,
+          rows: InstructionProjectionRows = NO_ROWS,
+        ) =>
+          Effect.gen(function* () {
+            const snapshot = yield* observeInstructionProjection({
+              workspaceRoot: root,
+              scope: "project",
+              configuredAgents: ["claude-code"],
+              config: IGNORED,
+              symlinkSupported: true,
+              rows,
+            });
+            recording.reset();
+            return yield* applyInstructionProjection({
+              workspaceRoot: root,
+              config: IGNORED,
+              snapshot,
+              dryRun,
+            });
+          });
+        const preview = yield* workspace({ git: true });
+        yield* host.writeFileString(preview.gitignore, "dist/\n");
+        const previewed = yield* applyAt(preview.root, true);
+        const previewCounts = counted(preview);
+        const applied = yield* workspace({ git: true });
+        yield* host.writeFileString(applied.gitignore, "dist/\n");
+        const written = yield* applyAt(applied.root, false);
+        const appliedCounts = counted(applied);
+        // The region is current and recorded now: apply has no .gitignore change to check.
+        const current = yield* applyAt(
+          applied.root,
+          false,
+          withInstructionRowChanges(NO_ROWS, written.rowChanges),
+        );
+        const currentCounts = counted(applied);
+        expect(current.written).toEqual([]);
+        expect(previewed.written).toContain(preview.gitignore);
+        expect(written.written).toContain(applied.gitignore);
+        expect(yield* host.readFileString(applied.gitignore)).toContain("CLAUDE.md");
+        expect(yield* host.readFileString(preview.gitignore)).toBe("dist/\n");
+        expect({ previewCounts, appliedCounts, currentCounts }).toEqual({
+          // The region dry run walks to the Git root, admits and reads the
+          // .gitignore once before any write.
+          previewCounts: {
+            git: 1,
+            gitignore: { readFile: 1, readLink: 2, realPath: 2, stat: 2 },
+            gitignoreReads: 1,
+          },
+          // Apply then re-takes the region's witness and rewrites it under its lock.
+          appliedCounts: {
+            git: 2,
+            gitignore: {
+              access: 1,
+              readFile: 4,
+              readLink: 10,
+              realPath: 10,
+              stat: 13,
+              writeFile: 1,
+            },
+            gitignoreReads: 4,
+          },
+          currentCounts: { git: 0, gitignore: {}, gitignoreReads: 0 },
         });
       }),
     ),

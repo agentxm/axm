@@ -3205,7 +3205,9 @@ export const applyInstructionProjection = (args: {
       }),
     );
     if (gitignore !== undefined) {
-      yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
+      // The dry run is apply's unlocked fence check: it walks to the Git root,
+      // admits and reads the .gitignore and refuses malformed fences before
+      // any write, as the readiness check does.
       yield* writeGitignoreRegion({
         workspaceRoot: args.workspaceRoot,
         patterns,

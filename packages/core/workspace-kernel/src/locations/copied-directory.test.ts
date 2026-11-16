@@ -282,7 +282,8 @@ describe("one copied entry check", () => {
     Effect.gen(function* () {
       const { fs, path, copy, source, receipt } = yield* treeFixture;
       const scripts = path.join(copy, "scripts");
-      yield* fs.remove(scripts, { recursive: true });
+      // Keeping the original allocated gives the replacement a different inode on any host.
+      yield* fs.rename(scripts, path.join(path.dirname(copy), "scripts-replaced"));
       yield* fs.makeDirectory(scripts);
       yield* fs.writeFileString(path.join(scripts, "run.sh"), "echo run\n");
       expect(yield* copiedDirectoryIsCurrentWith(copy, receipt, source)).toBe(false);

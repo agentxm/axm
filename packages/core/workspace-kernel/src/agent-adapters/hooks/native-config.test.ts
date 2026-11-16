@@ -606,6 +606,39 @@ describe("native Hook configuration runs", () => {
       ),
   );
 
+  it.effect("refuses a later declaration whose root contains the target before any write", () =>
+    scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture;
+        const path = yield* Path.Path;
+        const audit = fixture.owner("audit");
+        const raw = settings({ PreToolUse: [foreignGroup] });
+        yield* fixture.write(raw);
+        // Only the second declaration overlaps; the first one passes its own check.
+        for (const overlappingRoot of [fixture.root, path.dirname(fixture.file)]) {
+          const inner: HookNativeDeclaration = { ...fixture.owner("inner"), root: overlappingRoot };
+          const args = fixture.args({
+            rendered: { PreToolUse: [ownerGroup(audit), ownerGroup(inner)] },
+            declarations: [audit, inner],
+          });
+          for (const input of [{ ...args, dryRun: true }, args]) {
+            const authority = yield* makeRecordingNativeWriteAuthority;
+            const { result } = yield* fixture.measure(
+              reconcileNativeHookConfig(input).pipe(Effect.provide(authority.layer)),
+            );
+            expect(Result.isFailure(result) ? result.failure : result).toMatchObject({
+              _tag: "NativeLocationError",
+              reason: "source-overlap",
+              target: fixture.file,
+            });
+            expect(yield* authority.observed).toEqual({ protectedPaths: [], records: [] });
+            expect(yield* fixture.contents).toBe(raw);
+          }
+        }
+      }),
+    ),
+  );
+
   it.effect("refuses an alias that names a different file inside the root before any write", () =>
     scoped(
       Effect.gen(function* () {

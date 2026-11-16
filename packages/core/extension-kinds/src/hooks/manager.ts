@@ -370,6 +370,20 @@ export const HookManagerLive = Layer.effect(
     const planningSettings = workspaceReadPhaseFor(location).pipe(
       Effect.map((phase) => phase?.readers.settings ?? settings),
     );
+    /** The configured Hook entries, read through the planning settings. */
+    const hookEntriesRead = planningSettings.pipe(
+      Effect.flatMap((current) => current.entries("hook")),
+    );
+    /**
+     * One read of the configured Hook entries for the rest of one owner call:
+     * it reads where its first consumer needs it, and every later consumer in
+     * that call takes the same deeply frozen value, or the same failure.
+     */
+    const sharedHookEntries = Effect.cached(
+      hookEntriesRead.pipe(
+        Effect.map((entries) => (Object.isFrozen(entries) ? entries : deepFrozenCopy(entries))),
+      ),
+    );
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -522,6 +536,8 @@ export const HookManagerLive = Layer.effect(
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["accepted"];
       readonly preparedContentHashes?: NativeProjectionOptions["preparedContentHashes"];
+      /** The owner call's shared read of the configured Hook entries. */
+      readonly hookEntries?: typeof hookEntriesRead;
     }) =>
       provideRead(
         activeContributors({
@@ -562,7 +578,7 @@ export const HookManagerLive = Layer.effect(
                   marker,
                   manifest,
                   configuration:
-                    (yield* (yield* planningSettings).entries("hook"))[contributor.node.name]
+                    (yield* args.hookEntries ?? hookEntriesRead)[contributor.node.name]
                       ?.configuration ?? {},
                   root: path.relative(baseDir, contributor.packageRoot),
                   contentHash: yield* preparedContentHash(
@@ -672,9 +688,11 @@ export const HookManagerLive = Layer.effect(
       readonly state: "projected" | "current";
       readonly readings?: ReadonlyArray<FixtureEvidenceReading>;
       readonly record?: ReadonlyArray<string>;
+      /** The owner call's shared read of the configured Hook entries. */
+      readonly hookEntries?: typeof hookEntriesRead;
     }) =>
       Effect.gen(function* () {
-        const entries = yield* (yield* planningSettings).entries("hook");
+        const entries = yield* args.hookEntries ?? hookEntriesRead;
         const groups = yield* Effect.forEach(
           args.contributors,
           (contributor) =>
@@ -781,6 +799,7 @@ export const HookManagerLive = Layer.effect(
     const renderInstalledHookGroups = (
       target: HookWriterTarget,
       contributors: ReadonlyArray<RenderedHookContributor>,
+      hookEntries: typeof hookEntriesRead,
     ) =>
       Effect.gen(function* () {
         const hooks: Record<string, unknown> = {};
@@ -797,7 +816,7 @@ export const HookManagerLive = Layer.effect(
             return yield* new HookDefinitionInvalid({
               detail: `Hook ${rendered.name} has no unique compatible implementation for ${target.agent.id}`,
             });
-          const entry = (yield* (yield* planningSettings).entries("hook"))[rendered.name];
+          const entry = (yield* hookEntries)[rendered.name];
           const values = rendered.configuration ?? entry?.configuration;
           const configuration = resolveHookConfiguration(rendered.manifest, values);
           if (Result.isFailure(configuration))
@@ -838,9 +857,21 @@ export const HookManagerLive = Layer.effect(
           return yield* new HookDefinitionInvalid({
             detail: "Hook location has no configured reader",
           });
-        const rendered = yield* renderInstalledHookGroups(target, args.input.contributors);
+        // One read of the configured entries for this observation or apply
+        // alone, shared by every reader of the file it renders; each later
+        // observation or apply reads them again.
+        const hookEntries = yield* sharedHookEntries;
+        const rendered = yield* renderInstalledHookGroups(
+          target,
+          args.input.contributors,
+          hookEntries,
+        );
         for (const consumer of args.targets.slice(1)) {
-          const other = yield* renderInstalledHookGroups(consumer, args.input.contributors);
+          const other = yield* renderInstalledHookGroups(
+            consumer,
+            args.input.contributors,
+            hookEntries,
+          );
           if (
             consumer.settingsKey !== target.settingsKey ||
             JSON.stringify(rendered) !== JSON.stringify(other)
@@ -947,7 +978,12 @@ export const HookManagerLive = Layer.effect(
             ? evaluation.value.graph
             : yield* (phase?.readers.desired ?? desiredState).graph());
         const locked = yield* currentLocks.entries("hook");
+        // This call's selection and projected evaluation share one read of
+        // the configured entries; the plans' observations and applies, and
+        // `use`, read their own.
+        const hookEntries = yield* sharedHookEntries;
         const retained = yield* selectHookContributors({
+          hookEntries,
           graph: {
             ...graph,
             nodes: graph.nodes.filter(
@@ -1001,6 +1037,7 @@ export const HookManagerLive = Layer.effect(
           contributors,
           state: "projected",
           record: prospective.map(({ name }) => name),
+          hookEntries,
         });
         const blocked = outcomes.filter(({ outcome }) => outcome === "blocked");
         if (blocked.length > 0) {
@@ -1138,12 +1175,15 @@ export const HookManagerLive = Layer.effect(
         );
         const graph = proposedGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
         const locked = yield* (phase?.readers.locks ?? lockfile).entries("hook");
-        const contributors = yield* selectHookContributors({ graph, locked });
+        // The selection and the evaluation share one read of the configured entries.
+        const hookEntries = yield* sharedHookEntries;
+        const contributors = yield* selectHookContributors({ graph, locked, hookEntries });
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
           targets,
           contributors,
           state,
+          hookEntries,
         });
       });
 

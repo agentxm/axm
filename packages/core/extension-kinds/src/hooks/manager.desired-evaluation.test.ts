@@ -27,7 +27,7 @@ import {
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { HookManager, type ManagerRequirements } from "@agentxm/workspace-kernel/materialization";
-import { applyProjectionPlans } from "@agentxm/workspace-kernel/projection";
+import { applyProjectionPlans, observeObservedPlans } from "@agentxm/workspace-kernel/projection";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -37,6 +37,9 @@ import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 import {
   DesiredStateReader,
+  SettingsIoError,
+  SettingsReader,
+  type SettingsReaderService,
   withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
@@ -101,6 +104,8 @@ interface Workspace {
 const inWorkspace = <A, E>(
   names: ReadonlyArray<string>,
   run: (workspace: Workspace) => Effect.Effect<A, E, ManagerRequirements | DesiredStateReader>,
+  /** Counts, and on request fails, the manager's own reads of the configured Hook entries. */
+  hookEntries?: HookEntryReads,
 ) =>
   Effect.gen(function* () {
     const root = nodeFs.realpathSync(
@@ -140,7 +145,29 @@ const inWorkspace = <A, E>(
           ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
         ),
       );
+      // Only the manager reads through this wrapper.
+      const managerSettings =
+        hookEntries === undefined
+          ? Layer.empty
+          : Layer.effect(
+              SettingsReader,
+              Effect.gen(function* () {
+                const reader = yield* SettingsReader;
+                const entries: SettingsReaderService["entries"] = (type) =>
+                  Effect.suspend(() => {
+                    if (type !== "hook") return reader.entries(type);
+                    hookEntries.count += 1;
+                    return hookEntries.fail
+                      ? Effect.fail(
+                          new SettingsIoError({ path: settingsPath, cause: "unreadable" }),
+                        )
+                      : reader.entries(type);
+                  });
+                return { ...reader, entries };
+              }),
+            );
       const layer = HookManagerLive.pipe(
+        Layer.provide(managerSettings),
         Layer.provideMerge(WorkspaceCatalogLive),
         Layer.provideMerge(CodingAgentRepositoryLive),
         Layer.provideMerge(NativeWriteAuthorityLive),
@@ -180,6 +207,11 @@ const inWorkspace = <A, E>(
       nodeFs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+interface HookEntryReads {
+  count: number;
+  fail: boolean;
+}
 
 const evaluations = (workspace: Workspace) => {
   const { inherited, lock } = workspace.reads();
@@ -257,5 +289,111 @@ describe("HookManager desired-state evaluation", () => {
         }),
       ),
     );
+  });
+
+  describe("the configured Hook entries in one projection run", () => {
+    /** Run `measure` with the entry read count reset after setup. */
+    const entryReads = <A, E>(
+      names: ReadonlyArray<string>,
+      measure: (
+        workspace: Workspace,
+        counted: <B, F, R>(effect: Effect.Effect<B, F, R>) => Effect.Effect<number, F, R>,
+      ) => Effect.Effect<A, E, ManagerRequirements | DesiredStateReader>,
+    ) => {
+      const hookEntries: HookEntryReads = { count: 0, fail: false };
+      return inWorkspace(
+        names,
+        (workspace) =>
+          measure(workspace, (effect) =>
+            Effect.gen(function* () {
+              hookEntries.count = 0;
+              yield* effect;
+              return hookEntries.count;
+            }),
+          ),
+        hookEntries,
+      );
+    };
+
+    it.effect("reads them once for the selection and evaluation, and once per observation", () =>
+      entryReads(["audit", "lint"], (workspace, counted) =>
+        Effect.gen(function* () {
+          const observed = yield* counted(
+            workspace.manager.observedProjectionPlans(undefined, observeObservedPlans),
+          );
+          const plans = yield* workspace.manager.projectionPlans();
+          // A plan applied after its producing call returned reads them live.
+          const applied = yield* counted(applyProjectionPlans(plans));
+          const planned = yield* counted(
+            workspace.manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans)),
+          );
+          const outcomes = yield* counted(
+            workspace.manager.configuredAgentOutcomes?.("current") ??
+              Effect.die("The Hook manager evaluates configured-agent outcomes"),
+          );
+          // Measured before the reads were shared: 5, 2, 7 and 3 (one per
+          // contributor in selection and rendering, one for the evaluation).
+          expect({ observed, applied, planned, outcomes }).toEqual({
+            observed: 2,
+            applied: 1,
+            planned: 3,
+            outcomes: 1,
+          });
+          expect(
+            JSON.parse(
+              nodeFs.readFileSync(nodePath.join(workspace.root, ".claude/settings.json"), "utf8"),
+            ).hooks.PreToolUse,
+          ).toHaveLength(2);
+        }),
+      ),
+    );
+
+    it.effect("reads them only for the evaluation when no Hook contributes", () =>
+      entryReads([], (workspace, counted) =>
+        Effect.gen(function* () {
+          const planned = yield* counted(
+            workspace.manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans)),
+          );
+          expect(planned).toBe(1);
+        }),
+      ),
+    );
+
+    it.effect("fails each consumer that needs them with the read's failure", () => {
+      const hookEntries: HookEntryReads = { count: 0, fail: false };
+      return inWorkspace(
+        ["audit"],
+        (workspace) =>
+          Effect.gen(function* () {
+            const plans = yield* workspace.manager.projectionPlans();
+            hookEntries.fail = true;
+            const selection = yield* Effect.flip(workspace.manager.projectionPlans());
+            const apply = yield* Effect.flip(applyProjectionPlans(plans));
+            expect([selection, apply]).toMatchObject([
+              { _tag: "SettingsIoError" },
+              { _tag: "SettingsIoError" },
+            ]);
+          }),
+        hookEntries,
+      );
+    });
+
+    it.effect("maps the evaluation's failure when no Hook contributes", () => {
+      const hookEntries: HookEntryReads = { count: 0, fail: false };
+      return inWorkspace(
+        [],
+        (workspace) =>
+          Effect.gen(function* () {
+            hookEntries.fail = true;
+            const failure = yield* Effect.flip(workspace.manager.projectionPlans());
+            expect(failure).toMatchObject({
+              _tag: "HookDefinitionInvalid",
+              detail: "Hook inspection could not read canonical evidence",
+              cause: { _tag: "SettingsIoError" },
+            });
+          }),
+        hookEntries,
+      );
+    });
   });
 });

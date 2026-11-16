@@ -243,4 +243,76 @@ describe("Source-switch classification", () => {
         expect(evidence?.after.treeIntegrity).toBe(evidence?.before.treeIntegrity);
       }).pipe(Effect.provide(recordedNodeServices)),
   );
+
+  it.effect(
+    "compares a local proposal's distribution from the listing its ignore observation walked",
+    () =>
+      Effect.gen(function* () {
+        const world = yield* acceptedSkill(cleanups);
+        const canonical = nodePath.join(
+          world.workspace.root,
+          fileRegistryPackagePath(world.registry, "skills", SKILL),
+        );
+        const proposed = fs.mkdtempSync(nodePath.join(world.workspace.root, "..", "proposal-"));
+        cleanups.push(() => fs.rmSync(proposed, { recursive: true, force: true }));
+        fs.cpSync(canonical, proposed, { recursive: true });
+        const recording = yield* FileSystemRecorder;
+
+        const classified = yield* classify(
+          world,
+          (accepted): ExtensionRef => ({
+            refType: "local",
+            type: "skill",
+            source: { type: "local", path: proposed },
+            owner: decodeHandleSync("@acme"),
+            name: accepted.name,
+            location: pathToFileURL(proposed).href,
+            skill: { name: accepted.name, description: Option.none(), metadata: Option.none() },
+          }),
+          Effect.sync(() => recording.reset()),
+        );
+
+        const counted = (relative: string) => {
+          const calls = recording.counts(
+            relative === "" ? proposed : nodePath.join(proposed, relative),
+          );
+          return {
+            readDirectory: calls.readDirectory ?? 0,
+            readLink: calls.readLink ?? 0,
+            stat: calls.stat ?? 0,
+            readFile: calls.readFile ?? 0,
+          };
+        };
+        expect(fs.readdirSync(proposed).sort()).toEqual(["skill.json", "src"]);
+        expect(fs.readdirSync(nodePath.join(proposed, "src"))).toEqual(["SKILL.md"]);
+        // One listing of each directory and one link probe and stat of each
+        // entry serve the ignore observation and the distribution hash.
+        expect(counted("")).toEqual({ readDirectory: 1, readLink: 0, stat: 0, readFile: 0 });
+        expect(counted("src")).toEqual({ readDirectory: 1, readLink: 1, stat: 1, readFile: 0 });
+        expect(counted("skill.json")).toEqual({
+          readDirectory: 0,
+          readLink: 1,
+          stat: 1,
+          readFile: 1,
+        });
+        expect(counted(nodePath.join("src", "SKILL.md"))).toEqual({
+          readDirectory: 0,
+          readLink: 1,
+          stat: 1,
+          readFile: 1,
+        });
+        // Each walked directory's ignore input is still probed itself.
+        for (const directory of [proposed, nodePath.join(proposed, "src")])
+          expect(recording.counts(nodePath.join(directory, ".gitignore"))).toEqual({
+            readLink: 1,
+            stat: 1,
+          });
+        expect(classified.distributionHashes).toBe(2);
+        expect(classified.result._tag).toBe("Success");
+        if (classified.result._tag !== "Success") return;
+        const evidence = classified.result.success.jobs[0]?.steps[0]?.artifact?.sourceSwitch;
+        expect(evidence?.content).toBe("equivalent");
+        expect(evidence?.after.treeIntegrity).toBe(evidence?.before.treeIntegrity);
+      }).pipe(Effect.provide(recordedNodeServices)),
+  );
 });

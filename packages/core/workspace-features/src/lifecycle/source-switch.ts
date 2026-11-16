@@ -293,9 +293,14 @@ const comparableTreeIntegrity = (
                   "Distribution context unavailable: the original source's ancestor ignore policy was not retained; content equivalence cannot be established.",
               });
             }
+            // The ignore walk's listing serves the distribution hash below
+            // only when both walk this same tree.
             return yield* observeGitIgnoreInputs({
               packageRoot: files.directory,
               boundaryRoot: files.publicationBoundaryRoot,
+              retainListing:
+                originalFiles !== undefined &&
+                path.resolve(originalFiles.directory) === path.resolve(directory),
             }).pipe(
               Effect.mapError((cause) =>
                 installRefused({ category: "validation", detail: cause.detail, cause }),
@@ -315,10 +320,12 @@ const comparableTreeIntegrity = (
         category: "validation",
         detail: "The distribution excludes its required manifest.",
       });
-    return yield* computeDistributionTreeIntegrity(directory, selection, {
-      path: manifestName,
-      bytes: manifestBytes,
-    }).pipe(
+    return yield* computeDistributionTreeIntegrity(
+      directory,
+      selection,
+      { path: manifestName, bytes: manifestBytes },
+      context?.listing,
+    ).pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "validation", detail: cause.detail, cause }),
       ),

@@ -17,6 +17,22 @@ class DistributionTreeInvalid extends Data.TaggedError("DistributionTreeInvalid"
   readonly cause?: unknown;
 }> {}
 
+/** What one listing observed of an entry without following it. */
+type ListedDistributionEntry =
+  | { readonly kind: "link"; readonly target: string }
+  | ({ readonly kind: "entry" } & Pick<FileSystem.File.Info, "type" | "mode">);
+
+/**
+ * A walk of this same `root` the caller made within the same operation:
+ * each directory's names in their listing order, keyed by the directory's
+ * path relative to the root ("" for the root, joined with the platform
+ * separator), and what that walk observed of each entry.
+ */
+interface DistributionTreeListing {
+  readonly names: (relativeDirectory: string) => ReadonlyArray<string> | undefined;
+  readonly facts: (relativeDirectory: string, name: string) => ListedDistributionEntry | undefined;
+}
+
 /**
  * Distribution identity includes implied parents and retained, explicit empty directories.
  *
@@ -25,15 +41,27 @@ class DistributionTreeInvalid extends Data.TaggedError("DistributionTreeInvalid"
  * and selects that entry, and hashes a copy of those bytes instead of reading
  * the file again; any entry that is not a regular file at exactly that path is
  * read as usual.
+ *
+ * `listing` replays the directory listings, link targets, entry types and
+ * modes the caller's walk of this same `root` observed, in the order this
+ * walk would observe them. Any directory or entry it does not hold is
+ * observed live. Contained-link validation and file reads always run live.
  */
 export const computeDistributionTreeIntegrity = (
   root: string,
   selection?: ResolvedFileSelection,
   preparedManifest?: { readonly path: string; readonly bytes: Uint8Array },
+  listing?: DistributionTreeListing,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    // The listing's keys join a relative directory with the platform separator.
+    const listedDirectory = (relative: string) =>
+      relative === "" ? "" : path.join(...relative.split("/"));
+    const listedNames = (relative: string) => listing?.names(listedDirectory(relative));
+    const listedFacts = (parent: string, name: string) =>
+      listing?.facts(listedDirectory(parent), name);
     const entries = new Map<
       string,
       {
@@ -65,7 +93,9 @@ export const computeDistributionTreeIntegrity = (
       const next = pending.pop();
       if (next === undefined) break;
       const { parent } = next;
-      for (const name of next.names ?? (yield* fs.readDirectory(path.join(root, parent)))) {
+      for (const name of next.names ??
+        listedNames(parent) ??
+        (yield* fs.readDirectory(path.join(root, parent)))) {
         if (name === ".git") {
           candidates.push({ path: parent === "" ? name : `${parent}/${name}`, included: false });
           continue;
@@ -77,7 +107,13 @@ export const computeDistributionTreeIntegrity = (
         }
         const relative = parent === "" ? name : `${parent}/${name}`;
         const absolute = path.join(root, relative);
-        const link = yield* fs.readLink(absolute).pipe(Effect.option);
+        const listed = listedFacts(parent, name);
+        const link =
+          listed === undefined
+            ? yield* fs.readLink(absolute).pipe(Effect.option)
+            : listed.kind === "link"
+              ? Option.some(listed.target)
+              : Option.none();
         if (Option.isSome(link)) {
           yield* validateContainedLink(root, absolute, link.value);
           const included =
@@ -87,14 +123,14 @@ export const computeDistributionTreeIntegrity = (
             retain(relative, { kind: "symlink", bytes: new TextEncoder().encode(link.value) });
           continue;
         }
-        const info = yield* fs.stat(absolute);
+        const info = listed?.kind === "entry" ? listed : yield* fs.stat(absolute);
         const included =
           selection?.evaluate({
             path: relative,
             kind: info.type === "Directory" ? "directory" : "file",
           }).included !== false;
         if (info.type === "Directory") {
-          const names = yield* fs.readDirectory(absolute);
+          const names = listedNames(relative) ?? (yield* fs.readDirectory(absolute));
           if (names.length === 0) {
             candidates.push({ path: relative, included });
             if (included) retain(relative, { kind: "directory" });

@@ -11,6 +11,7 @@
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
+  AcceptedResolutionWriter,
   UNCONSTRAINED_DESIRED_NODE,
   RulesLockMapSchema,
   type RulesLockMap,
@@ -593,6 +594,28 @@ describe("RuleManager graph-derived region projection", () => {
       }).pipe(Effect.provide(layer));
     });
 
+    it.effect("keys a second observation inside the producing call live", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const second = yield* manager.observedProjectionPlans(undefined, (observed) =>
+          observeObservedPlans(observed).pipe(
+            Effect.andThen(
+              probes([instructionsPath(), baseDir], observeProjectionPlans(observed.plans)),
+            ),
+          ),
+        );
+        // The plan's admission keys its eager observation only; a consumer's
+        // fresh observation in the same call resolves the key live, as a
+        // later observation of a retained plan does.
+        expect(second.work).toEqual([
+          { readLink: 5, stat: 5, realPath: 5 },
+          { readLink: 2, stat: 2, realPath: 5 },
+        ]);
+      }).pipe(Effect.provide(layer));
+    });
+
     it.effect("reports a symlinked instruction file alike in eager and later observations", () => {
       nodeFs.writeFileSync(nodePath.join(baseDir, "original.md"), "# Project\n");
       nodeFs.symlinkSync("original.md", instructionsPath());
@@ -619,6 +642,24 @@ describe("RuleManager graph-derived region projection", () => {
           "Guidance for routed-rule.",
         );
         expect(nodeFs.lstatSync(instructionsPath()).isSymbolicLink()).toBe(true);
+
+        // The row is keyed by the link's own location, not its referent.
+        const rows = yield* (yield* AcceptedResolutionWriter).projectionRows("rules");
+        expect([...rows.keys()]).toEqual(["AGENTS.md"]);
+        const recorded = [...rows.values()][0]?.row.gen;
+        expect(recorded).toBeDefined();
+        // Region generation and a new producing call's eager observation key
+        // that row from the admission, and find it current.
+        expect(yield* manager.regionGeneration).toBe(recorded);
+        const eagerAfter = yield* manager.observedProjectionPlans(undefined, observeObservedPlans);
+        const laterAfter = yield* manager
+          .projectionPlans()
+          .pipe(Effect.flatMap(observeProjectionPlans));
+        expect(eagerAfter).toEqual([
+          expect.objectContaining({ path: "AGENTS.md#rules", present: true, current: true }),
+        ]);
+        expect(eagerAfter[0]).not.toHaveProperty("lastWrite");
+        expect(reported(eagerAfter)).toEqual(reported(laterAfter));
       }).pipe(Effect.provide(layer));
     });
   });

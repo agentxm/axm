@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
@@ -107,8 +116,9 @@ const acquiredHandbook = (
 
 /**
  * Run `run` against the production manager over a recording filesystem in a
- * real temporary workspace whose `AGENTS.md` starts as `# Project\n`. Region
- * rows persist across the calls `run` makes; `reset` forgets recorded calls.
+ * real temporary workspace whose `AGENTS.md` starts as `# Project\n`, after
+ * `prepare` reshapes it. Region rows persist across the calls `run` makes;
+ * `reset` forgets recorded calls.
  */
 const recordedManager = <A, E, R>(
   run: (
@@ -116,6 +126,7 @@ const recordedManager = <A, E, R>(
     reset: () => void,
     workspaceRoot: string,
   ) => Effect.Effect<A, E, R>,
+  prepare: (workspaceRoot: string) => void = () => undefined,
 ) =>
   Effect.gen(function* () {
     const workspaceRoot = mkdtempSync(
@@ -124,6 +135,7 @@ const recordedManager = <A, E, R>(
     try {
       const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
       writeFileSync(instructionsPath, "# Project\n");
+      prepare(workspaceRoot);
       const axmDir = nodePath.join(workspaceRoot, ".axm");
       const rows = new Map<ProjectionUnitPath, RecordedProjectionRow>();
       let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
@@ -309,18 +321,35 @@ describe("KnowledgeManager discovery region re-render", () => {
   );
 });
 
+/**
+ * Refresh the catalog, then compute the region generation with the calls
+ * recorded only for it; answers the generation and the region rows the
+ * refresh recorded, keyed and generated live.
+ */
+const generationAfterRefresh = (manager: KnowledgeManagerService, reset: () => void) =>
+  Effect.gen(function* () {
+    yield* manager.refreshCatalog();
+    const rows = yield* (yield* AcceptedResolutionWriter).projectionRows("knowledge");
+    reset();
+    const generation = yield* manager.regionGeneration;
+    return {
+      generation,
+      recorded: [...rows].map(([path, { row }]) => ({ path, gen: row.gen })),
+    };
+  });
+
 describe("KnowledgeManager region generation", () => {
   it.effect("resolves the instruction target entry once and the scope root live", () =>
     Effect.gen(function* () {
-      const { outcome, recording, instructionsPath, workspaceRoot } = yield* recordedManager(
-        (manager) => manager.regionGeneration,
-      );
+      const { outcome, recording, instructionsPath, workspaceRoot } =
+        yield* recordedManager(generationAfterRefresh);
 
-      // The same generation as keying the target from a fresh resolution.
-      expect(outcome).toMatchObject({
-        _tag: "Success",
-        success: "sha256:199c5eb1beaa99e8f40ae6ea7fc0cb196ab6e67ea85f62e15eff88f2c16fccb8",
-      });
+      // The same generation as the row a refresh keyed and recorded live.
+      expect(outcome._tag).toBe("Success");
+      if (outcome._tag !== "Success") return;
+      const { generation, recorded } = outcome.success;
+      expect(recorded).toEqual([{ path: "AGENTS.md", gen: generation }]);
+      expect(generation).toMatch(/^sha256:/);
       // The target's route admission resolves its entry once; the row key is
       // taken from that admission.
       const probes = (target: string) =>
@@ -344,6 +373,34 @@ describe("KnowledgeManager region generation", () => {
         stat: 1,
         readDirectory: 1,
       });
+    }),
+  );
+
+  it.effect("keys a symlinked instruction file by the link, as a refresh records it", () =>
+    Effect.gen(function* () {
+      const { outcome } = yield* recordedManager(
+        (manager, reset, root) =>
+          Effect.map(generationAfterRefresh(manager, reset), (observed) => ({
+            ...observed,
+            linked: lstatSync(nodePath.join(root, "AGENTS.md")).isSymbolicLink(),
+          })),
+        // A link beside its referent: Knowledge's relative links refuse an
+        // alias with a different parent.
+        (root) => {
+          rmSync(nodePath.join(root, "AGENTS.md"));
+          writeFileSync(nodePath.join(root, "original.md"), "# Project\n");
+          symlinkSync("original.md", nodePath.join(root, "AGENTS.md"));
+        },
+      );
+
+      expect(outcome._tag).toBe("Success");
+      if (outcome._tag !== "Success") return;
+      const { generation, recorded, linked } = outcome.success;
+      // The row is keyed by the link's own location, not its referent, and
+      // the generation keyed from the admission is the one the refresh recorded.
+      expect(recorded).toEqual([{ path: "AGENTS.md", gen: generation }]);
+      expect(generation).toMatch(/^sha256:/);
+      expect(linked).toBe(true);
     }),
   );
 });

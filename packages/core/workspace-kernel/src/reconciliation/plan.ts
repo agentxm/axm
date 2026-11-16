@@ -40,6 +40,7 @@ import {
   captureAgentOutputAuthority,
   applyPlannedProjections,
   applyProjectionPlans,
+  observeObservedPlans,
   observeProjectionPlans,
   makeProjectionInvariantFact,
   observeInstructionProjection,
@@ -1094,11 +1095,10 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     const ruleFacts = projectionFacts;
     const knowledgeFacts =
       args.knowledgeFacts ??
-      (yield* (yield* KnowledgeManager)
-        .projectionPlans()
-        .pipe(Effect.flatMap(observeProjectionPlans))).map((unit) =>
-        makeProjectionInvariantFact(unit, location.scope),
-      );
+      (yield* (yield* KnowledgeManager).observedProjectionPlans(
+        undefined,
+        observeObservedPlans,
+      )).map((unit) => makeProjectionInvariantFact(unit, location.scope));
     return yield* retainedProjectionExposure(
       ["rule", "knowledge"],
       [...ruleFacts, ...knowledgeFacts],

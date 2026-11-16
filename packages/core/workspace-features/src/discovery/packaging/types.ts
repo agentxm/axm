@@ -29,7 +29,12 @@ export interface DetectedPackage {
   readonly declaration?: { readonly name: string; readonly specifier: string };
   /** Adapters that resolve local packages carry their exact metadata location to readers. */
   readonly resolution?:
-    | { readonly state: "resolved"; readonly metadataPath: string }
+    | {
+        readonly state: "resolved";
+        readonly metadataPath: string;
+        /** The installed metadata members readers decode, as resolution read them; deep-frozen. */
+        readonly metadata: Readonly<Record<string, unknown>>;
+      }
     | { readonly state: "unavailable" };
 }
 

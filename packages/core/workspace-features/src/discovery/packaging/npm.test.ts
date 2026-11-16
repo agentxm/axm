@@ -2,6 +2,7 @@ import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -319,7 +320,11 @@ describe("npmDetector", () => {
 // npm Reader tests
 // ──────────────────────────────────────────────────────────────────
 
-/** Helper to set up a temp project with node_modules for reader tests. */
+/**
+ * Helper to set up a temp project that depends on the package at 1.0.0, with
+ * its installed metadata when given, and read the dependency the detector
+ * observes.
+ */
 const readInTempDir = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   nodeModulesPackageJson?: string,
@@ -329,12 +334,13 @@ const readInTempDir = (
     const path = yield* Path.Path;
     const tmpDir = yield* fs.makeTempDirectoryScoped();
 
-    // Write the root package.json (source for the detected package)
-    yield* fs.writeFileString(path.join(tmpDir, "package.json"), "{}");
+    const pkgName = pkgPurl.namespace ? `${pkgPurl.namespace}/${pkgPurl.name}` : pkgPurl.name;
+    yield* fs.writeFileString(
+      path.join(tmpDir, "package.json"),
+      JSON.stringify({ dependencies: { [pkgName]: "1.0.0" } }),
+    );
 
     if (nodeModulesPackageJson !== undefined) {
-      // Reconstruct the node_modules path from purl
-      const pkgName = pkgPurl.namespace ? `${pkgPurl.namespace}/${pkgPurl.name}` : pkgPurl.name;
       const pkgDir = path.join(tmpDir, "node_modules", pkgName);
       yield* fs.makeDirectory(pkgDir, { recursive: true });
       const manifest: unknown = JSON.parse(nodeModulesPackageJson);
@@ -347,21 +353,11 @@ const readInTempDir = (
       );
     }
 
-    const detected = {
-      purl: { ...pkgPurl, version: "1.0.0" },
-      type: npmType,
-      source: path.join(tmpDir, "package.json"),
-      resolution: {
-        state: "resolved" as const,
-        metadataPath: path.join(
-          tmpDir,
-          "node_modules",
-          pkgPurl.namespace ?? "",
-          pkgPurl.name,
-          "package.json",
-        ),
-      },
-    };
+    const [detected] = yield* npmDetector.detect(tmpDir);
+    if (detected === undefined) throw new Error("Expected the declared dependency");
+    expect(detected.resolution?.state).toBe(
+      nodeModulesPackageJson === undefined ? "unavailable" : "resolved",
+    );
     return yield* npmReader.read(detected);
   }).pipe(Effect.scoped);
 
@@ -540,7 +536,50 @@ describe("npmReader", () => {
       ),
     );
   });
-  it.effect("refuses metadata that changed identity after dependency resolution", () =>
+  it.effect("refuses installed metadata whose identity differs from the observed package", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const metadataPath = path.join(root, "node_modules/React/package.json");
+        yield* fs.makeDirectory(path.dirname(metadataPath), { recursive: true });
+        yield* fs.writeFileString(
+          path.join(root, "package.json"),
+          JSON.stringify({ dependencies: { React: "^18" } }),
+        );
+        yield* fs.writeFileString(
+          metadataPath,
+          JSON.stringify({
+            name: "React",
+            version: "18.3.1",
+            agentExtensions: [{ ref: "@acme/skills/react-review" }],
+          }),
+        );
+        const detected = yield* npmDetector.detect(root);
+        const observed = detected[0];
+        expect(observed).toMatchObject({
+          purl: { name: "react", version: "18.3.1" },
+          resolution: { state: "resolved", metadataPath },
+        });
+        if (observed === undefined) throw new Error("Expected an observed dependency");
+        const warnings: Array<string> = [];
+        const result = yield* npmReader.read(observed).pipe(
+          Effect.provide(
+            Logger.layer([
+              Logger.make((entry) => {
+                if (entry.logLevel === "Warn") warnings.push(String(entry.message));
+              }),
+            ]),
+          ),
+        );
+        expect(Option.isNone(result)).toBe(true);
+        expect(warnings).toEqual([`Package identity changed in ${metadataPath}, skipping`]);
+      }).pipe(Effect.scoped),
+    ),
+  );
+
+  it.effect("reads the recommendations of the metadata dependency resolution observed", () =>
     withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -554,17 +593,15 @@ describe("npmReader", () => {
         );
         yield* fs.writeFileString(
           metadataPath,
-          JSON.stringify({ name: "react", version: "18.3.1" }),
+          JSON.stringify({
+            name: "react",
+            version: "18.3.1",
+            agentExtensions: [{ ref: "@acme/skills/react-review" }],
+          }),
         );
-        const detected = yield* npmDetector.detect(root);
-        const observed = detected[0];
-        expect(observed).toMatchObject({
-          purl: { name: "react", version: "18.3.1" },
-          declaration: { name: "react", specifier: "^18" },
-          source: path.join(root, "package.json"),
-          resolution: { state: "resolved", metadataPath },
-        });
+        const [observed] = yield* npmDetector.detect(root);
         if (observed === undefined) throw new Error("Expected an observed dependency");
+        // A rewrite after resolution is not observed within the same discovery.
         yield* fs.writeFileString(
           metadataPath,
           JSON.stringify({
@@ -573,7 +610,10 @@ describe("npmReader", () => {
             agentExtensions: [{ ref: "@acme/skills/unrelated" }],
           }),
         );
-        expect(Option.isNone(yield* npmReader.read(observed))).toBe(true);
+        const result = yield* npmReader.read(observed);
+        expect(Option.map(result, (refs) => refs.map((entry) => entry.ref))).toEqual(
+          Option.some(["@acme/skills/react-review"]),
+        );
       }).pipe(Effect.scoped),
     ),
   );

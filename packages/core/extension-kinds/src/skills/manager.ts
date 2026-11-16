@@ -36,6 +36,7 @@ import {
   enabledConfiguredEntries,
   sanitizeName,
   readSkillDirectoryName,
+  skillDirectoryNameFromRead,
   computePackageContentHash,
   configuredRowsByName,
   acceptedCanonicalObservation,
@@ -63,6 +64,7 @@ import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
+  materializeSkillCanonicalReadingSkillMd,
   removeSkillAgentArtifact,
 } from "./materialization.js";
 import {
@@ -100,7 +102,7 @@ export const SkillManagerLive = Layer.effect(
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
       const previousCanonicalSkillSrcPaths = yield* captureSkillOutputSources(ref.skill.name);
 
-      const materialized = yield* materializeSkillCanonical({
+      const { materialized, skillMd } = yield* materializeSkillCanonicalReadingSkillMd({
         ref,
         sanitizedName: packageName,
         baseDir,
@@ -112,7 +114,13 @@ export const SkillManagerLive = Layer.effect(
         },
       });
       const skillSrcPath = materialized.skillSrcPath;
-      const sanitized = yield* readSkillDirectoryName(skillSrcPath, ref.skill.name).pipe(
+      // The compatibility check just read this SKILL.md and nothing has been
+      // written since; any other content root is read here.
+      const sanitized = yield* (
+        Option.isSome(skillMd) && skillMd.value.path === path.join(skillSrcPath, "SKILL.md")
+          ? skillDirectoryNameFromRead(skillMd.value.outcome, ref.skill.name)
+          : readSkillDirectoryName(skillSrcPath, ref.skill.name)
+      ).pipe(
         Effect.mapError(
           (cause) => new SkillDefinitionInvalid({ detail: "Cannot read skill identity", cause }),
         ),

@@ -44,6 +44,7 @@ import {
   ensureSkillAgentArtifact,
   inspectSkillAgentArtifact,
   materializeSkillCanonical,
+  materializeSkillCanonicalReadingSkillMd,
   removeSkillAgentArtifact,
   type CanonicalReuseContext,
 } from "./materialization.js";
@@ -578,6 +579,27 @@ describe("Registry skill canonical materialization", () => {
     }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
   );
 
+  it.effect("reports the SKILL.md read of a reused tree's compatibility check", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const { baseDir, layout, ref, canonicalPath, reuse } = yield* acceptedRegistryTree(
+        "@acme",
+        "review",
+      );
+      const { skillMd } = yield* materializeSkillCanonicalReadingSkillMd({
+        ref,
+        sanitizedName: "review",
+        baseDir,
+        layout,
+        reuse,
+      });
+
+      expect(Option.map(skillMd, ({ path: read }) => read)).toEqual(
+        Option.some(path.join(canonicalPath, "src", "SKILL.md")),
+      );
+    }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
+  );
+
   it.effect("still refuses incompatible official bytes in a reused accepted tree", () =>
     Effect.gen(function* () {
       const { baseDir, layout, ref, canonicalPath, reuse } = yield* acceptedRegistryTree(
@@ -602,6 +624,35 @@ describe("Registry skill canonical materialization", () => {
         },
       });
       expect(yield* computeMaterializedTreeIntegrity(canonicalPath)).toBe(before);
+    }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
+  );
+
+  it.effect("reports no SKILL.md read for a freshly acquired Registry tree", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, baseDir), {
+        agents: [],
+      });
+      const ref = registrySkillRef("@acme", "review");
+      const acquired = path.join(baseDir, "acquired");
+      yield* writeRegistryPackage(acquired, "@acme", "review");
+      const { skillMd } = yield* materializeSkillCanonicalReadingSkillMd({
+        ref,
+        sanitizedName: "review",
+        baseDir,
+        layout,
+      }).pipe(
+        Effect.provideService(AcquiredContent, {
+          requestedKeys: new Set([sourceRefContentKey(ref)]),
+          filesByKey: new Map([[sourceRefContentKey(ref), { directory: acquired }]]),
+          failuresByKey: new Map(),
+        }),
+      );
+
+      // Its check read the staged bytes; publication wrote the canonical tree after.
+      expect(skillMd).toEqual(Option.none());
     }).pipe(Effect.scoped, Effect.provide(RegistryMaterializationTest)),
   );
 

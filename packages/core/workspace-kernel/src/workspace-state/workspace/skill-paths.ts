@@ -16,7 +16,9 @@ import { sanitizeName } from "./extension-name.js";
 import { computeExtensionPathsForLayout, type ExtensionPathSource } from "./extension-paths.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "./layout.js";
-import { readFileStringIfPresent } from "@agentxm/host-primitives";
+import { isNotFound, readFileStringIfPresent } from "@agentxm/host-primitives";
+import type { PlatformError } from "effect/PlatformError";
+import * as Result from "effect/Result";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -50,13 +52,32 @@ export const computeSkillPathsForLayout = (
   return { canonicalPath: paths.canonicalPath, skillSrcPath: paths.extensionSrcPath };
 };
 
+const directoryNameFromContent = (content: Option.Option<string>, packageName: string) =>
+  skillDirectoryName(
+    extractSkillMetadata(Option.getOrElse(content, () => "")).name,
+    sanitizeName(packageName),
+  );
+
 /** Read native identity from content; absent content retains a diagnostic fallback. */
 export const readSkillDirectoryName = (contentRoot: string, packageName: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const content = yield* readFileStringIfPresent(fs, path.join(contentRoot, "SKILL.md")).pipe(
-      Effect.map(Option.getOrElse(() => "")),
-    );
-    return skillDirectoryName(extractSkillMetadata(content).name, sanitizeName(packageName));
+    const content = yield* readFileStringIfPresent(fs, path.join(contentRoot, "SKILL.md"));
+    return directoryNameFromContent(content, packageName);
   });
+
+/**
+ * Native identity from the outcome of a SKILL.md read already made, mapped as
+ * `readSkillDirectoryName` maps its own read: absence keeps the fallback and
+ * any other failure fails with the read's error.
+ */
+export const skillDirectoryNameFromRead = (
+  outcome: Result.Result<string, PlatformError>,
+  packageName: string,
+): Effect.Effect<string, PlatformError> =>
+  Result.isSuccess(outcome)
+    ? Effect.succeed(directoryNameFromContent(Option.some(outcome.success), packageName))
+    : isNotFound(outcome.failure)
+      ? Effect.succeed(directoryNameFromContent(Option.none(), packageName))
+      : Effect.fail(outcome.failure);

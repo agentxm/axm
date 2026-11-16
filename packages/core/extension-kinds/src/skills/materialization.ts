@@ -49,7 +49,10 @@ import {
   recordFootprint,
   retireWorkspacePath,
 } from "@agentxm/workspace-kernel/settlement";
-import { validateAxmSkillCandidate } from "@agentxm/workspace-kernel/resolution";
+import {
+  validateAxmSkillCandidate,
+  validateAxmSkillCandidateReadingSkillMd,
+} from "@agentxm/workspace-kernel/resolution";
 import {
   copyExtensionDirectory,
   acquiredDirectoryForRef,
@@ -121,6 +124,10 @@ const materializeRegistry = (
       );
       yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
+      // The SKILL.md read the latest validation made. Only a reused tree's
+      // validation, acquisition's last step before it returns, reads the
+      // canonical bytes the caller goes on to name the skill from.
+      let validatedSkillMd: ValidatedSkillMd | undefined;
       // Every reuse of the canonical tree runs this validation on canonicalPath
       // before returning, and every fetch runs it on the staged bytes.
       const acquired = yield* acquireCanonicalForRef({
@@ -136,13 +143,27 @@ const materializeRegistry = (
           detail: (target) => `Failed to copy skill files to ${target}`,
         },
         validate: (stagingPath) =>
-          validateAxmSkillCandidate({
+          validateAxmSkillCandidateReadingSkillMd({
             ref,
             packageRoot: stagingPath,
             skillSourcePath: pathService.join(stagingPath, "src"),
-          }).pipe(Effect.asVoid),
+          }).pipe(
+            Effect.tap(({ skillMd }) =>
+              Effect.sync(() => {
+                validatedSkillMd = skillMd;
+              }),
+            ),
+            Effect.asVoid,
+          ),
       });
-      return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
+      const materialized: MaterializedSkillCanonical = {
+        skillSrcPath,
+        treeIntegrity: acquired.treeIntegrity,
+      };
+      return {
+        materialized,
+        skillMd: acquired.reused ? Option.fromUndefinedOr(validatedSkillMd) : Option.none(),
+      };
     }),
   );
 
@@ -151,13 +172,13 @@ const materializeWorkspace = (ref: WorkspaceSkillRef, baseDir: string) =>
     const pathService = yield* Path.Path;
     yield* validatePathSafety(pathService, baseDir, ref.location);
     const skillSourcePath = pathService.join(ref.location, "src");
-    yield* validateAxmSkillCandidate({
+    const { skillMd } = yield* validateAxmSkillCandidateReadingSkillMd({
       ref,
       packageRoot: ref.location,
       skillSourcePath,
     });
     const materialized: MaterializedSkillCanonical = { skillSrcPath: skillSourcePath };
-    return materialized;
+    return { materialized, skillMd: Option.some(skillMd) };
   });
 
 /** Reuse inputs sourced from the caller's operation context and lockfile. */
@@ -173,9 +194,19 @@ interface MaterializedSkillCanonical {
   readonly treeIntegrity?: TreeIntegrity;
 }
 
+/** The SKILL.md a compatibility check read, and what that read returned. */
+type ValidatedSkillMd = Effect.Success<
+  ReturnType<typeof validateAxmSkillCandidateReadingSkillMd>
+>["skillMd"];
+
 const defaultReuse = { force: false, accepted: Option.none<SkillLockEntry>() };
 
-export const materializeSkillCanonical = (args: {
+/**
+ * Materialize the canonical tree, with the SKILL.md read its compatibility
+ * check made when nothing is written after that check: an authored package's
+ * own source, or a reused Registry tree. A copied or fetched tree reports none.
+ */
+export const materializeSkillCanonicalReadingSkillMd = (args: {
   readonly ref: SkillExtensionRef;
   readonly sanitizedName: string;
   readonly baseDir: string;
@@ -192,6 +223,11 @@ export const materializeSkillCanonical = (args: {
         args.baseDir,
         args.layout,
         args.reuse ?? defaultReuse,
+      ).pipe(
+        Effect.map((materialized) => ({
+          materialized,
+          skillMd: Option.none<ValidatedSkillMd>(),
+        })),
       );
     case "registry":
       return materializeRegistry(
@@ -205,6 +241,13 @@ export const materializeSkillCanonical = (args: {
       return materializeWorkspace(args.ref, args.baseDir);
   }
 };
+
+export const materializeSkillCanonical = (
+  args: Parameters<typeof materializeSkillCanonicalReadingSkillMd>[0],
+) =>
+  materializeSkillCanonicalReadingSkillMd(args).pipe(
+    Effect.map(({ materialized }) => materialized),
+  );
 
 const unsupportedSymlink = (cause: unknown): boolean => {
   if (!(cause instanceof PlatformError)) return false;

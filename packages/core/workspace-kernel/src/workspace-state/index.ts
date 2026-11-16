@@ -94,6 +94,7 @@ export {
   readSkillDirectoryName,
   type SkillPathSource,
 } from "./workspace/skill-paths.js";
+export { skillDirectoryNameFromRead } from "./workspace/skill-paths.js";
 export {
   acquisitionConfiguredEntries,
   enabledConfiguredEntries,

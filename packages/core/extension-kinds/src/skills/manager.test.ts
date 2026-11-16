@@ -38,14 +38,23 @@ import {
   UNCONSTRAINED_DESIRED_NODE,
   WorkspaceLocation,
   resolveWorkspaceExtensionRef,
+  computeMaterializedTreeIntegrity,
+  computeSkillPathsForLayout,
   type DesiredExtensionNode,
+  type Lockfile,
 } from "@agentxm/workspace-kernel/workspace-state";
+import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
   configuredRow,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { extensionName } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import { SkillManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
@@ -88,7 +97,7 @@ const node: DesiredExtensionNode = {
   constraint: UNCONSTRAINED_DESIRED_NODE,
 };
 
-const managerLayer = () => {
+const managerLayer = (lockfile?: Lockfile) => {
   const axmDir = nodePath.join(baseDir, ".axm");
   const settings = Schema.decodeUnknownSync(SettingsSchema)({
     owner: OWNER,
@@ -105,6 +114,7 @@ const managerLayer = () => {
         baseDir,
         runtimeDir: axmDir,
         settings,
+        ...(lockfile === undefined ? {} : { lockfile }),
         graph: { packMembership: [], nodes: [node], mcpSourceClosures: [], problems: [] },
         records: { rows: (type) => Effect.succeed(type === "skill" ? rows : []) },
       }),
@@ -412,5 +422,136 @@ describe("skill install retirement of a renamed projection", () => {
       });
       expect(nodeFs.readlinkSync(reader)).toBe(source);
     }).pipe(Effect.provide(managerLayer())),
+  );
+});
+
+const REGISTRY = decodeRegistryEndpointSync("https://registry.example.test");
+
+const registryRef: RegistrySkillRef = {
+  type: "skill",
+  refType: "registry",
+  owner: handle(OWNER),
+  name: extensionName(NAME),
+  version: exactVersion("1.0.0"),
+  integrity: Option.none(),
+  publisherBindingId: "binding-1",
+  packages: [],
+  source: { type: "registry", name: "example", location: REGISTRY, owner: Option.none() },
+  skill: { name: extensionName(NAME), description: Option.none(), metadata: Option.none() },
+};
+
+/** The canonical Registry tree of the skill on disk, with a lockfile accepting it. */
+const acceptedRegistryTree = (nativeName: string) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const { canonicalPath, skillSrcPath } = computeSkillPathsForLayout(
+      nodePath.join,
+      yield* Ref.get(location.layout),
+      registryRef,
+      NAME,
+    );
+    nodeFs.mkdirSync(skillSrcPath, { recursive: true });
+    nodeFs.writeFileSync(
+      nodePath.join(canonicalPath, "skill.json"),
+      JSON.stringify({ owner: OWNER, type: "skill", name: NAME, version: "1.0.0" }),
+    );
+    renameAuthoredSkill(skillSrcPath, nativeName);
+    return { canonicalPath, skillSrcPath };
+  });
+
+describe("skill install identity", () => {
+  it.effect("reads an authored skill's SKILL.md once for compatibility and native name", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      renameAuthoredSkill(source, "reviewer");
+
+      const { facts, recording } = yield* installRecorded;
+
+      // The compatibility check's read names the skill; the other read is the
+      // projection's own observation after its write.
+      expect(recording.contentReads(nodePath.join(source, "SKILL.md"))).toBe(2);
+      expect(nodeFs.existsSync(renamed())).toBe(true);
+      expect(facts.observation.targets).toEqual([{ path: ".agents/skills/reviewer" }]);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("keeps the package-name fallback for an authored skill without SKILL.md", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.rmSync(nodePath.join(source, "SKILL.md"));
+
+      const { facts } = yield* installRecorded;
+
+      expect(facts.observation.targets).toEqual([{ path: ".agents/skills/review" }]);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+
+  it.effect("refuses an authored skill whose SKILL.md cannot be read", () =>
+    Effect.gen(function* () {
+      const source = writeAuthoredSkill();
+      nodeFs.rmSync(nodePath.join(source, "SKILL.md"));
+      nodeFs.mkdirSync(nodePath.join(source, "SKILL.md"));
+
+      const failure = yield* installRecorded.pipe(Effect.flip);
+
+      expect(failure).toMatchObject({
+        _tag: "SkillDefinitionInvalid",
+        detail: "Cannot read skill identity",
+        cause: { _tag: "PlatformError" },
+      });
+      expect(nodeFs.existsSync(projection())).toBe(false);
+    }).pipe(Effect.provide(managerLayer())),
+  );
+});
+
+describe("skill install identity of a reused Registry tree", () => {
+  const install = Effect.gen(function* () {
+    const manager = yield* SkillManager;
+    const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+    recording.reset();
+    const facts = yield* manager
+      .materializeInstall({ ref: registryRef })
+      .pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+    return { facts, recording };
+  });
+
+  /** Write the accepted tree, then install it through a lockfile that accepts it. */
+  const installAccepted = (nativeName: string) =>
+    Effect.gen(function* () {
+      const { canonicalPath, skillSrcPath, treeIntegrity } = yield* Effect.gen(function* () {
+        const tree = yield* acceptedRegistryTree(nativeName);
+        return {
+          ...tree,
+          treeIntegrity: yield* computeMaterializedTreeIntegrity(tree.canonicalPath),
+        };
+      }).pipe(Effect.provide(managerLayer()));
+      const lockfile: Lockfile = {
+        lockfileVersion: 1,
+        skills: {
+          [NAME]: {
+            source: { type: "registry", url: REGISTRY },
+            identity: { owner: handle(OWNER), name: extensionName(NAME) },
+            resolved: {
+              version: exactVersion("1.0.0"),
+              integrity: "sha512-archive",
+              publisherBindingId: "binding-1",
+            },
+            treeIntegrity,
+          },
+        },
+      };
+      const installed = yield* install.pipe(Effect.provide(managerLayer(lockfile)));
+      return { ...installed, canonicalPath, skillSrcPath };
+    });
+
+  it.effect("names a reused Registry tree from its compatibility check's read", () =>
+    Effect.gen(function* () {
+      const { facts, recording, skillSrcPath } = yield* installAccepted("reviewer");
+
+      // Reuse hashes the accepted tree, its compatibility check's read names
+      // the skill, the source hash reads it, and the projection observes it.
+      expect(recording.contentReads(nodePath.join(skillSrcPath, "SKILL.md"))).toBe(4);
+      expect(facts.observation.targets).toEqual([{ path: ".agents/skills/reviewer" }]);
+    }),
   );
 });

@@ -14,7 +14,12 @@ import * as Path from "effect/Path";
 import * as Scope from "effect/Scope";
 
 import { SourceNetworkFailure, SourceNotResolvable, type SourceError } from "../errors.js";
-import { getTreeSha, shallowClone, shallowFetchCommit } from "../git/operations.js";
+import {
+  getTreeSha,
+  shallowClone,
+  shallowFetchCommit,
+  type GitRemoteRefs,
+} from "../git/operations.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
@@ -99,6 +104,84 @@ export const withSharedGitDiscoveryCheckouts = <A, E, R>(
         );
       };
       return { checkout };
+    }),
+  );
+
+/**
+ * Remote ref listings one caller shares across the Git selectors it assesses.
+ *
+ * While a caller provides this service, each exact URL's advertised branches
+ * and tags are listed once and every later listing of the same URL receives
+ * that frozen result. Only successful listings are shared: each listing that
+ * awaited one that failed or was interrupted makes its own unshared attempt,
+ * so every failure belongs to the listing that attempted it.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class GitRemoteRefListings extends Context.Service<
+  GitRemoteRefListings,
+  {
+    readonly list: <E, R>(
+      url: string,
+      acquire: Effect.Effect<GitRemoteRefs, E, R>,
+    ) => Effect.Effect<GitRemoteRefs, E, R>;
+  }
+>()("@agentxm/workspace-kernel/sources/providers/git/GitRemoteRefListings") {}
+
+/**
+ * Run `self` with remote ref listings shared across its Git selector
+ * assessments. The record of which listings exist ends with `self`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const withSharedGitRemoteRefListings = <A, E, R>(
+  self: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, GitRemoteRefListings>> =>
+  Effect.provideServiceEffect(
+    self,
+    GitRemoteRefListings,
+    Effect.sync(() => {
+      const attempts = new Map<string, Deferred.Deferred<Option.Option<GitRemoteRefs>>>();
+      const list = <E2, R2>(
+        url: string,
+        acquire: Effect.Effect<GitRemoteRefs, E2, R2>,
+      ): Effect.Effect<GitRemoteRefs, E2, R2> =>
+        Effect.uninterruptibleMask((restore) =>
+          Effect.suspend((): Effect.Effect<GitRemoteRefs, E2, R2> => {
+            const pending = attempts.get(url);
+            if (pending !== undefined)
+              // A listing whose awaited attempt failed makes its own attempt.
+              return restore(
+                Deferred.await(pending).pipe(
+                  Effect.flatMap(
+                    Option.match({
+                      onNone: () => acquire,
+                      onSome: (listed) => Effect.succeed(listed),
+                    }),
+                  ),
+                ),
+              );
+            const own = Deferred.makeUnsafe<Option.Option<GitRemoteRefs>>();
+            attempts.set(url, own);
+            return restore(acquire).pipe(
+              Effect.map((listed): GitRemoteRefs =>
+                Object.freeze({
+                  branches: Object.freeze([...listed.branches]),
+                  tags: Object.freeze([...listed.tags]),
+                }),
+              ),
+              Effect.onExit((exit) =>
+                Effect.suspend(() => {
+                  if (exit._tag === "Success")
+                    return Deferred.succeed(own, Option.some(exit.value));
+                  attempts.delete(url);
+                  return Deferred.succeed(own, Option.none());
+                }),
+              ),
+            );
+          }),
+        );
+      return { list };
     }),
   );
 

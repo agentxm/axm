@@ -21,11 +21,14 @@ interface ConfiguredGitEntry {
 
 /**
  * Install each entry from one served repository whose `main` and `other`
- * branches hold the skills `alpha` and `beta` and the rule `gamma`, then
- * prepare a configured update sweep and count the Git checkouts its
- * discovery clones.
+ * branches (and tag `v1`) hold the skills `alpha` and `beta` and the rule
+ * `gamma`, then prepare a configured update sweep and count the Git checkouts
+ * its discovery clones and the remote ref listings it takes.
  */
-const sweepGitEntries = (entries: ReadonlyArray<ConfiguredGitEntry>) => {
+const sweepGitEntriesCounting = (
+  entries: ReadonlyArray<ConfiguredGitEntry>,
+  options: { readonly reinstall?: boolean } = {},
+) => {
   const { workspace, cleanup } = makeInstallWorld();
   return Effect.gen(function* () {
     const source = nodePath.join(workspace.root, "vendor-source");
@@ -43,6 +46,7 @@ const sweepGitEntries = (entries: ReadonlyArray<ConfiguredGitEntry>) => {
     git(["add", "."]);
     git(["commit", "--quiet", "-m", "main"]);
     git(["branch", "other"]);
+    git(["tag", "v1"]);
     const served = yield* Effect.acquireRelease(
       Effect.promise(() =>
         serveBareRepository({ root: workspace.root, source, name: "extensions" }),
@@ -73,17 +77,24 @@ const sweepGitEntries = (entries: ReadonlyArray<ConfiguredGitEntry>) => {
             return span;
           },
         });
-        const candidate = yield* UpdateExtensions.prepare(configuredUpdateRequest({})).pipe(
-          withDetailedWork(tracer),
-        );
+        const candidate = yield* UpdateExtensions.prepare(
+          configuredUpdateRequest(options.reinstall === true ? { reinstall: true } : {}),
+        ).pipe(withDetailedWork(tracer));
         return {
-          outcome: candidate.outcome,
+          candidate,
           checkouts: spans.filter((span) => span.name === "Git.shallowClone").length,
+          listings: spans.filter((span) => span.name === "Git.listRemoteRefs").length,
         };
       }),
     );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
 };
+
+/** The sweep's outcome and the Git checkouts its discovery cloned. */
+const sweepGitEntries = (entries: ReadonlyArray<ConfiguredGitEntry>) =>
+  sweepGitEntriesCounting(entries).pipe(
+    Effect.map(({ candidate, checkouts }) => ({ outcome: candidate.outcome, checkouts })),
+  );
 
 describe("configured update Git checkouts", () => {
   it.effect("checks out one Git URL and revision once for every entry of every kind", () =>
@@ -104,6 +115,56 @@ describe("configured update Git checkouts", () => {
         { type: "skill", name: "beta", revision: "other" },
       ]);
       expect(sweep).toEqual({ outcome: "planned", checkouts: 2 });
+    }),
+  );
+});
+
+describe("configured update Git remote ref listings", () => {
+  it.effect("lists one Git URL's remote refs once for every entry pinned to a tag", () =>
+    Effect.gen(function* () {
+      const sweep = yield* sweepGitEntriesCounting([
+        { type: "skill", name: "alpha", revision: "v1" },
+        { type: "skill", name: "beta", revision: "v1" },
+        { type: "rule", name: "gamma", revision: "v1" },
+      ]);
+      expect({ outcome: sweep.candidate.outcome, listings: sweep.listings }).toEqual({
+        outcome: "planned",
+        listings: 1,
+      });
+    }),
+  );
+
+  it.effect("lists once for entries at different branches of one URL", () =>
+    Effect.gen(function* () {
+      const sweep = yield* sweepGitEntriesCounting([
+        { type: "skill", name: "alpha", revision: "main" },
+        { type: "skill", name: "beta", revision: "other" },
+      ]);
+      expect({
+        outcome: sweep.candidate.outcome,
+        checkouts: sweep.checkouts,
+        listings: sweep.listings,
+      }).toEqual({ outcome: "planned", checkouts: 2, listings: 1 });
+    }),
+  );
+
+  it.effect("lists nothing for entries without a selector or when reinstalling", () =>
+    Effect.gen(function* () {
+      const unpinned = yield* sweepGitEntriesCounting([
+        { type: "skill", name: "alpha" },
+        { type: "rule", name: "gamma" },
+      ]);
+      const reinstalled = yield* sweepGitEntriesCounting(
+        [
+          { type: "skill", name: "alpha", revision: "v1" },
+          { type: "rule", name: "gamma", revision: "v1" },
+        ],
+        { reinstall: true },
+      );
+      expect({ unpinned: unpinned.listings, reinstalled: reinstalled.listings }).toEqual({
+        unpinned: 0,
+        reinstalled: 0,
+      });
     }),
   );
 });

@@ -601,4 +601,52 @@ describe("Local inspection of an authored Pack", () => {
       }),
     );
   });
+
+  it.effect(
+    "decodes the Pack manifest the member inspection reads when it differs from the observation's",
+    () => {
+      const original = packManifest({ "@acme/rules/review": ">=1.0.0" });
+      const rewritten = packManifest({ "@acme/rules/review": ">=2.0.0" });
+      const workspace = packWorkspace(original);
+      return workspace.run(
+        Effect.gen(function* () {
+          const parses = countParses();
+          const base = yield* FileSystem.FileSystem;
+          // Another editor rewrites pack.json once the desired graph and the
+          // canonical observation have both decoded the original text, so the
+          // next resolution of it is the member inspection's verified read.
+          let rewrites = 0;
+          const editing = FileSystem.make({
+            ...base,
+            realPath: (file) =>
+              file === workspace.manifestPath && rewrites === 0 && parses(original) === 2
+                ? Effect.sync(() => {
+                    rewrites += 1;
+                    fs.writeFileSync(workspace.manifestPath, rewritten);
+                  }).pipe(Effect.andThen(base.realPath(file)))
+                : base.realPath(file),
+          });
+          const result = yield* withLocalAssessmentReadView(showPack).pipe(
+            Effect.provideService(FileSystem.FileSystem, editing),
+          );
+          expect(rewrites).toBe(1);
+          expect(result.observationDiagnostics).toContainEqual(
+            expect.objectContaining({
+              code: "inspection-read-changed",
+              path: workspace.manifestPath,
+            }),
+          );
+          const item = result.items[0];
+          // The members come from the bytes the member inspection verified, not
+          // from the observation's decode of the text it replaced.
+          expect(item?.pack?.members?.map((member) => member.declaration)).toEqual([
+            { constraint: ">=2.0.0", endpoint: null },
+          ]);
+          expect(item?.observed.manifestVersion).toBe("0.0.1");
+          expect(parses(original)).toBe(2);
+          expect(parses(rewritten)).toBe(1);
+        }),
+      );
+    },
+  );
 });

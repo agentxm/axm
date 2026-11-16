@@ -209,14 +209,15 @@ export const PackManagerLive = Layer.effect(
         ref,
         ref.pack.name,
       ).canonicalPath;
-      const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
       if (ref.refType === "workspace") {
         if (ref.scope !== location.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
           return yield* new PackDefinitionInvalid({
             detail: `Invalid workspace pack source location: ${ref.location}`,
           });
         }
-        if (!canonicalExists) {
+        // Only the authored package is probed here; acquisition observes an
+        // acquired Pack's canonical directory itself.
+        if (!(yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false)))) {
           return yield* new PackDefinitionInvalid({
             detail: `Workspace pack package is missing: ${packDir}`,
           });

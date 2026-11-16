@@ -21,7 +21,12 @@ import {
   withNativeConfigReadView,
 } from "../native-config-syntax.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
-import { McpConfigInvalid, McpDefinitionInvalid, McpSharedTargetConflict } from "../errors.js";
+import {
+  McpConfigInvalid,
+  type McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpSharedTargetConflict,
+} from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
 import { type McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
@@ -45,7 +50,7 @@ import {
   type McpTargetPlan,
   type McpTargetWrite,
 } from "./target-plan.js";
-import { resolveConfiguredMcpTargets } from "./targeting.js";
+import { resolveConfiguredMcpTargets, type McpTargetGroup } from "./targeting.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
@@ -194,6 +199,17 @@ interface ValidatedMcpWrite {
   readonly prepared: McpWritePreparation | undefined;
 }
 
+/** One adopted native entry whose source document is the preimage of a planned write. */
+interface McpAdoptionPreimage {
+  readonly filePath: string;
+  readonly expectedEntry: Readonly<Record<string, unknown>>;
+}
+
+/** Reads one native MCP config document, absent as none. */
+type NativeMcpConfigReader = (
+  configPath: string,
+) => Effect.Effect<Option.Option<string>, McpConfigIoFailed, FileSystem.FileSystem>;
+
 /** Recheck every declared alias and all file contracts before the first native write. */
 const validatePlannedWrites = (
   configuredAgentIds: ReadonlyArray<string>,
@@ -203,10 +219,8 @@ const validatePlannedWrites = (
   authority: {
     readonly nativeDirectoryInputs: NativeDirectoryInputs;
   },
-  adoptions?: ReadonlyArray<{
-    readonly filePath: string;
-    readonly expectedEntry: Readonly<Record<string, unknown>>;
-  }>,
+  adoptions?: ReadonlyArray<McpAdoptionPreimage>,
+  readPreimage: NativeMcpConfigReader = readNativeMcpConfig,
 ) =>
   withNativeConfigReadView(
     Effect.gen(function* () {
@@ -220,7 +234,7 @@ const validatePlannedWrites = (
             });
           }
         }
-        const raw = Option.getOrElse(yield* readNativeMcpConfig(write.path), () => "");
+        const raw = Option.getOrElse(yield* readPreimage(write.path), () => "");
         yield* preflightNativeConfigReaders({
           nativeDirectoryInputs: authority.nativeDirectoryInputs,
           workspaceRoot,
@@ -299,47 +313,113 @@ const validatePlannedWrites = (
     }),
   );
 
-/** Resolve physical sharing and preflight inline native entries without publishing settings. */
-export const validateInlineMcpServerTargets = (
+/** One inline server to validate against resolved native targets. */
+export interface InlineMcpServerCandidate {
+  readonly serverName: string;
+  readonly entry: McpServerDeclaration;
+  readonly adoptions?: ReadonlyArray<McpAdoptionPreimage>;
+}
+
+type InlineMcpTargetArgs = Omit<SyncInlineMcpServerArgs, "serverName" | "entry">;
+
+const resolveInlineMcpTargets = (agentIds: ReadonlyArray<string>, args: InlineMcpTargetArgs) =>
+  resolveConfiguredMcpTargets({
+    nativeDirectoryInputs: args.nativeDirectoryInputs,
+    workspaceRoot: args.workspaceRoot,
+    agentIds,
+    scope: args.scope ?? "project",
+  });
+
+/** Plan one inline server against resolved targets and preflight every planned write. */
+const validateInlineCandidateTargets = (
   agentIds: ReadonlyArray<string>,
-  args: SyncInlineMcpServerArgs & {
-    readonly adoptions?: ReadonlyArray<{
-      readonly filePath: string;
-      readonly expectedEntry: Readonly<Record<string, unknown>>;
-    }>;
-  },
+  args: InlineMcpTargetArgs,
+  groups: ReadonlyArray<McpTargetGroup>,
+  candidate: InlineMcpServerCandidate,
+  readPreimage?: NativeMcpConfigReader,
 ) =>
   Effect.gen(function* () {
-    const groups = yield* resolveConfiguredMcpTargets({
-      nativeDirectoryInputs: args.nativeDirectoryInputs,
-      workspaceRoot: args.workspaceRoot,
-      agentIds,
-      scope: args.scope ?? "project",
-    });
     const plan = yield* plannedTargets(
       planMcpServerTargets({
         agentIds,
         groups,
         scope: args.scope ?? "project",
-        serverName: args.serverName,
-        declaration: args.entry,
+        serverName: candidate.serverName,
+        declaration: candidate.entry,
         resolvedCwd:
-          args.entry.connection?.transport === "stdio" &&
-          args.entry.connection.cwd?.base === "scope"
-            ? (yield* Path.Path).resolve(args.workspaceRoot, args.entry.connection.cwd.path)
+          candidate.entry.connection?.transport === "stdio" &&
+          candidate.entry.connection.cwd?.base === "scope"
+            ? (yield* Path.Path).resolve(args.workspaceRoot, candidate.entry.connection.cwd.path)
             : undefined,
-        enabled: args.entry.enabled ?? true,
+        enabled: candidate.entry.enabled ?? true,
       }),
     );
     yield* validatePlannedWrites(
       agentIds,
       args.workspaceRoot,
-      args.serverName,
+      candidate.serverName,
       plan.writes,
       args,
-      args.adoptions,
+      candidate.adoptions,
+      readPreimage,
     );
     return plan;
+  });
+
+/** Resolve physical sharing and preflight inline native entries without publishing settings. */
+export const validateInlineMcpServerTargets = (
+  agentIds: ReadonlyArray<string>,
+  args: SyncInlineMcpServerArgs & {
+    readonly adoptions?: ReadonlyArray<McpAdoptionPreimage>;
+  },
+) =>
+  Effect.gen(function* () {
+    const groups = yield* resolveInlineMcpTargets(agentIds, args);
+    return yield* validateInlineCandidateTargets(agentIds, args, groups, args);
+  });
+
+/**
+ * Validate inline servers in order, as one `validateInlineMcpServerTargets`
+ * call per server would, within one read of unchanged native state: the
+ * targets are resolved once, before the first server, and each native file is
+ * read once. Every server keeps its own plan, alias recheck and reader
+ * preflights, and the first failure stops the run. The plans come back in
+ * server order, each with its server name.
+ */
+export const validateInlineMcpServerTargetsInOrder = (
+  agentIds: ReadonlyArray<string>,
+  args: InlineMcpTargetArgs,
+  candidates: ReadonlyArray<InlineMcpServerCandidate>,
+) =>
+  Effect.gen(function* () {
+    if (candidates.length === 0) return [];
+    const resolved = yield* resolveInlineMcpTargets(agentIds, args);
+    // Read once per run; a failed read stops the run, so only successes are kept.
+    const preimages = new Map<string, Option.Option<string>>();
+    const readPreimage: NativeMcpConfigReader = (configPath) => {
+      const known = preimages.get(configPath);
+      return known !== undefined
+        ? Effect.succeed(known)
+        : readNativeMcpConfig(configPath).pipe(
+            Effect.tap((raw) => Effect.sync(() => preimages.set(configPath, raw))),
+          );
+    };
+    const plans: Array<{
+      readonly serverName: string;
+      readonly plan: Effect.Success<ReturnType<typeof validateInlineCandidateTargets>>;
+    }> = [];
+    for (const candidate of candidates) {
+      // Each server plans against its own copy of the resolved targets.
+      const plan = yield* validateInlineCandidateTargets(
+        agentIds,
+        args,
+        structuredClone(resolved),
+        candidate,
+        readPreimage,
+      );
+      plans.push({ serverName: candidate.serverName, plan });
+    }
+    return plans;
   });
 
 /** Write every planned shared file once and report the targets each agent gained. */

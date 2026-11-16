@@ -154,6 +154,7 @@ export {
   validatePluginMcpServerTargets,
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
+  validateInlineMcpServerTargetsInOrder,
   type SyncInlineMcpServerArgs,
 } from "./mcps/sync.js";
 

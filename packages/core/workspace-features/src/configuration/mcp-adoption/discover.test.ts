@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer";
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { AdoptMcpServers } from "../index.js";
+import { prepareMcpAdoptionTargets } from "./apply.js";
 import { makeConfigurationFixture, type ConfigurationFixtureOptions } from "../testing.js";
 
 const remote = { type: "http", url: "https://mcp.example.test/alpha" };
@@ -13,6 +14,15 @@ const remote = { type: "http", url: "https://mcp.example.test/alpha" };
 const singleRemoteServer: ConfigurationFixtureOptions = {
   settings: { agents: ["claude-code"] },
   files: { ".mcp.json": JSON.stringify({ mcpServers: { alpha: remote } }) },
+};
+
+const twoRemoteServers: ConfigurationFixtureOptions = {
+  settings: { agents: ["claude-code"] },
+  files: {
+    ".mcp.json": JSON.stringify({
+      mcpServers: { alpha: remote, beta: { type: "http", url: "https://mcp.example.test/beta" } },
+    }),
+  },
 };
 
 /**
@@ -133,6 +143,82 @@ describe("native MCP discovery for import", () => {
       Effect.gen(function* () {
         const discovered = yield* AdoptMcpServers.discover(["foo-bar"]).pipe(Effect.flip);
         const prepared = yield* AdoptMcpServers.prepare(["foo-bar"]).pipe(Effect.flip);
+        expect(discovered).toMatchObject({
+          detail: "Pi server names collide after native hyphen/underscore normalization",
+        });
+        expect(discovered).toEqual(prepared);
+      }),
+    ),
+  );
+
+  it.effect("resolves and reads a target file shared by several candidates once", () =>
+    withRecordedFixture(
+      twoRemoteServers,
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const warm = yield* AdoptMcpServers.prepare(["alpha", "beta"]);
+        const filePath = warm.preflight.candidates[0]?.adoptions[0]?.filePath ?? "";
+        expect(warm.preflight.candidates.map((candidate) => candidate.name)).toEqual([
+          "alpha",
+          "beta",
+        ]);
+
+        recording.reset();
+        const prepared = yield* AdoptMcpServers.prepare(["alpha", "beta"]);
+        const prepareReads = recording.contentReads(filePath);
+
+        recording.reset();
+        const discovered = yield* AdoptMcpServers.discover(["alpha", "beta"]);
+        const discoverReads = recording.contentReads(filePath);
+
+        // Validating each candidate on its own, as the locked freshness check does.
+        const oneAtATime = yield* prepareMcpAdoptionTargets(prepared.preflight.candidates);
+
+        expect(prepared.nativeLocations).toEqual(oneAtATime);
+        expect(prepared.nativeLocations.map((location) => location.address)).toEqual([
+          { kind: "key-path", path: filePath, keys: ["mcpServers", "alpha"] },
+          { kind: "key-path", path: filePath, keys: ["mcpServers", "beta"] },
+        ]);
+        expect(discovered.preflight).toEqual(prepared.preflight);
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
+      }),
+    ),
+  );
+
+  it.effect("keeps each candidate's own freshness reads when adopting several", () =>
+    withRecordedFixture(
+      twoRemoteServers,
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const prepared = yield* AdoptMcpServers.prepare(["alpha", "beta"]);
+        const filePath = prepared.preflight.candidates[0]?.adoptions[0]?.filePath ?? "";
+
+        recording.reset();
+        yield* AdoptMcpServers.previewOrApply(prepared, preapprovedPlanExecution);
+
+        // The locked freshness check and the adoption step validate each candidate on its own.
+        expect(recording.contentReads(filePath)).toBe(37);
+      }),
+    ),
+  );
+
+  it.effect("refuses a later candidate the inline validation rejects with its own refusal", () =>
+    withRecordedFixture(
+      {
+        settings: { agents: ["pi"] },
+        files: {
+          ".pi/mcp.json": JSON.stringify({
+            mcpServers: {
+              alpha: remote,
+              "foo-bar": remote,
+              foo_bar: { type: "http", url: "https://mcp.example.test/other" },
+            },
+          }),
+        },
+      },
+      Effect.gen(function* () {
+        const discovered = yield* AdoptMcpServers.discover(["alpha", "foo-bar"]).pipe(Effect.flip);
+        const prepared = yield* AdoptMcpServers.prepare(["alpha", "foo-bar"]).pipe(Effect.flip);
         expect(discovered).toMatchObject({
           detail: "Pi server names collide after native hyphen/underscore normalization",
         });

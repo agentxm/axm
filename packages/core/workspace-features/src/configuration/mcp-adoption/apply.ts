@@ -33,6 +33,7 @@ import {
   validateAgentMcpConfigWrite,
   preflightNativeConfigReaders,
   validateInlineMcpServerTargets,
+  validateInlineMcpServerTargetsInOrder,
   syncInlineMcpServerToAgents,
   NativeWriteAuthority,
   type CodingAgentFailure,
@@ -340,6 +341,18 @@ const settingsEntry = (candidate: McpAdoptionCandidate): McpServerEntry => ({
   ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
 });
 
+const inlineTargetArgs = (location: WorkspaceLocationService) => ({
+  nativeDirectoryInputs: location.nativeDirectoryInputs,
+  workspaceRoot: location.baseDir,
+  scope: location.scope,
+});
+
+const inlineCandidate = (candidate: McpAdoptionCandidate) => ({
+  serverName: candidate.name,
+  entry: settingsEntry(candidate),
+  adoptions: candidate.adoptions,
+});
+
 /** Plan one candidate's inline entry against every configured reader of its targets. */
 const validateCandidateTargets = (
   agentIds: ReadonlyArray<string>,
@@ -347,13 +360,24 @@ const validateCandidateTargets = (
   candidate: McpAdoptionCandidate,
 ) =>
   validateInlineMcpServerTargets(agentIds, {
-    nativeDirectoryInputs: location.nativeDirectoryInputs,
-    workspaceRoot: location.baseDir,
-    scope: location.scope,
-    serverName: candidate.name,
-    entry: settingsEntry(candidate),
-    adoptions: candidate.adoptions,
+    ...inlineTargetArgs(location),
+    ...inlineCandidate(candidate),
   }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+
+/**
+ * Plan every candidate's inline entry, in candidate order, against one
+ * resolution of the targets they share in this read phase.
+ */
+const validateCandidatesTargetsInOrder = (
+  agentIds: ReadonlyArray<string>,
+  location: WorkspaceLocationService,
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+) =>
+  validateInlineMcpServerTargetsInOrder(
+    agentIds,
+    inlineTargetArgs(location),
+    candidates.map(inlineCandidate),
+  ).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
 
 /**
  * Check, in candidate order, that every configured reader accepts each
@@ -363,16 +387,56 @@ export const validateMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoption
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
-    for (const candidate of candidates)
-      yield* validateCandidateTargets(agentIds, location, candidate);
+    yield* validateCandidatesTargetsInOrder(agentIds, location, candidates);
   });
+
+/** The native locations one candidate's planned writes update. */
+const plannedWriteLocations = (
+  location: WorkspaceLocationService,
+  path: Path.Path,
+  serverName: string,
+  plan: Effect.Success<ReturnType<typeof validateCandidateTargets>>,
+): ReadonlyArray<NativeLocationOutcome> =>
+  plan.writes.map((write) => ({
+    scope: location.scope,
+    address: {
+      kind: "key-path",
+      path: write.path,
+      keys: [...write.config.serversPath, serverName],
+    },
+    aliases: [
+      ...new Set(
+        write.declaredTargets.map((target) =>
+          path.resolve(
+            location.baseDir,
+            target.scope === "user" && target.path.startsWith("~/")
+              ? target.path.slice(2)
+              : target.path,
+          ),
+        ),
+      ),
+    ].sort(),
+    configuredConsumers: write.agentIds,
+    potentialReaders: [],
+    policyReasons: [],
+    ownership: "declared",
+    proof: "effective-native-declaration",
+    state: "updated",
+    mechanism: "structured-entry",
+    availability: write.agentIds.map((agentId) => ({
+      agentId,
+      state: "unverified",
+      reason: "Native representation validated; agent configuration selection is not observable",
+    })),
+  }));
 
 /**
  * Every configured reader is checked before adoption publishes any desired
  * state. Each adoption's source document is read again and compared with the
  * fingerprint discovery took, unless `sources` is `"discovered-in-this-read-phase"`:
  * the caller then vouches that discovery read those documents in the same
- * read phase, so their fingerprints already stand for what this phase reads.
+ * read phase, so their fingerprints already stand for what this phase reads,
+ * and the candidates share one resolution of their targets.
  */
 export const prepareMcpAdoptionTargets = (
   candidates: ReadonlyArray<McpAdoptionCandidate>,
@@ -383,8 +447,17 @@ export const prepareMcpAdoptionTargets = (
     const path = yield* Path.Path;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
     const locations: Array<NativeLocationOutcome> = [];
+    if (sources === "discovered-in-this-read-phase") {
+      for (const { serverName, plan } of yield* validateCandidatesTargetsInOrder(
+        agentIds,
+        location,
+        candidates,
+      ))
+        locations.push(...plannedWriteLocations(location, path, serverName, plan));
+      return combineNativeLocationOutcomes(locations);
+    }
     for (const candidate of candidates) {
-      for (const adoption of sources === "verify" ? candidate.adoptions : []) {
+      for (const adoption of candidate.adoptions) {
         const raw = yield* readNativeMcpConfig(adoption.filePath).pipe(
           Effect.mapError(readFailureToConfigurationFailed),
         );
@@ -398,40 +471,7 @@ export const prepareMcpAdoptionTargets = (
           });
       }
       const plan = yield* validateCandidateTargets(agentIds, location, candidate);
-      for (const write of plan.writes)
-        locations.push({
-          scope: location.scope,
-          address: {
-            kind: "key-path",
-            path: write.path,
-            keys: [...write.config.serversPath, candidate.name],
-          },
-          aliases: [
-            ...new Set(
-              write.declaredTargets.map((target) =>
-                path.resolve(
-                  location.baseDir,
-                  target.scope === "user" && target.path.startsWith("~/")
-                    ? target.path.slice(2)
-                    : target.path,
-                ),
-              ),
-            ),
-          ].sort(),
-          configuredConsumers: write.agentIds,
-          potentialReaders: [],
-          policyReasons: [],
-          ownership: "declared",
-          proof: "effective-native-declaration",
-          state: "updated",
-          mechanism: "structured-entry",
-          availability: write.agentIds.map((agentId) => ({
-            agentId,
-            state: "unverified",
-            reason:
-              "Native representation validated; agent configuration selection is not observable",
-          })),
-        });
+      locations.push(...plannedWriteLocations(location, path, candidate.name, plan));
     }
     return combineNativeLocationOutcomes(locations);
   });

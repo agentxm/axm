@@ -90,7 +90,7 @@ import {
   type RenderedFinding,
 } from "../runner.js";
 import type { LintInput, LintJsonDocument } from "../json-schema.js";
-import { observeAuthoredPackages } from "./authored-packages.js";
+import { observeAuthoredPackages, type AuthoredPackageResolution } from "./authored-packages.js";
 import {
   observeProjectAgentContent,
   observeUserScope,
@@ -417,6 +417,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         // run's own observation of the identical desired node, only while this
         // observation phase is active and read through the port lint observed
         // through; every other selection observes for itself.
+        // The authored packages this run resolves below, once they settle; a
+        // facts demand before then resolves each package for itself.
+        let authoredResolutions: ReadonlyArray<AuthoredPackageResolution> = [];
         const handOverObservations =
           phase !== undefined &&
           phase.observations &&
@@ -426,6 +429,18 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             ? invariantFacts.withCanonicalObservations({
                 phase,
                 fileSystem,
+                authoredPackage: (asked) =>
+                  Option.map(
+                    Option.fromUndefinedOr(
+                      authoredResolutions.find(
+                        (resolution) =>
+                          resolution.type === asked.type &&
+                          resolution.name === asked.name &&
+                          resolution.layout === asked.layout,
+                      ),
+                    ),
+                    ({ root, manifest, hash }) => ({ root, manifest, hash }),
+                  ),
                 observed: (desired) =>
                   Option.map(
                     Option.fromUndefinedOr(
@@ -566,9 +581,11 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           graph: desiredGraph,
           locks: lockfile,
         }).pipe(Effect.option);
-        const authoredPackages = Option.isSome(settings)
+        const authored = Option.isSome(settings)
           ? yield* observeAuthoredPackages({ layout, settings: settings.value })
-          : [];
+          : undefined;
+        const authoredPackages = authored?.packages ?? [];
+        authoredResolutions = authored?.resolutions ?? [];
         const evaluations = yield* evaluateAllCatalogs({
           view: selection.input.view,
           contexts: {

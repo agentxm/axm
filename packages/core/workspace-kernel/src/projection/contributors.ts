@@ -28,6 +28,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import type { ExtensionManifest } from "@agentxm/extension-content";
 import {
   contributorSetBlockers,
   contributorSetComplete,
@@ -112,6 +113,21 @@ export interface CanonicalObservationHandoff {
     readonly observation: CanonicalObservation;
     readonly manifest: Option.Option<CapturedManifest>;
   }>;
+  /**
+   * The resolution the caller settled, through the same port in the same
+   * phase, of the workspace-authored package of `type` named `name` under
+   * exactly `layout`: the package root it resolved, its deep-frozen manifest
+   * decode, and its package content hash. `None` when it settled none.
+   */
+  readonly authoredPackage?: (args: {
+    readonly type: ExtensionType;
+    readonly name: string;
+    readonly layout: WorkspaceLayout;
+  }) => Option.Option<{
+    readonly root: string;
+    readonly manifest: ExtensionManifest;
+    readonly hash: SourceHash;
+  }>;
 }
 
 /** The handoff contributor selection may take observations from; none by default. */
@@ -120,6 +136,42 @@ export const CurrentCanonicalObservationHandoff = Context.Reference<
 >("@agentxm/workspace-kernel/projection/contributors/CurrentCanonicalObservationHandoff", {
   defaultValue: () => undefined,
 });
+
+/**
+ * The current handoff, only while the phase it was made in is still the
+ * active observation phase and the caller reads through that phase's own
+ * port, the port the handoff was made through.
+ */
+const currentHandoff = Effect.gen(function* () {
+  const handoff = yield* CurrentCanonicalObservationHandoff;
+  if (handoff === undefined) return Option.none<CanonicalObservationHandoff>();
+  const phase = yield* CurrentWorkspaceReadPhase;
+  const fileSystem = yield* FileSystem.FileSystem;
+  return phase === undefined ||
+    phase !== handoff.phase ||
+    !phase.isActive() ||
+    !phase.observations ||
+    fileSystem !== phase.fileSystem ||
+    fileSystem !== handoff.fileSystem
+    ? Option.none<CanonicalObservationHandoff>()
+    : Option.some(handoff);
+});
+
+/**
+ * The handed-over resolution of the workspace-authored package of `type`
+ * named `name` under exactly `layout`, gated as `handedOverCanonicalObservation`
+ * gates observations. Anything else resolves the package for itself.
+ */
+export const handedOverAuthoredPackage = (args: {
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly layout: WorkspaceLayout;
+}) =>
+  Effect.map(currentHandoff, (current) =>
+    Option.flatMap(current, (handoff) =>
+      handoff.authoredPackage === undefined ? Option.none() : handoff.authoredPackage(args),
+    ),
+  );
 
 /**
  * The handed-over observation of `node`, only while the phase it was made in
@@ -134,20 +186,9 @@ export const handedOverCanonicalObservation = (args: {
   readonly accepted: LockEntry | undefined;
 }) =>
   Effect.gen(function* () {
-    const handoff = yield* CurrentCanonicalObservationHandoff;
-    if (handoff === undefined) return Option.none();
-    const phase = yield* CurrentWorkspaceReadPhase;
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (
-      phase === undefined ||
-      phase !== handoff.phase ||
-      !phase.isActive() ||
-      !phase.observations ||
-      fileSystem !== phase.fileSystem ||
-      fileSystem !== handoff.fileSystem
-    ) {
-      return Option.none();
-    }
+    const current = yield* currentHandoff;
+    if (Option.isNone(current)) return Option.none();
+    const handoff = current.value;
     return Option.flatMap(handoff.observed(args.node), (prior) =>
       prior.accepted === args.accepted && prior.layout === args.layout
         ? Option.some({

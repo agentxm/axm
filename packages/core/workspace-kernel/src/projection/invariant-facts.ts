@@ -28,6 +28,7 @@ import { isProjectionError, type ProjectionParticipantFailure } from "./errors.j
 import { projectionErrorToStepFailure } from "./step-failure.js";
 import {
   CurrentCanonicalObservationHandoff,
+  handedOverAuthoredPackage,
   type CanonicalObservationHandoff,
 } from "./contributors.js";
 import {
@@ -404,12 +405,32 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
             (node) =>
               Effect.result(
                 (node.source === "workspace"
-                  ? resolveWorkspaceExtensionRef({
-                      settingsName: node.name,
-                      source: node.source,
-                      expectedType: "subagent",
-                      layout,
-                      scope: location.scope,
+                  ? Effect.gen(function* () {
+                      // The caller's own resolution of this authored package in
+                      // this phase supplies its decode and hash; path safety,
+                      // presence and the identity check still run here.
+                      const authored = yield* handedOverAuthoredPackage({
+                        type: "subagent",
+                        name: node.name,
+                        layout,
+                      });
+                      return yield* resolveWorkspaceExtensionRef({
+                        settingsName: node.name,
+                        source: "workspace",
+                        expectedType: "subagent",
+                        layout,
+                        scope: location.scope,
+                        ...(Option.isSome(authored)
+                          ? {
+                              prepared: {
+                                root: authored.value.root,
+                                type: "subagent",
+                                manifest: Effect.succeed({ manifest: authored.value.manifest }),
+                                hash: Effect.succeed(authored.value.hash),
+                              },
+                            }
+                          : {}),
+                      });
                     }).pipe(Effect.map(Option.some))
                   : acceptedResolutionRef({
                       type: "subagent",

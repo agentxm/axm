@@ -933,3 +933,106 @@ describe("lint settings rules", () => {
     }),
   );
 });
+
+/** A synced project with one enabled workspace-authored Subagent. */
+const syncedAuthoredSubagent = () => {
+  const workspace = makeSyncFixture({
+    settings: {
+      owner: "@acme",
+      agents: ["claude-code"],
+      subagents: { helper: { source: "workspace" } },
+    },
+  });
+  cleanups.push(workspace.cleanup);
+  const root = nodePath.join(workspace.root, "subagents", "helper");
+  nodeFs.mkdirSync(root, { recursive: true });
+  nodeFs.writeFileSync(
+    nodePath.join(root, "subagent.json"),
+    JSON.stringify({
+      type: "subagent",
+      owner: "@acme",
+      name: "helper",
+      version: "1.0.0",
+      description: "The helper subagent",
+      core: { instructions: "core.md" },
+    }),
+  );
+  nodeFs.writeFileSync(nodePath.join(root, "core.md"), "Help as the helper subagent.\n");
+  return { workspace, manifest: nodePath.join(root, "subagent.json") };
+};
+
+/** Run `lint`, counting the package content hashes and the manifest decodes of `manifest`. */
+const countedPackageWork = <A, E, R>(lint: Effect.Effect<A, E, R>, manifest: string) =>
+  Effect.gen(function* () {
+    let hashes = 0;
+    const text = nodeFs.readFileSync(manifest, "utf8");
+    const parse = vi.spyOn(JSON, "parse");
+    const exit = yield* lint.pipe(
+      Effect.provideService(CurrentWorkObserver, {
+        record: (fact) => {
+          if (fact.kind === "axm.hash.package") hashes += 1;
+        },
+        detailSelected: () => false,
+      }),
+      Effect.exit,
+    );
+    const decodes = parse.mock.calls.filter(([input]) => input === text).length;
+    parse.mockRestore();
+    return { exit, hashes, decodes };
+  });
+
+describe("lint authored package resolutions", () => {
+  it.effect(
+    "resolves an enabled authored Subagent once for its authoring folder and projection facts",
+    () => {
+      const { workspace, manifest } = syncedAuthoredSubagent();
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          // Outside an observation phase, the projection facts resolve the
+          // authored Subagent for themselves.
+          const reference = yield* countedPackageWork(
+            withWorkspaceReadView(contributorLint(workspace)),
+            manifest,
+          );
+          // Inside its own observation phase, the facts take the authoring
+          // folder's resolution of the same package.
+          const counted = yield* countedPackageWork(contributorLint(workspace), manifest);
+          expect({ hashes: reference.hashes, decodes: reference.decodes }).toEqual({
+            hashes: 2,
+            decodes: 6,
+          });
+          expect({ hashes: counted.hashes, decodes: counted.decodes }).toEqual({
+            hashes: 1,
+            decodes: 5,
+          });
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "leaves an authored Subagent that does not resolve to the facts' own resolution",
+    () => {
+      const { workspace, manifest } = syncedAuthoredSubagent();
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          // The synced package now names another owner.
+          const text = nodeFs.readFileSync(manifest, "utf8");
+          nodeFs.writeFileSync(manifest, text.replace('"@acme"', '"@other"'));
+          const reference = yield* countedPackageWork(
+            withWorkspaceReadView(contributorLint(workspace)),
+            manifest,
+          );
+          const counted = yield* countedPackageWork(contributorLint(workspace), manifest);
+          expect(counted.hashes).toBe(reference.hashes);
+          expect(counted.decodes).toBe(reference.decodes);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+  );
+});

@@ -862,21 +862,25 @@ export const KnowledgeManagerLive = Layer.effect(
       Effect.provideService(AcceptedResolutionWriter, accepted),
     );
 
-    const reconcileDiscovery = (options?: {
+    /**
+     * Reconcile the discovery region from the projection inputs its sync
+     * call resolved for these same options, with nothing written since.
+     */
+    const reconcileDiscovery = (options: {
+      readonly projection: KnowledgeProjectionInputs;
       readonly dryRun?: boolean;
       readonly nativeProjection?: NativeProjectionOptions;
       readonly prospective?: ReadonlyArray<KnowledgeDiscoveryBundle>;
       readonly replacedNames?: ReadonlySet<string>;
     }) =>
       Effect.gen(function* () {
-        const { graph, locked, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options?.nativeProjection);
+        const { graph, locked, configured, config, instructionsTarget } = options.projection;
         const completeGraph = yield* requireCompleteContributors(graph, "knowledge");
         const selection = yield* selectKnowledgeBundles(
           {
             ...completeGraph,
             nodes: completeGraph.nodes.filter(
-              (node) => node.type !== "knowledge" || !options?.replacedNames?.has(node.name),
+              (node) => node.type !== "knowledge" || !options.replacedNames?.has(node.name),
             ),
           },
           locked,
@@ -884,19 +888,19 @@ export const KnowledgeManagerLive = Layer.effect(
           config,
           instructionsTarget.enabled,
         );
-        const contributors = [...selection.contributors, ...(options?.prospective ?? [])];
+        const contributors = [...selection.contributors, ...(options.prospective ?? [])];
         const exclusions = selection.exclusions;
         const authority = yield* captureAgentOutputAuthority();
         const configuredAgents =
-          options?.nativeProjection?.configuredAgents ??
+          options.nativeProjection?.configuredAgents ??
           (yield* (yield* planningSettings).configuredAgents);
         const eligible =
           contributors.some(({ name }) =>
-            options?.nativeProjection?.nativeInsertionEligibleNames?.has(name),
+            options.nativeProjection?.nativeInsertionEligibleNames?.has(name),
           ) ||
           (configuredAgents.length > 0 &&
             configuredAgents.every((id) =>
-              options?.nativeProjection?.nativeInsertionEligibleAgentIds?.has(id),
+              options.nativeProjection?.nativeInsertionEligibleAgentIds?.has(id),
             ));
         const result = yield* runKnowledgeProjectionAdapter({
           bundles: contributors,
@@ -904,11 +908,11 @@ export const KnowledgeManagerLive = Layer.effect(
           instructionsTarget,
           ownership: [
             ...authority.expectedRegions.knowledge,
-            ...(options?.nativeProjection?.priorAuthority?.expectedRegions.knowledge ?? []),
+            ...(options.nativeProjection?.priorAuthority?.expectedRegions.knowledge ?? []),
           ],
           configuredAgents,
           eligible,
-          ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+          ...(options.dryRun === undefined ? {} : { dryRun: options.dryRun }),
         });
         return {
           ...result,
@@ -988,8 +992,13 @@ export const KnowledgeManagerLive = Layer.effect(
             });
           } else prepared.push(restored.success);
         }
-        const { configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(nativeProjection);
+        // One resolution serves this call until a restored bundle is
+        // published: restoring stages outside canonical state, and nothing
+        // between here and the discovery dry run writes.
+        const resolved = yield* resolveKnowledgeProjection(nativeProjection);
+        const shared = shareableKnowledgeProjection(resolved, nativeProjection);
+        const projection = shared ?? resolved;
+        const { configured, config, instructionsTarget } = projection;
         const prospective = prepared.flatMap((item) => {
           const workspaceInstructionEntry =
             configured[item.inspected.manifest.name]?.instructionEntry;
@@ -1005,6 +1014,7 @@ export const KnowledgeManagerLive = Layer.effect(
             : [];
         });
         const discovery = yield* reconcileDiscovery({
+          projection,
           dryRun: true,
           prospective,
           replacedNames: new Set(prepared.map((item) => item.inspected.manifest.name)),
@@ -1012,7 +1022,19 @@ export const KnowledgeManagerLive = Layer.effect(
         });
         if (!dryRun) {
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
-          yield* projectionPlans(nativeProjection).pipe(
+          // With nothing published, the plan takes this call's inputs, frozen;
+          // after a publication it resolves the published state for itself.
+          const plans =
+            prepared.length === 0 && shared !== undefined
+              ? makeKnowledgeProjectionPlan([], nativeProjection, undefined, shared).pipe(
+                  Effect.flatMap((plan) =>
+                    withObservedProjectionPlans([plan], (observed) =>
+                      Effect.succeed(observed.plans),
+                    ),
+                  ),
+                )
+              : projectionPlans(nativeProjection);
+          yield* plans.pipe(
             Effect.flatMap((plans) =>
               applyInstructionSurfacePlans(plans, nativeProjection?.instructionAliases),
             ),

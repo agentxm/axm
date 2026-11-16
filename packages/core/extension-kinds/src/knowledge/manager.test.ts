@@ -56,7 +56,10 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
+import {
+  KnowledgeManager,
+  type KnowledgeManagerService,
+} from "@agentxm/workspace-kernel/materialization";
 import {
   applyPlannedProjections,
   observeObservedPlans,
@@ -1211,6 +1214,284 @@ describe("KnowledgeManager", () => {
         }
       }),
     );
+
+    describe("sync", () => {
+      const deepFrozen = <A>(value: A): A => {
+        if (typeof value === "object" && value !== null) {
+          for (const child of Object.values(value)) deepFrozen(child);
+          Object.freeze(value);
+        }
+        return value;
+      };
+
+      /**
+       * Run `run` against the manager with no read phase active unless `run`
+       * opens one, counting every filesystem call and work fact it makes after
+       * layer construction. The desired graph is deeply frozen, as live
+       * readers return it.
+       */
+      const recordedSync = <A, E, R>(
+        workspaceRoot: string,
+        read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">,
+        run: (manager: KnowledgeManagerService, reset: () => void) => Effect.Effect<A, E, R>,
+      ) =>
+        Effect.gen(function* () {
+          let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+          const observed = workObservations(false);
+          const outcome = yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            const reset = () => {
+              recording?.reset();
+              observed.facts.length = 0;
+            };
+            reset();
+            return yield* run(manager, reset).pipe(observed.provide);
+          }).pipe(
+            Effect.result,
+            Effect.provide(
+              managerLayer(workspaceRoot, {
+                read: read.graph === undefined ? read : { ...read, graph: deepFrozen(read.graph) },
+                fileSystem: (native) => {
+                  const recorded = makeRecordingFileSystem(native);
+                  recording = recorded.recording;
+                  return recorded.fileSystem;
+                },
+              }),
+            ),
+          );
+          const treeHashes = observed.facts.filter(
+            (fact) => fact.kind === "axm.hash.materialized-tree",
+          ).length;
+          return { outcome, recording, treeHashes };
+        });
+
+      const syncOnce = (dryRun: boolean) => (manager: KnowledgeManagerService) =>
+        manager.sync({ dryRun });
+
+      /**
+       * Turn an acquired bundle into one the sync restores from its lock: its
+       * canonical copy is gone and its locked path source holds the same tree.
+       */
+      const makeRestorable = (workspaceRoot: string, canonicalRoot: string, name: string) => {
+        writeKnowledgePackage(nodePath.join(workspaceRoot, "sources", name), name, true);
+        rmSync(canonicalRoot, { recursive: true, force: true });
+      };
+
+      const withWorkspace = <A, E, R>(body: (workspaceRoot: string) => Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+          );
+          try {
+            return yield* body(workspaceRoot);
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        });
+
+      for (const dryRun of [true, false])
+        it.effect(
+          `observes no bundle while ${dryRun ? "previewing" : "applying"} a sync with none enabled`,
+          () =>
+            withWorkspace((workspaceRoot) =>
+              Effect.gen(function* () {
+                const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+                  { name: "handbook", enabled: false },
+                ]);
+                const { outcome, recording, treeHashes } = yield* recordedSync(
+                  workspaceRoot,
+                  read,
+                  syncOnce(dryRun),
+                );
+
+                expect(outcome).toMatchObject({ _tag: "Success" });
+                expect(
+                  recording?.counts(nodePath.join(canonicalRootOf("handbook"), "knowledge.json")),
+                ).toEqual({});
+                expect(treeHashes).toBe(0);
+              }),
+            ),
+        );
+
+      it.effect("reports the same exclusion from a sync preview and its apply", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { read } = acquiredBundles(
+              workspaceRoot,
+              [
+                { name: "handbook", enabled: true },
+                { name: "playbook", enabled: true },
+              ],
+              new Set(["playbook"]),
+            );
+            const { outcome } = yield* recordedSync(workspaceRoot, read, (manager) =>
+              Effect.all([manager.sync({ dryRun: true }), manager.sync({ dryRun: false })]),
+            );
+
+            expect(outcome._tag).toBe("Success");
+            if (outcome._tag !== "Success") return;
+            const [preview, applied] = outcome.success;
+            expect(preview.warnings).toEqual([
+              expect.stringContaining("requires a YAML frontmatter block with a non-empty type"),
+            ]);
+            expect(applied.warnings).toEqual(preview.warnings);
+            const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
+            expect(instructions).toContain("[handbook]");
+            expect(instructions).not.toContain("[playbook]");
+          }),
+        ),
+      );
+
+      for (const run of ["preview", "apply", "restoring apply"] as const)
+        it.effect(
+          `resolves the instruction target route once per validity span of a sync ${run}`,
+          () =>
+            withWorkspace((workspaceRoot) =>
+              Effect.gen(function* () {
+                const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+                  { name: "handbook", enabled: true },
+                ]);
+                if (run === "restoring apply")
+                  makeRestorable(workspaceRoot, canonicalRootOf("handbook"), "handbook");
+                const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+                writeFileSync(instructionsPath, "# Project\n");
+                // Instruction management is off, so no region dry run or write
+                // checks the target route of its own.
+                const { outcome, recording } = yield* recordedSync(
+                  workspaceRoot,
+                  { ...read, settings: { ...read.settings, instructionFiles: false } },
+                  syncOnce(run === "preview"),
+                );
+
+                expect(outcome).toMatchObject({ _tag: "Success" });
+                // One resolution of the declared target before any publication,
+                // and one more after a restored bundle is published.
+                expect(
+                  recording?.calls({ path: instructionsPath, method: "readLink" }),
+                ).toHaveLength(run === "restoring apply" ? 2 : 1);
+                expect(readFileSync(instructionsPath, "utf8")).toBe("# Project\n");
+              }),
+            ),
+        );
+
+      it.effect("keeps the region dry run's own route checks in a sync preview", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { read } = acquiredBundles(workspaceRoot, [{ name: "handbook", enabled: true }]);
+            const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+            writeFileSync(instructionsPath, "# Project\n");
+            const { outcome, recording } = yield* recordedSync(workspaceRoot, read, syncOnce(true));
+
+            expect(outcome).toMatchObject({ _tag: "Success", success: { changed: true } });
+            // One resolution of the declared target, then the dry run's own
+            // target and alias checks.
+            expect(recording?.calls({ path: instructionsPath, method: "readLink" })).toHaveLength(
+              7,
+            );
+          }),
+        ),
+      );
+
+      it.effect("refuses an unwritable instruction target the same way in preview and apply", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { read } = acquiredBundles(workspaceRoot, [{ name: "handbook", enabled: true }]);
+            const outside = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-outside-"));
+            try {
+              writeFileSync(nodePath.join(outside, "AGENTS.md"), "# Elsewhere\n");
+              symlinkSync(
+                nodePath.join(outside, "AGENTS.md"),
+                nodePath.join(workspaceRoot, "AGENTS.md"),
+              );
+              const { outcome } = yield* recordedSync(workspaceRoot, read, (manager) =>
+                Effect.all([
+                  manager.sync({ dryRun: true }).pipe(Effect.flip),
+                  manager.sync({ dryRun: false }).pipe(Effect.flip),
+                ]),
+              );
+
+              const refusal = {
+                _tag: "KnowledgeDefinitionInvalid",
+                detail: "Knowledge instruction source is not writable: AGENTS.md",
+              };
+              expect(outcome).toMatchObject({ _tag: "Success", success: [refusal, refusal] });
+              expect(readFileSync(nodePath.join(outside, "AGENTS.md"), "utf8")).toBe(
+                "# Elsewhere\n",
+              );
+            } finally {
+              rmSync(outside, { recursive: true, force: true });
+            }
+          }),
+        ),
+      );
+
+      it.effect("observes again a bundle whose accepted row the selection reads differently", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+              { name: "handbook", enabled: true },
+            ]);
+            const accepted = read.lockfile?.knowledge?.["handbook"];
+            if (accepted === undefined) return yield* Effect.die("fixture has a lock row");
+            // The phase's accepted row names a tree the canonical copy is not.
+            const phaseLockfile = {
+              lockfileVersion: 1 as const,
+              skills: {},
+              knowledge: {
+                handbook: {
+                  ...accepted,
+                  treeIntegrity: treeIntegrityOfSync(
+                    nodePath.join(canonicalRootOf("handbook"), "src"),
+                  ),
+                },
+              },
+            };
+            const { outcome, treeHashes } = yield* recordedSync(
+              workspaceRoot,
+              read,
+              (manager, reset) =>
+                Effect.gen(function* () {
+                  const locks = yield* LockfileReader.pipe(
+                    Effect.provide(
+                      WorkspaceReadTest({ baseDir: workspaceRoot, lockfile: phaseLockfile }),
+                    ),
+                  );
+                  const phase = {
+                    location: yield* WorkspaceLocation,
+                    observations: false,
+                    stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+                    fileSystem: yield* FileSystem.FileSystem,
+                    readers: {
+                      desired: yield* DesiredStateReader,
+                      settings: yield* SettingsReader,
+                      locks,
+                    },
+                    records: yield* WorkspaceRecords,
+                    packDocuments: new Map(),
+                    isActive: () => true,
+                    endedBy: () => undefined,
+                    close: () => undefined,
+                  };
+                  reset();
+                  return yield* manager
+                    .sync({ dryRun: true })
+                    .pipe(Effect.provideService(CurrentWorkspaceReadPhase, phase));
+                }),
+            );
+
+            // The restore loop's observation against the live row does not
+            // stand in for the selection's against its own.
+            expect(outcome).toMatchObject({
+              _tag: "Success",
+              success: {
+                warnings: [expect.stringContaining("handbook")],
+              },
+            });
+            expect(treeHashes).toBe(2);
+          }),
+        ),
+      );
+    });
   });
 
   it.effect(

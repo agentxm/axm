@@ -124,6 +124,7 @@ const measure = <A, E, R>(measured: Effect.Effect<A, E, R>) =>
           .length,
       readFile: (path: string) =>
         recording.calls({ method: "readFile", path }).filter((call) => call.path === path).length,
+      contentReads: (path: string) => recording.contentReads(path),
       treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
     };
   });
@@ -202,6 +203,9 @@ describe("Uninstall preparation shares its read-phase observations", () => {
             expect(deriveOperationOutcome(applied.result)).toBe("applied");
             expect(workspace.exists(".claude/skills/review")).toBe(false);
             expect.soft(applied.readDirectory(at(".cursor/skills"))).toBe(5);
+            // Repeated: the uninstall step read the configured source again to
+            // decide whether the Skill was configured: 25 reads of the settings.
+            expect(applied.contentReads(at("axm.json"))).toBe(24);
           }),
         )
         .pipe(Effect.provide(recordedNodeServices));

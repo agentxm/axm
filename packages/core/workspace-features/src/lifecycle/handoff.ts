@@ -213,7 +213,9 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
       const target = yield* resolveNativeEntry(path.join(directory, name));
       if (target.kind === "absent" || known.has(target.entryPath)) continue;
       known.add(target.entryPath);
-      const referent = yield* resolveNativeReferent(target.entryPath);
+      // Entry resolution already followed a present entry; a dangling link is
+      // followed live so it is refused with its own location error.
+      const referent = target.referentPath ?? (yield* resolveNativeReferent(target.entryPath));
       const recorded = referentDigests.get(referent);
       const integrity =
         recorded === undefined

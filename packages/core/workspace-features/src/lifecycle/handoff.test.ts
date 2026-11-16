@@ -213,4 +213,42 @@ describe("Skills handoff preparation", () => {
       expect(prepared.treeHashes).toHaveLength(1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
+
+  it.effect("follows each present native entry to its referent once", () =>
+    Effect.gen(function* () {
+      const referentFollows = (prepared: Effect.Success<ReturnType<typeof prepareHandoff>>) => ({
+        canonical: prepared.recording.calls({ method: "realPath", path: prepared.canonical })
+          .length,
+        alias: prepared.recording.calls({ method: "realPath", path: prepared.physicalAlias })
+          .length,
+      });
+      const shared = yield* prepareHandoff({});
+      expect(shared.outcome._tag).toBe("Success");
+      // Entry resolution follows each copy once; the installation plan and the
+      // candidate fingerprint follow it again on their own.
+      expect(referentFollows(shared)).toEqual({ canonical: 3, alias: 3 });
+      expect(shared.treeHashes).toHaveLength(2);
+      expect(shared.recording.contentReads(path.join(shared.canonical, "SKILL.md"))).toBe(3);
+
+      const separate = yield* prepareHandoff({ separateAlias: true });
+      expect(separate.outcome._tag).toBe("Success");
+      expect(referentFollows(separate)).toEqual({ canonical: 3, alias: 3 });
+      expect(separate.treeHashes).toHaveLength(3);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a dangling agent alias after verifying the canonical copy", () =>
+    Effect.gen(function* () {
+      const prepared = yield* prepareHandoff({ danglingAlias: true });
+      expect(prepared.outcome._tag).toBe("Failure");
+      if (prepared.outcome._tag !== "Failure") return;
+      expect(prepared.outcome.failure).toMatchObject({
+        _tag: "NativeLocationError",
+        reason: "dangling-leaf",
+        target: prepared.physicalAlias,
+      });
+      // The upstream copy and the canonical copy were digested before the alias was refused.
+      expect(prepared.treeHashes.map((fact) => fact.outcome)).toEqual(["success", "success"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

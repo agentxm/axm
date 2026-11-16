@@ -39,10 +39,11 @@ describe("Hook install planning resolves the writer routes once", () => {
 
   // Measured when the preparation resolved the routes twice and each Hook's
   // outcome evaluation once more: 19 and 25; with only the preparation's own
-  // repeat removed: 17 and 23.
+  // repeat removed: 17 and 23; while each native settings run admitted every
+  // spelling of the file and re-resolved it per declaration: 15 and 19.
   for (const { packages, probes } of [
-    { packages: ["demo"], probes: 15 },
-    { packages: ["first", "second"], probes: 19 },
+    { packages: ["demo"], probes: 11 },
+    { packages: ["first", "second"], probes: 13 },
   ]) {
     it.effect(
       `plans an install of ${packages.length} local Hook package(s)`,

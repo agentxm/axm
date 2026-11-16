@@ -1096,7 +1096,9 @@ describe("HookManager", () => {
             // plan observation and each prepared input's overlap check probe
             // it too. Measured before the preparation shared its resolution:
             // 9, 15 and 19.
-            expect(counted).toEqual({ nothingPrepared: 9, onePrepared: 13, twoPrepared: 17 });
+            // Each native settings run then admitted every spelling of the
+            // file and re-resolved it per declaration: 9, 13 and 17.
+            expect(counted).toEqual({ nothingPrepared: 5, onePrepared: 9, twoPrepared: 11 });
           }),
         ),
       );

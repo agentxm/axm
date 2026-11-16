@@ -7,8 +7,8 @@ import * as Path from "effect/Path";
 import * as Predicate from "effect/Predicate";
 import {
   assertNativeMutationWithinRoots,
-  assertNoPhysicalOverlap,
   nativeAuthorityRoots,
+  noPhysicalOverlapWith,
   type NativeLocationOutcome,
   type NativeDirectoryInputs,
 } from "../../locations/index.js";
@@ -81,7 +81,13 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
     );
     const physical = address.referentPath ?? address.entryPath;
     const run = Effect.gen(function* () {
-      for (const alias of [args.path, ...args.aliases]) {
+      // Each distinct spelling is admitted once per run. A dry run has no lock
+      // between the admission above and this run, so that admission stands for
+      // its own spelling; a locked apply admits it again under the lock.
+      const spellings = [...new Set([args.path, ...args.aliases])].filter(
+        (alias) => args.dryRun !== true || alias !== args.path,
+      );
+      for (const alias of spellings) {
         const { address: resolved } = yield* assertNativeMutationWithinRoots(
           roots,
           alias,
@@ -91,6 +97,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         if ((resolved.referentPath ?? resolved.entryPath) !== physical)
           return yield* new HookConfigInvalid({ detail: "Hook alias changed after planning" });
       }
+      // The target is resolved by the first declaration's check and judged against every root.
+      const assertNoOverlapWithTarget = yield* noPhysicalOverlapWith(physical);
       for (const source of args.declarations) {
         if (!path.isAbsolute(source.root))
           return yield* new HookConfigInvalid({
@@ -100,7 +108,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
           return yield* new HookConfigInvalid({
             detail: "Hook declaration scope does not match its native target",
           });
-        yield* assertNoPhysicalOverlap(path.resolve(args.workspaceRoot, source.root), physical);
+        yield* assertNoOverlapWithTarget(path.resolve(args.workspaceRoot, source.root));
       }
       const read = () =>
         readFileStringIfPresent(fs, physical).pipe(

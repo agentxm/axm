@@ -317,15 +317,14 @@ const contains = (path: Path.Path, parent: string, child: string): boolean =>
 export const pathsOverlap = (path: Path.Path, left: string, right: string): boolean =>
   contains(path, left, right) || contains(path, right, left);
 
-/** Source and output trees must not coincide, nest, or address the same hardlinked file. */
-export const assertNoPhysicalOverlap = (
-  source: string,
+/** Judge two addresses resolved by the same check; `target` names the refused output. */
+const judgePhysicalOverlap = (
+  path: Path.Path,
   target: string,
-): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  sourceAddress: NativeEntryAddress,
+  targetAddress: NativeEntryAddress,
+): Effect.Effect<void, NativeLocationError> =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const sourceAddress = yield* resolveNativeEntry(source);
-    const targetAddress = yield* resolveNativeEntry(target);
     const sourcePath = sourceAddress.referentPath ?? sourceAddress.entryPath;
     const targetPath = targetAddress.referentPath ?? targetAddress.entryPath;
     const sameInode =
@@ -350,6 +349,38 @@ export const assertNoPhysicalOverlap = (
       return yield* new NativeLocationError({ target, reason: "source-overlap" });
     }
   });
+
+/** Source and output trees must not coincide, nest, or address the same hardlinked file. */
+export const assertNoPhysicalOverlap = (
+  source: string,
+  target: string,
+): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const sourceAddress = yield* resolveNativeEntry(source);
+    const targetAddress = yield* resolveNativeEntry(target);
+    return yield* judgePhysicalOverlap(path, target, sourceAddress, targetAddress);
+  });
+
+/**
+ * The overlap check of several sources against one output within a single
+ * check. Each call resolves its source first, as `assertNoPhysicalOverlap`
+ * does; the output is resolved only by the first call and that resolution
+ * lives only as long as the returned checker.
+ */
+export const noPhysicalOverlapWith = (target: string) =>
+  Effect.map(
+    Effect.cached(resolveNativeEntry(target)),
+    (targetAddress) =>
+      (
+        source: string,
+      ): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const sourceAddress = yield* resolveNativeEntry(source);
+          return yield* judgePhysicalOverlap(path, target, sourceAddress, yield* targetAddress);
+        }),
+  );
 
 /**
  * Authorize the physical boundary beneath one workspace root. A nested workspace

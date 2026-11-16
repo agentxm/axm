@@ -27,6 +27,7 @@ export {
   CanonicalNativePath,
   assertNativeMutationWithin,
   assertNoPhysicalOverlap,
+  noPhysicalOverlapWith,
   pathsOverlap,
   resolveNativeEntry,
   resolveNativeReferent,

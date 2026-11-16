@@ -9,7 +9,7 @@ import * as Result from "effect/Result";
 import type * as Scope from "effect/Scope";
 import { workObservations } from "../../locations/testing.js";
 import { withNativeConfigReadView } from "../native-config-syntax.js";
-import { NativeWriteAuthorityPermissive } from "../testing.js";
+import { makeRecordingNativeWriteAuthority, NativeWriteAuthorityPermissive } from "../testing.js";
 import type { HookNativeDeclaration } from "./managed-groups.js";
 import { reconcileNativeHookConfig, type NativeHookConfigArgs } from "./native-config.js";
 
@@ -73,6 +73,8 @@ const makeFixture = Effect.gen(function* () {
           kind === "axm.render.native" ? [attributes["axm.work.count"]] : [],
         ),
         contentReads: recording.contentReads(file),
+        /** Filesystem calls naming the target, by method. */
+        targetCalls: recording.counts(file),
       };
     });
   const reconcile = (input: NativeHookConfigArgs) =>
@@ -518,6 +520,121 @@ describe("native Hook configuration runs", () => {
           first: [3],
           again: [0],
         });
+      }),
+    ),
+  );
+
+  it.effect(
+    "admits each distinct target spelling once per run and resolves the target once for overlap",
+    () =>
+      scoped(
+        Effect.gen(function* () {
+          const fixture = yield* makeFixture;
+          const audit = fixture.owner("audit");
+          const review = fixture.owner("review");
+          const raw = settings({ PreToolUse: [foreignGroup] });
+          const shared = fixture.args({
+            aliases: [fixture.file, fixture.file],
+            rendered: { PreToolUse: [ownerGroup(audit), ownerGroup(review)] },
+            declarations: [audit, review],
+          });
+          const single = fixture.args({
+            rendered: { PreToolUse: [ownerGroup(audit)] },
+            declarations: [audit],
+          });
+          const none = fixture.args({ rendered: {}, declarations: [] });
+          const scenarios = {
+            sharedDryRun: { ...shared, dryRun: true },
+            sharedApply: shared,
+            singleDryRun: { ...single, dryRun: true },
+            singleApply: single,
+            noneDryRun: { ...none, dryRun: true },
+            noneApply: none,
+          };
+          const observed: Record<string, unknown> = {};
+          const outcomes: Record<string, unknown> = {};
+          const written: Record<string, string> = {};
+          for (const [name, input] of Object.entries(scenarios)) {
+            yield* fixture.write(raw);
+            const run = yield* fixture.measure(fixture.reconcile(input));
+            observed[name] = {
+              readLink: run.targetCalls.readLink ?? 0,
+              stat: run.targetCalls.stat ?? 0,
+              realPath: run.targetCalls.realPath ?? 0,
+            };
+            outcomes[name] = outcomeOf(fixture.root, run.result);
+            written[name] = yield* fixture.contents;
+          }
+          expect(observed).toEqual({
+            // The admission before the run, then one overlap resolution of the target.
+            sharedDryRun: { readLink: 2, stat: 2, realPath: 3 },
+            // The unlocked admission, one admission under the lock, one overlap resolution.
+            sharedApply: { readLink: 3, stat: 4, realPath: 4 },
+            singleDryRun: { readLink: 2, stat: 2, realPath: 3 },
+            singleApply: { readLink: 3, stat: 4, realPath: 4 },
+            // Without declarations the target is never resolved for overlap.
+            noneDryRun: { readLink: 1, stat: 1, realPath: 2 },
+            noneApply: { readLink: 2, stat: 2, realPath: 3 },
+          });
+          expect(outcomes).toMatchObject({
+            sharedDryRun: {
+              success: {
+                changed: true,
+                observedNames: [],
+                nativeLocation: { aliases: ["<root>/.claude/settings.json"], state: "updated" },
+              },
+            },
+            sharedApply: {
+              success: {
+                changed: true,
+                nativeLocation: { aliases: ["<root>/.claude/settings.json"], state: "updated" },
+              },
+            },
+            noneApply: { success: { changed: false, nativeLocation: { state: "retained" } } },
+          });
+          expect(written).toEqual({
+            sharedDryRun: raw,
+            sharedApply: settings({
+              PreToolUse: [foreignGroup, ownerGroup(audit), ownerGroup(review)],
+            }),
+            singleDryRun: raw,
+            singleApply: settings({ PreToolUse: [foreignGroup, ownerGroup(audit)] }),
+            noneDryRun: raw,
+            noneApply: raw,
+          });
+        }),
+      ),
+  );
+
+  it.effect("refuses an alias that names a different file inside the root before any write", () =>
+    scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makeFixture;
+        const audit = fixture.owner("audit");
+        const raw = settings({ PreToolUse: [foreignGroup] });
+        yield* fixture.write(raw);
+        const other = `${fixture.file}.other`;
+        const alias = `${fixture.file}.alias`;
+        yield* fixture.base.writeFileString(other, raw);
+        yield* fixture.base.symlink(other, alias);
+        const args = fixture.args({
+          aliases: [fixture.file, alias],
+          rendered: { PreToolUse: [ownerGroup(audit)] },
+          declarations: [audit],
+        });
+        for (const input of [{ ...args, dryRun: true }, args]) {
+          const authority = yield* makeRecordingNativeWriteAuthority;
+          const { result } = yield* fixture.measure(
+            reconcileNativeHookConfig(input).pipe(Effect.provide(authority.layer)),
+          );
+          expect(outcomeOf(fixture.root, result)).toEqual({
+            failure: "HookConfigInvalid",
+            detail: "Hook alias changed after planning",
+          });
+          expect(yield* authority.observed).toEqual({ protectedPaths: [], records: [] });
+          expect(yield* fixture.contents).toBe(raw);
+          expect(yield* fixture.base.readFileString(other)).toBe(raw);
+        }
       }),
     ),
   );

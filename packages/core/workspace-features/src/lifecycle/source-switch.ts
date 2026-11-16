@@ -242,20 +242,21 @@ const comparableTreeIntegrity = (
     }
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const raw = yield* fs
-      .readFileString(path.join(directory, manifestFilenameForType(ref.type)))
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "validation",
-            detail: "Cannot read distribution manifest for source switch.",
-            cause,
-          }),
-        ),
-      );
+    const manifestName = manifestFilenameForType(ref.type);
+    // One read of the manifest serves both its publication policy and its
+    // bytes in the tree hash below, which still checks the entry's kind.
+    const manifestBytes = yield* fs.readFile(path.join(directory, manifestName)).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: "Cannot read distribution manifest for source switch.",
+          cause,
+        }),
+      ),
+    );
     const manifest = yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(ComparableManifestSchema),
-    )(raw).pipe(
+    )(new TextDecoder().decode(manifestBytes)).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "validation",
@@ -307,14 +308,17 @@ const comparableTreeIntegrity = (
       gitignore: context?.rules ?? [],
       ...(options?.include === undefined ? {} : { include: options.include }),
       ...(options?.exclude === undefined ? {} : { exclude: options.exclude }),
-      manifest: manifestFilenameForType(ref.type),
+      manifest: manifestName,
     });
-    if (!selection.evaluate({ path: manifestFilenameForType(ref.type), kind: "file" }).included)
+    if (!selection.evaluate({ path: manifestName, kind: "file" }).included)
       return yield* installRefused({
         category: "validation",
         detail: "The distribution excludes its required manifest.",
       });
-    return yield* computeDistributionTreeIntegrity(directory, selection).pipe(
+    return yield* computeDistributionTreeIntegrity(directory, selection, {
+      path: manifestName,
+      bytes: manifestBytes,
+    }).pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "validation", detail: cause.detail, cause }),
       ),

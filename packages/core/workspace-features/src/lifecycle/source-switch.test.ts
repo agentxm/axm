@@ -1,8 +1,12 @@
 import * as nodePath from "node:path";
 import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -26,6 +30,12 @@ import {
 import { withSourceSwitches } from "./source-switch.js";
 
 const SKILL = "review";
+
+// The recording filesystem replaces the platform one; the rest of the platform services stay.
+const recordedNodeServices = Layer.provideMerge(
+  layerRecordingFileSystem(NodeFileSystem.layer),
+  NodeServices.layer,
+);
 
 /** One planned install of the Skill that binds the given proposal. */
 const planBinding = (ref: ExtensionRef): Plan => ({
@@ -68,7 +78,11 @@ const acceptedSkill = (cleanups: Array<() => void>) =>
  * Classify one proposal derived from the accepted ref inside one planning
  * read phase, counting only the classification's own work.
  */
-const classify = (world: InstallWorld, propose: (accepted: ExtensionRef) => ExtensionRef) =>
+const classify = <R = never>(
+  world: InstallWorld,
+  propose: (accepted: ExtensionRef) => ExtensionRef,
+  beforeClassification: Effect.Effect<void, never, R> = Effect.void,
+) =>
   Effect.gen(function* () {
     const work = workObservations(false);
     const classified = yield* world.workspace.provide(
@@ -77,6 +91,7 @@ const classify = (world: InstallWorld, propose: (accepted: ExtensionRef) => Exte
           const accepted = yield* acceptedLockedResolutionRef({ type: "skill", name: SKILL });
           if (Option.isNone(accepted)) throw new Error("The Skill was not accepted");
           const plan = planBinding(propose(accepted.value));
+          yield* beforeClassification;
           const result = yield* withSourceSwitches(plan, []).pipe(work.provide, Effect.result);
           return { plan, result };
         }),
@@ -85,6 +100,8 @@ const classify = (world: InstallWorld, propose: (accepted: ExtensionRef) => Exte
     return {
       ...classified,
       treeHashes: work.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length,
+      distributionHashes: work.facts.filter((fact) => fact.kind === "axm.hash.distribution-tree")
+        .length,
     };
   });
 
@@ -177,5 +194,53 @@ describe("Source-switch classification", () => {
         }),
       ]);
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "reads a local proposal's manifest once when comparing it with a Registry acceptance",
+    () =>
+      Effect.gen(function* () {
+        const world = yield* acceptedSkill(cleanups);
+        const canonical = nodePath.join(
+          world.workspace.root,
+          fileRegistryPackagePath(world.registry, "skills", SKILL),
+        );
+        const proposed = fs.mkdtempSync(nodePath.join(world.workspace.root, "..", "proposal-"));
+        cleanups.push(() => fs.rmSync(proposed, { recursive: true, force: true }));
+        fs.cpSync(canonical, proposed, { recursive: true });
+        const recording = yield* FileSystemRecorder;
+
+        const classified = yield* classify(
+          world,
+          (accepted): ExtensionRef => ({
+            refType: "local",
+            type: "skill",
+            source: { type: "local", path: proposed },
+            owner: decodeHandleSync("@acme"),
+            name: accepted.name,
+            location: pathToFileURL(proposed).href,
+            skill: { name: accepted.name, description: Option.none(), metadata: Option.none() },
+          }),
+          Effect.sync(() => recording.reset()),
+        );
+
+        const manifestReads = (directory: string) =>
+          recording.calls({ method: "readFile", path: nodePath.join(directory, "skill.json") })
+            .length;
+        // The accepted Registry side takes no manifest read ahead of its hash, so its reads stay as they were.
+        expect({ proposed: manifestReads(proposed), accepted: manifestReads(canonical) }).toEqual({
+          proposed: 1,
+          accepted: 3,
+        });
+        expect(classified.distributionHashes).toBe(2);
+        expect(classified.result._tag).toBe("Success");
+        if (classified.result._tag !== "Success") return;
+        const step = classified.result.success.jobs[0]?.steps[0];
+        expect(step?.readiness).toBe("warn");
+        const evidence = step?.artifact?.sourceSwitch;
+        expect(evidence?.before.family).toBe("registry");
+        expect(evidence?.after.family).toBe("path");
+        expect(evidence?.after.treeIntegrity).toBe(evidence?.before.treeIntegrity);
+      }).pipe(Effect.provide(recordedNodeServices)),
   );
 });

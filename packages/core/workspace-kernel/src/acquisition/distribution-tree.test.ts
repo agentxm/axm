@@ -98,7 +98,8 @@ describe("selected distribution identity", () => {
 
 /**
  * Work evidence for one distribution-tree hash: every directory below the root
- * is listed exactly once.
+ * is listed exactly once, and a manifest whose bytes the caller already read is
+ * not read again, while the walk keeps its link, stat and selection checks.
  */
 describe("distribution identity work", () => {
   const recordingLayer = Layer.merge(
@@ -166,6 +167,60 @@ describe("distribution identity work", () => {
         total: recording.calls({ method: "readDirectory" }).length,
       }).toEqual({ root: 1, src: 1, deep: 1, empty: 1, evals: 1, total: 5 });
       expect(spans.filter((span) => span.name === "axm.hash.distribution-tree")).toHaveLength(1);
+    }).pipe(Effect.provide(recordingLayer)),
+  );
+
+  it.effect("hashes a prepared manifest without reading it again", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const recording = yield* FileSystemRecorder;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* writePackage(root, { evals: true });
+      const manifest = path.join(root, "skill.json");
+      const expected = yield* computeDistributionTreeIntegrity(root, excludeEvals);
+      const bytes = yield* fs.readFile(manifest);
+      recording.reset();
+
+      expect(
+        yield* computeDistributionTreeIntegrity(root, excludeEvals, {
+          path: "skill.json",
+          bytes,
+        }),
+      ).toBe(expected);
+      expect(recording.contentReads(manifest)).toBe(0);
+      expect(recording.counts(manifest)).toEqual({ readLink: 1, stat: 1 });
+      expect(recording.contentReads(path.join(root, "src", "deep", "body.md"))).toBe(1);
+
+      yield* fs.chmod(manifest, 0o755);
+      expect(
+        yield* computeDistributionTreeIntegrity(root, excludeEvals, { path: "skill.json", bytes }),
+      ).not.toBe(expected);
+    }).pipe(Effect.provide(recordingLayer)),
+  );
+
+  it.effect("ignores prepared bytes for a name the walk does not find as a regular file", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const recording = yield* FileSystemRecorder;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* writePackage(root, { evals: false });
+      yield* fs.writeFileString(path.join(root, "target.json"), "{}");
+      yield* fs.symlink("target.json", path.join(root, "linked.json"));
+      const expected = yield* computeDistributionTreeIntegrity(root);
+      const unrelated = new TextEncoder().encode("unrelated");
+      recording.reset();
+
+      for (const name of ["linked.json", "src", "missing.json", "SKILL.JSON"])
+        expect(
+          yield* computeDistributionTreeIntegrity(root, undefined, {
+            path: name,
+            bytes: unrelated,
+          }),
+        ).toBe(expected);
+      expect(recording.contentReads(path.join(root, "skill.json"))).toBe(4);
+      expect(recording.contentReads(path.join(root, "linked.json"))).toBe(0);
     }).pipe(Effect.provide(recordingLayer)),
   );
 });

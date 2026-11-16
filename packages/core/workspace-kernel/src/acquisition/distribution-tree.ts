@@ -17,8 +17,20 @@ class DistributionTreeInvalid extends Data.TaggedError("DistributionTreeInvalid"
   readonly cause?: unknown;
 }> {}
 
-/** Distribution identity includes implied parents and retained, explicit empty directories. */
-export const computeDistributionTreeIntegrity = (root: string, selection?: ResolvedFileSelection) =>
+/**
+ * Distribution identity includes implied parents and retained, explicit empty directories.
+ *
+ * `preparedManifest` carries the bytes of a root-relative regular file the caller
+ * has just read from this same `root`. The walk still lists, link-checks, stats
+ * and selects that entry, and hashes a copy of those bytes instead of reading
+ * the file again; any entry that is not a regular file at exactly that path is
+ * read as usual.
+ */
+export const computeDistributionTreeIntegrity = (
+  root: string,
+  selection?: ResolvedFileSelection,
+  preparedManifest?: { readonly path: string; readonly bytes: Uint8Array },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -93,7 +105,10 @@ export const computeDistributionTreeIntegrity = (root: string, selection?: Resol
             retain(relative, {
               kind: "file",
               executable: info.mode & 0o111,
-              bytes: yield* fs.readFile(absolute),
+              bytes:
+                preparedManifest?.path === relative
+                  ? preparedManifest.bytes.slice()
+                  : yield* fs.readFile(absolute),
             });
         } else
           return yield* new DistributionTreeInvalid({

@@ -29,6 +29,7 @@ import {
   computePackageContentHash,
   computeMaterializedTreeIntegrity,
   computeMaterializedTreeDigests,
+  DesiredStateReader,
   MaterializedFileTargetSchema,
   acceptedCanonicalObservation,
   capturedManifestFor,
@@ -52,6 +53,7 @@ import {
   type ProjectionRenderInput,
   reconcileNativeManagedRegion,
   captureAgentOutputAuthority,
+  agentOutputAuthorityFrom,
   withObservedProjectionPlans,
   type NativeRegionSource,
   projectionGeneration,
@@ -472,12 +474,27 @@ export const RuleManagerLive = Layer.effect(
         const phase = yield* workspaceReadPhaseFor(location);
         const currentSettings = phase?.readers.settings ?? settings;
         const currentLocks = phase?.readers.locks ?? lockfile;
+        // A plan that reads desired state live through the reader its output
+        // authority reads evaluates once; the authority is derived from that
+        // same evaluation in this call.
+        const evaluation =
+          options?.desiredGraph === undefined &&
+          phase === undefined &&
+          (yield* DesiredStateReader) === desiredState
+            ? Option.some(yield* desiredState.evaluate())
+            : Option.none();
         const graph =
-          options?.desiredGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+          options?.desiredGraph ??
+          (Option.isSome(evaluation)
+            ? evaluation.value.graph
+            : yield* (phase?.readers.desired ?? desiredState).graph());
         const locked = yield* currentLocks.entries("rule");
         const configuredAgents =
           options?.configuredAgents ?? (yield* currentSettings.configuredAgents);
-        const accepted = yield* captureAgentOutputAuthority();
+        const accepted = yield* Option.match(evaluation, {
+          onNone: () => captureAgentOutputAuthority(),
+          onSome: (evaluated) => agentOutputAuthorityFrom(Effect.succeed(evaluated)),
+        });
         const ownership = [
           ...accepted.expectedRegions.rule,
           ...(options?.priorAuthority?.expectedRegions.rule ?? []),

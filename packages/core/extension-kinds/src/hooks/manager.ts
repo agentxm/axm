@@ -36,6 +36,7 @@ import {
   readHookEvidence,
   computeMaterializedTreeIntegrity,
   computeMaterializedTreeDigests,
+  DesiredStateReader,
   enabledConfiguredEntries,
   computeExtensionPathsForLayout,
   type DesiredStateGraph,
@@ -63,6 +64,7 @@ import {
   evaluateHookAgentOutcome,
   type ProjectionUnitObservation,
   captureAgentOutputAuthority,
+  agentOutputAuthorityFrom,
   nativePackageReferences,
   withObservedProjectionPlans,
   type ObservedProjectionPlans,
@@ -919,8 +921,20 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
+        // A plan that reads desired state live through the reader its output
+        // authority reads evaluates once; the authority is derived from that
+        // same evaluation in this call.
+        const evaluation =
+          options?.desiredGraph === undefined &&
+          phase === undefined &&
+          (yield* DesiredStateReader) === desiredState
+            ? Option.some(yield* desiredState.evaluate())
+            : Option.none();
         const graph =
-          options?.desiredGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+          options?.desiredGraph ??
+          (Option.isSome(evaluation)
+            ? evaluation.value.graph
+            : yield* (phase?.readers.desired ?? desiredState).graph());
         const locked = yield* currentLocks.entries("hook");
         const retained = yield* selectHookContributors({
           graph: {
@@ -937,9 +951,10 @@ export const HookManagerLive = Layer.effect(
             .filter((node) => node.type === "hook" && !node.enabled)
             .map((node) => node.name),
         );
-        const disabledWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
-          ({ name }) => disabledNames.has(name),
-        );
+        const disabledWithdrawals = (yield* Option.match(evaluation, {
+          onNone: () => captureAgentOutputAuthority(),
+          onSome: (evaluated) => agentOutputAuthorityFrom(Effect.succeed(evaluated)),
+        })).expectedHooks.filter(({ name }) => disabledNames.has(name));
         // Each prospective contributor keeps its position, so its outcomes
         // are found again by position rather than by a name it may share.
         const positioned: ReadonlyArray<{

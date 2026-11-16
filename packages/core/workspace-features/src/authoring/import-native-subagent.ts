@@ -25,23 +25,34 @@ import {
 } from "./authored-package-errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
+/**
+ * What one native import observed about its source before staging: the
+ * source's kind and, for a directory, a frozen copy of its entry names. It is
+ * owned by that import call and never outlives it.
+ */
+export type NativeSourceInspection =
+  | { readonly kind: "directory"; readonly entries: ReadonlyArray<string> }
+  | { readonly kind: "file" }
+  | { readonly kind: "other" };
+
 /** Native import is explicit when a Markdown document has no unique runtime location. */
-export const importNativeSubagent = Effect.fn("ImportNativeSubagent")(function* (args: {
-  readonly sourcePath: string;
-  readonly targetDir: string;
-  readonly target: ExtensionFqnParts;
-  readonly sourceAgent?: AgentId;
-  readonly existingPackagePath?: string;
-}) {
+export const importNativeSubagent = Effect.fn("ImportNativeSubagent")(function* (
+  args: {
+    readonly sourcePath: string;
+    readonly targetDir: string;
+    readonly target: ExtensionFqnParts;
+    readonly sourceAgent?: AgentId;
+    readonly existingPackagePath?: string;
+  },
+  source: NativeSourceInspection,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ioFailure = (cause: unknown) =>
     new NativeImportFailed({ detail: "Native subagent import failed", cause });
-  const stat = yield* fs.stat(args.sourcePath).pipe(Effect.mapError(ioFailure));
   let sourceFile = args.sourcePath;
-  if (stat.type === "Directory") {
-    const entries = yield* fs.readDirectory(sourceFile).pipe(Effect.mapError(ioFailure));
-    const candidates = entries.filter(
+  if (source.kind === "directory") {
+    const candidates = source.entries.filter(
       (entry) => /\.(md|toml|json)$/i.test(entry) && !/^readme\.md$/i.test(entry),
     );
     if (candidates.length !== 1 || candidates[0] === undefined) {
@@ -51,7 +62,7 @@ export const importNativeSubagent = Effect.fn("ImportNativeSubagent")(function* 
       });
     }
     sourceFile = path.join(sourceFile, candidates[0]);
-  } else if (stat.type !== "File") {
+  } else if (source.kind !== "file") {
     return yield* new NativeImportInvalid({
       detail: "Native subagent source must be a file or directory",
     });

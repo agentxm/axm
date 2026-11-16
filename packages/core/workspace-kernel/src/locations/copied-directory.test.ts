@@ -216,11 +216,12 @@ const treeFixture = Effect.gen(function* () {
 });
 
 describe("one copied entry check", () => {
-  it.effect("stats a copied directory's root once while reading its receipt", () =>
+  it.effect("still stats a copied directory's root after reading its receipt", () =>
     Effect.gen(function* () {
       const { copy, recorded, stats } = yield* treeFixture;
       expect(Option.isSome(yield* recorded(readCopiedDirectory(copy)))).toBe(true);
-      expect(stats(copy)["."]).toBe(1);
+      // Its resolution, and the identity proof that follows the receipt read.
+      expect(stats(copy)["."]).toBe(2);
     }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
   );
 
@@ -265,8 +266,9 @@ describe("one copied entry check", () => {
       expect(yield* recorded(copiedDirectoryOwnsPath(copy, path.join(copy, "scripts")))).toBe(true);
       expect(stats(copy)["scripts"]).toBe(1);
       expect(yield* recorded(retireCopiedDirectory(copy))).toBe(true);
+      // The root's resolution and its identity proof after the receipt read both stay.
       expect(stats(copy)).toEqual({
-        ".": 1,
+        ".": 2,
         "a.txt": 1,
         scripts: 1,
         "scripts/run.sh": 1,

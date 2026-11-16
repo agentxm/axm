@@ -128,18 +128,10 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
 /** Invalid, missing, replaced, or symlinked copies carry no deletion authority. */
 export const readCopiedDirectory = (directory: string) =>
   Effect.gen(function* () {
-    const observed = yield* resolveObservedNativeEntry(directory);
-    // The resolution's followed stat is the directory's current identity.
-    return yield* readResolvedCopiedDirectory(directory, observed.address, () =>
-      Effect.succeed(observedIdentity(observed)),
-    );
+    return yield* readResolvedCopiedDirectory(directory, yield* resolveNativeEntry(directory));
   }).pipe(Effect.catch(() => Effect.succeedNone));
 
-const readResolvedCopiedDirectory = <E, R>(
-  directory: string,
-  address: NativeEntryAddress,
-  currentIdentity: () => Effect.Effect<Option.Option<typeof Identity.Type>, E, R>,
-) =>
+const readResolvedCopiedDirectory = (directory: string, address: NativeEntryAddress) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -154,7 +146,8 @@ const readResolvedCopiedDirectory = <E, R>(
         Effect.option,
       );
     if (Option.isNone(receipt)) return receipt;
-    const current = yield* currentIdentity();
+    // The directory must still be the one the receipt names after the receipt is read.
+    const current = identityOf(yield* fs.stat(directory));
     if (Option.isNone(current)) return Option.none<CopiedDirectoryReceipt>();
     const expected = receipt.value.identity;
     if (!sameIdentity(current.value, expected)) return Option.none<CopiedDirectoryReceipt>();

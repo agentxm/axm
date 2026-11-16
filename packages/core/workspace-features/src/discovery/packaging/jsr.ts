@@ -259,12 +259,10 @@ export const denoReader: PackageReader = preparedReader(
         const registryCacheDir = path.join(denoDir, "registries", "jsr.io");
         if (!(yield* registryCache(registryCacheDir))) return Option.none();
 
-        // Check the cached package directory for deno.json with agentExtensions.
+        // Scan the cached package's version directories for deno.json with
+        // agentExtensions; a package directory that cannot be listed, absent
+        // included, has none.
         const pkgCacheDir = path.join(registryCacheDir, scope, pkg.purl.name);
-        const pkgDirExists = yield* fs.exists(pkgCacheDir).pipe(Effect.option);
-        if (Option.isNone(pkgDirExists) || !pkgDirExists.value) return Option.none();
-
-        // Scan version directories for deno.json with agentExtensions.
         const versionDirs = yield* fs.readDirectory(pkgCacheDir).pipe(Effect.option);
         if (Option.isNone(versionDirs)) return Option.none();
 

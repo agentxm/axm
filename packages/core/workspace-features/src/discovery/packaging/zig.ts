@@ -134,11 +134,8 @@ const listZigCache = (cacheDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    // Check if cache directory exists
-    const cacheDirExists = yield* fs.exists(cacheDir).pipe(Effect.option);
-    if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
-
-    // Scan cache directory entries for agent-extensions.json
+    // Scan cache directory entries for agent-extensions.json; a cache that
+    // cannot be listed, absent included, has none.
     const entries = yield* fs.readDirectory(cacheDir).pipe(Effect.option);
     return Option.map(entries, sharedListing);
   });

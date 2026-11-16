@@ -122,12 +122,10 @@ export const mojoDetector: PackageDetector = {
   ),
 };
 
-/** The entries of a directory that exists and is readable, otherwise `none`. */
-const listExistingDirectory = (directory: string) =>
+/** The entries of a directory that can be listed, otherwise `none`, absence included. */
+const listDirectory = (directory: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(directory).pipe(Effect.option);
-    if (Option.isNone(exists) || !exists.value) return Option.none();
     const entries = yield* fs.readDirectory(directory).pipe(Effect.option);
     return Option.map(entries, sharedListing);
   });
@@ -144,7 +142,7 @@ const listExistingDirectory = (directory: string) =>
 export const mojoReader: PackageReader = preparedReader(
   mojoType,
   Effect.gen(function* () {
-    const listing = yield* sharedPerKey(listExistingDirectory);
+    const listing = yield* sharedPerKey(listDirectory);
     return Effect.fn("read.mojo")(
       function* (pkg: DetectedPackage) {
         const path = yield* Path.Path;

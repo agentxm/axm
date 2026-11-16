@@ -406,21 +406,19 @@ const resolveSitePackages = () =>
     const virtualEnv = Option.getOrUndefined(yield* envOption("VIRTUAL_ENV"));
     if (virtualEnv) {
       // Scan for python* directories under lib/
+      // A lib that cannot be listed, absent included, has no candidates.
       const libDir = path.join(virtualEnv, "lib");
-      const libExists = yield* fs.exists(libDir).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (libExists) {
-        const entries = yield* fs.readDirectory(libDir).pipe(
-          Effect.catch(() => {
-            const empty: ReadonlyArray<string> = [];
-            return Effect.succeed(empty);
-          }),
-        );
-        for (const entry of entries) {
-          if (entry.startsWith("python")) {
-            const sp = path.join(libDir, entry, "site-packages");
-            const spExists = yield* fs.exists(sp).pipe(Effect.catch(() => Effect.succeed(false)));
-            if (spExists) return Option.some(sp);
-          }
+      const entries = yield* fs.readDirectory(libDir).pipe(
+        Effect.catch(() => {
+          const empty: ReadonlyArray<string> = [];
+          return Effect.succeed(empty);
+        }),
+      );
+      for (const entry of entries) {
+        if (entry.startsWith("python")) {
+          const sp = path.join(libDir, entry, "site-packages");
+          const spExists = yield* fs.exists(sp).pipe(Effect.catch(() => Effect.succeed(false)));
+          if (spExists) return Option.some(sp);
         }
       }
     }

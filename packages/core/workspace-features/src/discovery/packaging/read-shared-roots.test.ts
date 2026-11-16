@@ -208,7 +208,7 @@ describe("package readers share ecosystem roots within one read", () => {
           detected("zig", name, "/project/build.zig.zon", { version: "1.0.0" }),
         ),
       });
-      expect(outcome.recording.counts(cache)).toEqual({ access: 1, readDirectory: 1 });
+      expect(outcome.recording.counts(cache)).toEqual({ readDirectory: 1 });
       expect(outcome.recording.counts(`${cache}/1-malformed/agent-extensions.json`)).toEqual({
         readFile: 1,
       });
@@ -244,7 +244,7 @@ describe("package readers share ecosystem roots within one read", () => {
         ),
         packages: names.map((name) => detected("pypi", name, "/project/requirements.txt")),
       });
-      expect(outcome.recording.counts("/venv/lib")).toEqual({ access: 1, readDirectory: 1 });
+      expect(outcome.recording.counts("/venv/lib")).toEqual({ readDirectory: 1 });
       expect(outcome.recording.counts(sitePackages)).toEqual({ access: 1, readDirectory: 1 });
       for (const name of names) {
         expect(
@@ -333,9 +333,8 @@ describe("package readers share ecosystem roots within one read", () => {
         ),
         packages: names.map((name) => detected("mojo", name, "/mojo/pixi.toml")),
       });
-      expect(outcome.recording.counts(envs)).toEqual({ access: 1, readDirectory: 1 });
+      expect(outcome.recording.counts(envs)).toEqual({ readDirectory: 1 });
       expect(outcome.recording.counts(`${envs}/default/conda-meta`)).toEqual({
-        access: 1,
         readDirectory: 1,
       });
       expect(outcome.results).toEqual([allFound]);
@@ -382,11 +381,9 @@ describe("package readers share ecosystem roots within one read", () => {
       });
       for (const project of projects) {
         expect(outcome.recording.counts(`/${project}/.pixi/envs`)).toEqual({
-          access: 1,
           readDirectory: 1,
         });
         expect(outcome.recording.counts(`/${project}/.pixi/envs/default/conda-meta`)).toEqual({
-          access: 1,
           readDirectory: 1,
         });
       }
@@ -417,7 +414,6 @@ describe("package readers share ecosystem roots within one read", () => {
       expect(outcome.recording.counts(registry)).toEqual({ access: 1 });
       for (const name of names) {
         expect(outcome.recording.counts(`${registry}/@acme/${name}`)).toEqual({
-          access: 1,
           readDirectory: 1,
         });
       }

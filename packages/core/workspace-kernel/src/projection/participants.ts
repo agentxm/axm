@@ -76,6 +76,14 @@ export interface ProjectionParticipant {
   readonly units: ReadonlyArray<AggregateOwnershipUnitId>;
   readonly projectionPlans: (options?: {
     readonly desiredGraph?: DesiredStateGraph;
+    /**
+     * Package content hashes, by name, that the caller settled in this same
+     * boundary; an owner takes one only for exactly the same package root.
+     */
+    readonly preparedContentHashes?: ReadonlyMap<
+      string,
+      { readonly packageRoot: string; readonly contentHash: string }
+    >;
   }) => ParticipantProjectionPlans;
 }
 

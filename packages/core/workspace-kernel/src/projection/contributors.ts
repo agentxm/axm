@@ -173,6 +173,78 @@ export const handedOverAuthoredPackage = (args: {
     ),
   );
 
+/** A package content hash for exactly one package root, as contributor selection takes it. */
+interface PreparedPackageContentHash {
+  readonly packageRoot: string;
+  readonly contentHash: string;
+}
+
+/**
+ * A read-only view of `entries` that answers only while `isActive` holds and
+ * is empty once it does not, so a lookup after the phase ended finds nothing.
+ */
+const answeringWhileActive = (
+  entries: ReadonlyMap<string, PreparedPackageContentHash>,
+  isActive: () => boolean,
+): ReadonlyMap<string, PreparedPackageContentHash> => {
+  const none: ReadonlyMap<string, PreparedPackageContentHash> = new Map();
+  const current = () => (isActive() ? entries : none);
+  const view: ReadonlyMap<string, PreparedPackageContentHash> = {
+    get size() {
+      return current().size;
+    },
+    get: (key) => current().get(key),
+    has: (key) => current().has(key),
+    forEach: (callback, thisArg) => {
+      current().forEach((value, key) => {
+        callback.call(thisArg, value, key, view);
+      });
+    },
+    entries: () => current().entries(),
+    keys: () => current().keys(),
+    values: () => current().values(),
+    [Symbol.iterator]: () => current()[Symbol.iterator](),
+  };
+  return Object.freeze(view);
+};
+
+/**
+ * Package content hashes, by name, of the handed-over resolutions of the
+ * workspace-authored packages of `type` that `names` lists, under exactly
+ * `layout`, gated as `handedOverAuthoredPackage` gates one resolution. Each
+ * lookup in the result answers only while the handoff's phase is still
+ * active, so a selection that looks a name up after the phase ended hashes
+ * the package for itself. `names` runs only while a handoff is current, and
+ * every call builds its own map; `None` when nothing is handed over.
+ */
+export const handedOverAuthoredContentHashes = <R>(args: {
+  readonly type: ExtensionType;
+  readonly layout: WorkspaceLayout;
+  readonly names: Effect.Effect<ReadonlyArray<string>, never, R>;
+}) =>
+  Effect.gen(function* () {
+    const current = yield* currentHandoff;
+    if (Option.isNone(current) || current.value.authoredPackage === undefined)
+      return Option.none<ReadonlyMap<string, PreparedPackageContentHash>>();
+    const handoff = current.value;
+    const entries = new Map<string, PreparedPackageContentHash>();
+    for (const name of yield* args.names) {
+      const authored = yield* handedOverAuthoredPackage({
+        type: args.type,
+        name,
+        layout: args.layout,
+      });
+      if (Option.isSome(authored))
+        entries.set(
+          name,
+          Object.freeze({ packageRoot: authored.value.root, contentHash: authored.value.hash }),
+        );
+    }
+    return entries.size === 0
+      ? Option.none<ReadonlyMap<string, PreparedPackageContentHash>>()
+      : Option.some(answeringWhileActive(entries, handoff.phase.isActive));
+  });
+
 /**
  * The handed-over observation of `node`, only while the phase it was made in
  * is still the active observation phase, the caller reads through that

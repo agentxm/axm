@@ -28,6 +28,7 @@ import { isProjectionError, type ProjectionParticipantFailure } from "./errors.j
 import { projectionErrorToStepFailure } from "./step-failure.js";
 import {
   CurrentCanonicalObservationHandoff,
+  handedOverAuthoredContentHashes,
   handedOverAuthoredPackage,
   type CanonicalObservationHandoff,
 } from "./contributors.js";
@@ -348,15 +349,45 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           Layer.succeed(RegistryClientFactory, registryClients),
           Layer.succeed(NativeWriteAuthority, nativeWriteAuthority),
         );
+        const layout = yield* Ref.get(location.layout);
         const observeParticipant = (participant: ProjectionParticipant) =>
           Effect.result(
-            participant
-              .projectionPlans(
-                observedGraph === undefined ? undefined : { desiredGraph: observedGraph },
-              )
-              .pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
+            Effect.gen(function* () {
+              // The caller's own hashes, in this phase, of the enabled
+              // workspace-authored Hooks stand for the Hook selection's
+              // hashes of the same package roots while the phase lasts.
+              const preparedContentHashes = participant.units.includes("hook:agent-hook-entries")
+                ? yield* handedOverAuthoredContentHashes({
+                    type: "hook",
+                    layout,
+                    names: (observedGraph === undefined
+                      ? readers.desired.graph()
+                      : Effect.succeed(observedGraph)
+                    ).pipe(
+                      Effect.map((graph) =>
+                        graph.nodes
+                          .filter(
+                            (node) =>
+                              node.type === "hook" && node.enabled && node.source === "workspace",
+                          )
+                          .map((node) => node.name),
+                      ),
+                      Effect.orElseSucceed(() => []),
+                    ),
+                  })
+                : Option.none();
+              return yield* participant.projectionPlans(
+                observedGraph === undefined && Option.isNone(preparedContentHashes)
+                  ? undefined
+                  : {
+                      ...(observedGraph === undefined ? {} : { desiredGraph: observedGraph }),
+                      ...(Option.isSome(preparedContentHashes)
+                        ? { preparedContentHashes: preparedContentHashes.value }
+                        : {}),
+                    },
+              );
+            }).pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
           );
-        const layout = yield* Ref.get(location.layout);
         // Aggregate owners need their complete contributor set. Singleton owners
         // can be selected exactly, without reading other subjects' native files.
         const aggregates =

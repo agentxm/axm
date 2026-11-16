@@ -36,6 +36,7 @@ import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/t
 import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import {
   CurrentWorkspaceReadPhase,
+  DEFAULT_AUTHORED_DIRECTORIES,
   DesiredStateReader,
   LOCKFILE_VERSION,
   LockfileIoError,
@@ -54,6 +55,7 @@ import {
   writeAuthoredRule,
   type SyncFixture,
 } from "../../testing/sync-fixture.js";
+import { writeMinimalPackage } from "../../testing/local-packages.js";
 import { makeLintWorkspace } from "../testing.js";
 import { lintSelectedSubjects } from "./lint-selected-subjects.js";
 import {
@@ -934,13 +936,17 @@ describe("lint settings rules", () => {
   );
 });
 
-/** A synced project with one enabled workspace-authored Subagent. */
-const syncedAuthoredSubagent = () => {
+/**
+ * A synced project with one enabled workspace-authored Subagent, whose agents'
+ * instruction files AXM does not manage unless `settings` says so.
+ */
+const syncedAuthoredSubagent = (settings: Readonly<Record<string, unknown>> = {}) => {
   const workspace = makeSyncFixture({
     settings: {
       owner: "@acme",
       agents: ["claude-code"],
       subagents: { helper: { source: "workspace" } },
+      ...settings,
     },
   });
   cleanups.push(workspace.cleanup);
@@ -959,6 +965,50 @@ const syncedAuthoredSubagent = () => {
   );
   nodeFs.writeFileSync(nodePath.join(root, "core.md"), "Help as the helper subagent.\n");
   return { workspace, manifest: nodePath.join(root, "subagent.json") };
+};
+
+/** A synced project with one enabled workspace-authored Hook. */
+const syncedAuthoredHook = (settings: Readonly<Record<string, unknown>> = {}) => {
+  const workspace = makeSyncFixture({
+    settings: {
+      owner: "@acme",
+      agents: ["claude-code"],
+      hooks: { guard: "workspace" },
+      ...settings,
+    },
+  });
+  cleanups.push(workspace.cleanup);
+  const root = writeMinimalPackage(
+    nodePath.join(workspace.root, DEFAULT_AUTHORED_DIRECTORIES.hook, "guard"),
+    "hook",
+    { name: "guard" },
+  );
+  return { workspace, manifest: nodePath.join(root, "hook.json") };
+};
+
+/** Run `lint` with handoffs that carry no authored package resolutions. */
+const withoutAuthoredPackages = wrappingHandoffs(({ phase, fileSystem, observed }) => ({
+  phase,
+  fileSystem,
+  observed,
+}));
+
+/** Run `lint`, counting each lookup of an authored package resolution its handoffs answer. */
+const countingAuthoredLookups = () => {
+  const asked: Array<string> = [];
+  const wrap = wrappingHandoffs((handoff) => {
+    const lookup = handoff.authoredPackage;
+    return lookup === undefined
+      ? handoff
+      : {
+          ...handoff,
+          authoredPackage: (args) => {
+            asked.push(`${args.type}:${args.name}`);
+            return lookup(args);
+          },
+        };
+  });
+  return { wrap, asked };
 };
 
 /** Run `lint`, counting the package content hashes and the manifest decodes of `manifest`. */
@@ -1035,4 +1085,167 @@ describe("lint authored package resolutions", () => {
       );
     },
   );
+
+  it.effect(
+    "resolves an authored Subagent for the facts once lint's observation phase has ended",
+    () => {
+      // Managing the agents' instruction files makes the run's alias probe
+      // write through the observation port, ending the phase before the facts
+      // are demanded.
+      const { workspace, manifest } = syncedAuthoredSubagent({
+        instructionFiles: { fileName: "AGENTS.md" },
+      });
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const reference = yield* countedPackageWork(
+            withoutAuthoredPackages(contributorLint(workspace)),
+            manifest,
+          );
+          const lookups = countingAuthoredLookups();
+          const counted = yield* countedPackageWork(
+            lookups.wrap(contributorLint(workspace)),
+            manifest,
+          );
+          // The facts never ask for the authoring folder's resolution, and
+          // resolve the package for themselves on each demand.
+          expect(lookups.asked).toEqual([]);
+          expect({ hashes: counted.hashes, decodes: counted.decodes }).toEqual({
+            hashes: reference.hashes,
+            decodes: reference.decodes,
+          });
+          // The authoring folder's hash, then one per facts demand.
+          expect(counted.hashes).toBe(3);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "hashes an enabled authored Hook once for its authoring folder and contributor selection",
+    () => {
+      const { workspace, manifest } = syncedAuthoredHook();
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          // Without the authoring folder's resolutions, the Hook selection in
+          // the projection facts hashes the package again.
+          const reference = yield* countedPackageWork(
+            withoutAuthoredPackages(contributorLint(workspace)),
+            manifest,
+          );
+          expect(reference.hashes).toBe(2);
+          const lookups = countingAuthoredLookups();
+          const counted = yield* countedPackageWork(
+            lookups.wrap(contributorLint(workspace)),
+            manifest,
+          );
+          expect(counted.hashes).toBe(1);
+          expect(lookups.asked).toEqual(["hook:guard"]);
+          expect(counted.decodes).toBe(reference.decodes);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "hashes an authored Hook for its contributor selection once lint's observation phase has ended",
+    () => {
+      const { workspace, manifest } = syncedAuthoredHook({
+        instructionFiles: { fileName: "AGENTS.md" },
+      });
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const reference = yield* countedPackageWork(
+            withoutAuthoredPackages(contributorLint(workspace)),
+            manifest,
+          );
+          const lookups = countingAuthoredLookups();
+          const counted = yield* countedPackageWork(
+            lookups.wrap(contributorLint(workspace)),
+            manifest,
+          );
+          expect(lookups.asked).toEqual([]);
+          expect(counted.hashes).toBe(reference.hashes);
+          // The authoring folder's hash, then one per facts demand.
+          expect(counted.hashes).toBe(3);
+          expect(counted.decodes).toBe(reference.decodes);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "hashes an authored Hook for its selection when the phase ends while the facts select",
+    () => {
+      const { workspace, manifest } = syncedAuthoredHook();
+      // The phase ends as soon as the facts look up the authoring folder's
+      // resolution, before the Hook selection asks for its hash. The reference
+      // ends it at the same point but is handed nothing.
+      const endingOnLookup = (answer: boolean) =>
+        wrappingHandoffs((handoff) => {
+          const lookup = handoff.authoredPackage;
+          return lookup === undefined
+            ? handoff
+            : {
+                ...handoff,
+                authoredPackage: (args) => {
+                  const answered = answer ? lookup(args) : Option.none();
+                  handoff.phase.close("mutation");
+                  return answered;
+                },
+              };
+        });
+      return withContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const reference = yield* countedPackageWork(
+            endingOnLookup(false)(contributorLint(workspace)),
+            manifest,
+          );
+          const counted = yield* countedPackageWork(
+            endingOnLookup(true)(contributorLint(workspace)),
+            manifest,
+          );
+          // The authoring folder's hash, the selection's own hash after the
+          // phase ended, and the hash of the facts the next rule demands afresh.
+          expect(counted.hashes).toBe(3);
+          expect(counted.hashes).toBe(reference.hashes);
+          expectSameDocument(counted, reference);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect("hashes a disabled authored Hook only for its authoring folder", () => {
+    const { workspace, manifest } = syncedAuthoredHook({
+      hooks: { guard: { source: "workspace", enabled: false } },
+    });
+    return withContributorServices(
+      workspace,
+      Effect.gen(function* () {
+        const reference = yield* countedPackageWork(
+          withoutAuthoredPackages(contributorLint(workspace)),
+          manifest,
+        );
+        const lookups = countingAuthoredLookups();
+        const counted = yield* countedPackageWork(
+          lookups.wrap(contributorLint(workspace)),
+          manifest,
+        );
+        expect(lookups.asked).toEqual([]);
+        expect(counted.hashes).toBe(reference.hashes);
+        expect(counted.hashes).toBe(1);
+        expectSameDocument(counted, reference);
+      }),
+    );
+  });
 });

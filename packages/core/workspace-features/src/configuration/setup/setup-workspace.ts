@@ -1,4 +1,5 @@
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
+import type { PlannedSkillEntries } from "./skill-targets.js";
 import { observeSetupOutputConcerns, setupOutputConcernMessage } from "./output-concerns.js";
 import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 /**
@@ -400,6 +401,12 @@ export interface SetupTransition {
   readonly footprint?: ReadonlyArray<FootprintObservation>;
   readonly outputConcerns?: ReadonlyArray<NativeOutputConcern>;
   readonly plan?: ReadonlyArray<SetupPlanRow>;
+  /**
+   * A preview only: the bundled-skill entries its planning resolved, each under
+   * the target path spelled exactly as planned, so the preview's report
+   * describes the entries that planning observed.
+   */
+  readonly plannedSkillEntries?: PlannedSkillEntries;
 }
 
 /**
@@ -656,10 +663,16 @@ const reportSetupWorkspace = (
       const relative = path.relative(physicalBaseDir, filePath);
       return relative === "" || !isRelativeWithin(path, relative) ? filePath : relative;
     };
-    const targetsFor = (paths: ReadonlyArray<string>) =>
+    // A preview's report describes the bundled-skill entries its planning
+    // resolved; every other status resolves them again.
+    const plannedSkillEntries: PlannedSkillEntries =
+      resolvedStatus === "preview" ? (request.transition.plannedSkillEntries ?? []) : [];
+    const targetsFor = (paths: ReadonlyArray<string>, planned: PlannedSkillEntries = []) =>
       Effect.forEach([...new Set(paths)], (filePath) =>
         Effect.gen(function* () {
-          const entry = yield* resolveNativeEntry(filePath);
+          const entry =
+            planned.find((known) => known.path === filePath)?.entry ??
+            (yield* resolveNativeEntry(filePath));
           const row = request.transition.plan?.find(
             (row) => path.resolve(planBaseDir, row.target) === entry.entryPath,
           );
@@ -697,7 +710,7 @@ const reportSetupWorkspace = (
     const instructionTargets = yield* targetsFor(
       plannedPaths(["instructionSource", "instructionTarget"]),
     );
-    const skillTargets = yield* targetsFor(plannedPaths(["bundledSkill"]));
+    const skillTargets = yield* targetsFor(plannedPaths(["bundledSkill"]), plannedSkillEntries);
     const instructionBlocked = instructionTargets.some((target) => target.action === "blocked");
     const instructionDeferred =
       plan.some((row) => row.detail._tag === "instructionSource" && row.detail.deferred === true) &&

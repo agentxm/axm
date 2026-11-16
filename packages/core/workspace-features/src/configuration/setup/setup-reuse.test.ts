@@ -324,6 +324,216 @@ const callCount = (
 ) => calls.filter((call) => call.method === method && call.path === target).length;
 
 /**
+ * A setup plan resolves each bundled-skill native entry once and hands that
+ * resolution to its output-concern observation; a preview's report describes
+ * the same entries from that planning. An applied run's report still resolves
+ * every entry again after the writes. An absent leaf costs two `readLink`
+ * calls per resolution; the plan's admission checks resolve the entry again
+ * on their own.
+ */
+describe("Setup resolves each bundled-skill entry once for its plan", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  const fixtureWith = (options: SetupFixtureOptions) => {
+    const fixture = makeSetupFixture(options);
+    cleanups.push(fixture.cleanup);
+    return fixture;
+  };
+  const skillStep = (outcome: Effect.Success<ReturnType<typeof observeSetup>>["outcome"]) =>
+    outcome?.steps.find((step) => step.label === "@agentxm/skills/axm");
+  const canonicalOf = (
+    root: string,
+    observed: Effect.Success<ReturnType<typeof observeSetup>>,
+  ): string => {
+    const row = Exit.isSuccess(observed.transition)
+      ? observed.transition.value.plan?.find(
+          (row) => row.detail._tag === "bundledSkill" && row.agentIds === undefined,
+        )
+      : undefined;
+    if (row === undefined) throw new Error("Expected the canonical bundled-skill row");
+    return path.resolve(root, row.target);
+  };
+
+  it.effect("a project preview plans and reports the agent entry from one resolution", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      const before = fixture.snapshot();
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      const canonical = canonicalOf(fixture.root, observed);
+      // Before: 10 while planning (plan rows, admission, concerns) and 2 in the report.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
+      // Before: 2 in the report.
+      expect(callCount(observed.calls.reported, "readLink", canonical)).toBe(0);
+      expect(skillStep(observed.outcome)?.artifact?.targets).toEqual([
+        {
+          action: "create",
+          detail: { _tag: "bundledSkill" },
+          path: path.relative(fixture.root, canonical),
+          change: "created",
+        },
+        {
+          action: "create",
+          detail: { _tag: "bundledSkill" },
+          path: path.join(".agents", "skills", "axm"),
+          change: "created",
+        },
+        {
+          action: "create",
+          detail: { _tag: "bundledSkill" },
+          agentIds: ["claude-code"],
+          path: path.join(".claude", "skills", "axm"),
+          change: "created",
+        },
+      ]);
+      expect(fixture.snapshot()).toEqual(before);
+    }),
+  );
+
+  it.effect("a user preview plans and reports the agent entry from one resolution", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({});
+      const leaf = path.join(fixture.home, ".claude", "skills", "axm");
+      const observed = yield* observeSetup(
+        fixture,
+        request(fixture.root, { scope: "user", preview: true }),
+      );
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      // Before: 10 while planning and 2 in the report.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
+      expect(
+        skillStep(observed.outcome)?.artifact?.targets?.map((target) => target.change),
+      ).toEqual(["created", "created", "created"]);
+    }),
+  );
+
+  it.effect("an applied setup's report resolves the agent entry again after writing", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      const observed = yield* observeSetup(fixture, request(fixture.root));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      // Before: 10 while planning.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(4);
+    }),
+  );
+
+  it.effect("an applied user setup's report resolves the agent entry again after writing", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({});
+      const leaf = path.join(fixture.home, ".claude", "skills", "axm");
+      const observed = yield* observeSetup(fixture, request(fixture.root, { scope: "user" }));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      expect(Exit.isSuccess(observed.transition) && observed.transition.value.initialized).toBe(
+        true,
+      );
+      // Before: 10 while planning.
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(8);
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(4);
+    }),
+  );
+
+  it.effect("an already-initialized setup plans nothing and reports as before", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      yield* observeSetup(fixture, request(fixture.root));
+      const rerun = yield* observeSetup(fixture, request(fixture.root));
+      expect(callCount(rerun.calls.applied, "readLink", leaf)).toBe(0);
+      expect(callCount(rerun.calls.reported, "readLink", leaf)).toBe(2);
+    }),
+  );
+
+  it.effect("a preview that settles an existing instruction choice plans no skill entry", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({
+        files: { ...SOURCE, "axm.json": `${JSON.stringify({ agents: ["claude-code"] })}\n` },
+      });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      expect(callCount(observed.calls.applied, "readLink", leaf)).toBe(2);
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
+    }),
+  );
+
+  it.effect("a preview reports a dangling agent entry it planned from one resolution", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      fs.mkdirSync(path.dirname(leaf), { recursive: true });
+      fs.symlinkSync(path.join(fixture.root, "missing"), leaf);
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      // Before: 2.
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
+      expect(skillStep(observed.outcome)?.artifact?.targets?.[2]).toEqual({
+        action: "blocked",
+        detail: { _tag: "bundledSkill", reason: `Preserved unowned skill artifact at ${leaf}` },
+        agentIds: ["claude-code"],
+        path: path.join(".claude", "skills", "axm"),
+        change: "unchanged",
+      });
+      expect(
+        observed.outcome?.steps.filter((step) => step.nativeOutputIssue !== undefined),
+      ).toEqual([
+        {
+          label: leaf,
+          status: "warning",
+          nativeOutputIssue: "broken-link",
+          message: `Link target '${path.join(fixture.root, "missing")}' is missing.`,
+        },
+      ]);
+    }),
+  );
+
+  it.effect("a preview reports an existing agent copy it planned from one resolution", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({
+        files: { ...SOURCE, ".claude/skills/axm/SKILL.md": "---\nname: axm\n---\n" },
+      });
+      const leaf = path.join(fixture.root, ".claude", "skills", "axm");
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      expect(Exit.isSuccess(observed.transition)).toBe(true);
+      // Before: 1.
+      expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
+      expect(skillStep(observed.outcome)?.artifact?.targets?.[2]).toEqual({
+        action: "blocked",
+        detail: { _tag: "bundledSkill", reason: `Preserved unowned skill artifact at ${leaf}` },
+        agentIds: ["claude-code"],
+        path: path.join(".claude", "skills", "axm"),
+        change: "unchanged",
+      });
+    }),
+  );
+
+  it.effect("a preview through a linked project root reports what the physical root does", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const alias = `${fixture.root}-alias`;
+      fs.symlinkSync(fixture.root, alias);
+      cleanups.push(() => fs.rmSync(alias, { force: true }));
+      const physical = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      const linked = yield* observeSetup(fixture, request(alias, { preview: true }));
+      expect(linked.outcome?.steps).toEqual(physical.outcome?.steps);
+      expect(
+        callCount(
+          linked.calls.reported,
+          "readLink",
+          path.join(fixture.root, ".claude", "skills", "axm"),
+        ),
+      ).toBe(0);
+    }),
+  );
+});
+
+/**
  * Unattended planning takes the instruction source's presence from the
  * candidate read it has just made. A run that asked which source to use
  * checks for it again after the answer. Agent detection checks for the

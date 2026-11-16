@@ -2,7 +2,11 @@
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import { inspectSkillAgentArtifact } from "@agentxm/extension-kinds/skills";
-import { nativeAuthorityRoots, resolveNativeEntry } from "@agentxm/workspace-kernel/locations";
+import {
+  nativeAuthorityRoots,
+  resolveNativeEntry,
+  type NativeEntryAddress,
+} from "@agentxm/workspace-kernel/locations";
 import {
   captureNativeDirectoryInputs,
   resolveUserHome,
@@ -46,7 +50,18 @@ export const setupSkillTargets = (
     ];
   });
 
-/** Plan native entries through the same admission check the bundled writer uses. */
+/** The native entry a setup plan resolved for each target path, keyed by its exact spelling. */
+export type PlannedSkillEntries = ReadonlyArray<{
+  readonly path: string;
+  readonly entry: NativeEntryAddress;
+}>;
+
+/**
+ * Plan native entries through the same admission check the bundled writer uses.
+ *
+ * Alongside the rows, `entries` holds frozen copies of the native entries this
+ * planning resolved, each under the target path spelled exactly as planned.
+ */
 export const setupSkillPlanRows = (
   root: string,
   scope: WorkspaceScope,
@@ -54,16 +69,18 @@ export const setupSkillPlanRows = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const resolved: Array<{ readonly path: string; readonly entry: NativeEntryAddress }> = [];
     const canonical = targets.find((target) => !("agentIds" in target));
-    if (canonical === undefined) return [];
+    if (canonical === undefined) return { rows: [], entries: [] satisfies PlannedSkillEntries };
     const nativeRoots = nativeAuthorityRoots(
       path,
       { workspaceRoot: root, scope },
       yield* captureNativeDirectoryInputs(yield* resolveUserHome()),
     );
-    return yield* Effect.forEach(targets, (target) =>
+    const rows = yield* Effect.forEach(targets, (target) =>
       Effect.gen(function* () {
         const entry = yield* resolveNativeEntry(target.path);
+        resolved.push({ path: target.path, entry });
         const base = {
           target: path.relative(root, target.path),
           ...(!("agentIds" in target) || target.agentIds.length === 0
@@ -116,4 +133,10 @@ export const setupSkillPlanRows = (
         } satisfies SetupPlanRow;
       }),
     );
+    const entries: PlannedSkillEntries = Object.freeze(
+      resolved.map(({ path: targetPath, entry }) =>
+        Object.freeze({ path: targetPath, entry: Object.freeze({ ...entry }) }),
+      ),
+    );
+    return { rows, entries };
   });

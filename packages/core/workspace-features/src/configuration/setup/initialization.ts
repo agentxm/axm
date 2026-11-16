@@ -23,7 +23,11 @@ import {
   resolveNativeReferent,
   isGitManaged,
 } from "@agentxm/workspace-kernel/locations";
-import { setupSkillTargets, setupSkillPlanRows } from "./skill-targets.js";
+import {
+  setupSkillTargets,
+  setupSkillPlanRows,
+  type PlannedSkillEntries,
+} from "./skill-targets.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -982,14 +986,16 @@ const configureProjectWorkspace = (args: {
       onSome: ({ rows }) => rows,
     });
     const skillTargets = yield* setupSkillTargets(workspaceRoot, "project", agentIds);
-    const skillPlanRows = completing
-      ? []
+    const skillPlan = completing
+      ? undefined
       : yield* setupSkillPlanRows(workspaceRoot, "project", skillTargets);
+    const skillPlanRows = skillPlan?.rows ?? [];
     const outputConcerns = yield* observeSetupOutputConcerns(
       workspaceRoot,
       "project",
       agentIds,
       skillTargets,
+      skillPlan?.entries,
     );
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const plan: ReadonlyArray<SetupPlanRow> = [
@@ -1074,6 +1080,7 @@ const configureProjectWorkspace = (args: {
       agentCandidates: selection.candidates,
       plan,
       outputConcerns,
+      plannedSkillEntries: skillPlan?.entries,
       confirmed: true,
     };
   });
@@ -1102,12 +1109,14 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
     const nativeRoot = yield* resolveNativeReferent(yield* resolveUserHome());
     const settingsRoot = yield* resolveNativeReferent(workspaceRoot);
     const skillTargets = yield* setupSkillTargets(nativeRoot, "user", agentIds);
-    const skillPlanRows = yield* setupSkillPlanRows(nativeRoot, "user", skillTargets);
+    const skillPlan = yield* setupSkillPlanRows(nativeRoot, "user", skillTargets);
+    const skillPlanRows = skillPlan.rows;
     const outputConcerns = yield* observeSetupOutputConcerns(
       nativeRoot,
       "user",
       agentIds,
       skillTargets,
+      skillPlan.entries,
     );
     const nonInteractive = options.nonInteractive === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
@@ -1159,6 +1168,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
       agentCandidates: selection.candidates,
       plan,
       outputConcerns,
+      plannedSkillEntries: skillPlan.entries,
       confirmed: true,
     };
   });
@@ -1176,6 +1186,8 @@ interface WorkspaceInitializationState {
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly plan: ReadonlyArray<SetupPlanRow>;
   readonly outputConcerns: ReadonlyArray<NativeOutputConcern>;
+  /** A preview only: the bundled-skill entries its planning resolved. */
+  readonly plannedSkillEntries?: PlannedSkillEntries;
 }
 
 const workspaceInitializationState = (
@@ -1187,6 +1199,7 @@ const workspaceInitializationState = (
   plan: ReadonlyArray<SetupPlanRow> = [],
   completed = false,
   outputConcerns: ReadonlyArray<NativeOutputConcern> = [],
+  plannedSkillEntries?: PlannedSkillEntries,
 ): WorkspaceInitializationState => ({
   settings,
   initialized,
@@ -1196,6 +1209,7 @@ const workspaceInitializationState = (
   agentCandidates,
   plan,
   outputConcerns,
+  ...(plannedSkillEntries === undefined ? {} : { plannedSkillEntries }),
 });
 
 /**
@@ -1240,6 +1254,7 @@ const ensureUserWorkspaceInitialized = (workspaceRoot: string, options: Workspac
         initialization.plan,
         false,
         initialization.outputConcerns,
+        options.preview === true ? initialization.plannedSkillEntries : undefined,
       );
     }
 
@@ -1316,6 +1331,7 @@ const ensureProjectWorkspaceInitialized = (
         initialization.plan,
         false,
         initialization.outputConcerns,
+        options.preview === true ? initialization.plannedSkillEntries : undefined,
       );
     }
 

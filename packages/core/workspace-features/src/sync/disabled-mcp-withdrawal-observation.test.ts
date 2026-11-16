@@ -30,6 +30,16 @@ const disabledWorkspace = () =>
     },
   });
 
+/** The project's native MCP entries, by name. */
+const nativeServers = (workspace: ReturnType<typeof disabledWorkspace>): object => {
+  const native: unknown = JSON.parse(workspace.readFile(".mcp.json"));
+  const servers =
+    typeof native === "object" && native !== null && "mcpServers" in native
+      ? native.mcpServers
+      : undefined;
+  return typeof servers === "object" && servers !== null ? servers : {};
+};
+
 /** The recording file system replaces the platform one beneath every fixture layer. */
 const provideRecording = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
@@ -95,6 +105,49 @@ describe("Disabled MCP withdrawal planning", () => {
         // The inspection's resolution and the preview's two co-reader preflights; the preview's own
         // resolution is gone (four before).
         captures: 3,
+      });
+    }).pipe(provideRecording);
+  });
+
+  it.effect("runs the planned withdrawal against the native file as it is when it runs", () => {
+    const workspace = disabledWorkspace();
+    cleanups.push(workspace.cleanup);
+    return Effect.gen(function* () {
+      yield* workspace.provide(applySync());
+      workspace.writeSettings({
+        ...workspace.readSettings(),
+        mcpServers: { review: { connection, enabled: false } },
+      });
+      const planned = yield* workspace.provide(
+        SyncWorkspace.planMaterialization({ configuredAgents: ["claude-code"] }),
+      );
+      const step = planned.steps.find((candidate) => candidate.key === "mcp-server:disable:review");
+      if (step?.readiness !== "ready") throw new Error("Expected a ready withdrawal step");
+      // A foreign edit after planning: the planning observation does not hold this entry.
+      workspace.writeFile(
+        ".mcp.json",
+        `${JSON.stringify({
+          mcpServers: { ...nativeServers(workspace), foreign: { command: "foreign" } },
+        })}\n`,
+      );
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+      const outcome = yield* workspace.provide(step.run);
+      const path = nodePath.join(workspace.root, ".mcp.json");
+      expect({
+        result: outcome.result,
+        servers: Object.keys(nativeServers(workspace)),
+        captures: recording.counts(nodePath.join(workspace.root, ".cursor/mcp.json")).realPath ?? 0,
+        reads: recording.contentReads(path),
+      }).toEqual({
+        result: "success",
+        // The foreign entry written after planning survives the withdrawal.
+        servers: ["foreign"],
+        // The run resolves its configured targets and preflights the co-readers itself, as the
+        // preview did before it shared the inspection's observation.
+        captures: 3,
+        // The run reads the native file live itself.
+        reads: 5,
       });
     }).pipe(provideRecording);
   });

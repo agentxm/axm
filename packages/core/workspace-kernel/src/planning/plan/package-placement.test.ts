@@ -95,7 +95,9 @@ describe("one placement preflight over repeated claims", () => {
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const workspace = yield* makeSpecWorkspace("axm-placement-");
-      const acquiredRoot = path.join(workspace.root, "agent_extensions");
+      // Physical spelling, so the lexical and resolved destination paths coincide on every host.
+      const root = nodeFs.realpathSync(workspace.root);
+      const acquiredRoot = path.join(root, "agent_extensions");
       const address = (selected: RegistrySkillRef) => {
         const claim = packageAddressClaimForRef(selected);
         if (Result.isFailure(claim)) throw new Error(claim.failure.detail);
@@ -107,8 +109,8 @@ describe("one placement preflight over repeated claims", () => {
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provide(
           WorkspaceReadTest({
-            baseDir: workspace.root,
-            runtimeDir: workspace.workspaceDir,
+            baseDir: root,
+            runtimeDir: path.join(root, ".axm"),
             ...(options.lockfile === undefined ? {} : { lockfile: options.lockfile }),
           }),
         ),

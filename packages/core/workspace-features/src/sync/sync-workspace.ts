@@ -259,10 +259,13 @@ const planWorkspaceMaterialization = (args: {
 > =>
   Effect.gen(function* () {
     const conversion = yield* StepFailureConversion;
-    const graph = yield* (yield* DesiredStateReader).graph();
+    // The committed workspace's current evaluation is both what this plans and
+    // what step collection compares the plan with.
+    const evaluation = yield* (yield* DesiredStateReader).evaluate();
+    const graph = evaluation.graph;
     const { inventoryObservations: _unobserved, ...materialization } =
       yield* collectMaterializeSteps({
-        desiredState: graph,
+        currentEvaluation: evaluation,
         ...(args.selection === undefined ? {} : { selection: args.selection }),
         ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
         // The membership closure applies only the steps; it never rechecks inventories.

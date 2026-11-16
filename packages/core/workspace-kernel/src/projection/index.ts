@@ -134,6 +134,7 @@ export {
   type AgentOutputOwnershipProof,
 } from "./agent-output-observation.js";
 export {
+  agentOutputAuthorityFrom,
   captureAgentOutputAuthority,
   captureSkillOutputSources,
   deriveAgentOutputAuthority,

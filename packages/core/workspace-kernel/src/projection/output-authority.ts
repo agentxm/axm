@@ -11,6 +11,7 @@ import {
   DesiredStateReader,
   WorkspaceLocation,
   type DesiredStateGraph,
+  type DesiredStateReaderService,
   type Lockfile,
   type Settings,
   type WorkspaceLayout,
@@ -233,19 +234,37 @@ export const captureSkillOutputSources = (name: string) =>
     );
   });
 
-/** Capture before publishing a transition; retirement keeps its original authority. */
-export const captureAgentOutputAuthority = () =>
+/**
+ * The output authority of `evaluation`, under the workspace's layout as it is
+ * read first. A caller that already holds the current evaluation derives the
+ * authority it would capture without evaluating again.
+ */
+export const agentOutputAuthorityFrom = <E, R>(
+  evaluation: Effect.Effect<
+    Effect.Success<ReturnType<DesiredStateReaderService["evaluate"]>>,
+    E,
+    R
+  >,
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const evaluation = yield* (yield* DesiredStateReader).evaluate();
+    const evaluated = yield* evaluation;
     return deriveAgentOutputAuthority({
       path,
       baseDir: location.baseDir,
       layout,
-      acceptedResolutions: evaluation.inputs.acceptedResolutions,
-      desired: evaluation.graph,
-      settings: evaluation.inputs.settings,
+      acceptedResolutions: evaluated.inputs.acceptedResolutions,
+      desired: evaluated.graph,
+      settings: evaluated.inputs.settings,
     });
   });
+
+/** Capture before publishing a transition; retirement keeps its original authority. */
+export const captureAgentOutputAuthority = () =>
+  agentOutputAuthorityFrom(
+    Effect.gen(function* () {
+      return yield* (yield* DesiredStateReader).evaluate();
+    }),
+  );

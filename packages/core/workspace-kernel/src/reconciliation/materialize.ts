@@ -87,6 +87,7 @@ import {
   type CanonicalObservation,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type DesiredStateReaderService,
   type ExtensionInventory,
   desiredMcpSourceKey,
   McpSourceKey,
@@ -97,7 +98,7 @@ import {
   acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
-  captureAgentOutputAuthority,
+  agentOutputAuthorityFrom,
   expectedProjectionNames,
   inspectDesiredMcpServer,
   inspectDisabledMcpServerForWithdrawal,
@@ -581,16 +582,12 @@ export interface CollectedMaterializeSteps {
   readonly steps: ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>;
 }
 
-/**
- * Collect the per-extension materialize steps for one sync.
- *
- * The signature is declared rather than inferred. An inferred one publishes
- * the assembled object literal's structure and expands the sync policy failure
- * union into every package that contributes a failure to it — including
- * packages this one does not declare, whose `.d.ts` references then resolve to
- * `any` under `skipLibCheck` and collapse the whole channel.
- */
-export const collectMaterializeSteps = (args: {
+/** The current workspace's no-option desired-state evaluation. */
+type CurrentDesiredStateEvaluation = Effect.Success<
+  ReturnType<DesiredStateReaderService["evaluate"]>
+>;
+
+interface MaterializeStepCollectionArgs {
   /** Assess present local sources only; never resolve or restore unavailable content. */
   readonly localOnly?: boolean;
   readonly selection?: SyncSelection;
@@ -627,7 +624,35 @@ export const collectMaterializeSteps = (args: {
    */
   readonly publishedMcpEntries?: ReadonlyArray<string>;
   readonly adapter: StepFailureConversionService;
-}): Effect.Effect<
+}
+
+/**
+ * Collect the per-extension materialize steps for one sync.
+ *
+ * The signature is declared rather than inferred. An inferred one publishes
+ * the assembled object literal's structure and expands the sync policy failure
+ * union into every package that contributes a failure to it — including
+ * packages this one does not declare, whose `.d.ts` references then resolve to
+ * `any` under `skipLibCheck` and collapse the whole channel.
+ */
+export const collectMaterializeSteps = (
+  args: MaterializeStepCollectionArgs &
+    (
+      | { readonly currentEvaluation?: undefined }
+      | {
+          /**
+           * The committed workspace's current no-option desired-state
+           * evaluation, made earlier in the caller's owner call. It is both
+           * the desired state planned and the prior state compared against,
+           * so it never accompanies a proposal or a recovery graph.
+           */
+          readonly currentEvaluation: CurrentDesiredStateEvaluation;
+          readonly desiredState?: undefined;
+          readonly settings?: undefined;
+          readonly packRecovery?: undefined;
+        }
+    ),
+): Effect.Effect<
   CollectedMaterializeSteps,
   SyncPolicyFailure,
   | CodingAgentRepository
@@ -676,7 +701,10 @@ export const collectMaterializeSteps = (args: {
         : settingsEntries["mcp-server"].entries(args.settings);
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
     const desiredState =
-      args.packRecovery?.graph ?? args.desiredState ?? (yield* desiredStateReader.graph());
+      args.packRecovery?.graph ??
+      args.desiredState ??
+      args.currentEvaluation?.graph ??
+      (yield* desiredStateReader.graph());
     const previousAgentIds = new Set(yield* settings.configuredAgents);
     const proposedAgentIds = new Set(configuredAgents);
     const directoryRoutes = { skill: new Set<string>(), subagent: new Set<string>() };
@@ -704,7 +732,13 @@ export const collectMaterializeSteps = (args: {
       for (const physical of proposed.subagent)
         if (!prior.subagent.has(physical)) directoryRoutes.subagent.add(physical);
     }
-    const priorMcpGraph = yield* desiredStateReader.graph();
+    // The committed workspace's current evaluation, made at most once in this
+    // call, where the comparison with it is first needed.
+    const currentEvaluation =
+      args.currentEvaluation === undefined
+        ? yield* Effect.cached(desiredStateReader.evaluate())
+        : Effect.succeed(args.currentEvaluation);
+    const priorMcpGraph = (yield* currentEvaluation).graph;
     if (unresolvedPackRoutes(priorMcpGraph).length > 0) {
       directoryRoutes.skill.clear();
       directoryRoutes.subagent.clear();
@@ -1573,10 +1607,9 @@ export const collectMaterializeSteps = (args: {
         (ref): ref is HookExtensionRef => ref.type === "hook" && desiredActivation(ref),
       ),
     ];
-    const priorHookGraph = yield* desiredStateReader.graph();
-    const priorHookAgents = yield* settings.configuredAgents;
+    const priorHookGraph = (yield* currentEvaluation).graph;
     const addedHookRoutes = new Set(
-      configuredAgents.filter((agent) => !priorHookAgents.includes(agent)),
+      configuredAgents.filter((agent) => !previousAgentIds.has(agent)),
     );
     const preparedHookProjection =
       changedHooks.length === 0
@@ -1585,7 +1618,7 @@ export const collectMaterializeSteps = (args: {
             configuredAgents,
             desiredGraph: desiredState,
           });
-    const priorAuthority = yield* captureAgentOutputAuthority();
+    const priorAuthority = yield* agentOutputAuthorityFrom(currentEvaluation);
     const changedRules = [
       ...ruleRefs
         .filter(({ materialize, ref }) => materialize && desiredActivation(ref))

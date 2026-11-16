@@ -250,6 +250,7 @@ export {
   nativeArtifactLocationOutcomes,
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
+export { captureNativeArtifactLocations } from "./native-artifact-locations.js";
 export { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
 export {
   reconcileNativeManagedRegion,

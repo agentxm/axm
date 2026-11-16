@@ -1209,7 +1209,7 @@ describe("SubagentManager", () => {
               prepare: 2,
               compile: 2,
               resourceReads: 1,
-              planInspections: [4, 4],
+              planInspections: [3, 3],
               destinationReads: [1, 1],
             },
             // Without destination checks the call prepares each agent once, as before.
@@ -1217,7 +1217,7 @@ describe("SubagentManager", () => {
               prepare: 2,
               compile: 2,
               resourceReads: 1,
-              planInspections: [4, 4],
+              planInspections: [3, 3],
               destinationReads: [1, 1],
             },
           });
@@ -1497,6 +1497,143 @@ describe("SubagentManager", () => {
       );
     });
 
+    /** Claude Code and Cursor reading one physical Subagent directory through an alias. */
+    const aliasedReadersFixture = () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const physical = nodePath.join(projectDir, ".claude/agents");
+      const alias = nodePath.join(projectDir, ".cursor/agents");
+      nodeFs.mkdirSync(physical, { recursive: true });
+      nodeFs.mkdirSync(nodePath.dirname(alias), { recursive: true });
+      nodeFs.symlinkSync(physical, alias, "dir");
+      return {
+        sourceDir,
+        projectDir,
+        physical,
+        alias,
+        physicalFile: nodePath.join(physical, "planner.md"),
+        aliasFile: nodePath.join(alias, "planner.md"),
+        layer: makeTestLayer({
+          axmDir: nodePath.join(projectDir, ".axm"),
+          agents: [codingAgentForId("claude-code"), codingAgentForId("cursor")],
+        }),
+      };
+    };
+
+    it.effect("locates each planned output and its readers once per observation", () => {
+      const fixture = aliasedReadersFixture();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", fixture.sourceDir);
+        yield* manager.materializeInstall({ ref });
+        const work = () => ({
+          outputLinks: [fixture.physicalFile, fixture.aliasFile].map(
+            (file) => recording.counts(file).readLink ?? 0,
+          ),
+          readerDirectories: [fixture.physical, fixture.alias].map(
+            (directory) => recording.counts(directory).realPath ?? 0,
+          ),
+          rootLinks: recording.counts(fixture.projectDir).readLink ?? 0,
+        });
+        recording.reset();
+        const observed = yield* manager.projectionObservation(ref);
+        expect(observed).toMatchObject({ present: true, current: true });
+        // The plan's containment gives each output its destination, and one
+        // capture locates both outputs and every reader; the inventory of
+        // Subagent containers is the rest.
+        expect(work()).toEqual({ outputLinks: [5, 2], readerDirectories: [2, 3], rootLinks: 2 });
+        expect(observed.nativeLocations).toEqual([
+          expect.objectContaining({
+            address: { kind: "file", path: fixture.physicalFile },
+            aliases: [fixture.physicalFile, fixture.aliasFile],
+            configuredConsumers: ["claude-code", "cursor"],
+            potentialReaders: ["claude-code", "cursor"],
+            ownership: "owned",
+            proof: "declared-native-path",
+          }),
+        ]);
+      }).pipe(Effect.provide(fixture.layer));
+    });
+
+    it.effect("locates outputs and readers again once the read phase ends", () => {
+      const fixture = aliasedReadersFixture();
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", fixture.sourceDir);
+        yield* manager.materializeInstall({ ref });
+        const observe = (endsAt?: string) =>
+          Effect.gen(function* () {
+            recording.reset();
+            const observed = yield* inEndingReadPhase(manager.projectionObservation(ref), endsAt);
+            return {
+              observed,
+              outputLinks: [fixture.physicalFile, fixture.aliasFile].map(
+                (file) => recording.counts(file).readLink ?? 0,
+              ),
+              readerDirectories: [fixture.physical, fixture.alias].map(
+                (directory) => recording.counts(directory).realPath ?? 0,
+              ),
+              rootLinks: recording.counts(fixture.projectDir).readLink ?? 0,
+            };
+          });
+        const held = yield* observe();
+        expect(held).toMatchObject({
+          outputLinks: [5, 2],
+          readerDirectories: [2, 3],
+          rootLinks: 2,
+        });
+        // Ending at the second output's probe leaves its destination to the
+        // plan but locates it and its readers again.
+        const second = yield* observe(fixture.aliasFile);
+        expect(second.observed).toEqual(held.observed);
+        expect(second).toMatchObject({
+          outputLinks: [6, 3],
+          readerDirectories: [3, 4],
+          rootLinks: 2,
+        });
+        // Ending at the first output's probe asserts the second output's
+        // containment again and locates each output on its own.
+        const first = yield* observe(fixture.physicalFile);
+        expect(first.observed).toEqual(held.observed);
+        expect(first).toMatchObject({
+          outputLinks: [7, 3],
+          readerDirectories: [3, 5],
+          rootLinks: 3,
+        });
+      }).pipe(Effect.provide(fixture.layer));
+    });
+
+    it.effect("locates nothing more for a Subagent no configured agent can place", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const unplaced = makeMockCodingAgent("codex", {
+        resolveEffectiveSubagentsDir: () =>
+          Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+      });
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const recording = yield* FileSystemRecorder;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        recording.reset();
+        const observed = yield* manager.projectionObservation(ref, { sourceRoot: sourceDir });
+        expect(observed.nativeLocations).toEqual([]);
+        // Only the inventory of Subagent containers resolves the reader directory.
+        expect(
+          recording.counts(nodePath.join(tmpDir, "project", ".codex/agents")).realPath ?? 0,
+        ).toBe(1);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            axmDir: nodePath.join(tmpDir, "project", ".axm"),
+            agents: [codingAgentForId("cline"), unplaced],
+          }),
+        ),
+      );
+    });
+
     it.effect("prepares again once the read phase the preflight observed through ends", () => {
       const { sourceDir, resource, layer } = resourceFixture();
       const native = nodePath.join(tmpDir, "project", ".claude/agents/planner.md");
@@ -1529,12 +1666,12 @@ describe("SubagentManager", () => {
         recording.reset();
         const observed = yield* observation();
         expect(spans.count("axm.subagent.prepare")).toBe(2);
-        expect(planInspections()).toBe(4);
+        expect(planInspections()).toBe(3);
         spans.reset();
         recording.reset();
         expect(yield* observation(resource)).toEqual(observed);
         expect(spans.count("axm.subagent.prepare")).toBe(4);
-        expect(planInspections()).toBe(6);
+        expect(planInspections()).toBe(5);
       }).pipe(
         Effect.provide(layer),
         Effect.withTracer(spans.tracer),

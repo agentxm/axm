@@ -43,6 +43,46 @@ const nativeArtifactReaders = (args: {
     ).pipe(Effect.map((readers) => readers.flat())),
   ).pipe(Effect.map((readers) => readers.flat()));
 
+/** The referents a capture resolves so the readers, shared policy and sources can be located. */
+const nativeArtifactReferents = (
+  path: Path.Path,
+  args: {
+    readonly workspaceRoot: string;
+    readonly sharedSkillPolicy: boolean;
+    readonly readers: ReadonlyArray<NativeArtifactReader>;
+    readonly sourcePaths: ReadonlyArray<string>;
+  },
+) => [
+  ...args.readers.map((reader) => reader.location.path),
+  ...(args.sharedSkillPolicy ? [path.join(args.workspaceRoot, ".agents/skills")] : []),
+  ...args.sourcePaths,
+];
+
+/**
+ * The reader recipes for `kinds` and one location set over `entries` and those
+ * readers' referents: what `nativeArtifactLocationOutcomes` captures for
+ * targets at those entries. A caller that classifies its targets one call at a
+ * time passes both to each call, and only while the read phase it captured in
+ * holds.
+ */
+export const captureNativeArtifactLocations = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly agents: ReadonlyArray<CodingAgent>;
+  readonly kinds: ReadonlyArray<"skill" | "subagent">;
+  readonly sharedSkillPolicy: boolean;
+  readonly entries: ReadonlyArray<string>;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const readers = Object.freeze(yield* nativeArtifactReaders(args));
+    const locationSet = yield* captureNativeLocationSet({
+      entries: args.entries.map((entry) => path.resolve(args.workspaceRoot, entry)),
+      referents: nativeArtifactReferents(path, { ...args, readers, sourcePaths: [] }),
+    });
+    return { readers, locationSet };
+  });
+
 export const nativeArtifactLocationOutcomes = (args: {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
@@ -82,13 +122,14 @@ export const nativeArtifactLocationOutcomes = (args: {
       args.locationSet ??
       (yield* captureNativeLocationSet({
         entries: args.targets.map((target) => path.resolve(args.workspaceRoot, target.path)),
-        referents: [
-          ...declaredReaders.map((reader) => reader.location.path),
-          ...(args.sharedSkillPolicy ? [path.join(args.workspaceRoot, ".agents/skills")] : []),
-          ...args.targets.flatMap((target) =>
+        referents: nativeArtifactReferents(path, {
+          workspaceRoot: args.workspaceRoot,
+          sharedSkillPolicy: args.sharedSkillPolicy,
+          readers: declaredReaders,
+          sourcePaths: args.targets.flatMap((target) =>
             target.sourcePath === undefined ? [] : [target.sourcePath],
           ),
-        ],
+        }),
       }));
     const shared = args.sharedSkillPolicy
       ? yield* locations.referent(path.join(args.workspaceRoot, ".agents/skills"))

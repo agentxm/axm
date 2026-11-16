@@ -59,6 +59,7 @@ import {
   decideWholeFileWrite,
   extensionNameFromFilename,
   observeAgentOutputs,
+  captureNativeArtifactLocations,
   nativeArtifactLocationOutcomes,
   projectionIsCurrent,
   projectionOutputDigest,
@@ -986,9 +987,18 @@ export const SubagentManagerLive = Layer.effect(
             ? prepared.targets
             : yield* preparedTargets(ref, pkg, configuredAgents);
         const rows = yield* subagentRows;
-        const planned =
-          phase?.isActive() !== false ? prepared.planned : yield* plannedFiles(ref, targets);
+        const plannedByPreflight = phase?.isActive() !== false;
+        const planned = plannedByPreflight ? prepared.planned : yield* plannedFiles(ref, targets);
+        // Each planned output's destination, as the plan asserted its containment.
+        const plannedDestinations = new Map<string, string>();
+        for (const [destination, file] of planned)
+          for (const binding of file.bindings)
+            plannedDestinations.set(path.resolve(binding.path), destination);
         const allAgents = yield* agentRepo.all;
+        // The readers and every planned output, located once while the read
+        // phase holds; an output reached after it ends is located live.
+        let locations:
+          Effect.Success<ReturnType<typeof captureNativeArtifactLocations>> | undefined;
         const observations = [];
         // Whether each planned file exists, by its physical path, as this call
         // probed it.
@@ -1002,13 +1012,16 @@ export const SubagentManagerLive = Layer.effect(
             continue;
           for (const output of target.compiled.outputs) {
             const file = path.resolve(target.directory.dir, output.path);
-            const { address } = yield* assertNativeMutationWithinRoots(
-              nativeRoots,
-              file,
-              "content",
-              baseDir,
-            );
-            const destination = address.referentPath ?? address.entryPath;
+            // The plan's containment answers while the phase it was asserted in
+            // holds, or when it was planned again after that phase ended; an
+            // output it does not answer is asserted again.
+            const destination =
+              (!plannedByPreflight || phase?.isActive() !== false
+                ? plannedDestinations.get(file)
+                : undefined) ??
+              (yield* assertNativeMutationWithinRoots(nativeRoots, file, "content", baseDir).pipe(
+                Effect.map(({ address }) => address.referentPath ?? address.entryPath),
+              ));
             const planFile = planned.get(destination);
             const present = yield* readFs.exists(file).pipe(
               Effect.mapError(
@@ -1029,12 +1042,29 @@ export const SubagentManagerLive = Layer.effect(
                 planFile.gen,
                 present,
               );
+            if (locations === undefined && phase?.isActive() !== false)
+              locations = yield* captureNativeArtifactLocations({
+                workspaceRoot: baseDir,
+                scope: location.scope,
+                agents: allAgents,
+                kinds: ["subagent"],
+                sharedSkillPolicy: false,
+                entries: targets.flatMap(({ directory, compiled }) => {
+                  if (directory._tag !== "supported" || compiled._tag !== "Compiled") return [];
+                  const { dir } = directory;
+                  return compiled.outputs.map((planned) => path.resolve(dir, planned.path));
+                }),
+              });
+            const captured = phase?.isActive() !== false ? locations : undefined;
             const nativeLocations = yield* nativeArtifactLocationOutcomes({
               workspaceRoot: baseDir,
               scope: location.scope,
               agents: allAgents,
               configuredAgentIds: new Set(targets.map(({ agent }) => agent.id)),
               sharedSkillPolicy: false,
+              ...(captured === undefined
+                ? {}
+                : { readers: captured.readers, locationSet: captured.locationSet }),
               targets: [
                 {
                   path: file,

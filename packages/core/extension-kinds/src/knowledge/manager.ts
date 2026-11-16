@@ -76,7 +76,7 @@ import {
   requireCompleteContributors,
   KNOWLEDGE_REGION_OWNER,
   knowledgeRegionGeneration,
-  projectionUnitPath,
+  projectionUnitPathOfEntry,
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
   resolveInstructionsConfig,
@@ -377,9 +377,12 @@ export const KnowledgeManagerLive = Layer.effect(
           ),
         );
         return {
-          path: address.referentPath ?? address.entryPath,
-          declaredPath,
-          enabled,
+          target: {
+            path: address.referentPath ?? address.entryPath,
+            declaredPath,
+            enabled,
+          },
+          entryPath: address.entryPath,
         };
       });
 
@@ -635,7 +638,11 @@ export const KnowledgeManagerLive = Layer.effect(
         })),
       );
 
-    const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
+    /**
+     * The projection inputs, with the entry the instruction target's route
+     * admission resolved. Only the resolving call may key from that entry.
+     */
+    const resolveAdmittedKnowledgeProjection = (options?: NativeProjectionOptions) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
         const currentSettings = phase?.readers.settings ?? settings;
@@ -645,9 +652,11 @@ export const KnowledgeManagerLive = Layer.effect(
         const locked = yield* currentLocks.entries("knowledge");
         const configured = yield* currentSettings.entries("knowledge");
         const config = yield* currentSettings.knowledgeDiscoveryConfig;
-        const instructionsTarget = yield* getInstructionsTarget();
-        return { graph, locked, configured, config, instructionsTarget };
+        const { target: instructionsTarget, entryPath } = yield* getInstructionsTarget();
+        return { inputs: { graph, locked, configured, config, instructionsTarget }, entryPath };
       });
+    const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
+      Effect.map(resolveAdmittedKnowledgeProjection(options), ({ inputs }) => inputs);
     type KnowledgeProjectionInputs = Effect.Success<ReturnType<typeof resolveKnowledgeProjection>>;
 
     /**
@@ -831,8 +840,10 @@ export const KnowledgeManagerLive = Layer.effect(
       });
 
     const regionGeneration: KnowledgeManagerService["regionGeneration"] = Effect.gen(function* () {
-      const { graph, locked, configured, config, instructionsTarget } =
-        yield* resolveKnowledgeProjection();
+      const {
+        inputs: { graph, locked, configured, config, instructionsTarget },
+        entryPath,
+      } = yield* resolveAdmittedKnowledgeProjection();
       const selection = yield* selectKnowledgeBundles(
         graph,
         locked,
@@ -840,7 +851,12 @@ export const KnowledgeManagerLive = Layer.effect(
         config,
         instructionsTarget.enabled,
       );
-      const target = yield* projectionUnitPath(baseDir, instructionsTarget.declaredPath);
+      // Only reads separate the target's admission from its key.
+      const target = yield* projectionUnitPathOfEntry(
+        baseDir,
+        instructionsTarget.declaredPath,
+        entryPath,
+      );
       return yield* knowledgeRegionGeneration({
         target,
         scopeRoot: baseDir,

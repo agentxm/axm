@@ -308,3 +308,42 @@ describe("KnowledgeManager discovery region re-render", () => {
     }),
   );
 });
+
+describe("KnowledgeManager region generation", () => {
+  it.effect("resolves the instruction target entry once and the scope root live", () =>
+    Effect.gen(function* () {
+      const { outcome, recording, instructionsPath, workspaceRoot } = yield* recordedManager(
+        (manager) => manager.regionGeneration,
+      );
+
+      // The same generation as keying the target from a fresh resolution.
+      expect(outcome).toMatchObject({
+        _tag: "Success",
+        success: "sha256:199c5eb1beaa99e8f40ae6ea7fc0cb196ab6e67ea85f62e15eff88f2c16fccb8",
+      });
+      // The target's route admission resolves its entry once; the row key is
+      // taken from that admission.
+      const probes = (target: string) =>
+        Object.fromEntries(
+          (["readLink", "realPath", "stat", "readDirectory"] as const).map((method) => [
+            method,
+            recording?.calls({ path: target, method }).length,
+          ]),
+        );
+      expect(probes(instructionsPath)).toEqual({
+        readLink: 1,
+        realPath: 1,
+        stat: 1,
+        readDirectory: 0,
+      });
+      // The admission resolves the scope root and the key resolves it again,
+      // live; the entry's own resolution lists the root once.
+      expect(probes(workspaceRoot)).toEqual({
+        readLink: 1,
+        realPath: 2,
+        stat: 1,
+        readDirectory: 1,
+      });
+    }),
+  );
+});

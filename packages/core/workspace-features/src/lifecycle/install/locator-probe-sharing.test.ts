@@ -557,11 +557,16 @@ describe("the probe loop's shared readings end with its selection", () => {
 /**
  * Serve a Git repository holding the skills `alpha` (carrying an asset discovery
  * never reads) and `beta` and the rule `gamma`, retain `alpha` from it, and run
- * `use` with the served URL and the retained `alpha` tree, over a recording
- * host filesystem.
+ * `use` with the served URL, the URL of a mirror of the same repository that no
+ * retained package names, and the retained `alpha` tree, over a recording host
+ * filesystem.
  */
 const withRetainedGitSkill = <A, E, R>(
-  use: (served: { readonly url: string; readonly retained: string }) => Effect.Effect<A, E, R>,
+  use: (served: {
+    readonly url: string;
+    readonly mirrorUrl: string;
+    readonly retained: string;
+  }) => Effect.Effect<A, E, R>,
 ) => {
   const world = makeInstallWorld();
   return Effect.gen(function* () {
@@ -587,6 +592,12 @@ const withRetainedGitSkill = <A, E, R>(
       ),
       (repository) => Effect.sync(repository.stop),
     );
+    const mirror = yield* Effect.acquireRelease(
+      Effect.promise(() =>
+        serveBareRepository({ root: world.workspace.root, source, name: "mirror" }),
+      ),
+      (repository) => Effect.sync(repository.stop),
+    );
     return yield* world.workspace.provide(
       Effect.gen(function* () {
         yield* applyInstall(
@@ -603,7 +614,7 @@ const withRetainedGitSkill = <A, E, R>(
           .filter((relative) => relative.endsWith(nodePath.join("assets", "notes.txt")));
         expect(asset).toHaveLength(1);
         const retained = nodePath.dirname(nodePath.dirname(nodePath.join(store, asset[0] ?? "")));
-        return yield* use({ url: served.url, retained });
+        return yield* use({ url: served.url, mirrorUrl: mirror.url, retained });
       }),
     );
   }).pipe(
@@ -654,6 +665,27 @@ describe("locator probes of a Git source share one verification of a retained Gi
           asset: recording.contentReads(nodePath.join(retained, "assets", "notes.txt")),
           finds: finds.filter((find) => find.path === retained).map((find) => find.type),
         }).toEqual({ asset: 7, finds: [] });
+        expect(settledNames(selection)).toEqual([
+          { type: "skill", names: ["alpha", "beta"] },
+          { type: "rule", names: ["gamma"] },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("leaves a retained Git package unread when the locator names another URL", () =>
+    withRetainedGitSkill(({ mirrorUrl, retained }) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const finds: Array<LocalFind> = [];
+        recording.reset();
+        const selection = yield* selectCounting(locatorAll(mirrorUrl), finds);
+
+        expect({
+          asset: recording.contentReads(nodePath.join(retained, "assets", "notes.txt")),
+          manifest: recording.contentReads(nodePath.join(retained, "skill.json")),
+          finds: finds.filter((find) => find.path === retained).map((find) => find.type),
+        }).toEqual({ asset: 0, manifest: 0, finds: [] });
         expect(settledNames(selection)).toEqual([
           { type: "skill", names: ["alpha", "beta"] },
           { type: "rule", names: ["gamma"] },

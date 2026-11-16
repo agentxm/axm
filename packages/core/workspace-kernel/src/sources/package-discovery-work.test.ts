@@ -11,7 +11,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
-import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import {
+  FileSystemRecorder,
+  layerRecordingFileSystem,
+  type FileSystemRecording,
+} from "@agentxm/test-support";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -200,8 +204,8 @@ describe("discovery walk work", () => {
         expect(
           candidates.map((candidate) => [candidate.kind, candidate.directory, nameOf(candidate)]),
         ).toStrictEqual([["plugin-mcp", member, "alpha"]]);
-        // One resolution proves membership containment; one roots the member's distribution.
-        expect(recording.calls({ method: "realPath", path: member })).toHaveLength(2);
+        // The resolution that proves membership containment roots the member's distribution.
+        expect(recording.calls({ method: "realPath", path: member })).toHaveLength(1);
         expect(
           recording.calls({ method: "realPath", path: path.join(member, "mcp.json") }),
         ).toHaveLength(1);
@@ -244,6 +248,139 @@ describe("discovery walk work", () => {
         expect(discovered.failure._tag).toBe("SourceNotResolvable");
         expect(discovered.failure.detail).toBe("Plugin MCP configuration escapes its package");
       }
+    }),
+  );
+});
+
+describe("plugin root resolution within one directory's inspection", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-discovery-roots-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const skillDocument = (name: string) =>
+    `---\nname: ${name}\ndescription: The ${name} skill\n---\n`;
+  const skillsOnly: ExtensionPackageFilter = { ...everything, type: "skill" };
+  const resolutions = (recording: FileSystemRecording) => (target: string) =>
+    recording.calls({ method: "realPath", path: target }).length;
+
+  it.effect(
+    "resolves a marketplace root and each local member once for its distribution and membership",
+    () =>
+      Effect.gen(function* () {
+        const a = path.join(tempDir, "plugins", "a");
+        const b = path.join(tempDir, "plugins", "b");
+        write(path.join(tempDir, ".claude-plugin", "marketplace.json"), {
+          plugins: [
+            { name: "a", source: "./plugins/a" },
+            { name: "b", source: "./plugins/b" },
+          ],
+        });
+        write(path.join(a, "skills", "x", "SKILL.md"), skillDocument("x"));
+        write(path.join(b, "skills", "y", "SKILL.md"), skillDocument("y"));
+
+        const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+        expect(discovered._tag).toBe("Success");
+        const candidates = discovered._tag === "Success" ? discovered.success : [];
+        expect(candidates.map((candidate) => candidate.directory)).toStrictEqual([
+          path.join(a, "skills", "x"),
+          path.join(b, "skills", "y"),
+        ]);
+        const resolved = resolutions(recording);
+        expect({
+          root: resolved(tempDir),
+          a: resolved(a),
+          b: resolved(b),
+          manifest: resolved(path.join(tempDir, ".claude-plugin", "marketplace.json")),
+          aSkills: resolved(path.join(a, "skills")),
+          bSkills: resolved(path.join(b, "skills")),
+        }).toStrictEqual({ root: 1, a: 1, b: 1, manifest: 1, aSkills: 1, bSkills: 1 });
+      }),
+  );
+
+  it.effect("resolves a plain folder once and a skill directory not at all", () =>
+    Effect.gen(function* () {
+      const group = path.join(tempDir, "group");
+      const child = path.join(group, "child");
+      write(path.join(child, "SKILL.md"), skillDocument("child"));
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(discovered._tag).toBe("Success");
+      expect(
+        (discovered._tag === "Success" ? discovered.success : []).map(
+          (candidate) => candidate.directory,
+        ),
+      ).toStrictEqual([child]);
+      const resolved = resolutions(recording);
+      expect({
+        root: resolved(tempDir),
+        group: resolved(group),
+        child: resolved(child),
+      }).toStrictEqual({ root: 1, group: 1, child: 0 });
+    }),
+  );
+
+  it.effect("resolves an Agent Plugins root once, as it reads no marketplace", () =>
+    Effect.gen(function* () {
+      writeAgentPlugin(tempDir);
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(discovered._tag).toBe("Success");
+      expect(resolutions(recording)(tempDir)).toBe(1);
+    }),
+  );
+
+  it.effect("keeps a member at the marketplace root's own containment resolution", () =>
+    Effect.gen(function* () {
+      write(path.join(tempDir, ".claude-plugin", "marketplace.json"), {
+        plugins: [{ name: "kit", source: "./" }],
+      });
+      write(path.join(tempDir, "skills", "x", "SKILL.md"), skillDocument("x"));
+
+      const { discovered, recording } = yield* discover(tempDir, skillsOnly);
+
+      expect(discovered._tag).toBe("Success");
+      expect(
+        (discovered._tag === "Success" ? discovered.success : []).map(
+          (candidate) => candidate.directory,
+        ),
+      ).toStrictEqual([path.join(tempDir, "skills", "x")]);
+      // One resolution roots the inspection; one proves the member is contained.
+      expect(resolutions(recording)(tempDir)).toBe(2);
+    }),
+  );
+
+  it.effect("discovers a marketplace reached through a directory alias at its lexical paths", () =>
+    Effect.gen(function* () {
+      const target = path.join(tempDir, "target");
+      const alias = path.join(tempDir, "alias");
+      write(path.join(target, ".claude-plugin", "marketplace.json"), {
+        plugins: [{ name: "a", source: "./plugins/a" }],
+      });
+      write(path.join(target, "plugins", "a", "skills", "x", "SKILL.md"), skillDocument("x"));
+      fs.symlinkSync(target, alias, "dir");
+
+      const { discovered, recording } = yield* discover(alias, skillsOnly);
+
+      expect(discovered._tag).toBe("Success");
+      expect(
+        (discovered._tag === "Success" ? discovered.success : []).map(
+          (candidate) => candidate.directory,
+        ),
+      ).toStrictEqual([path.join(alias, "plugins", "a", "skills", "x")]);
+      const resolved = resolutions(recording);
+      expect({
+        alias: resolved(alias),
+        member: resolved(path.join(alias, "plugins", "a")),
+      }).toStrictEqual({ alias: 1, member: 1 });
     }),
   );
 });

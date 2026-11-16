@@ -28,7 +28,11 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
-import { readPluginDistribution, type PluginSkillDistribution } from "./plugin-distribution.js";
+import {
+  readPluginDistribution,
+  resolvePluginRoot,
+  type PluginSkillDistribution,
+} from "./plugin-distribution.js";
 import { readPluginMarketplace } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
 import { readSourceWorkspace } from "./source-workspace.js";
@@ -358,12 +362,20 @@ export const discoverExtensionPackages = (
               }),
           ),
         );
-        const plugin = entries.includes("SKILL.md")
-          ? Option.none()
-          : yield* readPluginDistribution(directory).pipe(
+        // A directory that is not a skill is resolved once, and that root
+        // bounds both its own distribution and its marketplace membership.
+        const physicalRoot = entries.includes("SKILL.md")
+          ? undefined
+          : yield* resolvePluginRoot(directory).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
             );
+        const plugin =
+          physicalRoot === undefined
+            ? Option.none()
+            : yield* readPluginDistribution(directory, { physicalRoot }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              );
         const components = (
           packageDirectory: string,
           distribution: PluginSkillDistribution,
@@ -446,20 +458,23 @@ export const discoverExtensionPackages = (
             Effect.provideService(Path.Path, path),
           );
         const marketplace =
-          entries.includes("SKILL.md") ||
+          physicalRoot === undefined ||
           (Option.isSome(plugin) && plugin.value.format === "agent-plugins")
             ? Option.none()
-            : yield* readPluginMarketplace(directory, filter.names).pipe(
+            : yield* readPluginMarketplace(directory, {
+                physicalRoot,
+                requested: filter.names,
+              }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
               );
         if (Option.isSome(marketplace)) {
           const members = yield* Effect.forEach(marketplace.value, (member) =>
             Effect.gen(function* () {
-              const distribution = yield* readPluginDistribution(
-                member.directory,
-                member.selection,
-              );
+              const distribution = yield* readPluginDistribution(member.directory, {
+                physicalRoot: member.physicalDirectory,
+                selection: member.selection,
+              });
               return Option.isNone(distribution)
                 ? []
                 : yield* components(member.directory, distribution.value, member.marketplace);

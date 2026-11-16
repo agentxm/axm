@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { readPluginDistribution } from "./plugin-distribution.js";
+import { readPluginDistribution, resolvePluginRoot } from "./plugin-distribution.js";
 
 const write = (file: string, content: string) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -28,7 +28,9 @@ const read = (root: string) =>
   Effect.gen(function* () {
     const recording = yield* FileSystemRecorder;
     recording.reset();
-    const distribution = yield* readPluginDistribution(root);
+    const distribution = yield* readPluginDistribution(root, {
+      physicalRoot: yield* resolvePluginRoot(root),
+    });
     const resolutions = (target: string) =>
       recording.calls({ method: "realPath", path: target }).length;
     return { distribution, resolutions };
@@ -126,7 +128,8 @@ describe("readPluginDistribution Codex skill walk containment", () => {
   });
 
   const distribution = (directory: string) =>
-    readPluginDistribution(directory).pipe(
+    resolvePluginRoot(directory).pipe(
+      Effect.flatMap((physicalRoot) => readPluginDistribution(directory, { physicalRoot })),
       Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)),
     );
 

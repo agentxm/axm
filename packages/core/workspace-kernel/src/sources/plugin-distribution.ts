@@ -50,19 +50,13 @@ export interface PluginSkillDistribution {
   readonly resolvedRoot: string;
 }
 
-/** Read distribution declarations; unknown vendor metadata does not gate acquisition. */
-export const readPluginDistribution = (
+/** The physical path of a directory inspected as a plugin or marketplace root. */
+export const resolvePluginRoot = (
   directory: string,
-  selection?: PluginMarketplaceSelection,
-): Effect.Effect<
-  Option.Option<PluginSkillDistribution>,
-  SourceNotResolvable,
-  FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<string, SourceNotResolvable, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const resolvedRoot = yield* fs.realPath(directory).pipe(
+    return yield* fs.realPath(directory).pipe(
       Effect.mapError(
         (cause) =>
           new SourceNotResolvable({
@@ -72,6 +66,30 @@ export const readPluginDistribution = (
           }),
       ),
     );
+  });
+
+/**
+ * Read distribution declarations; unknown vendor metadata does not gate
+ * acquisition. Every path is joined to, and reported from, the lexical
+ * `directory`; `physicalRoot` is that directory's resolved path, against which
+ * each resolved target is checked for containment.
+ */
+export const readPluginDistribution = (
+  directory: string,
+  options: {
+    readonly physicalRoot: string;
+    readonly selection?: PluginMarketplaceSelection;
+  },
+): Effect.Effect<
+  Option.Option<PluginSkillDistribution>,
+  SourceNotResolvable,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const resolvedRoot = options.physicalRoot;
+    const selection = options.selection;
     const assertContained = (target: string) =>
       Effect.gen(function* () {
         const resolved = yield* fs.realPath(target).pipe(

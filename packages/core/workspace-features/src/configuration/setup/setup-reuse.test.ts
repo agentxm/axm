@@ -102,8 +102,10 @@ const observeSetup = (
         const observations = workObservations(false);
         const git = path.join(fixture.root, ".git");
         const lockfile = path.join(fixture.root, "axm.lock");
+        recording.reset();
         const prepared = yield* SetupWorkspace.prepare(setupRequest);
         if (prepared._tag !== "SetupWorkspace") return yield* Effect.die("approval required");
+        const preparing = recording.calls();
         recording.reset();
         const transition = yield* SetupWorkspace.previewOrApply(prepared).pipe(
           observations.provide,
@@ -130,6 +132,7 @@ const observeSetup = (
         return {
           transition,
           outcome,
+          calls: { preparing, applied, reported },
           counts: {
             gitChecks:
               applied.filter((call) => call.path === git).length +
@@ -312,4 +315,146 @@ describe("Setup reads once what nothing changes between its plan and its apply",
     expect(planned.get(key)?.row.output).toBe(DIGEST_A);
     expect(recorded.units[key]?.output).toBe(DIGEST_A);
   });
+});
+
+const callCount = (
+  calls: ReadonlyArray<{ readonly method: string; readonly path: string }>,
+  method: string,
+  target: string,
+) => calls.filter((call) => call.method === method && call.path === target).length;
+
+/**
+ * Unattended planning takes the instruction source's presence from the
+ * candidate read it has just made. A run that asked which source to use
+ * checks for it again after the answer. Agent detection checks for the
+ * default source once before planning, and an apply's instruction sync once
+ * after it; neither is shared.
+ */
+describe("Unattended setup planning checks the instruction source once", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  const fixtureWith = (options: SetupFixtureOptions) => {
+    const fixture = makeSetupFixture(options);
+    cleanups.push(fixture.cleanup);
+    return fixture;
+  };
+  const sourceAccess = (
+    fixture: SetupFixture,
+    observed: Effect.Success<ReturnType<typeof observeSetup>>,
+  ) => {
+    const source = path.join(fixture.root, "AGENTS.md");
+    return (
+      callCount(observed.calls.preparing, "access", source) +
+      callCount(observed.calls.applied, "access", source)
+    );
+  };
+  const sourceRow = (observed: Effect.Success<ReturnType<typeof observeSetup>>) =>
+    Exit.isSuccess(observed.transition)
+      ? observed.transition.value.plan?.find((row) => row.detail._tag === "instructionSource")
+      : undefined;
+
+  it.effect("an approved unattended setup", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const observed = yield* observeSetup(fixture, request(fixture.root));
+      // Before: 3.
+      expect(sourceAccess(fixture, observed)).toBe(2);
+      expect(sourceRow(observed)).toEqual({
+        target: "AGENTS.md",
+        action: "in sync",
+        detail: { _tag: "instructionSource" },
+      });
+    }),
+  );
+
+  it.effect("a preview", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      // Before: 2.
+      expect(sourceAccess(fixture, observed)).toBe(1);
+    }),
+  );
+
+  it.effect("an approved setup that asks nothing about its source", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const observed = yield* observeSetup(
+        fixture,
+        request(fixture.root, { nonInteractive: false }),
+      );
+      expect(fixture.promptState().selectInstructionSourceCalls).toHaveLength(0);
+      // Before: 3.
+      expect(sourceAccess(fixture, observed)).toBe(2);
+    }),
+  );
+
+  it.effect("an interactive setup with an explicit source", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ confirmSetupPlan: true, files: { ...SOURCE } });
+      const observed = yield* observeSetup(
+        fixture,
+        request(fixture.root, {
+          yes: false,
+          nonInteractive: false,
+          instructions: { fileName: "AGENTS.md" },
+        }),
+      );
+      expect(fixture.promptState().selectInstructionSourceCalls).toHaveLength(0);
+      // Before: 3.
+      expect(sourceAccess(fixture, observed)).toBe(2);
+    }),
+  );
+
+  it.effect("an interactive setup checks the source it was told to use", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ confirmSetupPlan: true, files: { ...SOURCE } });
+      const observed = yield* observeSetup(
+        fixture,
+        request(fixture.root, { yes: false, nonInteractive: false }),
+      );
+      expect(fixture.promptState().selectInstructionSourceCalls).toHaveLength(1);
+      expect(sourceAccess(fixture, observed)).toBe(3);
+    }),
+  );
+
+  it.effect("a setup without instruction sync never checks the source", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { ...SOURCE } });
+      const observed = yield* observeSetup(fixture, request(fixture.root, { instructions: false }));
+      // Only agent detection's check, before and after.
+      expect(sourceAccess(fixture, observed)).toBe(1);
+      expect(sourceRow(observed)).toBeUndefined();
+    }),
+  );
+
+  it.effect("an absent source is still deferred", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({});
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      // Before: 2.
+      expect(sourceAccess(fixture, observed)).toBe(1);
+      expect(sourceRow(observed)).toEqual({
+        target: "AGENTS.md",
+        action: "skip",
+        detail: { _tag: "instructionSource", deferred: true },
+      });
+    }),
+  );
+
+  it.effect("an empty source is in sync, not deferred", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith({ files: { "AGENTS.md": "" } });
+      const observed = yield* observeSetup(fixture, request(fixture.root, { preview: true }));
+      // Before: 2.
+      expect(sourceAccess(fixture, observed)).toBe(1);
+      expect(sourceRow(observed)).toEqual({
+        target: "AGENTS.md",
+        action: "in sync",
+        detail: { _tag: "instructionSource" },
+      });
+    }),
+  );
 });

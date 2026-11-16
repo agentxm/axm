@@ -427,6 +427,8 @@ const instructionPlanRows = (args: {
   readonly sourceWillBeCreated: boolean;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
   readonly replaceUnrecorded: boolean;
+  /** The source's presence as this call's candidate read observed it, if nothing has asked since. */
+  readonly sourcePresence: Option.Option<boolean>;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -442,7 +444,9 @@ const instructionPlanRows = (args: {
     });
     const deferred =
       !args.sourceWillBeCreated &&
-      !(yield* fileExists(path.join(args.workspaceRoot, args.sourceFileName)));
+      !(Option.isSome(args.sourcePresence)
+        ? args.sourcePresence.value
+        : yield* fileExists(path.join(args.workspaceRoot, args.sourceFileName)));
     const rows: Array<SetupPlanRow> = [
       {
         target: args.sourceFileName,
@@ -695,13 +699,14 @@ const resolveInstructionSetup = (args: {
     const choices = syncEnabled
       ? yield* instructionSourceChoices(args.workspaceRoot, defaultFileName)
       : [];
-    const selectedFileName =
-      syncEnabled && explicit === undefined && !unattended && Option.isSome(interaction)
-        ? yield* interaction.value.selectInstructionSource({
-            defaultFileName,
-            choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
-          })
-        : defaultFileName;
+    const asksForSource =
+      syncEnabled && explicit === undefined && !unattended && Option.isSome(interaction);
+    const selectedFileName = asksForSource
+      ? yield* interaction.value.selectInstructionSource({
+          defaultFileName,
+          choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
+        })
+      : defaultFileName;
 
     if (syncEnabled && selectedFileName !== defaultFileName)
       yield* validateInstructionSource(args.workspaceRoot, selectedFileName);
@@ -709,6 +714,16 @@ const resolveInstructionSetup = (args: {
       enabled: syncEnabled,
       fileName: selectedFileName,
       choices,
+      /**
+       * Whether the selected source exists, as the candidate read just
+       * observed it; none when a prompt has run since that read.
+       */
+      sourcePresence: asksForSource
+        ? Option.none<boolean>()
+        : Option.map(
+            Array.findFirst(choices, (choice) => choice.fileName === selectedFileName),
+            (choice) => choice.exists,
+          ),
     };
   });
 
@@ -958,6 +973,7 @@ const configureProjectWorkspace = (args: {
             sourceWillBeCreated,
             sourceSeed,
             replaceUnrecorded,
+            sourcePresence: instructionSetup.sourcePresence,
           }),
         )
       : Option.none<Effect.Success<ReturnType<typeof instructionPlanRows>>>();

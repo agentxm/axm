@@ -154,6 +154,79 @@ layer(NodeServices.layer, { excludeTestServices: true })(
       }).pipe(Effect.scoped),
     );
 
+    /** A package whose two native declarations share one source, and the source path. */
+    const writeSharedSourcePackage = () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const written = yield* writePackage(
+          {
+            ...identity,
+            implementations: {
+              "claude-code": { kind: "native", source: "agents/reviewer.md" },
+              cursor: { kind: "native", source: "agents/reviewer.md" },
+            },
+          },
+          { "agents/reviewer.md": native },
+        );
+        return { ...written, sourcePath: path.join(written.root, "agents", "reviewer.md") };
+      });
+    const nativeContent = (pkg: Effect.Success<ReturnType<typeof loadSubagentPackage>>) =>
+      ["claude-code", "cursor"].map((agentId) => {
+        const implementation = pkg.implementations[agentId];
+        return implementation?.kind === "native" ? implementation.native.content : undefined;
+      });
+
+    it.effect("reads a shared source again in a later load of the same package", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const { root, realRoot, sourcePath } = yield* writeSharedSourcePackage();
+        const counted = countingFileSystem(fs);
+        const load = loadSubagentPackage(root).pipe(
+          Effect.provideService(FileSystem.FileSystem, counted.fileSystem),
+        );
+        const first = yield* load;
+        const edited = "---\nname: reviewer\ndescription: Reviews\n---\nReview again.";
+        yield* fs.writeFileString(sourcePath, edited);
+        const second = yield* load;
+        expect(nativeContent(first)).toEqual([native, native]);
+        expect(nativeContent(second)).toEqual([edited, edited]);
+        expect(sourceWork(counted, path, realRoot, "agents/reviewer.md")).toEqual({
+          realPath: 2,
+          stat: 2,
+          read: 2,
+        });
+      }).pipe(Effect.scoped),
+    );
+
+    it.effect("checks a shared source's containment again in a later load", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const outside = yield* fs.makeTempDirectoryScoped();
+        yield* fs.writeFileString(path.join(outside, "external.md"), native);
+        const { root, realRoot, sourcePath } = yield* writeSharedSourcePackage();
+        const counted = countingFileSystem(fs);
+        const load = loadSubagentPackage(root).pipe(
+          Effect.provideService(FileSystem.FileSystem, counted.fileSystem),
+        );
+        expect(nativeContent(yield* load)).toEqual([native, native]);
+        yield* fs.remove(sourcePath);
+        yield* fs.symlink(path.join(outside, "external.md"), sourcePath);
+        const error = yield* Effect.flip(load);
+        expect({ reason: error.reason, source: error.source, detail: error.detail }).toEqual({
+          reason: "reference-invalid",
+          source: "agents/reviewer.md",
+          detail: 'Source "agents/reviewer.md" escapes its package.',
+        });
+        expect(sourceWork(counted, path, realRoot, "agents/reviewer.md")).toEqual({
+          realPath: 2,
+          stat: 1,
+          read: 1,
+        });
+      }).pipe(Effect.scoped),
+    );
+
     it.effect("refuses a shared source that is a directory at its first declaration", () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;

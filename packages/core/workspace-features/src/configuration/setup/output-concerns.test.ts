@@ -159,6 +159,41 @@ describe("Setup output concerns resolve a shared skill read directory once", () 
     }),
   );
 
+  it.effect("a later observation resolves the shared directory afresh", () =>
+    Effect.gen(function* () {
+      const fixture = fixtureWith(
+        { ".agents/skills/.keep": "", "elsewhere/.keep": "" },
+        { ".agents/skills/axm/SKILL.md": "x\n" },
+      );
+      const shared = path.join(fixture.root, ".agents", "skills");
+      const elsewhere = path.join(fixture.root, "elsewhere");
+      const targets = [
+        { path: path.join(fixture.root, ".axm", "skills", "axm") },
+        { path: path.join(elsewhere, "axm"), agentIds: ["kimi-cli"] },
+      ];
+      const before = yield* observeConcerns(fixture, SHARING, targets);
+      fs.rmSync(shared, { recursive: true });
+      fs.symlinkSync(elsewhere, shared);
+      const after = yield* observeConcerns(fixture, SHARING, targets);
+      // While `.agents/skills` is its own directory, no agent reads the proposed
+      // output's directory as the shared one; once it links there, every
+      // reader of the shared directory claims that output.
+      expect(before.concerns).toEqual([]);
+      expect(after.concerns).toEqual([
+        {
+          kind: "collision",
+          path: path.join(elsewhere, "axm"),
+          otherPath: path.join(fixture.home, ".agents", "skills", "axm"),
+          entryName: "axm",
+          extensionType: "skill",
+          agentIds: ["deepagents"],
+        },
+      ]);
+      expect(countOf(before.calls, "realPath", shared)).toBe(1);
+      expect(countOf(after.calls, "realPath", shared)).toBe(1);
+    }),
+  );
+
   it.effect("another spelling of the shared directory is still resolved on its own", () =>
     Effect.gen(function* () {
       const fixture = fixtureWith({ ".agents/skills/.keep": "" });

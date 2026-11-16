@@ -110,3 +110,57 @@ describe("readPluginDistribution work", () => {
     }),
   );
 });
+
+describe("readPluginDistribution Codex skill walk containment", () => {
+  let base: string;
+  let root: string;
+
+  beforeEach(() => {
+    base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-plugin-distribution-")));
+    root = path.join(base, "plugin");
+    write(path.join(root, ".codex-plugin", "plugin.json"), JSON.stringify({ name: "kit" }));
+  });
+
+  afterEach(() => {
+    fs.rmSync(base, { recursive: true, force: true });
+  });
+
+  const distribution = (directory: string) =>
+    readPluginDistribution(directory).pipe(
+      Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)),
+    );
+
+  it.effect("refuses a skill directory linked outside the plugin", () =>
+    Effect.gen(function* () {
+      write(path.join(base, "outside", "SKILL.md"), skill("outside"));
+      fs.mkdirSync(path.join(root, "skills"), { recursive: true });
+      fs.symlinkSync(path.join(base, "outside"), path.join(root, "skills", "linked"), "dir");
+
+      const failure = yield* Effect.flip(distribution(root));
+
+      expect({ tag: failure._tag, detail: failure.detail }).toStrictEqual({
+        tag: "SourceNotResolvable",
+        detail: `Plugin path escapes its package: ${path.join(root, "skills", "linked")}`,
+      });
+    }),
+  );
+
+  it.effect("returns each physical skill directory once across an in-package cycle", () =>
+    Effect.gen(function* () {
+      write(path.join(root, "skills", "a", "SKILL.md"), skill("a"));
+      fs.mkdirSync(path.join(root, "skills", "group"), { recursive: true });
+      fs.symlinkSync("..", path.join(root, "skills", "group", "back"), "dir");
+
+      const result = yield* distribution(root);
+
+      expect(result).toStrictEqual(
+        Option.some({
+          format: "codex",
+          manifestPath: ".codex-plugin/plugin.json",
+          skills: [path.join(root, "skills", "a")],
+          resolvedRoot: root,
+        }),
+      );
+    }),
+  );
+});

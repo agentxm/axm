@@ -138,6 +138,20 @@ export const projectionUnitPath = (
 > => plannedTargetKey(target, scopeUnitPath(scopeRoot, target));
 
 /**
+ * {@link projectionUnitPath} beneath a scope root the caller's own read-only
+ * work resolved with `resolveNativeReferent`, with nothing written since; the
+ * target's entry is still resolved live, and refusals name `target` alike.
+ */
+export const projectionUnitPathBeneath = (
+  physicalRoot: string,
+  target: string,
+): Effect.Effect<
+  ProjectionUnitPath,
+  ProjectionTargetUnsupported,
+  FileSystem.FileSystem | Path.Path
+> => plannedTargetKey(target, scopeUnitPathBeneath(physicalRoot, target));
+
+/**
  * {@link projectionUnitPath} for a planned target whose entry the caller has
  * just resolved, as its route admission does, with nothing written since: the
  * scope root is still resolved live, and refusals name `target` alike.

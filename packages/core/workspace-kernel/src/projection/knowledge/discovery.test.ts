@@ -313,6 +313,55 @@ describe("Knowledge link-base validation", () => {
     ),
   );
 
+  it.effect("keys the instruction target beneath the scope root its validation resolved", () =>
+    Effect.gen(function* () {
+      const { ancestors, args, measure, path, root, base } = yield* fixture;
+      const work = (run: {
+        readonly rootRealPaths: number;
+        readonly ancestorListings: ReadonlyArray<number>;
+      }) => ({ rootRealPaths: run.rootRealPaths, parentListings: run.ancestorListings[0] });
+      const validated = yield* measure(args({ configuredAgentIds: [], withBundle: true }));
+      const unvalidated = yield* measure(args({ configuredAgentIds: [], withBundle: false }));
+      // A target below the root: the validation resolves its parent, not the scope root.
+      const nested = path.join(root, "docs/AGENTS.md");
+      yield* base.makeDirectory(path.dirname(nested));
+      const elsewhere = yield* measure({
+        ...args({ configuredAgentIds: [], withBundle: true }),
+        instructionsPath: nested,
+        instructionsDeclaredPath: nested,
+      });
+      // The locked apply is its own call and resolves the root again itself.
+      const applied = yield* measure({
+        ...args({ configuredAgentIds: [], withBundle: true }),
+        dryRun: false,
+      });
+      for (const run of [validated, unvalidated, elsewhere, applied])
+        expect(run.result._tag).toBe("Success");
+      expect(ancestors[0]).toBe(path.dirname(root));
+      expect(
+        [validated, applied].map((run) =>
+          run.result._tag === "Success"
+            ? run.result.success.rowChanges.map(({ path }) => path)
+            : [],
+        ),
+      ).toEqual([["AGENTS.md"], ["AGENTS.md"]]);
+      expect({
+        validated: work(validated),
+        unvalidated: work(unvalidated),
+        elsewhere: work(elsewhere),
+        applied: work(applied),
+      }).toEqual({
+        validated: { rootRealPaths: 5, parentListings: 11 },
+        unvalidated: { rootRealPaths: 4, parentListings: 9 },
+        elsewhere: { rootRealPaths: 5, parentListings: 12 },
+        applied: { rootRealPaths: 6, parentListings: 13 },
+      });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+    ),
+  );
+
   it.effect(
     "accepts and refuses through a symlinked scope root exactly as through its target",
     () =>

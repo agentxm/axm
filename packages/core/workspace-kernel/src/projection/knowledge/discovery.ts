@@ -10,7 +10,7 @@ import {
   type ManagedRegionFailure,
 } from "../errors.js";
 import { projectionGeneration } from "../generation.js";
-import { projectionUnitPath } from "../unit-path.js";
+import { projectionUnitPath, projectionUnitPathBeneath } from "../unit-path.js";
 import {
   reconcileNativeManagedRegion,
   retargetedRegionRows,
@@ -113,7 +113,11 @@ const renderKnowledgeBaseTable = (args: {
   ].join("\n\n");
 };
 
-/** A relative link can be shared only when each native route has the same base. */
+/**
+ * A relative link can be shared only when each native route has the same base.
+ * Answers the scope root's referent when the validation resolved that exact
+ * path, so the reconciliation that follows can key its target beneath it.
+ */
 const validateKnowledgeLinkBases = (args: {
   readonly scopeRoot: string;
   readonly scope: "project" | "user";
@@ -168,6 +172,7 @@ const validateKnowledgeLinkBases = (args: {
           });
       }
     }
+    return referents.get(args.scopeRoot);
   }).pipe(
     Effect.mapError((cause) =>
       cause instanceof ProjectionTargetUnsupported
@@ -242,11 +247,10 @@ export const reconcileKnowledgeDiscovery = (args: {
       };
     }
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
-    if (tableDesired) yield* validateKnowledgeLinkBases(args);
-    const instructionRelative = yield* projectionUnitPath(
-      args.scopeRoot,
-      args.instructionsDeclaredPath,
-    );
+    const validatedScopeRoot = tableDesired ? yield* validateKnowledgeLinkBases(args) : undefined;
+    const instructionRelative = yield* validatedScopeRoot === undefined
+      ? projectionUnitPath(args.scopeRoot, args.instructionsDeclaredPath)
+      : projectionUnitPathBeneath(validatedScopeRoot, args.instructionsDeclaredPath);
     const renderedRegion = tableDesired
       ? renderKnowledgeBaseTable({
           bundles: args.bundles,

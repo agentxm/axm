@@ -1,10 +1,12 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import type { NativeLocationOutcome } from "../locations/index.js";
+import { workObservations } from "../locations/testing.js";
 import {
   captureNativeRetentionWitnesses,
   validateNativeRetentionWitnesses,
@@ -241,5 +243,128 @@ describe("retained native content", () => {
           (yield* validateNativeRetentionWitnesses(before, context).pipe(Effect.result))._tag,
         ).toBe("Failure");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+describe("retained native content of a shared file", () => {
+  const cases = [
+    {
+      kind: "region",
+      file: "AGENTS.md",
+      raw: ["rules", "knowledge"]
+        .map((name) => `<!-- axm:${name} -->\nKept ${name}.\n<!-- /axm:${name} -->\n`)
+        .join(""),
+      units: (file: string): ReadonlyArray<NativeLocationOutcome["address"]> => [
+        { kind: "region", path: file, region: "rules" },
+        { kind: "region", path: file, region: "knowledge" },
+      ],
+      parses: 0,
+      edit: ["Kept knowledge.", "Changed knowledge."],
+    },
+    {
+      kind: "key-path",
+      file: ".mcp.json",
+      raw: JSON.stringify({ mcpServers: { one: { command: "one" }, two: { command: "two" } } }),
+      units: (file: string): ReadonlyArray<NativeLocationOutcome["address"]> => [
+        { kind: "key-path", path: file, keys: ["mcpServers", "one"] },
+        { kind: "key-path", path: file, keys: ["mcpServers", "two"] },
+      ],
+      parses: 1,
+      edit: ['"command":"two"', '"command":"changed"'],
+    },
+    {
+      kind: "hook-registrations",
+      file: ".claude/settings.json",
+      raw: JSON.stringify({
+        hooks: {
+          Stop: [
+            { hooks: [{ type: "command", command: "node /hooks/one/run.js" }] },
+            { hooks: [{ type: "command", command: "node /hooks/two/run.js" }] },
+          ],
+        },
+      }),
+      units: (file: string): ReadonlyArray<NativeLocationOutcome["address"]> => [
+        {
+          kind: "hook-registrations",
+          path: file,
+          settingsKey: "hooks",
+          scriptRoots: ["/hooks/one"],
+        },
+        {
+          kind: "hook-registrations",
+          path: file,
+          settingsKey: "hooks",
+          scriptRoots: ["/hooks/two"],
+        },
+      ],
+      parses: 1,
+      edit: ["/hooks/two/run.js", "/hooks/two/changed.js"],
+    },
+  ] as const;
+
+  it.effect.each(cases)(
+    "reads and parses one file shared by $kind units once per retention phase",
+    (fixture) =>
+      Effect.gen(function* () {
+        const base = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* base.realPath(yield* base.makeTempDirectoryScoped());
+        const file = path.join(root, fixture.file);
+        yield* base.makeDirectory(path.dirname(file), { recursive: true });
+        yield* base.writeFileString(file, fixture.raw);
+        const units = fixture.units(file).map(location);
+        const context = {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        };
+        const { fileSystem, recording } = makeRecordingFileSystem(base);
+        const measure = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+          Effect.gen(function* () {
+            const observations = workObservations(false);
+            recording.reset();
+            const result = yield* effect.pipe(
+              observations.provide,
+              Effect.provideService(FileSystem.FileSystem, fileSystem),
+            );
+            return {
+              result,
+              work: {
+                contentReads: recording.contentReads(file),
+                parses: observations.facts.filter(({ kind }) => kind === "axm.parse.native").length,
+              },
+            };
+          });
+        const capture = yield* measure(captureNativeRetentionWitnesses(units, context));
+        expect(capture.result).toHaveLength(2);
+        const validation = yield* measure(
+          validateNativeRetentionWitnesses(capture.result, context),
+        );
+        expect({ capture: capture.work, validation: validation.work }).toEqual({
+          capture: { contentReads: 1, parses: fixture.parses },
+          validation: { contentReads: 1, parses: fixture.parses },
+        });
+        yield* base.writeFileString(file, fixture.raw.replace(fixture.edit[0], fixture.edit[1]));
+        expect(
+          (yield* validateNativeRetentionWitnesses(capture.result, context).pipe(Effect.result))
+            ._tag,
+        ).toBe("Failure");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads and parses nothing when no unit is retained", () =>
+    Effect.gen(function* () {
+      const base = yield* FileSystem.FileSystem;
+      const { fileSystem, recording } = makeRecordingFileSystem(base);
+      const observations = workObservations(false);
+      const root = yield* base.makeTempDirectoryScoped();
+      recording.reset();
+      const witnesses = yield* captureNativeRetentionWitnesses([], {
+        workspaceRoot: root,
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+      }).pipe(observations.provide, Effect.provideService(FileSystem.FileSystem, fileSystem));
+      expect(witnesses).toEqual([]);
+      expect(recording.calls({ method: "readFile" })).toEqual([]);
+      expect(observations.facts.filter(({ kind }) => kind === "axm.parse.native")).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

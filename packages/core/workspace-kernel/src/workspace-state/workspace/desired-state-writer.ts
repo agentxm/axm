@@ -461,11 +461,14 @@ const makeDesiredStateWriter = (
   /**
    * An MCP server's accepted resolution is shared by every connection and
    * Pack member that resolves to the same identity; it is removed only when
-   * this connection was its last user.
+   * this connection was its last user. The call's one selected-scope settings
+   * decode feeds both the desired graph and the removal decision, all before
+   * its first write; the lockfile is read again after the settings write.
    */
   const undeclareMcpServer = (name: string): Write =>
     Effect.gen(function* () {
-      const graph = yield* desiredState.graph();
+      const current = yield* settings;
+      const graph = yield* desiredState.graph({ settings: current });
       const desiredNode = graph.nodes.find(
         (node) => node.type === "mcp-server" && node.name === name,
       );
@@ -475,7 +478,6 @@ const makeDesiredStateWriter = (
         resolutionKey === undefined
           ? undefined
           : graph.mcpSourceClosures.find((candidate) => candidate.key === resolutionKey);
-      const current = yield* settings;
       if (Option.isSome(settingsEntries["mcp-server"].entry(current, name))) {
         yield* writeSettings(settingsEntries["mcp-server"].remove(current, name));
       }

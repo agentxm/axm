@@ -3,7 +3,11 @@
  * intent read and the Registry source selection share the call's project and
  * user documents, while the settings owner keeps its own live read.
  */
-import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import {
+  FileSystemRecorder,
+  layerRecordingFileSystem,
+  type FileSystemRecording,
+} from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -53,10 +57,10 @@ const declareRule = (writer: DesiredStateWriterService, name = "style", url?: st
     versionRange: Option.none(),
   });
 
-const declareMcp = (writer: DesiredStateWriterService) => {
+const declareMcp = (writer: DesiredStateWriterService, name = "docs") => {
   const lockEntry = makeRegistryMcpServerLockEntry({ owner: handle("@acme"), name: "docs" });
   return writer.declare("mcp-server", {
-    name: "docs",
+    name,
     resolutionKey: McpSourceKey.fromLockEntry(lockEntry),
     lockEntry,
     versionRange: Option.none(),
@@ -354,4 +358,178 @@ describe("DesiredStateWriter.declare settings inputs", () => {
       }),
     ),
   );
+});
+
+/**
+ * One MCP undeclaration outside a read phase decodes the selected settings
+ * once for both the desired graph and its removal decision; the lockfile is
+ * read again after the settings write, and the settings owner keeps its own
+ * live read when it publishes.
+ */
+describe("DesiredStateWriter.undeclare MCP settings reads", () => {
+  /** Writes and renames that publish a document at this path. */
+  const publications = (recording: FileSystemRecording, path: string) =>
+    recording
+      .calls({ path })
+      .filter((call) => call.method === "writeFile" || call.method === "rename").length;
+  const project = `${JSON.stringify({ agents: [], sources: [corp] }, undefined, 2)}\n`;
+  const corpDocs = makeRegistryMcpServerLockEntry({
+    owner: handle("@acme"),
+    name: "docs",
+    endpoint: decodeRegistryEndpointSync(corp.location),
+  });
+  const declareCorpDocs = (writer: DesiredStateWriterService, name: string) =>
+    writer.declare("mcp-server", {
+      name,
+      resolutionKey: McpSourceKey.fromLockEntry(corpDocs),
+      lockEntry: corpDocs,
+      versionRange: Option.none(),
+    });
+
+  /** A project that declares the Registry-sourced connection "docs" and accepts its row. */
+  const declared = (options: { readonly user?: unknown; readonly alsoAs?: string } = {}) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const paths = yield* fixture({
+        project,
+        ...(options.user === undefined ? {} : { user: options.user }),
+      });
+      const empty = yield* fs.readFileString(paths.lock);
+      const services = yield* workspace(paths);
+      const writer = Context.get(services, DesiredStateWriter);
+      yield* declareCorpDocs(writer, "docs");
+      if (options.alsoAs !== undefined) yield* declareCorpDocs(writer, options.alsoAs);
+      return { paths, services, writer, empty, accepted: yield* fs.readFileString(paths.lock) };
+    });
+
+  it.effect("decodes the selected settings once for the graph and the removal", () =>
+    recorded(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        const { paths, writer, empty } = yield* declared();
+        const { work, parses } = yield* observe(paths, writer.undeclare("mcp-server", "docs"));
+        expect(work).toEqual({
+          settingsParses: 1,
+          roundTripParses: 3,
+          lockfileParses: 3,
+          projectContentReads: 4,
+          userAccess: 1,
+          userContentReads: 0,
+          lockContentReads: 5,
+        });
+        // The graph's lockfile decode follows the one settings decode, and no
+        // second settings decode precedes the write.
+        expect(parses.slice(0, 4)).toEqual([
+          "axm.parse.settings",
+          "axm.parse.lockfile",
+          "axm.parse.lockfile-decode",
+          "axm.parse.settings-round-trip",
+        ]);
+        expect(publications(recording, paths.settings)).toBe(1);
+        expect(JSON.parse(yield* fs.readFileString(paths.settings))).toMatchObject({
+          mcpServers: {},
+        });
+        // This connection was the accepted row's last user.
+        expect(yield* fs.readFileString(paths.lock)).toBe(empty);
+      }),
+    ),
+  );
+
+  it.effect("decodes the selected settings once and writes nothing for an absent entry", () =>
+    recorded(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        const paths = yield* fixture({ project });
+        const writer = Context.get(yield* workspace(paths), DesiredStateWriter);
+        const before = yield* fs.readFileString(paths.lock);
+        const { work } = yield* observe(paths, writer.undeclare("mcp-server", "docs"));
+        expect(work).toEqual({
+          settingsParses: 1,
+          roundTripParses: 0,
+          lockfileParses: 2,
+          projectContentReads: 1,
+          userAccess: 1,
+          userContentReads: 0,
+          lockContentReads: 2,
+        });
+        expect(publications(recording, paths.settings)).toBe(0);
+        expect(publications(recording, paths.lock)).toBe(0);
+        expect(yield* fs.readFileString(paths.settings)).toBe(project);
+        expect(yield* fs.readFileString(paths.lock)).toBe(before);
+      }),
+    ),
+  );
+
+  it.effect("keeps the read phase's settings work for an MCP undeclaration inside it", () =>
+    recorded(
+      Effect.gen(function* () {
+        const { paths, services, writer } = yield* declared();
+        const { work } = yield* observe(
+          paths,
+          withWorkspaceReadView(writer.undeclare("mcp-server", "docs")).pipe(
+            Effect.provideContext(services),
+          ),
+        );
+        expect(work).toMatchObject({ settingsParses: 1, projectContentReads: 4 });
+      }),
+    ),
+  );
+
+  it.effect("keeps an accepted row another local name still resolves to", () =>
+    recorded(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const { paths, writer, empty, accepted } = yield* declared({ alsoAs: "docs-mirror" });
+        yield* writer.undeclare("mcp-server", "docs");
+        expect(yield* fs.readFileString(paths.lock)).toBe(accepted);
+        yield* writer.undeclare("mcp-server", "docs-mirror");
+        expect(yield* fs.readFileString(paths.lock)).toBe(empty);
+        expect(JSON.parse(yield* fs.readFileString(paths.settings))).toMatchObject({
+          mcpServers: {},
+        });
+      }),
+    ),
+  );
+
+  for (const corrupt of ["project", "user", "lockfile"] as const)
+    it.effect(`fails an MCP undeclaration over a corrupt ${corrupt} document without writing`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const recording = yield* FileSystemRecorder;
+          const { paths, services, writer } = yield* declared({ user: {} });
+          const target =
+            corrupt === "project"
+              ? paths.settings
+              : corrupt === "user"
+                ? paths.userSettings
+                : paths.lock;
+          const settingsBefore = yield* fs.readFileString(paths.settings);
+          const lockBefore = yield* fs.readFileString(paths.lock);
+          yield* fs.writeFileString(target, corrupt === "lockfile" ? "[" : "{");
+          const observations = workObservations(false);
+          recording.reset();
+          const failure = yield* writer
+            .undeclare("mcp-server", "docs")
+            .pipe(observations.provide, Effect.flip);
+          // One selected-settings read, which an inherited-settings or lockfile
+          // failure still follows.
+          expect(recording.contentReads(paths.settings)).toBe(1);
+          expect(
+            observations.facts.filter((fact) => fact.kind === "axm.parse.settings").length,
+          ).toBe(corrupt === "project" ? 1 : 2);
+          expect(publications(recording, paths.settings)).toBe(0);
+          expect(publications(recording, paths.lock)).toBe(0);
+          if (corrupt !== "project")
+            expect(yield* fs.readFileString(paths.settings)).toBe(settingsBefore);
+          if (corrupt !== "lockfile") expect(yield* fs.readFileString(paths.lock)).toBe(lockBefore);
+          // Exactly the failure the desired graph's own decode reports.
+          expect(failure).toEqual(
+            yield* Effect.flip(Context.get(services, DesiredStateReader).graph()),
+          );
+        }),
+      ),
+    );
 });

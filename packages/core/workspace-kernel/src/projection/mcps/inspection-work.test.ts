@@ -190,12 +190,16 @@ describe("MCP inspection work within one inspection read view", () => {
           const captured = nodePath.join(root, ".cursor/mcp.json");
           const started = yield* Deferred.make<void>();
           const release = yield* Deferred.make<void>();
+          // Every resolution that reaches this location, including one interrupted before it
+          // records the capture; a restarted resolution would reach it twice.
+          let resolutions = 0;
           // The resolution pauses at a location only it captures until released.
           const paused: FileSystem.FileSystem = {
             ...fs,
             realPath: (path) =>
               path === captured
-                ? Deferred.succeed(started, undefined).pipe(
+                ? Effect.sync(() => resolutions++).pipe(
+                    Effect.andThen(Deferred.succeed(started, undefined)),
                     Effect.andThen(Deferred.await(release)),
                     Effect.andThen(fs.realPath(path)),
                   )
@@ -218,7 +222,9 @@ describe("MCP inspection work within one inspection read view", () => {
           expect({
             current: lint.current,
             statuses: lint.inspections.map((agent) => [agent.agentId, agent.status]),
-            // The abandoned consumer's resolution kept running for the one still awaiting it.
+            // The abandoned consumer's resolution kept running for the one still awaiting it:
+            // no second resolution started, and the one that ran captured the location once.
+            resolutions,
             captures: recording.counts(captured).realPath ?? 0,
           }).toEqual({
             current: true,
@@ -226,6 +232,7 @@ describe("MCP inspection work within one inspection read view", () => {
               ["claude-code", "match"],
               ["codebuddy", "match"],
             ],
+            resolutions: 1,
             captures: 1,
           });
         }),

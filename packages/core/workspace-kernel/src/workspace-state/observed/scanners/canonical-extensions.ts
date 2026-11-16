@@ -11,8 +11,10 @@
  * Each occurrence carries structural fields the subject modules need for
  * cross-platform path handling — `pathSegments` (the absolute path split via
  * the `Path` service) and `subjectFile` (the canonical primary content file
- * for the subject type, e.g., `<dir>/SKILL.md` for skills) — plus a probed
- * `subjectFileExists` flag so subject modules do not hardcode presence.
+ * for the subject type, e.g., `<dir>/SKILL.md` for skills) — plus an observed
+ * `subjectFileExists` flag so subject modules do not hardcode presence. The
+ * scan observes presence by probing the file, or by the successful read it
+ * just made of that same file.
  *
  * Scanner contract:
  *
@@ -23,7 +25,9 @@
  * - workspace-root path-escape is checked at provider construction (Phase 9),
  *   not inside the scanner.
  *
- * Directory metadata classifies candidates without enumerating them twice.
+ * Directory metadata classifies candidates without enumerating them twice,
+ * and a package directory that is its own content root is not stat'd again
+ * after its parent classified it as a directory.
  */
 
 import * as Effect from "effect/Effect";
@@ -117,7 +121,8 @@ const subjectFileNameFor = (type: ExtensionType): string | null => {
 
 /**
  * Build one occurrence record from a discovered subject directory. Probes
- * the canonical subject file (e.g., `SKILL.md`) when applicable.
+ * the canonical subject file (e.g., `SKILL.md`) when applicable, unless the
+ * caller has just read that same file successfully (`subjectFileRead`).
  */
 const buildOccurrence = (
   deps: CanonicalExtensionsScannerDeps,
@@ -127,6 +132,7 @@ const buildOccurrence = (
     readonly nameDir: string;
     readonly name?: string;
     readonly owner: Handle | null;
+    readonly subjectFileRead?: boolean;
   },
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
   Effect.gen(function* () {
@@ -137,9 +143,10 @@ const buildOccurrence = (
       subjectFileName === null
         ? Option.none()
         : Option.some(makeAbsolutePath(path, path.join(args.nameDir, subjectFileName)));
-    const subjectFileExists = Option.isSome(subjectFile)
-      ? yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectFile.value)
-      : false;
+    const subjectFileExists = Option.isNone(subjectFile)
+      ? false
+      : args.subjectFileRead === true ||
+        (yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectFile.value));
     const contentLocation = makeAbsolutePath(path, args.nameDir);
     const occurrence: CanonicalExtensionOccurrence = {
       _tag: "canonical-extension",
@@ -168,11 +175,17 @@ interface ScannableManifestIdentity {
   readonly name: ReturnType<typeof decodeExtensionNameSync>;
 }
 
+interface NativeIdentityObservation {
+  readonly identity: ScannableManifestIdentity;
+  /** Whether the manifest's text was read, whether or not it decoded. */
+  readonly manifestRead: boolean;
+}
+
 const readNativeIdentity = (
   deps: CanonicalExtensionsScannerDeps,
   dir: string,
   filename: string,
-): Effect.Effect<Option.Option<ScannableManifestIdentity>> =>
+): Effect.Effect<Option.Option<NativeIdentityObservation>> =>
   Effect.gen(function* () {
     const filenameType = extensionTypeForManifestFilename(filename);
     if (filenameType === undefined) return Option.none();
@@ -184,9 +197,8 @@ const readNativeIdentity = (
     if (Option.isNone(raw)) {
       if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({
-        type: filenameType,
-        name: fallbackName.value,
-        owner: null,
+        identity: { type: filenameType, name: fallbackName.value, owner: null },
+        manifestRead: false,
       });
     }
     // Parse once into a value and decode the identity from it, so an acquired
@@ -208,17 +220,21 @@ const readNativeIdentity = (
     if (Option.isNone(identity) || manifestFilenameForType(identity.value.type) !== filename) {
       if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({
-        type: filenameType,
-        name: fallbackName.value,
-        owner: null,
+        identity: { type: filenameType, name: fallbackName.value, owner: null },
+        manifestRead: true,
       });
     }
-    return identity;
+    return Option.some({ identity: identity.value, manifestRead: true });
   });
 
+/**
+ * `classifiedAsDirectory` is true when the parent's classification just stat'd
+ * `dir` as a directory; the acquired root itself was only enumerated.
+ */
 const inspectAcquiredDirectory = (
   deps: CanonicalExtensionsScannerDeps,
   dir: string,
+  classifiedAsDirectory: boolean,
 ): Effect.Effect<{
   readonly occurrences: ReadonlyArray<CanonicalExtensionOccurrence>;
   readonly children: ReadonlyArray<string>;
@@ -232,15 +248,17 @@ const inspectAcquiredDirectory = (
       (filename) => readNativeIdentity(deps, dir, filename),
     )).flatMap(Option.toArray);
     if (nativeIdentities.length > 0) {
-      const occurrences = yield* Effect.forEach(nativeIdentities, (identity) =>
+      const occurrences = yield* Effect.forEach(nativeIdentities, ({ identity, manifestRead }) =>
         Effect.gen(function* () {
-          const contentDir =
+          const isPackageRoot =
             identity.type === "pack" ||
             identity.type === "mcp-server" ||
-            identity.type === "subagent"
-              ? dir
-              : deps.path.join(dir, "src");
-          if (!(yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, contentDir)))
+            identity.type === "subagent";
+          const contentDir = isPackageRoot ? dir : deps.path.join(dir, "src");
+          if (
+            !(isPackageRoot && classifiedAsDirectory) &&
+            !(yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, contentDir))
+          )
             return [];
           return [
             yield* buildOccurrence(deps, {
@@ -249,6 +267,8 @@ const inspectAcquiredDirectory = (
               nameDir: contentDir,
               name: identity.name,
               owner: identity.owner,
+              // A subagent's subject file is the manifest this inspection read.
+              subjectFileRead: identity.type === "subagent" && manifestRead,
             }),
           ];
         }),
@@ -283,6 +303,7 @@ const inspectAcquiredDirectory = (
               nameDir: dir,
               name: name.value,
               owner: null,
+              subjectFileRead: true,
             }),
           ],
         };
@@ -313,6 +334,7 @@ const scanAcquiredDirectory = (
   Effect.gen(function* () {
     type Visit = { readonly directory: string; readonly position: ReadonlyArray<number> };
     let frontier: ReadonlyArray<Visit> = [{ directory: root, position: [] }];
+    let classifiedAsDirectory = false;
     const found: Array<{
       readonly position: ReadonlyArray<number>;
       readonly occurrence: CanonicalExtensionOccurrence;
@@ -321,11 +343,13 @@ const scanAcquiredDirectory = (
       const observations = yield* Effect.forEach(
         frontier,
         ({ directory, position }) =>
-          inspectAcquiredDirectory(deps, directory).pipe(
+          inspectAcquiredDirectory(deps, directory, classifiedAsDirectory).pipe(
             Effect.map((observed) => ({ ...observed, position })),
           ),
         { concurrency: SCANNER_IO_CONCURRENCY },
       );
+      // Every later frontier holds children `filterDirectories` admitted.
+      classifiedAsDirectory = true;
       frontier = observations.flatMap(({ children, occurrences, position }) => {
         for (const occurrence of occurrences) found.push({ position, occurrence });
         return children.map((directory, index) => ({ directory, position: [...position, index] }));
@@ -380,14 +404,17 @@ const scanAuthoredType = (
       packageDirs,
       (packageDir) =>
         Effect.gen(function* () {
-          const nameDir =
+          const isPackageRoot =
             extensionType === "pack" ||
             extensionType === "mcp-server" ||
-            extensionType === "subagent"
-              ? packageDir
-              : deps.path.join(packageDir, "src");
-          const present = yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, nameDir);
-          if (!present) return [];
+            extensionType === "subagent";
+          // `filterDirectories` just classified `packageDir` as a directory.
+          const nameDir = isPackageRoot ? packageDir : deps.path.join(packageDir, "src");
+          if (
+            !isPackageRoot &&
+            !(yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, nameDir))
+          )
+            return [];
           return [
             yield* buildOccurrence(deps, {
               extensionType,

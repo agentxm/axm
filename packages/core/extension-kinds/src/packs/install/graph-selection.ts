@@ -38,12 +38,11 @@ import {
   desiredPackageKey,
   effectiveDesiredConstraint,
   formatDesiredSourceAuthority,
-  observeDesiredCanonical,
+  observeDesiredUsableCanonical,
   sameSourceAuthority,
   sameSourceIdentity,
   packMemberSourceAuthority,
   usableAcceptedCanonical,
-  usableAcceptedCanonicalFrom,
   acceptedLockedResolutionRef,
   computePackManifestContentIdentity,
   type DesiredConstraintConflict,
@@ -283,13 +282,8 @@ export const scanWorkspaceAuthority: (
 
       // One observation judges the configured workspace package; its usable
       // ref is read from that observation rather than by observing again.
-      const canonical = yield* observeDesiredCanonical(desired).pipe(
-        Effect.flatMap((observed) =>
-          Effect.map(usableAcceptedCanonicalFrom(observed), (usable) => ({
-            status: observed.observation.status,
-            usable,
-          })),
-        ),
+      const canonical = yield* observeDesiredUsableCanonical(desired).pipe(
+        Effect.map(({ observed, usable }) => ({ status: observed.observation.status, usable })),
         Effect.mapError((cause) =>
           installRefused({
             category: "internal",

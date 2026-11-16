@@ -27,10 +27,13 @@ import { exactVersion, extensionName, handle, storedLockfileFixture } from "../t
 import {
   acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
+  observeDesiredCanonical,
+  observeDesiredUsableCanonical,
   prepareAcceptedCanonicalTransition,
   usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalRef,
 } from "./accepted-canonical-ref.js";
+import { BUNDLED_SKILL_OWNER, bundledSkillCanonicalRoot } from "./extension-paths.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceLocation } from "./location.js";
@@ -384,6 +387,58 @@ describe("usable accepted canonical of an authored package", () => {
       }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
     );
 
+  for (const authored of authoredPackages)
+    it.effect(`observes the ${authored.type} and resolves it from that observation's read`, () =>
+      Effect.gen(function* () {
+        const { packages, state } = yield* authoredProject;
+        const subject = packages.find((candidate) => candidate.type === authored.type);
+        if (subject === undefined) return yield* Effect.die("fixture package missing");
+
+        const { value, recording, hashes } = yield* recordedRun(
+          observeDesiredUsableCanonical(subject.desired),
+          state,
+        );
+
+        // The observation's read and the package hash's walk; the resolution
+        // decodes nothing again.
+        expect(recording.contentReads(subject.manifestPath)).toBe(authored.manifestReads);
+        expect(recording.counts(subject.packageDir).access).toBe(2);
+        expect(hashes).toBe(1);
+        expect(value.observed).toEqual(
+          yield* Effect.provide(observeDesiredCanonical(subject.desired), state),
+        );
+        expect(Option.map(value.usable, (usable) => usable.ref)).toEqual(
+          Option.some(yield* Effect.provide(todaysRef(subject), state)),
+        );
+      }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+    );
+
+  for (const manifest of [
+    {
+      label: "names another owner",
+      text: JSON.stringify({ owner: "@other", type: "rule", name: "policy", version: "1.0.0" }),
+    },
+    { label: "is not valid JSON", text: "{" },
+  ])
+    it.effect(`observes without resolving when the manifest ${manifest.label}`, () =>
+      Effect.gen(function* () {
+        const { packages, state } = yield* authoredProject;
+        const subject = packages.find((candidate) => candidate.type === "rule");
+        if (subject === undefined) return yield* Effect.die("fixture package missing");
+        nodeFs.writeFileSync(subject.manifestPath, manifest.text);
+
+        const { value, recording, hashes } = yield* recordedRun(
+          observeDesiredUsableCanonical(subject.desired),
+          state,
+        );
+
+        expect(value.usable).toEqual(Option.none());
+        expect(recording.contentReads(subject.manifestPath)).toBe(1);
+        expect(recording.counts(subject.packageDir).access).toBe(1);
+        expect(hashes).toBe(0);
+      }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+    );
+
   it.effect("keeps reading the manifest for an observation taken elsewhere", () =>
     Effect.gen(function* () {
       const { packages, state } = yield* authoredProject;
@@ -463,6 +518,95 @@ describe("usable accepted canonical of an authored package", () => {
           ),
       ).toEqual([]);
       expect(hashes).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+  );
+});
+
+/** A project whose bundled `axm` Skill package sits at its canonical root, and its services. */
+const bundledProject = Effect.gen(function* () {
+  const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-accepted-bundled-"));
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+  );
+  nodeFs.writeFileSync(nodePath.join(root, "axm.json"), '{ "owner": "@acme" }\n');
+  const state = WorkspaceStateTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) });
+  const packageDir = yield* Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    return bundledSkillCanonicalRoot(
+      (yield* Path.Path).join,
+      yield* Ref.get(location.layout),
+      "axm",
+    );
+  }).pipe(Effect.provide(state));
+  nodeFs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
+  nodeFs.writeFileSync(nodePath.join(packageDir, "src", "SKILL.md"), "# AXM\n");
+  const manifestPath = nodePath.join(packageDir, "skill.json");
+  nodeFs.writeFileSync(
+    manifestPath,
+    `${JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "1.0.0" })}\n`,
+  );
+  const desired: DesiredExtensionNode = {
+    type: "skill",
+    name: "axm",
+    identity: { authority: "bundled", fqn: "@agentxm/skills/axm" },
+    source: "workspace",
+    enabled: true,
+    constraint: UNCONSTRAINED_DESIRED_NODE,
+    origins: [{ type: "settings", source: "workspace", enabled: true }],
+  };
+  return { state, packageDir, manifestPath, desired };
+});
+
+describe("usable accepted canonical of a bundled skill", () => {
+  /** The ref the bundled package resolves to on its own, reading and decoding its manifest. */
+  const standaloneRef = (packageDir: string) =>
+    Effect.gen(function* () {
+      const location = yield* WorkspaceLocation;
+      return yield* resolveWorkspaceExtensionRef({
+        settingsName: "axm",
+        source: "workspace",
+        expectedType: "skill",
+        layout: yield* Ref.get(location.layout),
+        scope: location.scope,
+        staticPackage: { owner: BUNDLED_SKILL_OWNER, name: extensionName("axm"), root: packageDir },
+      });
+    });
+
+  it.effect("decodes the manifest the observation read, once", () =>
+    Effect.gen(function* () {
+      const { state, packageDir, manifestPath, desired } = yield* bundledProject;
+
+      const { value, recording, hashes } = yield* recordedRun(
+        usableAcceptedCanonicalRef({ type: "skill", name: "axm", desired }),
+        state,
+      );
+
+      // The observation's read and the package hash's walk.
+      expect(recording.contentReads(manifestPath)).toBe(2);
+      // Both presence probes still run: the observation's and the resolution's.
+      expect(recording.counts(packageDir).access).toBe(2);
+      expect(hashes).toBe(1);
+      expect(value).toEqual(Option.some(yield* Effect.provide(standaloneRef(packageDir), state)));
+    }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+  );
+
+  it.effect("keeps reading the manifest for an observation taken elsewhere", () =>
+    Effect.gen(function* () {
+      const { state, packageDir, manifestPath, desired } = yield* bundledProject;
+      const observed = yield* Effect.provide(observeDesiredCanonical(desired), state);
+
+      const { value, recording, hashes } = yield* recordedRun(
+        usableAcceptedCanonicalFrom(observed),
+        state,
+      );
+
+      // The resolution's own read and the package hash's walk.
+      expect(recording.contentReads(manifestPath)).toBe(2);
+      expect(recording.counts(packageDir).access).toBe(1);
+      expect(hashes).toBe(1);
+      expect(Option.map(value, (usable) => usable.ref)).toEqual(
+        Option.some(yield* Effect.provide(standaloneRef(packageDir), state)),
+      );
     }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
   );
 });

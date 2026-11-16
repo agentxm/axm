@@ -300,6 +300,26 @@ interface ObservedPackage {
   readonly manifest: Option.Option<CapturedManifest>;
 }
 
+/**
+ * The decode an observation in the same call made of the manifest of `type`
+ * at the root it found usable, for the resolution of that root; `None` when
+ * it made none, and the resolution reads the manifest itself.
+ */
+const preparedFromObserved = (
+  path: Path.Path,
+  observed: ObservedPackage | undefined,
+  type: DesiredExtensionNode["type"],
+) =>
+  observed === undefined
+    ? Option.none()
+    : Option.map(capturedManifestFor(path, observed.manifest, observed.root, type), (manifest) => ({
+        prepared: {
+          root: observed.root,
+          type,
+          manifest: Effect.succeed({ manifest }),
+        },
+      }));
+
 const refForDesired = (
   desired: DesiredExtensionNode,
   preparedWorkspaceRef?: PreparedWorkspaceRef,
@@ -317,6 +337,8 @@ const refForDesired = (
     }
     if (desired.identity.authority === "bundled") {
       const path = yield* Path.Path;
+      // The observation already decoded this root's manifest with the same
+      // grammar; the resolution uses that decode only for the root it resolves.
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: "workspace",
@@ -328,6 +350,7 @@ const refForDesired = (
           name: decodeExtensionNameSync(desired.name),
           root: bundledSkillCanonicalRoot(path.join, layout, desired.name),
         },
+        ...Option.getOrElse(preparedFromObserved(path, observed, desired.type), () => ({})),
       });
     }
     if (desired.identity.authority === "workspace") {
@@ -339,27 +362,13 @@ const refForDesired = (
       // The observation already decoded this root's manifest with the same
       // grammar; the resolution uses that decode only for the root it resolves.
       const path = yield* Path.Path;
-      const observedManifest =
-        observed === undefined
-          ? Option.none()
-          : Option.map(
-              capturedManifestFor(path, observed.manifest, observed.root, desired.type),
-              (manifest) => ({
-                root: observed.root,
-                type: desired.type,
-                manifest: Effect.succeed({ manifest }),
-              }),
-            );
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
         expectedType: desired.type,
         layout,
         scope: location.scope,
-        ...Option.match(observedManifest, {
-          onNone: () => ({}),
-          onSome: (manifest) => ({ prepared: manifest }),
-        }),
+        ...Option.getOrElse(preparedFromObserved(path, observed, desired.type), () => ({})),
       });
     }
     return yield* refFromAcceptedResolution(desired.type, desired.name);
@@ -618,6 +627,27 @@ export const usableAcceptedCanonicalFrom = (
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > => usableFrom(canonical, preparedWorkspaceRef, Option.none());
+
+/**
+ * Observe one desired node like `observeDesiredCanonical`, with the usable
+ * accepted package that observation establishes. The resolution of a usable
+ * package uses the manifest decode the observation made; nothing it read is
+ * retained.
+ */
+export const observeDesiredUsableCanonical = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  {
+    readonly observed: AcceptedCanonicalObservation;
+    readonly usable: Option.Option<UsableAcceptedCanonical>;
+  },
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> =>
+  Effect.gen(function* () {
+    const { observed, manifest } = yield* observeDesiredCanonicalCapturing(desired);
+    return { observed, usable: yield* usableFrom(observed, undefined, manifest) };
+  });
 
 export const usableAcceptedCanonical = (
   args: UsableAcceptedCanonicalArgs,

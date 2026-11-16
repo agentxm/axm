@@ -11,8 +11,7 @@ import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/mani
 import { versionSatisfiesRequest } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   LockfileReader,
-  observeDesiredCanonical,
-  usableAcceptedCanonicalFrom,
+  observeDesiredUsableCanonical,
   acceptedRowKey,
   desiredPackageKey,
   isSourcedDesiredExtension,
@@ -164,8 +163,7 @@ export const inspectPackMembers = Effect.fn("Inspection.packMembers")(function* 
         }
         // The canonical observation judges the member once; this Pack's own
         // range then says whether the judged version is excluded here.
-        const canonical = yield* observeDesiredCanonical(node);
-        const usable = yield* usableAcceptedCanonicalFrom(canonical);
+        const { observed: canonical, usable } = yield* observeDesiredUsableCanonical(node);
         const { observation } = canonical;
         const version = Option.match(usable, {
           onNone: () =>

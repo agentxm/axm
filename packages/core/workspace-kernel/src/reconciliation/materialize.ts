@@ -69,7 +69,7 @@ import {
   lockEntryToSourceParams,
   lockEntryVersion,
   acceptedCanonicalObservation,
-  observeDesiredCanonical,
+  observeDesiredUsableCanonical,
   isSourcedDesiredExtension,
   desiredProblemSubject,
   desiredStateProblemsText,
@@ -849,12 +849,22 @@ export const collectMaterializeSteps = (args: {
       (node) =>
         Effect.gen(function* () {
           // One observation per node judges this phase; the usable ref and
-          // the blocker below both read it rather than observing again.
-          const canonical = yield* settledObservation(node).pipe(
+          // the blocker below both read it rather than observing again. An
+          // observation taken here also resolves its usable package from the
+          // manifest it read; one settled earlier is resolved below.
+          const { canonical, usableCanonical } = yield* settledObservation(node).pipe(
             Effect.flatMap(
               Option.match({
-                onNone: () => observeDesiredCanonical(node),
-                onSome: Effect.succeed,
+                onNone: () =>
+                  Effect.map(observeDesiredUsableCanonical(node), ({ observed, usable }) => ({
+                    canonical: observed,
+                    usableCanonical: Effect.succeed(usable),
+                  })),
+                onSome: (settled) =>
+                  Effect.succeed({
+                    canonical: settled,
+                    usableCanonical: usableAcceptedCanonicalFrom(settled),
+                  }),
               }),
             ),
           );
@@ -898,7 +908,7 @@ export const collectMaterializeSteps = (args: {
             return yield* syncRefused({ category: "validation", detail: reason });
           }
           const resolved = yield* Effect.gen(function* () {
-            const usable = yield* usableAcceptedCanonicalFrom(canonical);
+            const usable = yield* usableCanonical;
             if (Option.isSome(usable)) {
               return { ref: usable.value.ref, versionRange: Option.none(), restoresAccepted: true };
             }

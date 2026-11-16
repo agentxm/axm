@@ -51,6 +51,7 @@ import type { SourceHash } from "@agentxm/extension-model/unstable/sources/sourc
 import type { ProjectionDigest, TreeIntegrity } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
@@ -480,6 +481,16 @@ export interface PreparedHookWriterRoutes {
   readonly _tag: "PreparedHookWriterRoutes";
 }
 
+/**
+ * One deep-frozen Hook manifest decode a preparation made from a package root
+ * that is not a Registry package's, with the name and root it was read for.
+ */
+interface PreparedHookManifest {
+  readonly name: string;
+  readonly packageRoot: string;
+  readonly manifest: HookManifest;
+}
+
 export interface HookManagerService
   extends
     InstallMaterialization<
@@ -521,6 +532,8 @@ export interface HookManagerService
       readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
       /** The writer routes this call resolved, for this call's caller. */
       readonly writerRoutes?: PreparedHookWriterRoutes;
+      /** This call's manifest decodes of the non-Registry Hooks it prepared, for this call's caller. */
+      readonly preparedManifests?: ReadonlyArray<PreparedHookManifest>;
     }
   >;
   readonly aggregateProjectionObservation: Effect.Effect<
@@ -559,6 +572,11 @@ export interface HookManagerService
        * taken for the same configured agents instead of resolving them again.
        */
       readonly writerRoutes?: PreparedHookWriterRoutes;
+      /**
+       * Manifest decodes the caller's preparation made in this same call,
+       * taken for a non-Registry ref read from the same name and root.
+       */
+      readonly preparedManifests?: ReadonlyArray<PreparedHookManifest>;
     },
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,

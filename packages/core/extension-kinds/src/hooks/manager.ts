@@ -220,6 +220,11 @@ class IssuedHookWriterRoutes implements PreparedHookWriterRoutes {
   }
 }
 
+/** What a caller hands a configured-agent outcome evaluation from its own call. */
+type ConfiguredOutcomeOptions = NonNullable<
+  Parameters<NonNullable<HookManagerService["configuredAgentOutcomesForRef"]>>[2]
+>;
+
 const sameAgents = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index]);
 
@@ -251,17 +256,19 @@ interface FixtureEvidenceReading {
   readonly status: HookEvidenceStatus;
 }
 
-/** A deeply frozen copy, so a recorded value cannot change after it was recorded. */
-const deepFrozenCopy = <T>(value: T): T => {
-  const copy = structuredClone(value);
+/** The value itself, deeply frozen, for a value its owner hands on and no longer changes. */
+const deepFreeze = <T>(value: T): T => {
   const freeze = (value: unknown): void => {
     if (typeof value !== "object" || value === null) return;
     for (const nested of Object.values(value)) freeze(nested);
     Object.freeze(value);
   };
-  freeze(copy);
-  return copy;
+  freeze(value);
+  return value;
 };
+
+/** A deeply frozen copy, so a recorded value cannot change after it was recorded. */
+const deepFrozenCopy = <T>(value: T): T => deepFreeze(structuredClone(value));
 
 /** One owner call's outcomes in name and agent order, as every Hook outcome evaluation returns them. */
 const sortedOutcomes = (
@@ -620,11 +627,29 @@ export const HookManagerLive = Layer.effect(
           return { root: observed.usable.path, observed };
         return { root: (yield* sources.fetch(ref)).directory, observed };
       });
+    /**
+     * The manifest at the ref's root. For a ref that is not a Registry ref, a
+     * decode `prepared` by the same owner call for this name and root stands
+     * for the read.
+     */
     const readManifestForRef = (
       ref: HookExtensionRef,
       handed?: ReadonlyArray<AcceptedContentObservation>,
+      prepared?: ConfiguredOutcomeOptions["preparedManifests"],
     ) =>
-      Effect.scoped(rootForRef(ref, handed).pipe(Effect.flatMap(({ root }) => readManifest(root))));
+      Effect.scoped(
+        rootForRef(ref, handed).pipe(
+          Effect.flatMap(({ root }) => {
+            const decoded =
+              ref.refType === "registry"
+                ? undefined
+                : prepared?.find(
+                    (entry) => entry.name === ref.hook.name && entry.packageRoot === root,
+                  );
+            return decoded === undefined ? readManifest(root) : Effect.succeed(decoded.manifest);
+          }),
+        ),
+      );
 
     /**
      * Configured-agent outcomes with the fixture receipt statuses read for the
@@ -1116,7 +1141,11 @@ export const HookManagerLive = Layer.effect(
                 path.dirname(location.runtimeDir),
                 location.nativeDirectoryInputs,
               );
-        const manifest = yield* readManifestForRef(ref, options?.acceptedContent);
+        const manifest = yield* readManifestForRef(
+          ref,
+          options?.acceptedContent,
+          options?.preparedManifests,
+        );
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
           targets,
@@ -1187,12 +1216,28 @@ export const HookManagerLive = Layer.effect(
                     inputRoot: root,
                   },
                   observed,
+                  // A Registry package's root may be a fetch released with
+                  // this scope, so only other roots' decodes are handed on,
+                  // frozen with the contributor that holds the same decode.
+                  decoded:
+                    ref.refType === "registry"
+                      ? undefined
+                      : Object.freeze({
+                          name: ref.hook.name,
+                          packageRoot: root,
+                          manifest: deepFreeze(manifest),
+                        }),
                 };
               }),
             ),
           { concurrency: 1 },
         );
         const prepared = preparedRefs.map(({ contributor }) => contributor);
+        // Each manifest decode this call made of a Hook read from its own
+        // directory, for the caller's decisions within its own call.
+        const preparedManifests = Object.freeze(
+          preparedRefs.flatMap(({ decoded }) => (decoded === undefined ? [] : [decoded])),
+        );
         // Each observation this call made of a Registry Hook's accepted
         // package, for the caller's decisions within its own call.
         const acceptedContent = Object.freeze(
@@ -1249,6 +1294,7 @@ export const HookManagerLive = Layer.effect(
                   projected.configuredAgents,
                   projected.targets,
                 ),
+                preparedManifests,
               });
             }),
         );

@@ -159,7 +159,7 @@ export const planHookInstall: (
   // before the install recipe publishes settings or accepted resolution.
   // The exposure derivation consumes the preparation's eager observation; its
   // own failure is settled after the preparation's refusal, as a conflict.
-  const { exposure, acceptedContent, writerRoutes } = yield* hookManager
+  const { exposure, acceptedContent, writerRoutes, preparedManifests } = yield* hookManager
     .observedPrepareProjection(
       intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
       {
@@ -168,7 +168,7 @@ export const planHookInstall: (
         ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
         ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
       },
-      ({ observed, acceptedContent, writerRoutes }) =>
+      ({ observed, acceptedContent, writerRoutes, preparedManifests }) =>
         Effect.result(
           observeObservedPlans(observed).pipe(
             Effect.flatMap((observations) =>
@@ -179,7 +179,14 @@ export const planHookInstall: (
               }),
             ),
           ),
-        ).pipe(Effect.map((exposure) => ({ exposure, acceptedContent, writerRoutes }))),
+        ).pipe(
+          Effect.map((exposure) => ({
+            exposure,
+            acceptedContent,
+            writerRoutes,
+            preparedManifests,
+          })),
+        ),
     )
     .pipe(
       Effect.mapError((cause) =>
@@ -207,15 +214,18 @@ export const planHookInstall: (
         const installedBefore = yield* hookManager.isInstalled({
           target: { type: "hook", name: ref.hook.name },
         });
-        // The preparation above observed this Hook's accepted package and
-        // resolved the writer routes in this call; its root choice and routes
-        // are taken instead of observing and resolving again.
+        // The preparation above observed this Hook's accepted package,
+        // resolved the writer routes and decoded the manifests of Hooks read
+        // from their own directories in this call; its root choice, routes
+        // and decodes are taken instead of observing, resolving and reading
+        // again.
         const agentOutcomes =
           hookManager.configuredAgentOutcomesForRef === undefined
             ? []
             : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected", {
                 ...(acceptedContent === undefined ? {} : { acceptedContent }),
                 ...(writerRoutes === undefined ? {} : { writerRoutes }),
+                ...(preparedManifests === undefined ? {} : { preparedManifests }),
               });
         const previewPath = hookRefArtifactPath(ref, location.scope);
         // The planner forecasts the change; execution replaces the forecast
@@ -268,6 +278,7 @@ export const planHookInstall: (
           buildArtifact: ({ change }) =>
             Effect.gen(function* () {
               const materialization = yield* hookManager.aggregateProjectionObservation;
+              // The applied outcomes read the package as it is after the write.
               const appliedOutcomes =
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []

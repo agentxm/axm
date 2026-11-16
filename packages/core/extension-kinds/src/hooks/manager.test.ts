@@ -1295,6 +1295,63 @@ describe("HookManager", () => {
           ),
       );
 
+      it.effect(
+        "evaluates a prepared Hook's outcomes from the manifest its preparation decoded",
+        () =>
+          inWorkspace(({ root, audit, lint }) =>
+            Effect.gen(function* () {
+              // The same Hook name, read from another directory.
+              const movedRoot = nodePath.join(root, "source-audit-moved");
+              writeHookPackage(movedRoot, "audit");
+              const moved = makeLocalHookRef("audit", movedRoot);
+              const manifestOf = (ref: LocalHookRef) =>
+                nodePath.join(fromFileUrl(ref.location), "hook.json");
+              const counted = yield* withRecordedManager(root, (manager, recording) =>
+                Effect.gen(function* () {
+                  const preparedManifests = yield* manager.observedPrepareProjection(
+                    [audit, lint],
+                    undefined,
+                    ({ preparedManifests }) => Effect.succeed(preparedManifests),
+                  );
+                  const evaluate = (
+                    ref: LocalHookRef,
+                    handed: typeof preparedManifests | undefined,
+                  ) =>
+                    Effect.gen(function* () {
+                      recording.reset();
+                      const outcomes = yield* manager.configuredAgentOutcomesForRef?.(
+                        ref,
+                        "projected",
+                        handed === undefined ? {} : { preparedManifests: handed },
+                      ) ?? Effect.die("no outcome evaluation");
+                      return { outcomes, reads: recording.contentReads(manifestOf(ref)) };
+                    });
+                  return {
+                    handed: yield* evaluate(audit, preparedManifests),
+                    unhanded: yield* evaluate(audit, undefined),
+                    otherRoot: yield* evaluate(moved, preparedManifests),
+                    otherName: yield* evaluate(
+                      audit,
+                      preparedManifests?.filter(({ name }) => name !== "audit"),
+                    ),
+                  };
+                }),
+              );
+              expect(counted.handed.outcomes).toEqual(counted.unhanded.outcomes);
+              expect(counted.handed.outcomes).toMatchObject([
+                { name: "audit", agentId: "claude-code", outcome: "projected" },
+              ]);
+              // Measured before the preparation handed its decodes on: 1, 1, 1 and 1.
+              expect({
+                handed: counted.handed.reads,
+                unhanded: counted.unhanded.reads,
+                otherRoot: counted.otherRoot.reads,
+                otherName: counted.otherName.reads,
+              }).toEqual({ handed: 0, unhanded: 1, otherRoot: 1, otherName: 1 });
+            }),
+          ),
+      );
+
       it.effect("observes a retargeted settings directory in a later preparation", () =>
         inWorkspace(({ root, audit }) =>
           Effect.gen(function* () {

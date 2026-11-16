@@ -1,5 +1,6 @@
 import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -12,7 +13,10 @@ import {
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type {
+  LocalSkillRef,
+  RegistrySkillRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { testRegistryEndpoint } from "@agentxm/registry-client/testing";
 import { NativePlatformTest } from "../../locations/testing.js";
 import {
@@ -217,6 +221,126 @@ describe("one placement preflight over repeated claims", () => {
           }),
         ),
       );
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+describe("one placement preflight over a local source listed by several refs", () => {
+  const localRef = (directory: string, name = "review"): LocalSkillRef => ({
+    type: "skill",
+    refType: "local",
+    owner: decodeHandleSync("@acme"),
+    name: decodeExtensionNameSync(name),
+    skill: {
+      name: decodeExtensionNameSync(name),
+      description: Option.none(),
+      metadata: Option.none(),
+    },
+    source: { type: "local", path: directory },
+    location: pathToFileURL(directory).href,
+  });
+
+  /** Run one preflight through a recording port over real temporary package directories. */
+  const preflight = (
+    refs: (sources: { readonly first: string; readonly second: string }) => {
+      readonly acquisition: ReadonlyArray<LocalSkillRef>;
+      readonly exposure: ReadonlyArray<LocalSkillRef>;
+    },
+  ) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const workspace = yield* makeSpecWorkspace("axm-placement-local-");
+      // Physical spelling, so the lexical and resolved paths coincide on every host.
+      const root = nodeFs.realpathSync(workspace.root);
+      const first = path.join(root, "sources", "review");
+      const second = path.join(root, "sources", "lint");
+      for (const directory of [first, second]) {
+        nodeFs.mkdirSync(directory, { recursive: true });
+        nodeFs.writeFileSync(path.join(directory, "SKILL.md"), "# Skill\n");
+      }
+      const { acquisition, exposure } = refs({ first, second });
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      const outcome = yield* preflightPackagePlacement(acquisition, exposure).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provide(WorkspaceReadTest({ baseDir: root, runtimeDir: path.join(root, ".axm") })),
+        Effect.result,
+      );
+      const resolutions = (target: string) => {
+        const counts = recording.counts(target);
+        return { readLink: counts.readLink, stat: counts.stat, realPath: counts.realPath };
+      };
+      return { outcome, recording, first, second, resolutions };
+    });
+
+  it.effect("resolves a source listed by its acquisition and two exposures once", () =>
+    Effect.gen(function* () {
+      const { outcome, first, resolutions } = yield* preflight(({ first }) => ({
+        acquisition: [localRef(first)],
+        exposure: [
+          localRef(first),
+          {
+            ...localRef(first),
+            skill: { ...localRef(first).skill, description: Option.some("x") },
+          },
+        ],
+      }));
+      expect(Result.isSuccess(outcome) && outcome.success[0]).toBe(first);
+      expect(resolutions(first)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("resolves a source listed by its acquisition and one exposure once", () =>
+    Effect.gen(function* () {
+      const { outcome, first, resolutions } = yield* preflight(({ first }) => ({
+        acquisition: [localRef(first)],
+        exposure: [localRef(first)],
+      }));
+      expect(Result.isSuccess(outcome) && outcome.success[0]).toBe(first);
+      expect(resolutions(first)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("returns the same placement paths as a preflight that lists the source once", () =>
+    Effect.gen(function* () {
+      const once = yield* preflight(({ first }) => ({
+        acquisition: [localRef(first)],
+        exposure: [],
+      }));
+      const repeated = yield* preflight(({ first }) => ({
+        acquisition: [localRef(first)],
+        exposure: [localRef(first), localRef(first)],
+      }));
+      // Each preflight runs in its own workspace; compare paths with that root elided.
+      const elided = (first: string, outcome: typeof once.outcome) => {
+        const root = nodePath.dirname(nodePath.dirname(first));
+        return Result.map(outcome, (paths) =>
+          paths.map((target) => target.split(root).join("<root>")),
+        );
+      };
+      expect(elided(repeated.first, repeated.outcome)).toEqual(elided(once.first, once.outcome));
+      expect(Result.map(elided(once.first, once.outcome), (paths) => paths.length)).toEqual(
+        Result.succeed(4),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("still resolves each distinct source once", () =>
+    Effect.gen(function* () {
+      const { outcome, first, second, resolutions } = yield* preflight(({ first, second }) => ({
+        acquisition: [localRef(first), localRef(second, "lint")],
+        exposure: [localRef(first), localRef(second, "lint")],
+      }));
+      expect(Result.isSuccess(outcome)).toBe(true);
+      expect(resolutions(first)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+      expect(resolutions(second)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("reads nothing when no ref is selected", () =>
+    Effect.gen(function* () {
+      const { outcome, recording } = yield* preflight(() => ({ acquisition: [], exposure: [] }));
+      expect(outcome).toEqual(Result.succeed([]));
+      expect(recording.calls()).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

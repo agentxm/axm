@@ -26,6 +26,10 @@ export const preflightPackagePlacement = (
     const selected: PackageAddressClaim[] = [];
     const paths: string[] = [];
     const snapshots = new Map<string, string>();
+    // A source listed by several refs (its acquisition and each exposure) is one
+    // filesystem identity; its first resolution in this call already placed both
+    // of its paths, so a repeat could only push what the result keeps once.
+    const resolvedSources = new Set<string>();
     // Closures may read accepted bytes before another closure advances that
     // package. Those exposures still need address/ownership checks, but only
     // selected acquisitions must agree on the snapshot that will be written.
@@ -46,17 +50,20 @@ export const preflightPackagePlacement = (
               }),
           ),
         );
-        const physical = yield* resolveNativeEntry(source).pipe(
-          Effect.mapError(
-            (cause) =>
-              new StepFailure({
-                category: "validation",
-                detail: "Cannot establish the local source's filesystem identity.",
-                cause,
-              }),
-          ),
-        );
-        paths.push(source, physical.referentPath ?? physical.entryPath);
+        if (!resolvedSources.has(source)) {
+          const physical = yield* resolveNativeEntry(source).pipe(
+            Effect.mapError(
+              (cause) =>
+                new StepFailure({
+                  category: "validation",
+                  detail: "Cannot establish the local source's filesystem identity.",
+                  cause,
+                }),
+            ),
+          );
+          paths.push(source, physical.referentPath ?? physical.entryPath);
+          resolvedSources.add(source);
+        }
       }
       const claim = packageAddressClaimForRef(ref);
       if (Result.isFailure(claim))

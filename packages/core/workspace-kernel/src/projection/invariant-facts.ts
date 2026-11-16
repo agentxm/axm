@@ -376,7 +376,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                     ),
                   })
                 : Option.none();
-              return yield* participant.projectionPlans(
+              const options =
                 observedGraph === undefined && Option.isNone(preparedContentHashes)
                   ? undefined
                   : {
@@ -384,9 +384,14 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                       ...(Option.isSome(preparedContentHashes)
                         ? { preparedContentHashes: preparedContentHashes.value }
                         : {}),
-                    },
-              );
-            }).pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
+                    };
+              // The owner's own observation of its plans, made in the same
+              // planning call as their pre-write refusal, stands for observing
+              // them again here.
+              return yield* participant.projectionObservations === undefined
+                ? participant.projectionPlans(options).pipe(Effect.flatMap(observeProjectionPlans))
+                : participant.projectionObservations(options);
+            }).pipe(Effect.provide(participantLayer)),
           );
         // Aggregate owners need their complete contributor set. Singleton owners
         // can be selected exactly, without reading other subjects' native files.

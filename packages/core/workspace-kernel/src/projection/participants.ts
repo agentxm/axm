@@ -35,6 +35,7 @@ import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/ext
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ProjectionParticipantFailure } from "./errors.js";
 import type { ProjectionPlan } from "./planning.js";
+import type { ProjectionUnitObservation } from "./units.js";
 import {
   KNOWLEDGE_REGION_OWNER,
   RULES_REGION_OWNER,
@@ -66,6 +67,19 @@ export type ParticipantProjectionPlans = Effect.Effect<
   ProjectionParticipantRequirements
 >;
 
+/** What an evaluation supplies to a participant's planning call. */
+interface ParticipantProjectionOptions {
+  readonly desiredGraph?: DesiredStateGraph;
+  /**
+   * Package content hashes, by name, that the caller settled in this same
+   * boundary; an owner takes one only for exactly the same package root.
+   */
+  readonly preparedContentHashes?: ReadonlyMap<
+    string,
+    { readonly packageRoot: string; readonly contentHash: string }
+  >;
+}
+
 /**
  * One capability that owns aggregate projection units.
  *
@@ -74,17 +88,20 @@ export type ParticipantProjectionPlans = Effect.Effect<
  */
 export interface ProjectionParticipant {
   readonly units: ReadonlyArray<AggregateOwnershipUnitId>;
-  readonly projectionPlans: (options?: {
-    readonly desiredGraph?: DesiredStateGraph;
-    /**
-     * Package content hashes, by name, that the caller settled in this same
-     * boundary; an owner takes one only for exactly the same package root.
-     */
-    readonly preparedContentHashes?: ReadonlyMap<
-      string,
-      { readonly packageRoot: string; readonly contentHash: string }
-    >;
-  }) => ParticipantProjectionPlans;
+  readonly projectionPlans: (options?: ParticipantProjectionOptions) => ParticipantProjectionPlans;
+  /**
+   * Plan and observe in one owner call: the observation of each plan, in plan
+   * order, is the one the owner made of it as the plans' pre-write refusal in
+   * that same call, with nothing written since. A participant without it is
+   * observed by planning and then observing its plans.
+   */
+  readonly projectionObservations?: (
+    options?: ParticipantProjectionOptions,
+  ) => Effect.Effect<
+    ReadonlyArray<ProjectionUnitObservation>,
+    ProjectionParticipantFailure,
+    ProjectionParticipantRequirements
+  >;
 }
 
 /** What a subagent's owner reports about one rendered native profile. */

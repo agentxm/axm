@@ -1249,3 +1249,199 @@ describe("lint authored package resolutions", () => {
     );
   });
 });
+
+// The recording filesystem replaces the platform one; the rest of the platform services stay.
+const recordedNodeServices = Layer.provideMerge(
+  layerRecordingFileSystem(NodeFileSystem.layer),
+  NodeServices.layer,
+);
+
+/** Run `effect` after a sync of `workspace`, over a filesystem that records every call. */
+const withRecordedContributorServices = <A, E, R>(
+  workspace: SyncFixture,
+  effect: Effect.Effect<A, E, R>,
+) =>
+  workspace
+    .provide(Effect.andThen(applySyncAcceptingExecutionChanges(), effect))
+    .pipe(
+      Effect.provide(
+        Layer.merge(recordedNodeServices, makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
+      ),
+    );
+
+/**
+ * Run `lint`, counting content reads of the workspace-relative `paths` in
+ * total and inside each projection-fact evaluation, and keeping each
+ * evaluation's facts. `afterEvaluation` runs as each evaluation settles.
+ */
+const countedTargetReads = <A, E, R>(
+  workspace: SyncFixture,
+  lint: Effect.Effect<A, E, R>,
+  paths: ReadonlyArray<string>,
+  afterEvaluation?: (index: number) => void,
+) =>
+  Effect.gen(function* () {
+    const recording = yield* FileSystemRecorder;
+    const reads = () =>
+      paths.reduce(
+        (total, relative) =>
+          total + recording.contentReads(nodePath.join(workspace.root, relative)),
+        0,
+      );
+    const perEvaluation: Array<number> = [];
+    const evaluated: Array<ReadonlyArray<ProjectionInvariantFact>> = [];
+    recording.reset();
+    const exit = yield* lint.pipe(
+      Effect.updateService(WorkspaceInvariantFacts, (facts) => ({
+        ...facts,
+        projectionFacts: Effect.suspend(() => {
+          const before = reads();
+          return facts.projectionFacts.pipe(
+            Effect.tap((settled) =>
+              Effect.sync(() => {
+                perEvaluation.push(reads() - before);
+                evaluated.push(settled);
+                afterEvaluation?.(evaluated.length);
+              }),
+            ),
+          );
+        }),
+      })),
+      Effect.exit,
+    );
+    return { exit, total: reads(), perEvaluation, evaluated };
+  });
+
+const instructionFilesManaged = { instructionFiles: { fileName: "AGENTS.md" } };
+
+/** The observation status of one aggregate unit in an evaluation's facts. */
+const unitStatus = (facts: ReadonlyArray<ProjectionInvariantFact> | undefined, unitId: string) =>
+  facts?.find((fact) => fact.subject.unitId === unitId)?.observation.status;
+
+describe("lint instruction target reads", () => {
+  // Managing the agents' instruction files makes the run's alias probe end
+  // its observation phase before any rule demands the projection facts, so
+  // each of the two demanding rules evaluates them afresh.
+  it.effect(
+    "observes each aggregate region once per facts evaluation",
+    () => {
+      const workspace = syncedContributors(instructionFilesManaged);
+      return withRecordedContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const instructions = yield* countedTargetReads(workspace, contributorLint(workspace), [
+            "AGENTS.md",
+            "CLAUDE.md",
+          ]);
+          expect(instructions.exit._tag).toBe("Success");
+          // The Rules and the Knowledge region each read the target once in
+          // each of the two evaluations; four reads lie outside them.
+          expect(instructions.perEvaluation).toEqual([2, 2]);
+          expect(instructions.total).toBe(4 + 2 * 2);
+          const hooks = yield* countedTargetReads(workspace, contributorLint(workspace), [
+            ".claude/settings.json",
+          ]);
+          expect(hooks.exit._tag).toBe("Success");
+          expect(hooks.perEvaluation).toEqual([1, 1]);
+          expect(hooks.total).toBe(1 + 2 * 1);
+          // Every observed unit reports the same facts in both evaluations.
+          expect(instructions.evaluated[1]).toEqual(instructions.evaluated[0]);
+          expect(unitStatus(instructions.evaluated[0], "rule:instructions-region")).toBe("current");
+          expect(unitStatus(instructions.evaluated[0], "knowledge:discovery-region")).toBe(
+            "current",
+          );
+          expect(unitStatus(instructions.evaluated[0], "hook:agent-hook-entries")).toBe("current");
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "keeps the repairing run's own reads of the instruction target",
+    () => {
+      const workspace = syncedContributors(instructionFilesManaged);
+      return withRecordedContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          nodeFs.rmSync(nodePath.join(workspace.root, "CLAUDE.md"));
+          const fix = yield* countedTargetReads(
+            workspace,
+            fixLintWorkspace(selectionFor(workspace.root, workspace.home, { fix: true }), {
+              strict: false,
+            }),
+            ["AGENTS.md"],
+          );
+          expect(fix.exit._tag).toBe("Success");
+          if (fix.exit._tag !== "Success") return;
+          expect(fix.exit.value.repaired.map(({ finding }) => finding.ruleId)).toEqual([
+            "workspace/instructions-target-current",
+          ]);
+          expect(
+            nodeFs.lstatSync(nodePath.join(workspace.root, "CLAUDE.md")).isSymbolicLink(),
+          ).toBe(true);
+          expect(fix.perEvaluation).toEqual([2, 2]);
+          // The repair's own observations, including its locked re-observation
+          // and its post-write readback, keep every read.
+          expect(fix.total - 2 * 2).toBe(9);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "observes a target edited between two demands afresh",
+    () => {
+      const workspace = syncedContributors(instructionFilesManaged);
+      return withRecordedContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const target = nodePath.join(workspace.root, "AGENTS.md");
+          const edited = yield* countedTargetReads(
+            workspace,
+            contributorLint(workspace),
+            ["AGENTS.md"],
+            (index) => {
+              // A foreign edit after the first evaluation removes every region.
+              if (index === 1) nodeFs.writeFileSync(target, "# Workspace\n");
+            },
+          );
+          expect(edited.exit._tag).toBe("Success");
+          expect(edited.perEvaluation).toEqual([2, 2]);
+          expect(unitStatus(edited.evaluated[0], "rule:instructions-region")).toBe("current");
+          expect(unitStatus(edited.evaluated[1], "rule:instructions-region")).toBe("missing");
+          expect(unitStatus(edited.evaluated[1], "knowledge:discovery-region")).toBe("missing");
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "reads each target once per evaluation for a workspace without Rules, Hooks or Knowledge",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: { owner: "@acme", agents: ["claude-code"], ...instructionFilesManaged },
+        files: { "AGENTS.md": "# Workspace\n" },
+      });
+      cleanups.push(workspace.cleanup);
+      return withRecordedContributorServices(
+        workspace,
+        Effect.gen(function* () {
+          const counted = yield* countedTargetReads(workspace, contributorLint(workspace), [
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".claude/settings.json",
+          ]);
+          expect(counted.exit._tag).toBe("Success");
+          // Each evaluation reads each region's target and the hook entries
+          // once; the reads outside the evaluations are unchanged.
+          expect(counted.perEvaluation).toEqual([3, 3]);
+          expect(counted.total - 2 * 3).toBe(3);
+        }),
+      );
+    },
+    { timeout: 60_000 },
+  );
+});

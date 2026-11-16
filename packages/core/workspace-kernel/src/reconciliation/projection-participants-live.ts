@@ -23,10 +23,12 @@ import {
   SubagentManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type RuleManagerService,
 } from "../materialization/index.js";
 import {
   isProjectionError,
   mapProjectionPlanFailure,
+  observeObservedPlans,
   ProjectionParticipantFailed,
   ProjectionParticipants,
   type AggregateOwnershipUnitId,
@@ -61,6 +63,8 @@ interface ProjectionPlanningManager {
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  // Every planning manager's owner call has the Rule manager's shape.
+  readonly observedProjectionPlans: RuleManagerService["observedProjectionPlans"];
 }
 
 const participant = (args: {
@@ -76,6 +80,12 @@ const participant = (args: {
         Effect.map((plans) => plans.map((plan) => mapProjectionPlanFailure(plan, onFailure))),
         Effect.mapError(onFailure),
       ),
+    // The manager observes its plans once as their pre-write refusal; the
+    // facts take that observation instead of observing the plans again.
+    projectionObservations: (options) =>
+      args.manager
+        .observedProjectionPlans(options, observeObservedPlans)
+        .pipe(Effect.mapError(onFailure)),
   };
 };
 

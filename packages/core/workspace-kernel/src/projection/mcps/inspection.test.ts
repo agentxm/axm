@@ -932,6 +932,7 @@ describe("canonical MCP manifest selection", () => {
     readonly entry?: McpServerEntry;
     /** Primitive reads of this path fail as a permission refusal. */
     readonly denyReadOf?: string;
+    readonly state?: "current" | "projected";
   }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -961,7 +962,7 @@ describe("canonical MCP manifest selection", () => {
         node: { name: "context", authority: "sourced" },
         entry: options.entry ?? packageEntry,
         canonicalPaths: options.canonicalPaths,
-        state: "projected",
+        state: options.state ?? "projected",
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         observations.provide,
@@ -979,6 +980,9 @@ describe("canonical MCP manifest selection", () => {
         result,
         denied,
         manifest,
+        /** Every primitive call naming a candidate's manifest path. */
+        manifestCalls: (candidate: string) =>
+          recording.calls({ path: nodePath.join(root, candidate, "mcp.json") }).length,
         manifestParses: observations.facts.filter((fact) => fact.kind === "axm.parse.manifest")
           .length,
       };
@@ -1074,4 +1078,40 @@ describe("canonical MCP manifest selection", () => {
       }),
     ),
   );
+
+  // Inventory paths name an agent's native MCP configuration file beside the
+  // package root; such a file cannot hold a canonical manifest beneath it.
+  for (const state of ["current", "projected"] as const) {
+    it.effect(`probes a native configuration file's candidate without reading it (${state})`, () =>
+      withNode(
+        Effect.gen(function* () {
+          const observed = yield* inspectRecorded({
+            canonicalPaths: [".mcp.json", "available"],
+            state,
+            setup: (root) => {
+              writeFileSync(nodePath.join(root, ".mcp.json"), JSON.stringify({ mcpServers: {} }));
+              mkdirSync(nodePath.join(root, "available"));
+              writeFileSync(nodePath.join(root, "available/mcp.json"), contextManifest);
+            },
+          });
+          const inspection = Result.getOrUndefined(observed.result);
+          expect(inspection?.inspections).toHaveLength(1);
+          // The probe of the file's candidate still fails and leaves its diagnostic.
+          expect(inspection?.sourceDiagnostics).toEqual([
+            expect.objectContaining({
+              detail: `Failed to inspect MCP server manifest: ${nodePath.join(observed.root, ".mcp.json/mcp.json")}`,
+              cause: expect.objectContaining({
+                reason: expect.objectContaining({ _tag: "BadResource", method: "access" }),
+              }),
+            }),
+          ]);
+          expect(observed.manifest(".mcp.json")).toEqual({ access: 1, reads: [] });
+          expect(observed.manifestCalls(".mcp.json")).toBe(1);
+          expect(observed.manifest("available")).toEqual({ access: 0, reads: ["success"] });
+          expect(observed.manifestCalls("available")).toBe(1);
+          expect(observed.manifestParses).toBe(1);
+        }),
+      ),
+    );
+  }
 });

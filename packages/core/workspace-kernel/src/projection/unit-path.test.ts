@@ -5,7 +5,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
+import { resolveNativeEntry } from "../locations/index.js";
+import { projectionUnitPath, projectionUnitPathOfEntry, scopeUnitPath } from "./unit-path.js";
 
 /** A physical scope root and a link naming it, as an aliased temp or checkout path would. */
 const aliasedRoot = Effect.gen(function* () {
@@ -64,6 +65,48 @@ describe("projection row keys", () => {
         Effect.flip,
       );
       expect(refused._tag).toBe("ProjectionTargetUnsupported");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("key a resolved entry exactly as its planned target", () =>
+    Effect.gen(function* () {
+      const { base, physical, alias } = yield* aliasedRoot;
+      fs.writeFileSync(path.join(physical, "AGENTS.md"), "# Source\n");
+      fs.symlinkSync("AGENTS.md", path.join(physical, "CLAUDE.md"));
+      fs.mkdirSync(path.join(base, "outside"));
+      fs.symlinkSync(path.join(base, "outside"), path.join(alias, "escape"), "dir");
+      const outcomes = (root: string, target: string) =>
+        Effect.gen(function* () {
+          const { entryPath } = yield* resolveNativeEntry(target);
+          return [
+            yield* projectionUnitPath(root, target).pipe(Effect.result),
+            yield* projectionUnitPathOfEntry(root, target, entryPath).pipe(Effect.result),
+          ];
+        });
+      for (const [root, target] of [
+        [alias, path.join(alias, "CLAUDE.md")],
+        [physical, path.join(alias, "AGENTS.md")],
+        [alias, path.join(physical, "PLANNED.md")],
+        [alias, path.join(alias, "escape", "CLAUDE.md")],
+      ] as const) {
+        const [planned, entry] = yield* outcomes(root, target);
+        expect(entry).toEqual(planned);
+      }
+      const [, escaped] = yield* outcomes(alias, path.join(alias, "escape", "CLAUDE.md"));
+      expect(escaped).toMatchObject({
+        failure: {
+          _tag: "ProjectionTargetUnsupported",
+          detail: `Projection target is not a path inside its scope root: ${path.join(alias, "escape", "CLAUDE.md")}`,
+        },
+      });
+      // The scope root is still resolved live.
+      const missing = path.join(base, "missing-root");
+      const [unlocated, unlocatedEntry] = yield* outcomes(
+        missing,
+        path.join(physical, "AGENTS.md"),
+      );
+      expect(unlocatedEntry).toEqual(unlocated);
+      expect(unlocatedEntry).toMatchObject({ failure: { _tag: "ProjectionTargetUnsupported" } });
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

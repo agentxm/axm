@@ -516,6 +516,113 @@ describe("RuleManager graph-derived region projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  describe("instruction target route work", () => {
+    /** One authored Rule over an existing instruction file, with every call recorded. */
+    const routedLayer = () => {
+      writeAuthoredRulePackage("routed-rule");
+      const holder: { recording?: FileSystemRecording } = {};
+      const layer = makeTestLayer({
+        graph: completeGraph([workspaceRuleNode("routed-rule")]),
+        locked: decodeLockMap({}),
+        fileSystem: (native) => {
+          const recorded = makeRecordingFileSystem(native);
+          holder.recording = recorded.recording;
+          return recorded.fileSystem;
+        },
+      });
+      /** Route probes of `paths` that `effect` makes, after setup noise is reset. */
+      const probes = <A, E, R>(paths: ReadonlyArray<string>, effect: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          holder.recording?.reset();
+          const value = yield* effect;
+          const work = paths.map((target) => {
+            const counts = holder.recording?.counts(target) ?? {};
+            return {
+              readLink: counts.readLink ?? 0,
+              stat: counts.stat ?? 0,
+              realPath: counts.realPath ?? 0,
+            };
+          });
+          return { value, work };
+        });
+      return { layer, probes };
+    };
+    /** What an observation reports, with the temporary workspace spelled `<root>`. */
+    const reported = (value: unknown): unknown =>
+      JSON.parse(JSON.stringify(value).replaceAll(baseDir, "<root>"));
+
+    it.effect("keys the region generation from the target's admission", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const generation = yield* probes([instructionsPath()], manager.regionGeneration);
+        // The target's admission only; resolving its key again probed it twice.
+        expect(generation.work).toEqual([{ readLink: 1, stat: 1, realPath: 1 }]);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("keys the eager observation from the plan's admission and later ones live", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const eager = yield* probes(
+          [instructionsPath(), baseDir],
+          manager.observedProjectionPlans(undefined, observeObservedPlans),
+        );
+        const retained = yield* manager.projectionPlans();
+        const later = yield* probes(
+          [instructionsPath(), baseDir],
+          observeProjectionPlans(retained),
+        );
+        // The eager observation keys the row from the plan's admission and
+        // admits the target once in its dry run. A later observation resolves
+        // the key live. Measured before either: 7, 4 and 6, 3 readLink probes.
+        expect({ eager: eager.work, later: later.work }).toEqual({
+          eager: [
+            { readLink: 5, stat: 5, realPath: 5 },
+            { readLink: 3, stat: 3, realPath: 6 },
+          ],
+          later: [
+            { readLink: 5, stat: 5, realPath: 5 },
+            { readLink: 2, stat: 2, realPath: 5 },
+          ],
+        });
+        expect(reported(eager.value)).toEqual(reported(later.value));
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("reports a symlinked instruction file alike in eager and later observations", () => {
+      nodeFs.writeFileSync(nodePath.join(baseDir, "original.md"), "# Project\n");
+      nodeFs.symlinkSync("original.md", instructionsPath());
+      const { layer } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const eager = yield* manager.observedProjectionPlans(undefined, observeObservedPlans);
+        const later = yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans));
+        expect(reported(eager)).toEqual(reported(later));
+        expect(reported(eager)).toEqual([
+          expect.objectContaining({
+            path: "AGENTS.md#rules",
+            current: false,
+            nativeLocations: [
+              expect.objectContaining({
+                address: { kind: "region", path: "<root>/original.md", region: "rules" },
+                aliases: expect.arrayContaining(["<root>/AGENTS.md", "<root>/original.md"]),
+              }),
+            ],
+          }),
+        ]);
+        yield* applyPlannedProjections(manager);
+        expect(nodeFs.readFileSync(nodePath.join(baseDir, "original.md"), "utf8")).toContain(
+          "Guidance for routed-rule.",
+        );
+        expect(nodeFs.lstatSync(instructionsPath()).isSymbolicLink()).toBe(true);
+      }).pipe(Effect.provide(layer));
+    });
+  });
+
   describe("prepared Rule inputs", () => {
     const localRuleRef = (name: string): LocalRuleRef => {
       const root = nodePath.join(baseDir, "rules", name);
@@ -575,8 +682,10 @@ describe("RuleManager graph-derived region projection", () => {
         // plan observation and each input's overlap check probe it too.
         // Measured before one preparation shared its resolution: 11, 11, 17
         // and 23; before the eager observation's dry run took its admission
-        // for the target route: 11, 11, 15 and 19.
-        expect(counted).toEqual({ nothingPrepared: 9, noRefs: 9, oneRef: 13, twoRefs: 17 });
+        // for the target route: 11, 11, 15 and 19; before the eager
+        // observation keyed the region from the plan's admission: 9, 9, 13
+        // and 17.
+        expect(counted).toEqual({ nothingPrepared: 7, noRefs: 7, oneRef: 11, twoRefs: 15 });
       }).pipe(Effect.provide(layer));
     });
 

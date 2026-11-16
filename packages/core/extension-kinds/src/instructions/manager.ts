@@ -56,6 +56,7 @@ import {
   type NativeRegionSource,
   projectionGeneration,
   projectionUnitPath,
+  projectionUnitPathOfEntry,
   retargetedRegionRows,
   activeInstructionsConfig,
   observeInstructions,
@@ -235,7 +236,10 @@ export const RuleManagerLive = Layer.effect(
         Effect.mapError((cause) => new RuleDefinitionInvalid({ detail: cause.detail, cause })),
       );
 
-    /** The instruction source target, read through `phase` when one is current. */
+    /**
+     * The instruction source target, read through `phase` when one is current,
+     * with the entry its route admission resolved for keying the region row.
+     */
     const sourceFileTargetIn = (phase: Effect.Success<ReturnType<typeof workspaceReadPhaseFor>>) =>
       Effect.gen(function* () {
         const config = yield* (phase?.readers.settings ?? settings).instructionsConfig;
@@ -267,8 +271,11 @@ export const RuleManagerLive = Layer.effect(
           ),
         );
         return Object.freeze({
-          relative: relative.value,
-          absolute: address.referentPath ?? address.entryPath,
+          target: Object.freeze({
+            relative: relative.value,
+            absolute: address.referentPath ?? address.entryPath,
+          }),
+          entryPath: address.entryPath,
         });
       });
     const sourceFileTarget = () =>
@@ -358,6 +365,11 @@ export const RuleManagerLive = Layer.effect(
     const reconcileRulesRegion = (args: {
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
       readonly target: { readonly relative: string; readonly absolute: string };
+      /**
+       * The entry the target's admission just resolved, when this run may key
+       * the region row from it; otherwise the key is resolved live.
+       */
+      readonly admittedEntry?: Effect.Effect<Option.Option<string>>;
       readonly dryRun?: boolean;
       readonly ownership: ReadonlyArray<NativeRegionSource>;
       readonly configuredAgents: ReadonlyArray<string>;
@@ -365,11 +377,14 @@ export const RuleManagerLive = Layer.effect(
     }) =>
       Effect.gen(function* () {
         const { target } = args;
+        const admitted =
+          args.admittedEntry === undefined ? Option.none() : yield* args.admittedEntry;
         const contributors = args.input.contributors;
-        const displayPath = yield* projectionUnitPath(
-          baseDir,
-          path.resolve(baseDir, target.relative),
-        );
+        const planned = path.resolve(baseDir, target.relative);
+        const displayPath = yield* Option.match(admitted, {
+          onNone: () => projectionUnitPath(baseDir, planned),
+          onSome: (entryPath) => projectionUnitPathOfEntry(baseDir, planned, entryPath),
+        });
         const rows = yield* accepted.projectionRows(RULES_REGION);
         const reconciliation = yield* reconcileNativeManagedRegion({
           workspaceRoot: baseDir,
@@ -450,7 +465,10 @@ export const RuleManagerLive = Layer.effect(
       sourceTarget: SourceFileTarget = sourceFileTarget(),
     ) =>
       Effect.gen(function* () {
-        const target = yield* sourceTarget;
+        const { target, entryPath } = yield* sourceTarget;
+        // The admission's entry keys the plan's eager observation, the first
+        // dry run its producing call makes; that call releases it when it ends.
+        const admittedEntry = yield* Ref.make(Option.some(entryPath));
         const phase = yield* workspaceReadPhaseFor(location);
         const currentSettings = phase?.readers.settings ?? settings;
         const currentLocks = phase?.readers.locks ?? lockfile;
@@ -500,6 +518,7 @@ export const RuleManagerLive = Layer.effect(
               reconcileRulesRegion({
                 input,
                 target,
+                admittedEntry: Ref.getAndSet(admittedEntry, Option.none()),
                 ownership,
                 configuredAgents,
                 eligible,
@@ -511,18 +530,23 @@ export const RuleManagerLive = Layer.effect(
               ),
           },
         });
-        return plan;
+        return { plan, release: Ref.set(admittedEntry, Option.none()) };
       });
 
     const regionGeneration: RuleManagerService["regionGeneration"] = Effect.gen(function* () {
       const phase = yield* workspaceReadPhaseFor(location);
-      const target = yield* sourceFileTarget();
+      const { target, entryPath } = yield* sourceFileTarget();
       const contributors = yield* selectRuleContributors({
         graph: yield* (phase?.readers.desired ?? desiredState).graph(),
         locked: yield* (phase?.readers.locks ?? lockfile).entries("rule"),
       });
+      // Only reads separate the target's admission from its key.
       return yield* rulesRegionGeneration(
-        yield* projectionUnitPath(baseDir, path.resolve(baseDir, target.relative)),
+        yield* projectionUnitPathOfEntry(
+          baseDir,
+          path.resolve(baseDir, target.relative),
+          entryPath,
+        ),
         contributors,
       );
     });
@@ -530,7 +554,9 @@ export const RuleManagerLive = Layer.effect(
     // Every plan is observed as the pre-write refusal before its consumer runs.
     const observedProjectionPlans: RuleManagerService["observedProjectionPlans"] = (options, use) =>
       makeRulesProjectionPlan([], options).pipe(
-        Effect.flatMap((plan) => withObservedProjectionPlans([plan], use)),
+        Effect.flatMap(({ plan, release }) =>
+          withObservedProjectionPlans([plan], use).pipe(Effect.ensuring(release)),
+        ),
       );
     const projectionPlans: RuleManagerService["projectionPlans"] = (options) =>
       observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
@@ -567,7 +593,7 @@ export const RuleManagerLive = Layer.effect(
                     ? (yield* sources.fetch(ref)).directory
                     : fromFileLocation(ref.location);
                 const nativeTarget = yield* target;
-                yield* assertNoPhysicalOverlap(source, nativeTarget.absolute).pipe(
+                yield* assertNoPhysicalOverlap(source, nativeTarget.target.absolute).pipe(
                   Effect.mapError(
                     (cause) =>
                       new RuleDefinitionInvalid({
@@ -604,10 +630,8 @@ export const RuleManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        return yield* withObservedProjectionPlans(
-          [yield* makeRulesProjectionPlan(prospective, options, target)],
-          use,
-        );
+        const { plan, release } = yield* makeRulesProjectionPlan(prospective, options, target);
+        return yield* withObservedProjectionPlans([plan], use).pipe(Effect.ensuring(release));
       });
     const prepareProjection: RuleManagerService["prepareProjection"] = (refs, options) =>
       observedPrepareProjection(refs, options, (observed) => Effect.succeed(observed.plans));

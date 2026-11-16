@@ -67,7 +67,6 @@ import {
   type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 import {
-  applyInstructionSurfacePlans,
   applyObservedInstructionSurfacePlans,
   formatProjectionExclusions,
   planAggregateProjection,
@@ -944,11 +943,11 @@ export const KnowledgeManagerLive = Layer.effect(
     const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
       observedPrepareProjection(refs, options, (observed) => Effect.succeed(observed.plans));
 
-    const applyKnowledgeProjection = projectionPlans().pipe(
-      Effect.flatMap(applyInstructionSurfacePlans),
-      Effect.asVoid,
-      Effect.provideService(AcceptedResolutionWriter, accepted),
-    );
+    // The plan's eager dry run, with nothing written since, decides the
+    // apply's alias reconciliation; the write still re-reads under its lock.
+    const applyKnowledgeProjection = observedProjectionPlans(undefined, (observed) =>
+      applyObservedInstructionSurfacePlans(observed),
+    ).pipe(Effect.asVoid, Effect.provideService(AcceptedResolutionWriter, accepted));
 
     /**
      * Reconcile the discovery region from the projection inputs its sync

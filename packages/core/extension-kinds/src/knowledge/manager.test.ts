@@ -1666,6 +1666,116 @@ describe("KnowledgeManager", () => {
           }),
         ),
       );
+
+      /**
+       * The ambient port of an observation phase: like the workspace's own,
+       * any write through it ends the phase before the write runs.
+       */
+      const endingOnWrite = (
+        base: FileSystem.FileSystem,
+        end: () => void,
+      ): FileSystem.FileSystem => {
+        const ending =
+          <Args extends ReadonlyArray<unknown>, A, E, R>(
+            write: (...args: Args) => Effect.Effect<A, E, R>,
+          ) =>
+          (...args: Args) =>
+            Effect.suspend(() => {
+              end();
+              return write(...args);
+            });
+        return FileSystem.make({
+          access: base.access,
+          lstat: base.lstat,
+          open: base.open,
+          readDirectory: base.readDirectory,
+          readDirectoryEntries: base.readDirectoryEntries,
+          readFile: base.readFile,
+          readLink: base.readLink,
+          realPath: base.realPath,
+          stat: base.stat,
+          watch: base.watch,
+          chmod: ending(base.chmod),
+          chown: ending(base.chown),
+          copy: ending(base.copy),
+          copyFile: ending(base.copyFile),
+          link: ending(base.link),
+          makeDirectory: ending(base.makeDirectory),
+          makeTempDirectory: ending(base.makeTempDirectory),
+          makeTempDirectoryScoped: ending(base.makeTempDirectoryScoped),
+          makeTempFile: ending(base.makeTempFile),
+          makeTempFileScoped: ending(base.makeTempFileScoped),
+          remove: ending(base.remove),
+          rename: ending(base.rename),
+          symlink: ending(base.symlink),
+          truncate: ending(base.truncate),
+          utimes: ending(base.utimes),
+          writeFile: ending(base.writeFile),
+        });
+      };
+
+      it.effect("observes a usable bundle live again once a restore ends the read phase", () =>
+        withWorkspace((workspaceRoot) =>
+          Effect.gen(function* () {
+            const { canonicalRootOf, read } = acquiredBundles(workspaceRoot, [
+              { name: "handbook", enabled: true },
+              { name: "playbook", enabled: true },
+            ]);
+            makeRestorable(workspaceRoot, canonicalRootOf("playbook"), "playbook");
+            const inPhase = (manager: KnowledgeManagerService, reset: () => void) =>
+              Effect.gen(function* () {
+                let active = true;
+                const end = () => {
+                  active = false;
+                };
+                const fileSystem = endingOnWrite(yield* FileSystem.FileSystem, end);
+                const phase = {
+                  location: yield* WorkspaceLocation,
+                  observations: true,
+                  stateLoaders: () => Effect.die("The read phase fixture loads no state"),
+                  fileSystem,
+                  readers: {
+                    desired: yield* DesiredStateReader,
+                    settings: yield* SettingsReader,
+                    locks: yield* LockfileReader,
+                  },
+                  records: yield* WorkspaceRecords,
+                  packDocuments: new Map(),
+                  knowledgeInspections: new Map(),
+                  isActive: () => active,
+                  endedBy: () => (active ? undefined : ("mutation" as const)),
+                  close: end,
+                };
+                reset();
+                const synced = yield* manager
+                  .sync({ dryRun: true })
+                  .pipe(
+                    Effect.provideService(CurrentWorkspaceReadPhase, phase),
+                    Effect.provideService(FileSystem.FileSystem, fileSystem),
+                  );
+                return { synced, ended: !active };
+              });
+            const live = yield* recordedSync(workspaceRoot, read, syncOnce(true));
+            const phased = yield* recordedSync(workspaceRoot, read, inPhase);
+
+            expect(live.outcome).toMatchObject({ _tag: "Success" });
+            expect(phased.outcome._tag).toBe("Success");
+            if (phased.outcome._tag !== "Success" || live.outcome._tag !== "Success") return;
+            // Staging the restored bundle wrote through the phase's port.
+            expect(phased.outcome.success.ended).toBe(true);
+            expect(phased.outcome.success.synced).toEqual(live.outcome.success);
+            // The observation made before the phase ended does not stand in
+            // for one made after it: the usable bundle is hashed once more.
+            // Without a phase: the usable bundle's one observation and the
+            // restored bundle's staged copy.
+            expect(live.treeHashes).toBe(2);
+            expect(phased.treeHashes).toBe(3);
+            const concept = nodePath.join(canonicalRootOf("handbook"), "src", "concept.md");
+            expect(live.recording?.contentReads(concept)).toBe(2);
+            expect(phased.recording?.contentReads(concept)).toBe(3);
+          }),
+        ),
+      );
     });
   });
 

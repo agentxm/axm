@@ -30,6 +30,7 @@ import {
   type ResolvedKnowledgeDiscoveryConfig,
   workspaceReadPhaseFor,
   inspectKnowledgePackageInPhase,
+  CurrentWorkspaceReadPhase,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -392,15 +393,28 @@ export const KnowledgeManagerLive = Layer.effect(
       ReturnType<typeof observeDesiredKnowledgeLive>
     >;
 
+    /** The read phase and filesystem port an observation reads through. */
+    const currentReadPort = Effect.gen(function* () {
+      return {
+        phase: yield* CurrentWorkspaceReadPhase,
+        fileSystem: yield* FileSystem.FileSystem,
+      };
+    });
+    type ReadPort = Effect.Success<typeof currentReadPort>;
+
     /**
      * Usable observations one sync call made of its desired nodes before
-     * anything was written, each with the exact layout it was made against.
-     * They stand in only for an observation of the same layout, of a node
-     * and accepted row structurally equal to the ones observed; the caller
-     * receives its own copy.
+     * anything was written, each with the exact layout, read phase and
+     * filesystem port it was made through. They stand in only for an
+     * observation of the same layout, through the same port and the same
+     * read phase while it is still active (or with no phase on either side),
+     * of a node and accepted row structurally equal to the ones observed; the
+     * caller receives its own copy. A phase that has ended in between, for
+     * example by a restore writing through its port, observes live again.
      */
     interface ObservedKnowledgeNode {
       readonly layout: ReturnType<typeof currentLayout>;
+      readonly port: ReadPort;
       readonly node: DesiredExtensionNode;
       readonly accepted: KnowledgeLockEntry | undefined;
       readonly capture: KnowledgeObservationCapture;
@@ -409,6 +423,7 @@ export const KnowledgeManagerLive = Layer.effect(
       const recorded = Object.freeze([...observed]);
       return (
         layout: ReturnType<typeof currentLayout>,
+        port: ReadPort,
         node: DesiredExtensionNode,
         accepted: KnowledgeLockEntry | undefined,
       ): Option.Option<Pick<KnowledgeObservationCapture, "observation" | "manifest">> => {
@@ -419,6 +434,9 @@ export const KnowledgeManagerLive = Layer.effect(
             entry.node.name === node.name,
         );
         return prior === undefined ||
+          prior.port.phase !== port.phase ||
+          (port.phase !== undefined && !port.phase.isActive()) ||
+          prior.port.fileSystem !== port.fileSystem ||
           !Equal.equals(prior.node, node) ||
           !Equal.equals(prior.accepted, accepted)
           ? Option.none()
@@ -455,7 +473,10 @@ export const KnowledgeManagerLive = Layer.effect(
           accepted: locked,
         });
         if (Option.isSome(handedOver)) return handedOver.value;
-        const own = observed === undefined ? Option.none() : observed(layout, node, locked);
+        const own =
+          observed === undefined
+            ? Option.none()
+            : observed(layout, yield* currentReadPort, node, locked);
         if (Option.isSome(own)) return own.value;
         return yield* observeDesiredKnowledgeLive(layout, node, locked);
       });
@@ -1040,11 +1061,15 @@ export const KnowledgeManagerLive = Layer.effect(
           const { name } = node;
           const entry = locked[name];
           const layout = currentLayout();
+          const port = yield* currentReadPort;
           const capture = yield* observeDesiredKnowledgeLive(layout, node, entry);
           const { observation } = capture;
           if (observation.status === "usable") {
-            if (observation.path !== undefined)
-              usable.push({ layout, node, accepted: entry, capture });
+            if (
+              observation.path !== undefined &&
+              (port.phase === undefined || port.phase.isActive())
+            )
+              usable.push({ layout, port, node, accepted: entry, capture });
             continue;
           }
           if (node.identity.authority === "workspace") {
@@ -1088,7 +1113,8 @@ export const KnowledgeManagerLive = Layer.effect(
         const discovery = yield* reconcileDiscovery({
           projection,
           // Restoring writes nothing canonical, so the selection may take what
-          // this loop found usable.
+          // this loop found usable, through the read phase it was found in
+          // while that phase is still active.
           observed: usableObservationsOf(usable),
           dryRun: true,
           prospective,

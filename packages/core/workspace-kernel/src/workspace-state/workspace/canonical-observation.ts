@@ -93,6 +93,12 @@ interface ObserveCanonicalArgs {
   readonly desired: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
   readonly verifiedTree?: VerifiedCanonicalTree;
+  /**
+   * The judgement the caller already made of the node before reading its
+   * content. It stands in for judging again only when it was made with this
+   * path service from these exact layout, node and accepted row values.
+   */
+  readonly judged?: CanonicalPreContentJudgement;
 }
 
 export const canonicalPathForAcceptedExtension = (
@@ -495,19 +501,40 @@ const judgeBeforeContent = (
 };
 
 /**
+ * What an observation of the desired node settles before it reads canonical
+ * content, with the inputs it was judged from and the `path` the observation
+ * reports: every observation that reads content reports the canonical root it
+ * read.
+ */
+export const judgeCanonicalBeforeContent = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+) => {
+  const judged = judgeBeforeContent(path, layout, desired, accepted);
+  return {
+    path,
+    layout,
+    desired,
+    accepted,
+    judged,
+    reportedPath: judged.settled === undefined ? judged.root : judged.settled.path,
+  };
+};
+
+type CanonicalPreContentJudgement = ReturnType<typeof judgeCanonicalBeforeContent>;
+
+/**
  * The `path` an observation of the desired node reports, derived without
- * reading canonical content: every observation that reads content reports
- * the canonical root it read.
+ * reading canonical content.
  */
 export const observedCanonicalPath = (
   path: Path.Path,
   layout: WorkspaceLayout,
   desired: DesiredExtensionNode,
   accepted: LockEntry | undefined,
-): string | undefined => {
-  const judged = judgeBeforeContent(path, layout, desired, accepted);
-  return judged.settled === undefined ? judged.root : judged.settled.path;
-};
+): string | undefined => judgeCanonicalBeforeContent(path, layout, desired, accepted).reportedPath;
 
 /**
  * Observe like `observeCanonicalExtension`, also handing the caller the
@@ -518,6 +545,7 @@ export const observeCanonicalExtensionCapturing = ({
   desired: observed,
   accepted,
   verifiedTree,
+  judged: prejudged,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservationCapture,
   never,
@@ -530,7 +558,14 @@ export const observeCanonicalExtensionCapturing = ({
       verifiedTree !== undefined && verifiedTree.root === root && verifiedTree.accepted === entry
         ? Effect.succeed(verifiedTree.integrity === entry.treeIntegrity)
         : observedTreeMatchesAccepted(root, entry);
-    const judged = judgeBeforeContent(path, layout, observed, accepted);
+    const judged =
+      prejudged !== undefined &&
+      prejudged.path === path &&
+      prejudged.layout === layout &&
+      prejudged.desired === observed &&
+      prejudged.accepted === accepted
+        ? prejudged.judged
+        : judgeBeforeContent(path, layout, observed, accepted);
     if (judged.settled !== undefined) return uncaptured(judged.settled);
     const { root, desired } = judged;
     const workspaceAuthored = desired.identity.authority === "workspace";

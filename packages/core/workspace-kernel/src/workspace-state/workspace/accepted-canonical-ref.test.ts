@@ -19,7 +19,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import * as Option from "effect/Option";
-import { LOCKFILE_VERSION, type SkillLockEntry } from "../desired/lockfile/schema.js";
+import {
+  LOCKFILE_VERSION,
+  type RuleLockEntry,
+  type SkillLockEntry,
+} from "../desired/lockfile/schema.js";
 import { emitLockfileToml } from "../desired/lockfile/toml.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -27,6 +31,7 @@ import { exactVersion, extensionName, handle, storedLockfileFixture } from "../t
 import {
   acceptedCanonicalObservation,
   acceptedCanonicalObservationCapturing,
+  acceptedCanonicalObservationOfKeptRoot,
   observeDesiredCanonical,
   observeDesiredUsableCanonical,
   prepareAcceptedCanonicalTransition,
@@ -607,6 +612,125 @@ describe("usable accepted canonical of a bundled skill", () => {
       expect(Option.map(value, (usable) => usable.ref)).toEqual(
         Option.some(yield* Effect.provide(standaloneRef(packageDir), state)),
       );
+    }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+  );
+});
+
+describe("observing an accepted canonical root the caller keeps", () => {
+  const endpoint = decodeRegistryEndpointSync("https://registry.agentxm.ai");
+
+  /** A project accepting one Registry Rule at `version`, as its only accepted row. */
+  const registryRuleProject = (version: string) =>
+    Effect.gen(function* () {
+      const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-accepted-kept-"));
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+      );
+      nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");
+      const accepted = {
+        source: { type: "registry", url: endpoint },
+        identity: { owner: handle("@acme"), name: extensionName("policy") },
+        resolved: {
+          version: exactVersion(version),
+          integrity:
+            "sha512-W6hmaNcCrEx5sOAbpgd9XOw+u68VBl+mKXJFoIxt5kihKN1+FVD/jdm1bqL40gSWuROKd0lEc0d45/aL2aNWqg==",
+          publisherBindingId: "hbnd_policy",
+        },
+        treeIntegrity: TEST_TREE_INTEGRITY,
+      } satisfies RuleLockEntry;
+      nodeFs.writeFileSync(
+        nodePath.join(root, "axm.lock"),
+        emitLockfileToml(
+          storedLockfileFixture({ lockfileVersion: LOCKFILE_VERSION, rules: { policy: accepted } }),
+        ),
+      );
+      const source = "@acme/rules/policy";
+      const desired: DesiredExtensionNode = {
+        type: "rule",
+        name: "policy",
+        identity: {
+          authority: "registry",
+          fqn: "@acme/rules/policy",
+          registry: { sourceName: undefined, endpoint },
+        },
+        source,
+        enabled: true,
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        origins: [{ type: "settings", source, enabled: true }],
+      };
+      const state = WorkspaceStateTest({
+        scope: "project",
+        projectRoot: decodeAbsolutePathSync(root),
+      });
+      return { state, args: { type: "rule", name: "policy", desired } as const };
+    });
+
+  /**
+   * Observe the kept root, counting the derivations of the acquired canonical
+   * root from the layout's acquired tree: one per judgement of the accepted row.
+   */
+  const observeKeptCounting = (
+    args: { readonly type: "rule"; readonly name: string; readonly desired: DesiredExtensionNode },
+    discarded: (canonicalPath: string) => boolean,
+  ) =>
+    Effect.gen(function* () {
+      const base = yield* Path.Path;
+      const layout = yield* Ref.get((yield* WorkspaceLocation).layout);
+      let derivations = 0;
+      const join = (...parts: Array<string>) => {
+        if (parts[0] === layout.acquiredRoot) derivations += 1;
+        return base.join(...parts);
+      };
+      const value = yield* acceptedCanonicalObservationOfKeptRoot(args, discarded).pipe(
+        Effect.provideService(Path.Path, Path.Path.of({ ...base, join })),
+      );
+      return { value, derivations };
+    });
+
+  for (const scenario of [
+    { label: "an observed root", version: "1.0.0", status: "missing" },
+    {
+      label: "a root whose accepted version is excluded",
+      version: "1.0.0-beta.1",
+      status: "constraint-mismatch",
+    },
+  ] as const)
+    it.effect(`judges the accepted row once for ${scenario.label}`, () =>
+      Effect.gen(function* () {
+        const { state, args } = yield* registryRuleProject(scenario.version);
+
+        const { value, derivations } = yield* Effect.provide(
+          observeKeptCounting(args, () => false),
+          state,
+        );
+
+        expect(derivations).toBe(1);
+        const plain = yield* Effect.provide(acceptedCanonicalObservation(args), state);
+        expect(Option.map(plain, (observed) => observed.observation.status)).toEqual(
+          Option.some(scenario.status),
+        );
+        expect(value).toEqual(
+          Option.flatMap(plain, (observed) =>
+            Option.map(Option.fromUndefinedOr(observed.observation.path), (path) => ({
+              path,
+              observed,
+            })),
+          ),
+        );
+      }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
+    );
+
+  it.effect("judges once and observes nothing for a discarded root", () =>
+    Effect.gen(function* () {
+      const { state, args } = yield* registryRuleProject("1.0.0");
+
+      const { value, derivations } = yield* Effect.provide(
+        observeKeptCounting(args, () => true),
+        state,
+      );
+
+      expect(value).toEqual(Option.none());
+      expect(derivations).toBe(1);
     }).pipe(Effect.scoped, Effect.provide(recordingPlatform)),
   );
 });

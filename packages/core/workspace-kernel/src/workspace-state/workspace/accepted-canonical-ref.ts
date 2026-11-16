@@ -40,7 +40,7 @@ import {
   capturedManifestFor,
   observeCanonicalExtensionCapturing,
   type VerifiedCanonicalTree,
-  observedCanonicalPath,
+  judgeCanonicalBeforeContent,
   type CanonicalObservation,
   type CapturedManifest,
   type CapturedSubagentPackage,
@@ -417,6 +417,7 @@ const observeAcceptedCanonicalCapturing = (
   accepted: Option.Option<LockEntry>,
   layout: WorkspaceLayout,
   verifiedTree?: VerifiedCanonicalTree,
+  judged?: ReturnType<typeof judgeCanonicalBeforeContent>,
 ) =>
   Effect.gen(function* () {
     const reader = yield* LockfileReader;
@@ -425,6 +426,7 @@ const observeAcceptedCanonicalCapturing = (
       desired,
       accepted: Option.getOrUndefined(accepted),
       ...(verifiedTree === undefined ? {} : { verifiedTree }),
+      ...(judged === undefined ? {} : { judged }),
     });
     const observed: AcceptedCanonicalObservation = {
       desired,
@@ -508,13 +510,13 @@ const acceptedCanonicalSubject = ({ type, name, desired: proposed }: AcceptedCan
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
     const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
-    const path = observedCanonicalPath(
+    const judged = judgeCanonicalBeforeContent(
       yield* Path.Path,
       layout,
       desired,
       Option.getOrUndefined(accepted),
     );
-    return Option.some({ desired, accepted, layout, path });
+    return Option.some({ desired, accepted, layout, judged, path: judged.reportedPath });
   });
 
 /**
@@ -554,13 +556,15 @@ export const acceptedCanonicalObservationOfKeptRoot = (
   Effect.gen(function* () {
     const subject = yield* acceptedCanonicalSubject(args);
     if (Option.isNone(subject)) return Option.none();
-    const { desired, accepted, layout, path } = subject.value;
+    const { desired, accepted, layout, judged, path } = subject.value;
     if (path === undefined || discarded(path)) return Option.none();
+    // The judgement made deriving the root stands for the observation's own.
     const { observed } = yield* observeAcceptedCanonicalCapturing(
       desired,
       accepted,
       layout,
       verifiedTree,
+      judged,
     );
     return Option.some({ path, observed });
   });

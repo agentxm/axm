@@ -18,7 +18,7 @@ import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 import { makeTestScreen } from "../../test-support/screen-test.js";
 import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { WorkspaceInitializationInteractionLive } from "../../workspace-initialization-interaction-live.js";
-import { withFirstUse } from "./first-use.js";
+import { observeFirstInstallAgents, setUpFirstUse, withFirstUse } from "./first-use.js";
 
 describe("first use where only the agents are open", () => {
   /**
@@ -155,60 +155,72 @@ describe("first use settings observation", () => {
     return counts;
   };
 
+  /** The CLI services over a filesystem that records every call once reset. */
+  const recordingContext = (screen: ReturnType<typeof makeTestScreen>) => {
+    const recordings: Array<FileSystemRecording> = [];
+    const fileSystemLayer = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.map(FileSystem.FileSystem, (base) => {
+        const recorded = makeRecordingFileSystem(base);
+        recordings.push(recorded.recording);
+        return recorded.fileSystem;
+      }),
+    );
+    const testContext = makeCliTestContext({ screenLayer: screen.layer, fileSystemLayer });
+    return {
+      recordings,
+      reset: Effect.sync(() => {
+        for (const recording of recordings) recording.reset();
+      }),
+      layer: Layer.merge(
+        Layer.provide(WorkspaceInitializationInteractionLive, screen.layer),
+        testContext.baseLayer,
+      ),
+    };
+  };
+
   /**
-   * Run a first use over a recording filesystem and count the calls naming the
-   * settings file once the fixture existed: across the whole call, and before
-   * the workspace transition lock of the settings' workspace was first taken.
+   * Count the recorded calls naming the settings file: across the whole call,
+   * and before the workspace transition lock of the settings' workspace was
+   * first taken.
    */
+  const measure = (recordings: ReadonlyArray<FileSystemRecording>, settingsPath: string) => {
+    expect(recordings).toHaveLength(1);
+    const calls = recordings.flatMap((recording) => recording.calls());
+    const lockHolder = path.join(
+      path.dirname(settingsPath),
+      ".axm",
+      "tmp",
+      "workspace-transition.lock",
+      "holder.json",
+    );
+    const locked = calls.findIndex(
+      (call) => call.method === "writeFile" && call.path === lockHolder,
+    );
+    const naming = (call: RecordedFileSystemCall) =>
+      call.path === settingsPath || call.toPath === settingsPath;
+    return {
+      locked: locked >= 0,
+      beforeLock: countsOf(calls.slice(0, locked >= 0 ? locked : calls.length).filter(naming)),
+      total: countsOf(calls.filter(naming)),
+    };
+  };
+
+  /** Run a first use over a recording filesystem reset once the fixture existed. */
   const runFirstUse = (
     args: Parameters<typeof withFirstUse>[0],
     settingsPath: string,
     screen: ReturnType<typeof makeTestScreen>,
   ) =>
     Effect.gen(function* () {
-      const recordings: Array<FileSystemRecording> = [];
-      const fileSystemLayer = Layer.effect(
-        FileSystem.FileSystem,
-        Effect.map(FileSystem.FileSystem, (base) => {
-          const recorded = makeRecordingFileSystem(base);
-          recordings.push(recorded.recording);
-          return recorded.fileSystem;
-        }),
-      );
-      const testContext = makeCliTestContext({ screenLayer: screen.layer, fileSystemLayer });
+      const context = recordingContext(screen);
       const agents = yield* Effect.gen(function* () {
-        for (const recording of recordings) recording.reset();
+        yield* context.reset;
         return yield* withFirstUse(args)(
           Effect.flatMap(SettingsReader, (settings) => settings.configuredAgents),
         );
-      }).pipe(
-        Effect.provide(
-          Layer.merge(
-            Layer.provide(WorkspaceInitializationInteractionLive, screen.layer),
-            testContext.baseLayer,
-          ),
-        ),
-      );
-      expect(recordings).toHaveLength(1);
-      const calls = recordings.flatMap((recording) => recording.calls());
-      const lockHolder = path.join(
-        path.dirname(settingsPath),
-        ".axm",
-        "tmp",
-        "workspace-transition.lock",
-        "holder.json",
-      );
-      const locked = calls.findIndex(
-        (call) => call.method === "writeFile" && call.path === lockHolder,
-      );
-      const naming = (call: RecordedFileSystemCall) =>
-        call.path === settingsPath || call.toPath === settingsPath;
-      return {
-        agents,
-        locked: locked >= 0,
-        beforeLock: countsOf(calls.slice(0, locked >= 0 ? locked : calls.length).filter(naming)),
-        total: countsOf(calls.filter(naming)),
-      };
+      }).pipe(Effect.provide(context.layer));
+      return { agents, ...measure(context.recordings, settingsPath) };
     });
 
   /** Answer setup's questions: no instruction sync, then approve the plan. */
@@ -325,5 +337,35 @@ describe("first use settings observation", () => {
       }
       expect(fs.existsSync(settingsPath)).toBe(false);
     }),
+  );
+
+  it.effect(
+    "probes settings afresh where setup follows a question asked after the observation",
+    () =>
+      Effect.gen(function* () {
+        // A first install observes the scope, then asks what to install before
+        // it sets the workspace up. Settings another terminal writes while that
+        // question is open are seen: setup decides from its own probe.
+        const settingsPath = path.join(projectDir, "axm.json");
+        const foreign = `${JSON.stringify({ agents: ["claude-code"], instructionFiles: false })}\n`;
+        const screen = makeTestScreen();
+        const context = recordingContext(screen);
+
+        const firstUse = yield* Effect.gen(function* () {
+          yield* context.reset;
+          const observed = yield* observeFirstInstallAgents("project");
+          expect(observed._tag).not.toBe("Established");
+          fs.writeFileSync(settingsPath, foreign);
+          return yield* setUpFirstUse({ scope: "project", agents: ["codex"] });
+        }).pipe(Effect.provide(context.layer));
+        const run = measure(context.recordings, settingsPath);
+
+        expect(firstUse).toEqual({ _tag: "SetUp" });
+        expect(screen.state.script.asks).toEqual([]);
+        // The settings that appeared complete setup without a transaction.
+        expect(run.locked).toBe(false);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(foreign);
+        expect(run.total).toEqual({ access: 4, readFile: 2 });
+      }),
   );
 });

@@ -1,0 +1,787 @@
+{
+ "interpretation": "For each work kind or path counter that is higher with the new binary: one explanation from the commits and traces, and one independent verdict that re-measured cited and uncited scenarios. Commit identifiers are those of the measured revision's history; 'commits' gives each one's subject.",
+ "commits": {
+  "15cac0d07": "test(workspace): declare the named-pipe tool two tests use",
+  "197c2fef7": "perf(hooks): evaluate the desired state once while withdrawing native registrations",
+  "21208f5f8": "perf(hooks): share native Hook settings parses and count renders",
+  "33cffb50b": "perf(inspection): decode an acquired Knowledge manifest from the scan's parse",
+  "4344fcd42": "perf(projection): hand each manager's eager plan observation to its consumer",
+  "4ddc07e97": "perf(hooks): admit each native Hook settings spelling once per run",
+  "51bc21ce4": "perf(registry): stage exclusively owned archive buffers without a copy",
+  "51ff9983d": "perf(authoring): read workspace documents once per authored native preflight",
+  "5780128e5": "perf(reconciliation): share one document view across the install step's preflight",
+  "582681af7": "perf(skills,authoring): reuse disk-resolved skills, share preflight reads",
+  "588cbf40c": "perf(reconciliation): evaluate desired state once per step collection",
+  "5907df664": "perf(mcp): read a sourced connection's manifest without a prior probe",
+  "66ef873fc": "perf(registry): answer file Registry publication previews from the open read phase",
+  "6a823aafd": "perf(knowledge): hash corpus sources once, after the confirming read",
+  "6e2610aaa": "perf(inspection): inspect a Knowledge package once per observation phase",
+  "74cbeb4a6": "perf(knowledge): select the installed corpus in one workspace read phase",
+  "7d0f0e1f4": "perf(instructions,setup): read each call's documents and probes once",
+  "869f3c5ae": "perf(planning,sync): review duplicate refs once, share validation reads",
+  "9150d2c12": "perf(authoring): read a native hook bundle's resources against its resolved root",
+  "92c1ab630": "perf(acquisition): hash, recover, reserve only when publication needs it",
+  "9b3f55f79": "perf(workspace): hand verification's usable Subagent observation to its observer",
+  "a9cea2d4a": "perf(hooks): prepare an accepted Registry Hook from its observation",
+  "ada862c27": "Keep node:test suites out of the hosted report selection",
+  "c4f23d1be": "perf(workspace): run each post-write check in one fresh read phase",
+  "ceeed0a72": "perf(reconciliation): reuse verification's observations in projection",
+  "d62eb6509": "perf(workspace-features): read lint and visibility documents in one phase",
+  "d92264013": "perf(registry): consume client archive verification instead of re-hashing",
+  "ddeac6394": "perf(hooks,knowledge): decode the manifest the canonical observation already read",
+  "e1ff86151": "Add read-only verification of published releases",
+  "ea5e12097": "perf(authoring): reuse prepared pack manifests, read hook metadata once",
+  "ee72066b3": "perf(knowledge): fingerprint a captured corpus once, in its index snapshot",
+  "fcf4471d9": "perf(self-update): read the update-check cache and install metadata once"
+ },
+ "explanations": [
+  {
+   "classification": "newly-counted-existing-work",
+   "subject": "trace kind axm.observation.reuse (one span per filesystem request made through a phase-scoped observation read view)",
+   "totals": "146,877 -> 222,437 (+75,560). It changes in 51 scenarios: 5 rise and 46 fall. Rises: registry/50/sync-restore/cold/baseline 46,622 -> 129,432 (+82,810), registry/10/sync-restore/cold/baseline 14,422 -> 24,192 (+9,770), installed/enable 454 -> 788 (+334), installed/skills-enable 454 -> 788 (+334), typed/subagents/enable 1,890 -> 2,082 (+192). The largest falls are local/lint 5,878 -> 3,388, local/lint-fix and preview/lint 4,860 -> 3,020, registry/1/sync-noop/warm 5,918 -> 4,446 and preview/sync 5,125 -> 3,867. registry/1/sync-restore cold and warm fall 7,177 -> 6,687 even though they gain the same two post-write phases. installed/adopt-enabled-native-refusal does not appear among the changes, and it is not measurable for trace counters anyway.",
+   "whatIsCounted": "The counter is recorded in packages/core/workspace-kernel/src/workspace-state/workspace/observation-read-view.ts, inside share(). That function wraps every read primitive of a view built by makeObservationReadView (access, stat, lstat, real-path, read-link, read-file, read-directory, read-directory-entries, decode-text, canonical-path) in withWork(\"axm.observation.reuse\", {axm.observation.operation, axm.work.requested: 1}). A view is built only when WorkspaceReadViews.capture runs with observations: true, which happens in withWorkspaceObservationReadView and withFreshWorkspaceObservationReadView (read-view.ts). So one occurrence is one read request routed through a phase's shared view, not one executed read. Each span carries an outcome. \"miss\" means the wrapped fs call ran once (executed 1). \"hit\" or \"coalesced\" means a stored result was reused (executed 0, reused 1). \"bypass\" means the phase had ended and the call went to the live fs. In every case the underlying physical call is counted separately as axm.io.* on the instrumented adapter. The tracing guide says axm.io.* covers live reads that bypass a view, and that observation counters are logical work or reuse decisions that must not be added to physical I/O counts. So a rise in this counter means more requests now pass through a view. Whether real work rose has to be read from axm.io.*, the parse counters and the kernel recordings.",
+   "mechanism": "The main cause is commit c4f23d1be, \"perf(workspace): run each post-write check in one fresh read phase\". In packages/core/workspace-kernel/src/reconciliation/extensions/operations.ts, runMaterializeOperation's validate step now wraps manager.isInstalled({target}) in withFreshWorkspaceObservationReadView. In packages/core/workspace-kernel/src/reconciliation/native-output-postconditions.ts, validateNativeOutputPostconditions now runs the retention-witness check, observeNativeOutputs and the instruction readback in a single withFreshWorkspaceObservationReadView, unless there are neither retained witnesses nor required units. Before this commit both checks used independent live readers. Their stat, readlink, realpath, readdir and access calls went straight to the fs, showed up only as axm.io.*, and settings and the lockfile were decoded once per reader. Now every one of those requests goes through a fresh view and records one reuse span: a miss the first time a key is seen in the phase, a hit after that.\n\nThe phase counts line up. axm.observation.phase goes 4 -> 105 in registry/50 (100 new rows owned by axm.operation.phase: 50 presence checks plus 50 closure postconditions, one pair per restored package) and 4 -> 25 in registry/10 (20 new). In registry/50, operation-phase misses rise by about 79,000: read-link 2,986 -> 22,336, stat 2,731 -> 20,881, real-path 314 -> 14,764, read-directory 93 -> 12,243, access 66 -> 9,015, read-file and decode-text 54 -> 2,854 each, canonical-path 5 -> 555. Hits rise as well, for example real-path 307 -> 5,544, read-link 331 -> 5,414 and stat 151 -> 3,141. Bypass is unchanged at 11,000. The total outcome mix moves from miss 19,105 / hit 16,495 / coalesced 22 / bypass 11,000 to 98,302 / 20,108 / 22 / 11,000.\n\nIn the enable scenarios, axm.observation.phase goes 3 -> 4. That is one extra fresh operation-phase view, which matches the post-write native-output check (validateNativeOutputPostconditions is called from configuration/membership/atomic-membership.ts:295). In installed/enable the new misses include read-directory 0 -> 90, read-link 154 -> 297, real-path 102 -> 240, plus a second settings and lockfile decode through the view (decode-text and read-file owned by axm.resolve.desired-state, 2 -> 4).\n\nOther commits pull the counter down in the same scenarios and elsewhere, which is why registry/1 and most typed and lint scenarios fall:\n- The canonical-path memoisation changes cut canonical-path hits from 6,832 to 393 and 3,092 to 183 in registry/50, and axm.native.canonical-path from 48,688 to 21,560.\n- 5780128e5, ceeed0a72, 9b3f55f79 and 869f3c5ae add or merge other views.\n- 869f3c5ae also moved sync's fresh observation out of sync-workspace.ts and into resolve-plan's shared validation view.",
+   "scenariosChecked": [
+    {
+     "scenario": "registry/50/sync-restore/cold/baseline",
+     "old": "reuse 46,622 (miss 19,105, hit 16,495, bypass 11,000, coalesced 22); observation.phase 4; axm.io total 271,662",
+     "new": "reuse 129,432 (miss 98,302, hit 20,108, bypass 11,000, coalesced 22); observation.phase 105; axm.io total 243,262",
+     "accountedBy": "c4f23d1be: 100 new fresh post-write phases (50 presence checks and 50 native-output postconditions). Their reads now pass through a view and are counted as misses or hits. Executed fs calls fell: io.read-link 88,379->80,912, io.stat 56,292->47,605, io.real-path 73,392->64,263, io.access 18,988->17,731, io.read-directory 23,601->23,001, io.read-file 7,374->6,719."
+    },
+    {
+     "scenario": "registry/10/sync-restore/cold/baseline",
+     "old": "reuse 14,422 (miss 5,385, hit 6,815, bypass 2,200); observation.phase 4",
+     "new": "reuse 24,192 (miss 16,022, hit 5,949, bypass 2,200); observation.phase 25",
+     "accountedBy": "c4f23d1be: 20 new fresh post-write phases. Operation-phase misses 1,743->12,382. axm.io total 43,300->37,859. parse.lockfile 126->56, parse.settings 108->66."
+    },
+    {
+     "scenario": "installed/enable",
+     "old": "reuse 454 (op-phase miss 344, hit 110); observation.phase 3",
+     "new": "reuse 788 (miss 776, hit 12); observation.phase 4",
+     "accountedBy": "One fresh post-write native-output view (c4f23d1be, via atomic-membership's validateNativeOutputPostconditions). Hit loss is canonical-path hits 106->0 from canonical-path memoisation elsewhere. io.stat 832->508, io.read-link 1,615->1,366, io.real-path 1,464->1,273, io.read-directory 332->326."
+    },
+    {
+     "scenario": "installed/skills-enable",
+     "old": "454",
+     "new": "788",
+     "accountedBy": "Same rows and mechanism as installed/enable."
+    },
+    {
+     "scenario": "typed/subagents/enable",
+     "old": "reuse 1,890 (miss 695, hit 1,195); observation.phase 3",
+     "new": "reuse 2,082 (miss 1,141, hit 941); observation.phase 4",
+     "accountedBy": "One added fresh post-write view (misses read-link 193->342, real-path 189->331, read-directory 109->217). canonical-path hits 314->82. io.read-link 1,885->1,446, io.real-path 1,998->1,499, io.stat 770->479, io.read-file 271->219."
+    },
+    {
+     "scenario": "registry/1/sync-restore/cold/baseline (control, falls)",
+     "old": "reuse 7,177 (op-phase miss 717)",
+     "new": "reuse 6,687 (op-phase miss 1,663)",
+     "accountedBy": "Gains the same 2 post-write phases (misses +946), but loses more canonical-path hits at cli.operation (3,530->2,274). Shows the rise scales with the number of restored closures."
+    }
+   ],
+   "underlyingPhysicalWork": "Real work did not rise in any of the rising scenarios; it fell.\n\nTrace counters: every axm.io.* kind that the counted requests would cause goes down. In registry/50, axm.io.read-link 88,379->80,912, stat 56,292->47,605, real-path 73,392->64,263, access 18,988->17,731, read-directory 23,601->23,001, read-file 7,374->6,719, lstat 450->300, and the axm.io total 271,662->243,262. Parse and hash counters also fall: parse.lockfile and lockfile-decode 606->256, parse.settings 508->306, native.canonical-path 48,688->21,560, hash.materialized-tree 100->50. The registry/10 and enable scenarios move the same way.\n\nKernel recordings, registry/50: statx 155,666->92,157, readlink 164,299->126,175, openat 161,245->123,389, getdents64 20,687->19,487, access 19,000->17,743, read 17,027->15,373. Per path, <ws>/axm.json readOpens go 660->457 (bytes 1,341,120->928,624) and <ws>/axm.lock readOpens go 758->407 (bytes 17,355,168->9,318,672). Native skill directories such as <ws>/.github/skills/bench-0NN are unchanged at readlinks 4->4 and stats 4->4.\n\nKernel recordings, registry/10: statx 23,333->10,873, readlink 26,259->18,575, axm.json readOpens 140->97, axm.lock readOpens 158->87.\n\nKernel recordings, installed/enable: statx 3,022->1,156, readlink 3,109->2,005, axm.json readOpens 24->21, axm.lock readOpens 15->12.\n\nKernel recordings, typed/subagents/enable: statx 3,127->1,288, readlink 3,639->2,249, axm.json readOpens 21->19, axm.lock readOpens 23->20.\n\nThe post-write checks still run after the last write: the phase count rises and the native output paths keep the same readlink and stat counts. So the fresh checks are kept, and they now share one observation per check instead of reading once per independent reader.",
+   "openIssues": [
+    "Trace rows carry no operands, so I cannot prove that each new operation-phase miss is one-for-one a read that used to go straight to the live fs. The conclusion rests on aggregates: every matching axm.io.* kind, the parse counters and the kernel syscall and per-path counts fall in every rising scenario.",
+    "The extra fresh phase in the three enable scenarios is attributed to c4f23d1be's validateNativeOutputPostconditions view, reached through the call site at workspace-features/src/configuration/membership/atomic-membership.ts:295. I inferred this from the phase and row shape; I did not trace the call path span by span.",
+    "Classification boundary: c4f23d1be deliberately puts the post-write checks into fresh phases, so this could also be filed as deliberate-fresh-phase. Those checks already read the workspace fresh on live ports, though, so the new phases add counting, not reads.",
+    "The old trace work (work-before.json, from the old-versus-old campaign) records candidate sourceRevision e1ff86151c22ca4e4250265a5bd137bd909de358, not ada862c27244a484c650243d912e90b3346ee3a4. It is an ancestor 6 commits earlier: a knowledge-diagnostics feature, a release and release-verification tooling, and test changes. I see nothing in those commits that touches the observation views, but the old trace numbers come from that binary."
+   ]
+  },
+  {
+   "subject": "trace kind axm.resolve.desired-state-reuse (one desired-state request served by a captured workspace read view)",
+   "totals": "1,608 -> 1,855 (+247) over the 259 measurable scenarios. The old campaign's 1,610 over 260 includes installed/adopt-enabled-native-refusal, which goes 2 -> 0 and is not measurable. The counter rises in 51 scenarios and falls in 58 measurable ones. Largest rises: registry/50/sync-restore/cold/baseline 26 -> 274 (+248), registry/10/sync-restore/cold/baseline 26 -> 74 (+48), typed/knowledge/new 1 -> 9 (+8), typed/rules/new 1 -> 8 (+7). Across the 51 rising scenarios: requests 373 -> 792, of which executed (cache miss) 80 -> 231 and reused (hit) 293 -> 561. Largest falls: typed/mcps/update 41 -> 26 and preview/mcps-update 37 -> 22.",
+   "whatIsCounted": "It is recorded only in packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts, by cacheEvaluation and the inactive-phase bypass branch of evaluate inside WorkspaceReadViewsLive.capture. One occurrence is one call to DesiredStateReader.evaluate/graph on the reader that a read or observation phase captured (withWorkspaceReadView, withWorkspaceObservationReadView or withFreshWorkspaceObservationReadView). The call's axm.cache.outcome says what happened. On a miss (axm.work.executed=1) it runs the evaluation inside an axm.resolve.desired-state span, and that span is the executed work. On a hit (axm.work.reused-count=1) it returns the phase's cached evaluation and does no work. On a bypass it evaluates after the phase closed. So the counter counts requests (lookups) plus reuse hits, not executed work. Its executed share equals the axm.resolve.desired-state count in every rising scenario. The live DesiredStateReaderLive (desired-state-reader.ts makeDesiredStateReader) is used outside any read phase. It emits neither this kind nor axm.resolve.desired-state, only the unbounded DesiredStateReader.evaluate span, and it re-reads and re-parses axm.json and axm.lock on every call. The instrumentation itself is the same at the old revision (git show ada862c27:read-view.ts has the same withWork/bypass sites).",
+   "mechanism": "Several commits move desired-state evaluations from the uncounted live reader into captured read phases. Inside a phase they become counted requests: one miss per phase plus hits for repeat calls.\n(1) 5780128e5, perf(reconciliation): \"share one document view across the install step's preflight\". In packages/core/workspace-kernel/src/reconciliation/extensions/operations.ts, runInstallOperation now wraps the prior-graph read, the source-authority check, observeSatisfiedInstall and captureAgentOutputAuthority in withWorkspaceReadView. buildAuthoredExtensionStep gets the same treatment for listMaterializable, isInstalled, the prior graph and the prior authority. Before, each of these evaluated the desired state live, re-reading settings and the lockfile each time (the commit message says three evaluations become one for a registry Rule). Now there is one view per step, including each Pack member and each restored package, and one counted miss plus hits.\n(2) c4f23d1be, perf(workspace): \"run each post-write check in one fresh read phase\". runMaterializeOperation's validate (manager.isInstalled) and native-output-postconditions.ts now run in withFreshWorkspaceObservationReadView. That is one fresh phase per check after the last write, again a counted miss plus hits where the old code used several live readers.\nIn registry/50 sync-restore, (1) and (2) together add 100 phases under axm.operation.phase (axm.observation.phase 4 -> 105). They also add 100 misses and 150 hits under axm.operation.phase, which is 2 misses and 3 hits per restored package.\n(3) The same pattern, a phase opened around previously live reads, comes from:\n- 51ff9983d (authoring native-projection preflight)\n- 7d0f0e1f4 (manage-instructions)\n- 74cbeb4a6 (knowledge installed-corpus): the concepts-* scenarios 0 -> 1\n- d62eb6509 (lint-knowledge, visibility): typed/knowledge/lint and typed/visibility/* 0 -> 1\n- 869f3c5ae (resolve-plan and sync-workspace)\nThe falls elsewhere come from consolidating phases, for example 588cbf40c \"evaluate desired state once per step collection\" and 197c2fef7.",
+   "scenariosChecked": [
+    {
+     "scenario": "registry/50/sync-restore/cold/baseline",
+     "old": "26 requests (3 miss, 23 hit); axm.resolve.desired-state 3; observation.phase 4; parse.lockfile 606; parse.settings 508 (500 directly under operation.phase = live readers); kernel <ws>/axm.lock readOpens 758, <ws>/axm.json readOpens 660",
+     "new": "274 requests (103 miss, 171 hit; 100 miss and 150 hit added under axm.operation.phase); axm.resolve.desired-state 103; observation.phase 105; parse.lockfile 256 (100 inside resolve.desired-state); parse.settings 306; axm.lock readOpens 407; axm.json readOpens 457; read-file 7374 -> 6719",
+     "accountedBy": "5780128e5 (per-package install preflight view) + c4f23d1be (per-package fresh post-write presence-check phase): 2 counted phases per package replace about 12 lockfile and 10 settings parses per package by live readers"
+    },
+    {
+     "scenario": "registry/10/sync-restore/cold/baseline",
+     "old": "26 requests (3 miss); desired-state 3; parse.lockfile 126; parse.settings 108; axm.lock readOpens 158; axm.json readOpens 140",
+     "new": "74 requests (23 miss; 20 miss and 30 hit added under operation.phase); desired-state 23; parse.lockfile 56; parse.settings 66; axm.lock readOpens 87; axm.json readOpens 97",
+     "accountedBy": "Same as registry/50: 2 phases per package (5780128e5, c4f23d1be)"
+    },
+    {
+     "scenario": "typed/knowledge/new",
+     "old": "1 request (bypass, executed); desired-state 1; parse.lockfile 36; parse.settings 43; axm.lock readOpens 40; axm.json readOpens 53",
+     "new": "9 requests (3 miss, 6 hit); desired-state 3; parse.lockfile 16; parse.settings 20; axm.lock readOpens 20; axm.json readOpens 30",
+     "accountedBy": "5780128e5 (buildAuthoredExtensionStep preflight view), 51ff9983d (authored native preflight view), c4f23d1be (post-write check phase)"
+    },
+    {
+     "scenario": "typed/rules/new",
+     "old": "1 (bypass); desired-state 1; parse.lockfile 31; parse.settings 34; axm.lock readOpens 39",
+     "new": "8 (3 miss, 5 hit); desired-state 3; parse.lockfile 15; parse.settings 20; axm.lock readOpens 23",
+     "accountedBy": "5780128e5 / 51ff9983d / c4f23d1be"
+    },
+    {
+     "scenario": "typed/packs/new",
+     "old": "0; parse.lockfile 20; parse.settings 17; axm.lock readOpens 24; pack.json readOpens 6",
+     "new": "4 (1 miss, 3 hit); desired-state 1; parse.lockfile 8; parse.settings 12; axm.lock readOpens 12; pack.json readOpens 5",
+     "accountedBy": "5780128e5 (authored step preflight view)"
+    },
+    {
+     "scenario": "typed/knowledge/concepts-get",
+     "old": "0; parse.lockfile 3; parse.settings 3; axm.json/axm.lock readOpens 3/3",
+     "new": "1 (1 miss); desired-state 1; observation.phase 0 -> 1; parse.lockfile 2; parse.settings 2; readOpens 2/2",
+     "accountedBy": "74cbeb4a6 (installed corpus selected in one read phase)"
+    },
+    {
+     "scenario": "preview/instructions-enable",
+     "old": "0; parse.lockfile 8; parse.settings 9; axm.lock readOpens 9; axm.json readOpens 10",
+     "new": "2 (1 miss, 1 hit); desired-state 1; parse.lockfile 2; parse.settings 2; readOpens 3/3",
+     "accountedBy": "7d0f0e1f4 (manage-instructions in one read view)"
+    },
+    {
+     "scenario": "git/update",
+     "old": "8 (1 miss, 7 hit); desired-state 1; parse.lockfile 14; axm.lock readOpens 23",
+     "new": "9 (2 miss, 7 hit); desired-state 2; parse.lockfile 10; axm.lock readOpens 19",
+     "accountedBy": "c4f23d1be (fresh post-write check phase)"
+    },
+    {
+     "scenario": "registry/1/install/cold/baseline",
+     "old": "10 (3 miss, 7 hit); desired-state 3; parse.lockfile 16; parse.settings 20; axm.lock readOpens 24",
+     "new": "12 (3 miss, 9 hit); desired-state 3 (unchanged); parse.lockfile 11; parse.settings 17; axm.lock readOpens 19",
+     "accountedBy": "Only hits rose; same executed evaluations, regrouped into the preflight view (5780128e5)"
+    },
+    {
+     "scenario": "All 51 rising scenarios",
+     "old": "requests 373, executed 80, axm.resolve.desired-state 80, parse.lockfile 1402, parse.settings 1356, io.read-file 13476, kernel <ws>/axm.json readOpens 1856, <ws>/axm.lock readOpens 1792",
+     "new": "requests 792, executed 231, axm.resolve.desired-state 231, parse.lockfile 679, parse.settings 878, io.read-file 11822, axm.json readOpens 1371, axm.lock readOpens 1063",
+     "accountedBy": "No rising scenario shows an increase in parse.lockfile, parse.settings, io.read-file, or kernel readOpens of <ws>/axm.json or <ws>/axm.lock (checked per scenario: 0 of 51)"
+    }
+   ],
+   "classification": "newly-counted-existing-work",
+   "underlyingPhysicalWork": "Physical work went down. The new counted misses, and the axm.resolve.desired-state spans they match (80 -> 231 in the rising scenarios), are desired-state evaluations the old binary also ran. The old binary ran them through the live DesiredStateReader outside any read phase, so they were not counted, and each one re-read and re-decoded the documents. That shows in the old parse rows owned directly by axm.operation.phase: registry/50 has 600 lockfile and 500 settings parses there. In the 51 rising scenarios combined: axm.parse.lockfile 1402 -> 679, axm.parse.settings 1356 -> 878, axm.io.read-file 13476 -> 11822, kernel readOpens of <ws>/axm.lock 1792 -> 1063 and of <ws>/axm.json 1856 -> 1371. registry/50 alone: axm.lock readOpens 758 -> 407 (readBytes 17,355,168 -> 9,318,672), axm.json readOpens 660 -> 457. Pack manifest reads also fell (typed/packs/new pack.json readOpens 6 -> 5). Openat, read and statx syscall totals fell in every scenario examined. No scenario shows a physical counter rising. The post-write phases from c4f23d1be are fresh verification that the old code also performed (isInstalled and native-output postconditions after the last write). That commit groups those checks into one fresh phase per check and adds no new check.",
+   "openIssues": [
+    "Trace rows carry no parent span name, so registry/50's 100 new misses under axm.operation.phase cannot be split exactly into 50 install-preflight views (5780128e5) and 50 post-write presence-check phases (c4f23d1be). The split is inferred from the code, from observation.phase 4 -> 105, and from 100 lockfile parses under resolve.desired-state.",
+    "The CPU cost of in-memory graph construction in each counted miss is not directly comparable with the old binary, because the old live-reader evaluations emitted only the unbounded DesiredStateReader.evaluate span. The parse and read reductions bound the document work but not the pure graph-building time.",
+    "installed/adopt-enabled-native-refusal (2 -> 0) has no new-binary trace and is excluded as not measurable."
+   ]
+  },
+  {
+   "subject": "trace kind axm.observation.phase (read-phase lifetime span) old ada862c27 -> new 15cac0d07",
+   "totals": "447 -> 638 (+191) across the 259 comparable scenarios. 57 scenarios rise and none fall. installed/adopt-enabled-native-refusal shows 2 -> 0 only because it has no new-binary trace, so it is not measurable. The +191 splits into fresh phases (axm.work.reused=false) 323 -> 489 (+166) and reuse-hit phases (axm.work.reused=true) 124 -> 149 (+25). Of the +166 fresh: +128 are post-write check phases in the 6 sync-restore/cold-sync scenarios (registry/50 +100, registry/10 +20, registry/1 cold +2, registry/1 warm +2, path/cold-sync +2, git/cold-sync +2). +20 are phases directly under an operation phase in authoring, import, adopt, enable and demote scenarios (+2 each in typed/rules/new, typed/knowledge/new and typed/subagents/new). +18 are phases under axm.cli.operation in query and preview commands. Of the +25 reuse hits: +23 are under an operation phase (6 in sync-restore, 17 in install/update/handoff) and +2 are under axm.cli.operation (local/ and preview/instructions-enable). Largest: registry/50/sync-restore/cold/baseline 4 -> 105, registry/10/sync-restore/cold/baseline 4 -> 25, typed/{rules,knowledge,subagents}/new 2 -> 5. Small ones examined: local/agents-list 0 -> 1, typed/rules/install 4 -> 5, preview/rules-new 2 -> 3, typed/knowledge/concepts-get 0 -> 1, installed/enable 3 -> 4.",
+   "whatIsCounted": "There is one span \"axm.observation.phase\" per entry into withReadView in packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts. That code is unchanged between the two revisions. withReadView is reached through withWorkspaceReadView, withWorkspaceObservationReadView and withFreshWorkspaceObservationReadView. The span name is a traced span in apps/cli/src/cli-runtime/local-trace-policy.ts (traceSpanNames), not a member of the work vocabulary.\n\nAn occurrence takes one of two shapes:\n- If a read phase is already active for the workspace location, the span is annotated axm.work.reused=true and the effect runs on the existing phase. This is a reuse hit that reads nothing.\n- Otherwise it calls factory.capture() and annotates axm.work.reused=false. On exit it closes the phase with axm.work.invalidated=true and reason phase-exit. This marks the lifetime of one bounded read phase: the workspace settings and lockfile are decoded lazily, at most once each, and every reader inside shares that one view.\n\nSo the counter counts read-phase lifetimes and joins. It does not count reads or parses. The physical reads inside a phase appear under axm.parse.*, axm.io.* and axm.resolve.desired-state, and the resolve.desired-state span is emitted only inside a captured view (read-view.ts:284). Before the change, the same readers ran on live ports with no phase, so they produced no span here but parsed the documents once per reader.",
+   "mechanism": "The read-view primitive did not change. The rise comes from commits that wrap existing readers in a phase.\n\n(1) c4f23d1be \"perf(workspace): run each post-write check in one fresh read phase\".\n- In operations.ts runMaterializeOperation, validate now calls withFreshWorkspaceObservationReadView(manager.isInstalled(...)).\n- In native-output-postconditions.ts, validateNativeOutputPostconditions runs its retention witnesses and required native-unit readback inside withFreshWorkspaceObservationReadView. It opens no phase when there are none.\n- Result: two fresh phases per restored closure in the apply phase. The 50-package detail trace confirms it: 100 observation phases whose parent is operation.phase[apply], against 0 in old. That is +100, +20 and +2 in the sync-restore scenarios. It is also the likely source of the extra apply-phase phase in installed/enable, installed/skills-enable and typed/subagents/enable, and of the second apply phase in typed/{rules,knowledge,subagents}/new.\n\n(2) 869f3c5ae \"share validation reads\".\n- In sync-workspace.ts, observationsStillCurrent in validate mode now joins, via withWorkspaceObservationReadView, the fresh validation observation that resolveExecutionCandidate opens.\n- Old validation had one fresh phase. New has one fresh phase plus one reused phase nested in it. That is the +1 reuse hit in each of the 6 sync-restore/cold-sync scenarios.\n\n(3) 5780128e5 \"share one document view across the install step's preflight\".\n- In runInstallOperation, the prior graph, observeSatisfiedInstall and captureAgentOutputAuthority now run in one withWorkspaceReadView.\n- observeSatisfiedInstall (satisfied-install.ts) already had its own view, and that view now joins. In typed/rules/install, old apply had 1 phase; new has 1 fresh phase plus 1 reused phase nested inside it. That gives the +1 reuse hit in each of the 17 install/update/handoff scenarios.\n- Where sourceReplacements skip the satisfied check (plausibly typed/demote), the preflight phase is a new fresh one.\n\n(4) 582681af7 \"share preflight reads\".\n- The buildAuthoredExtensionStep preflight (listMaterializable, isInstalled, prior graph, prior authority) now runs in withWorkspaceReadView.\n- This gives +1 fresh phase under operation.phase in the new, fork, import and adopt scenarios.\n\n(5) 51ff9983d. The preflightAuthoredNativeProjection and preflightAuthoredSubagentProjection preflights (authoring/native-projection.ts) now run in withWorkspaceReadView. create-extension runs that preflight under withLiveWorkspaceObservations, which closes the outer phase, so the nested phase is fresh. That is +1 fresh nested under an observation phase in preview/{knowledge,rules,subagents}-new and typed/{knowledge,rules,subagents}/new.\n\n(6) 7d0f0e1f4. manage-instructions.ts and configure-agents.ts each wrap one call in a documents-only phase. That gives +1 fresh in local/agents-list, local/ and preview/instructions-status/disable and typed/knowledge/concepts-capabilities. In instructions-enable the plan's own view now joins the outer phase, giving +1 reuse.\n\n(7) 74cbeb4a6. installed-corpus.ts selects the knowledge corpus inside a phase: +1 KnowledgeDiscovery.get/query/related/resolve.\n\n(8) d62eb6509. lint-knowledge.ts and visibility.ts read their documents in one phase: +1 Knowledge.lint and +1 each for ManagePublishedVisibility.status and ManagePublishedVisibility.reconcile.",
+   "scenariosChecked": [
+    {
+     "scenario": "registry/50/sync-restore/cold/baseline",
+     "old": "4 phases: 2 under SyncWorkspace.prepare, 1 in planning, 1 in validation; 0 in apply",
+     "new": "105 phases: 2 under prepare, 1 in planning, 100 fresh in operation.phase[apply], 1 fresh in validation, plus 1 reused nested in the validation phase",
+     "accountedBy": "c4f23d1be: 2 fresh post-write check phases (materialize presence check and native-output postcondition) x 50 closures = +100. 869f3c5ae: the sync freshness check joins the validation observation = +1 reuse hit. Apply-phase lockfile parses 600 -> 250 and settings parses 500 -> 300."
+    },
+    {
+     "scenario": "registry/10/sync-restore/cold/baseline",
+     "old": "4",
+     "new": "25: +20 fresh in apply, +1 reused",
+     "accountedBy": "c4f23d1be (2 x 10 closures) and 869f3c5ae (1 reuse hit)"
+    },
+    {
+     "scenario": "registry/1/sync-restore/cold|warm/baseline, path/cold-sync, git/cold-sync",
+     "old": "4 each",
+     "new": "7 each: +2 fresh in an operation phase, +1 reused",
+     "accountedBy": "c4f23d1be (2 x 1 closure) and 869f3c5ae"
+    },
+    {
+     "scenario": "typed/rules/new (likewise typed/knowledge/new, typed/subagents/new)",
+     "old": "2: CreateExtension.prepare and a planning phase",
+     "new": "5: 2 fresh in apply (49.7 ms and 12.1 ms), 1 fresh nested in the prepare observation phase (74.0 ms), and the original 2",
+     "accountedBy": "582681af7 (authored step preflight), c4f23d1be (native-output postcondition) and 51ff9983d (authored native preflight under withLiveWorkspaceObservations, so it is fresh). Lockfile parses 31 -> 15, settings 34 -> 20."
+    },
+    {
+     "scenario": "typed/rules/install (and the other 16 install/update/handoff scenarios)",
+     "old": "4: the apply phase holds 1 fresh phase",
+     "new": "5: the apply fresh phase now holds 1 reused phase (0.2 ms)",
+     "accountedBy": "5780128e5: install preflight view, with observeSatisfiedInstall's own view joining. Reuse hit only."
+    },
+    {
+     "scenario": "preview/rules-new (likewise knowledge-new, subagents-new)",
+     "old": "2",
+     "new": "3: +1 fresh nested in the CreateExtension.prepare observation phase",
+     "accountedBy": "51ff9983d. Lockfile parses 6 -> 3, settings 8 -> 3."
+    },
+    {
+     "scenario": "local/agents-list (likewise local/ and preview/instructions-status/disable)",
+     "old": "0",
+     "new": "1 fresh under axm.cli.operation",
+     "accountedBy": "7d0f0e1f4. Settings parses 3 -> 2, io.read-file 4 -> 2."
+    },
+    {
+     "scenario": "local/instructions-enable, preview/instructions-enable",
+     "old": "2",
+     "new": "3: +1 reused under cli.operation",
+     "accountedBy": "7d0f0e1f4: the plan's view reuses the outer phase. Lockfile parses 9 -> 3 and 8 -> 2."
+    },
+    {
+     "scenario": "typed/knowledge/concepts-get|query|related|resolve, typed/knowledge/lint, typed/visibility/status|reconcile",
+     "old": "0",
+     "new": "1 fresh (KnowledgeDiscovery.*, Knowledge.lint, ManagePublishedVisibility.*)",
+     "accountedBy": "74cbeb4a6 and d62eb6509. Lockfile parses 3 -> 2 (knowledge) and 4 -> 2 (visibility); settings 6 -> 3 (visibility)."
+    },
+    {
+     "scenario": "installed/enable, installed/skills-enable, typed/subagents/enable",
+     "old": "3",
+     "new": "4: +1 fresh in operation.phase[apply] (90.1 ms in installed/enable)",
+     "accountedBy": "Probably c4f23d1be (post-write check phase); inferred from position, not traced to the exact call. Lockfile parses 10 -> 7, settings 14 -> 11."
+    },
+    {
+     "scenario": "installed/adopt-disabled, authoring/fork, authoring/skills-new, typed/*/import, typed/mcps/new, typed/packs/new, typed/hooks/new, typed/demote",
+     "old": "2-3",
+     "new": "+1 fresh under operation.phase",
+     "accountedBy": "582681af7 (authored step preflight); for demote, 5780128e5 (install preflight with sourceReplacements). Parses fall in every case, for example typed/hooks/new lockfile 16 -> 8."
+    },
+    {
+     "scenario": "installed/adopt-enabled-native-refusal",
+     "old": "2",
+     "new": "0 (no new-binary trace)",
+     "accountedBy": "Not measurable for trace counters (behavior check failed); excluded"
+    }
+   ],
+   "classification": "deliberate-fresh-phase",
+   "underlyingPhysicalWork": "Real work did not rise in any of the 57 rising scenarios.\n\nTrace counters:\n- axm.parse.lockfile and axm.parse.settings are equal or lower in every rising scenario. In registry/50, lockfile parses go 606 -> 256 and settings 508 -> 306; registry/10 goes 126 -> 56 and 108 -> 66; typed/knowledge/new 36 -> 16 and 43 -> 20; installed/skills-install 6 -> 5 and 8 -> 5.\n- axm.io.read-file falls in every rising scenario (registry/50 7374 -> 6719).\n- axm.parse.native is equal or lower (typed/hooks/update 68 -> 8).\n- axm.resolve.desired-state rises (registry/50 3 -> 103; many scenarios 0 -> 1). That span is emitted only inside a captured read view, so these are newly counted evaluations that before ran untraced on live readers, and those readers parsed the documents several times each.\n- axm.observation.reuse rises in sync-restore (registry/50 46622 -> 129432). That counter records reuse hits, not executed work.\n\nKernel recordings (untraced invocations):\n- axm.json readOpens fall in every rising scenario: registry/50 660 -> 457, registry/10 140 -> 97, typed/knowledge/new 53 -> 30, local/agents-list 3 -> 2.\n- axm.lock readOpens fall or stay equal: registry/50 758 -> 407, registry/10 158 -> 87, preview/rules-new 7 -> 4; equal in the local/ and preview/ instruction-status/disable scenarios (1 -> 1).\n- openat, read and total recorded syscalls fall in every rising scenario: registry/50 total 1062840 -> 754318, openat 161245 -> 123389.\n\nThe extra phases replace repeated live-reader decoding with one decoding per check or preflight. Every check stays fresh: post-write checks still open a phase that starts after the last write.",
+   "openIssues": [
+    "The exact call site behind the +1 apply-phase fresh phase in installed/enable, installed/skills-enable and typed/subagents/enable was inferred from its position under operation.phase[apply] and from c4f23d1be. The detail trace has no owner span naming the call, and it is not settled whether the phase is the materialize presence check or the native-output postcondition. Either way the parses fall (lockfile 10 -> 7).",
+    "The typed/demote attribution to 5780128e5 (install preflight with sourceReplacements, so the satisfied-install view never opens) is inferred from the code path, not confirmed from a detail trace.",
+    "The aggregate baseline sums to 449 over all 260 scenarios. The stated 447 excludes installed/adopt-enabled-native-refusal (2 old, 0 new because it has no new trace)."
+   ]
+  },
+  {
+   "subject": "trace kind axm.resolve.desired-state",
+   "totals": "307 -> 445 (+138), rising in 35 scenarios. In those 35 it goes from 31 to 191 (+160). It falls in 6 MCP scenarios by 22: typed/mcps/install 6->3, preview/mcps-install 6->3, typed/mcps/update 7->3, typed/mcps/enable 7->3, preview/mcps-update 6->2, preview/mcps-enable 6->2. installed/adopt-enabled-native-refusal shows 1->0, but it has no new-binary trace, so it cannot be measured and is left out of the totals. Largest rises: registry/50/sync-restore/cold/baseline 3->103, registry/10/sync-restore/cold/baseline 3->23. Next come typed/subagents/new, typed/rules/new, typed/knowledge/new, registry/1 sync-restore cold and warm, path/cold-sync and git/cold-sync, each +2. The other 26 rise by +1 each, for example typed/knowledge/concepts-get 0->1, installed/enable 2->3 and authoring/skills-new 0->1.",
+   "whatIsCounted": "An occurrence is one span named axm.resolve.desired-state with axm.work.count=1. It is created only by observeEvaluation in packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts:280-285. That function wraps the read view's DesiredStateReader.evaluate on a cache miss inside an active observation read phase (the reuse wrapper is axm.resolve.desired-state-reuse with executed=1), and on the bypass path when the view has ended. So it counts one real evaluation, but only evaluations made through a workspace read view. The live DesiredStateReaderLive (desired-state-reader.ts makeDesiredStateReader / Effect.fn(\"DesiredStateReader.evaluate\")) is used outside any read phase and has no axm.resolve.desired-state span or work count, in both the old and new revisions. Its settings and lockfile parses show up only under the enclosing owner, for example axm.operation.phase or KnowledgeDiscovery.get. The kind is not in the workKinds list in work-observation.ts; only axm.resolve.desired-state-reuse is. It reaches the trace work as a span carrying axm.work.count. The counter is therefore executed work, but its coverage depends on whether the evaluation runs inside a read view.",
+   "mechanism": "Several commits moved desired-state evaluations that had run on live readers (uncounted) into read views (counted once per view on a miss):\n(1) c4f23d1be \"perf(workspace): run each post-write check in one fresh read phase\". In reconciliation/extensions/operations.ts runMaterializeOperation, validate now wraps manager.isInstalled in withFreshWorkspaceObservationReadView. In reconciliation/native-output-postconditions.ts, validateNativeOutputPostconditions does the same. In the old code both checks ran on live readers. Old observeNativeOutputs called (yield* DesiredStateReader).graph() on the live reader. Old isInstalled -> isObservedInstalled -> records.getExtensionInventory -> desiredState.graph() in workspace-records.ts:88 also used the live reader. Each restored closure now opens 2 fresh phases with one counted evaluation each. That gives exactly 2 per package: registry/1 +2, registry/10 +20, registry/50 +100, path/git cold-sync +2. New registry/50 has 100 observation phases under apply and 100 axm.resolve.desired-state rows owned by operation:apply / axm.observation.phase; old had none there.\n(2) 5780128e5 \"perf(reconciliation): share one document view across the install step's preflight\". runInstallOperation's prior graph, satisfied-install check and captureAgentOutputAuthority, which used to be 1-3 live evaluations, now run in one withWorkspaceReadView and are counted once. This is the +1 in the apply phase of typed/*/new and import, authoring/skills-new, authoring/fork and installed/enable.\n(3) Read-phase commits for features that evaluated live before: 74cbeb4a6 (knowledge installed corpus: concepts-get/-query/-related/-resolve/-capabilities 0->1; the old trace shows parses under KnowledgeDiscovery.get with no desired-state span), d62eb6509 (lint and visibility documents in one phase: typed/knowledge/lint, typed/visibility/status and reconcile 0->1), and 51ff9983d, 582681af7 and 7d0f0e1f4 (authoring, instructions-enable).\nThe MCP falls come from in-view evaluations that the change reduced (588cbf40c \"evaluate desired state once per step collection\", 197c2fef7 hooks withdrawal).",
+   "scenariosChecked": [
+    {
+     "scenario": "registry/50/sync-restore/cold/baseline",
+     "old": "desired-state 3 (cli.operation 2, validation 1); apply phase: 0 counted, but parse.lockfile 600 and parse.settings 500 owned by axm.operation.phase (live readers); 4 observation phases in total",
+     "new": "desired-state 103 (+100 in operation:apply, inside 100 new observation phases); apply parse.lockfile 150+100 (100 under desired-state), parse.settings 200+50+50; 105 observation phases",
+     "accountedBy": "c4f23d1be, 2 fresh post-write phases per restored package (presence check and native-output postcondition), each counting the evaluation the live readers used to do uncounted; totals parse.settings 508->306, parse.lockfile 606->256"
+    },
+    {
+     "scenario": "registry/10/sync-restore/cold/baseline",
+     "old": "desired-state 3; apply parse.lockfile 120, parse.settings 100 (axm.operation.phase owner)",
+     "new": "desired-state 23 (+20 in apply observation phases); apply parse.lockfile 30+20, parse.settings 40+10+10; 25 observation phases vs 4",
+     "accountedBy": "c4f23d1be (2 per package); parse.settings 108->66, parse.lockfile 126->56"
+    },
+    {
+     "scenario": "typed/subagents/new",
+     "old": "desired-state 1 (cli.operation); apply parse.lockfile 27, parse.settings 20 uncounted live",
+     "new": "desired-state 3 (+2 in operation:apply observation phases); apply parse.lockfile 10+1+1, parse.settings 12+1+1",
+     "accountedBy": "5780128e5 install-preflight view plus c4f23d1be post-write phase; parse.settings 26->17, parse.lockfile 33->15"
+    },
+    {
+     "scenario": "typed/knowledge/concepts-get",
+     "old": "desired-state 0; parse.lockfile 2 and parse.settings 1 under KnowledgeDiscovery.get (live evaluation, uncounted)",
+     "new": "desired-state 1 in an observation phase; parse.lockfile 1 and parse.settings 1 under axm.resolve.desired-state",
+     "accountedBy": "74cbeb4a6 (installed corpus selected in one read phase); <ws>/axm.json and axm.lock readOpens 3->2 each"
+    },
+    {
+     "scenario": "installed/enable",
+     "old": "desired-state 2 (cli 1, verification 1); apply parse.lockfile 7, parse.settings 7 live",
+     "new": "desired-state 3 (+1 in apply observation phase); apply parse.lockfile 3+1, parse.settings 5+1",
+     "accountedBy": "apply-phase evaluation now in a read view; parse.settings 14->11, parse.lockfile 10->7, axm.json readOpens 24->21, axm.lock 15->12"
+    },
+    {
+     "scenario": "authoring/skills-new",
+     "old": "desired-state 0; apply parse.lockfile 23, parse.settings 23 live",
+     "new": "desired-state 1 in apply observation phase; apply parse.lockfile 9+1, parse.settings 17+1",
+     "accountedBy": "5780128e5 install-preflight view; parse.settings 26->20, parse.lockfile 25->12, axm.lock readOpens 29->16"
+    },
+    {
+     "scenario": "typed/visibility/status",
+     "old": "desired-state 0",
+     "new": "desired-state 1",
+     "accountedBy": "d62eb6509 lint and visibility documents in one phase; parse.settings 6->3, parse.lockfile 4->2, axm.json readOpens 6->3, axm.lock 4->2"
+    },
+    {
+     "scenario": "all 35 rising scenarios combined",
+     "old": "desired-state 31; parse.settings 1127; parse.lockfile 1223; <ws>/axm.json readOpens 1568; <ws>/axm.lock readOpens 1548",
+     "new": "desired-state 191; parse.settings 731; parse.lockfile 576; <ws>/axm.json readOpens 1165; <ws>/axm.lock readOpens 895",
+     "accountedBy": "none of the 35 shows a rise in parse.settings, parse.lockfile or kernel readOpens of axm.json or axm.lock"
+    }
+   ],
+   "classification": "newly-counted-existing-work",
+   "underlyingPhysicalWork": "Real work fell. In every one of the 35 rising scenarios, the counters a desired-state evaluation drives went down: parse.settings 1127->731, parse.lockfile 1223->576, kernel readOpens of <ws>/axm.json 1568->1165 and of <ws>/axm.lock 1548->895. Worst scenario registry/50: parse.settings 508->306, parse.lockfile 606->256, <ws>/axm.json readOpens 660->457 (readBytes 1341120->928624), <ws>/axm.lock readOpens 758->407 (readBytes 17355168->9318672), <home>/.axm/workspace/axm.json access 206->155. registry/10: axm.json readOpens 140->97, axm.lock 158->87. The extra counted evaluations are the ones the old live readers already performed, uncounted, inside the same post-write checks and preflights (old observeNativeOutputs and old getExtensionInventory both called the live DesiredStateReader.graph()). They now run once per read phase and share that phase's settings and lockfile cells. The post-write phases are fresh by design (c4f23d1be states every check still runs after the last write in a phase that starts fresh), so no fresh check was removed.",
+   "openIssues": [
+    "The old binary's live evaluations emit no axm.resolve.desired-state span, so the trace cannot count how many evaluations old actually ran in the apply phase. The old-to-new equivalence (for example, at least 2 per restored package in sync-restore) comes from the code (old observeNativeOutputs -> DesiredStateReader.graph(); old isObservedInstalled -> getExtensionInventory -> desiredState.graph()) and from the parse and kernel read counts falling, not from a direct count.",
+    "installed/adopt-enabled-native-refusal (1->0) has no new-binary trace and cannot be measured for this counter.",
+    "The per-scenario deltas add up to +137 including the refusal scenario's -1; the aggregate +138 appears to leave that scenario out of both sides (+160 rises minus 22 in the MCP falls)."
+   ]
+  },
+  {
+   "subject": "trace kind axm.archive.integrity (68 -> 142, +74, rising in 27 scenarios; worst typed/hooks/install 0 -> 6)",
+   "totals": "68 -> 142 (+74) over 260 scenarios. All 27 rising scenarios go from 0 to n: typed/hooks/install 0->6; typed/mcps/install and typed/mcps/update 0->5; typed/{subagents,rules,knowledge}/{install,update} 0->4; typed/packs/{install,update}, typed/demote and preview/hooks-install 0->3; typed/{subagents,rules,mcps,hooks}/enable, typed/hooks/update, typed/hooks/configure, preview/mcps-install and preview/mcps-update 0->2; preview/{subagents,rules,knowledge}-{install,update} 0->1. The 10 scenarios that already had the counter (remote-Registry cache paths) do not change: registry/50/sync-restore/cold 50->50, registry/10 10->10, the five registry/1 scenarios 1->1 each, and installed/verify, installed/cache-verify and installed/skills-update 1->1 each. No scenario falls. installed/adopt-enabled-native-refusal has neither old nor new trace rows for this kind and is not part of the delta, so it is not measurable here.",
+   "whatIsCounted": "One occurrence is one SHA-512 hash of a whole Registry archive buffer, compared against an expected SRI integrity. It is executed work: the span carries axm.work.executed=1 and axm.archive.bytes equal to the buffer length. In the new code it is recorded only in VerifiedArchive.check (packages/supporting/registry-client/src/verified-archive.ts:37-50). Every archive hash in the new product code goes through that function: the archive cache's verify-on-read, verify-before-write and verify command; the remote download without a cache; the local Registry's admitLocalArchive and readAdmittedArchive (local-client.ts:588-670); and the fallback in the workspace callers (host-provider.ts, registry-materialization.ts). git grep finds no other computeIntegrity or createHash(\"sha512\") on archives outside tests, and VerifiedArchive.check is the only call to computeIntegrity. In the old revision, only archive-cache.ts verifyArchiveIntegrity (lines 127-135) recorded this kind. The local Registry client hashed every archive it read with a bare createHash(\"sha512\"), in validateExtensionAccessBatch (old local-client.ts:854) and the exact getExtensionPackage read (old :939). The workspace callers then hashed the same bytes again with an untraced computeIntegrity: host-provider.ts:224 and :676, and registry-materialization.ts:164. None of those old hashes was counted. The kind is in the bounded vocabulary at packages/generic/host-primitives/src/work-observation.ts:98.",
+   "mechanism": "The cause is commit d92264013, \"perf(registry): consume client archive verification instead of re-hashing\". It adds VerifiedArchive and moves the cache's withWork(\"axm.archive.integrity\") into VerifiedArchive.check. Registry clients now return { archive, verified } evidence. The local client's admission (admitLocalArchive, which runs under the axm.registry.eligibility owner) and its content-callback read (readAdmittedArchive) hash through VerifiedArchive.check, so hashes that were already executed but uncounted now show up. A single exact getExtensionPackage on a file Registry now returns the bytes its admission verified instead of reading and hashing the archive a second time. The callers fetchRegistryExtension, probeAxmSkillCompatibility and materializeRegistryPackageWithTreeIntegrity skip their own hash when verified.covers(archive, integrity) is true, and hash through the counted check otherwise. Together these make every scenario served by a local file Registry (the typed/* and preview/* fixtures) go from 0 counted to n counted, while the remote/cache scenarios, which were already counted, stay the same. The other commits that touch these files do not add archive hashes. 66ef873fc reuses index.json from the open phase in publication previews. 92c1ab630 is about tree digests and recovery during canonical publication. 51bc21ce4 stages archive buffers without a copy. a9cea2d4a only mentions archive integrity in a comment about hook preparation and changes tree and manifest work, not archive hashes.",
+   "scenariosChecked": [
+    {
+     "scenario": "typed/hooks/install (largest)",
+     "old": "0 counted; kernel: bench-hooks/2.0.0.zip readOpens 11, readBytes 5214 (11 x 474). Each old local-client archive read was followed by an uncounted sha512, and callers hashed again uncounted.",
+     "new": "6 counted, 2844 archiveBytes: 2 under axm.registry.eligibility (948), 2 SourceHostProviders.fetch under axm.cli.operation (948), 1 SourceHostProviders.fetch under axm.operation.phase (474), 1 axm.operation.phase (474). Kernel: readOpens 6, readBytes 2844, stats 11->6, access 5->1.",
+     "accountedBy": "d92264013: local admission and callback-read hashes are now counted, the second exact read and its hash are dropped, and the caller re-hash is skipped by covers(). Counted hashed bytes equal kernel archive readBytes exactly."
+    },
+    {
+     "scenario": "typed/mcps/install",
+     "old": "0 counted; kernel bench-mcps/2.0.0.zip readOpens 7, readBytes 2205",
+     "new": "5 counted, 1575 bytes (2 eligibility, 1 axm.observation.phase, 1 operation.phase, 1 SourceHostProviders.fetch); kernel readOpens 5, readBytes 1575",
+     "accountedBy": "d92264013; counted bytes = kernel read bytes"
+    },
+    {
+     "scenario": "typed/knowledge/install",
+     "old": "0 counted; kernel bench-knowledge/2.0.0.zip readOpens 5, readBytes 2130",
+     "new": "4 counted, 1704 bytes (2 eligibility, 1 SourceHostProviders.fetch, 1 operation.phase); kernel readOpens 4, readBytes 1704",
+     "accountedBy": "d92264013; counted bytes = kernel read bytes"
+    },
+    {
+     "scenario": "preview/rules-install (small)",
+     "old": "0 counted; kernel bench-rules/2.0.0.zip readOpens 2, readBytes 666",
+     "new": "1 counted (SourceHostProviders.fetch, 333 bytes); kernel readOpens 1, readBytes 333",
+     "accountedBy": "d92264013: the exact single read returns the admission-verified bytes, so the second read and its hash are gone"
+    },
+    {
+     "scenario": "preview/knowledge-install (small)",
+     "old": "0 counted; kernel readOpens 2, readBytes 852",
+     "new": "1 counted (SourceHostProviders.fetch, 426 bytes); kernel readOpens 1, readBytes 426",
+     "accountedBy": "d92264013"
+    },
+    {
+     "scenario": "typed/hooks/update (small)",
+     "old": "0 counted; kernel bench-hooks/1.0.0.zip readOpens 2, readBytes 948",
+     "new": "2 counted (axm.registry.eligibility, 948 bytes); kernel readOpens 2, readBytes 948 (unchanged)",
+     "accountedBy": "d92264013: the existing admission hashes are now counted, with no change in reads"
+    },
+    {
+     "scenario": "typed/demote",
+     "old": "0 counted; kernel bench-rules/2.0.0.zip readOpens 3, readBytes 999",
+     "new": "3 counted (2 eligibility 666 bytes, 1 operation.phase 333 bytes); kernel unchanged at readOpens 3, readBytes 999",
+     "accountedBy": "d92264013: counting only"
+    },
+    {
+     "scenario": "registry/1/install/cold/baseline (control, remote+cache)",
+     "old": "1 counted (operation.phase, 382 bytes); no archive readOpens, only the cache write and rename",
+     "new": "1 counted (same row); same kernel",
+     "accountedBy": "cache hashing was already counted; the cache now passes its verify-before-write evidence to the caller"
+    },
+    {
+     "scenario": "all 27 rising scenarios (sum)",
+     "old": "0 counted; kernel local-Registry .zip readOpens 104, readBytes 38951",
+     "new": "74 counted; kernel .zip readOpens 74, readBytes 27175; in every one of the 27 scenarios the counted archiveBytes equal the new kernel archive readBytes",
+     "accountedBy": "one counted hash per archive read in the new binary, where the old binary did at least one uncounted hash per read plus caller re-hashes"
+    }
+   ],
+   "classification": "newly-counted-existing-work",
+   "underlyingPhysicalWork": "Real hashing and archive reading fell; they did not rise. In the old code, every local-Registry archive read (in validateExtensionAccessBatch or the exact getExtensionPackage) was immediately followed by an uncounted sha512 of the same buffer. That means old executed archive hashes in the 27 scenarios numbered at least the old kernel archive readOpens, 104, plus the untraced caller re-hashes in host-provider and registry-materialization. In the new binary the counter covers every archive hash path, and its 74 occurrences match the new kernel archive readOpens (74) one-to-one, with counted bytes equal to kernel readBytes in every scenario. Kernel archive reads in the rising scenarios fell from 104 to 74 opens and from 38951 to 27175 bytes. They fell in the install/update/preview scenarios (for example typed/hooks/install 11->6 opens, 5214->2844 bytes) and stayed equal in enable, configure, demote, packs and hooks/update (for example typed/demote 3->3). Related executed counters in typed/hooks/install also fell: axm.admission.buffered-archive 6->4, axm.archive.parse 5->4, axm.archive.extraction 5->4, axm.archive.read-member 10->8, axm.io.file-read 26->16, axm.io.read-file 192->156. Fresh checks kept in the new code: local admission identity and integrity, the callback read's re-read and hash after admission, cache verify-on-read and verify-before-write, the remote download hash, and caller hashing whenever evidence is absent or does not cover the buffer (including coalesced cache requesters).",
+   "openIssues": [
+    "The exact number of old executed archive hashes cannot be measured, because the old local-client and caller hashes were untraced. Only a lower bound (one per kernel archive read, 104 in the rising scenarios) plus the code-level fact that callers re-hashed is established.",
+    "installed/adopt-enabled-native-refusal has no new-binary trace work, so this counter cannot be measured for it. It has no archive-integrity rows in the old trace either, and it is not among the rising scenarios."
+   ]
+  },
+  {
+   "subject": "trace kind axm.render.native (native Hook settings document renders)",
+   "totals": "0 -> 161 in total. It rises in 43 of the 259 comparable scenarios, from 0 in every one, because the old binary has no such kind. Largest: typed/hooks/uninstall 0->12, typed/hooks/update 0->8, typed/hooks/configure 0->7, preview/hooks-uninstall 0->7. Then typed/hooks/disable, typed/hooks/check, registry/{1,10,50}/sync-restore/*, path/cold-sync and git/cold-sync at 6 each, and typed/hooks/enable at 5. The rest are at 4, 3, 2 or 1 (for example local/lint 2, installed/uninstall 2, preview/hooks-install 1, preview/hooks-enable 1). installed/adopt-enabled-native-refusal is not among them and cannot be measured for trace counters.",
+   "whatIsCounted": "One occurrence is one call to updateHooksJson. That is one render of a Hook settings document: parse the input, validate its shape, apply the structured jsonc-parser edits, then parse the output again. The call is in packages/core/workspace-kernel/src/agent-adapters/hooks/managed-groups.ts, lines 281-308. Commit 21208f5f8 split the existing body into renderHooksJson and wrapped it in withWork(\"axm.render.native\", ..., {\"axm.format\": format}). An onEdit callback counts the edits, and an annotation adds them as axm.work.count, so a render that changes nothing has workCount 0. The kind is listed in packages/generic/host-primitives/src/work-observation.ts, line 108. The local tracing guide (contributing/guides/local-tracing.md, lines 87-90) and the observability ledger README (lines 189-191) describe it as one occurrence per rendered Hook settings document and state that the added facts are \"an intended ledger difference, not new work\". When nothing is observing work, withWork does nothing. The counter therefore counts work that already ran (renders the old binary also did). It is a new counter kind, not a reuse hit and not new work.",
+   "mechanism": "Commit 21208f5f8 (\"perf(hooks): share native Hook settings parses and count renders\") adds the kind and instruments updateHooksJson. The same commit lowers the number of renders. In reconcileNativeHookConfig (packages/core/workspace-kernel/src/agent-adapters/hooks/native-config.ts), the old code rendered once for `planned`, then rendered again for every expected owner already present in the file, in dry runs and in applies alike. That second render only reports which owners are already current. The new loop runs only when the call is a dry run (`for (const owner of args.dryRun === true ? expected : [])`), so an apply now renders exactly once. Renders per reconcile: old = 1 + matched owners in both modes; new = 1 + matched owners in a dry run and 1 in an apply.\n\nCommit 4344fcd42 cuts the number of reconcile calls. Managers used to observe their projection plans and throw the result away, so the consumer ran the same dry run again. The hook manager's observeProjectionPlans+return became withObservedProjectionPlans(nativePlans, use), so the observe adapter (reconcileNativeHookTarget with dryRun: true) runs fewer times. Commit 197c2fef7 removes a repeated desired-state evaluation during withdrawal, and commit 4ddc07e97 admits each spelling once. Neither adds renders. No commit in the range adds a caller of updateHooksJson or of reconcileNativeHookConfig. The only production callers are native-config.ts lines 123 and 175, called from manager.ts reconcileNativeHookTarget (observe/apply adapters at lines 1245/1247, the same two adapters the old code had at lines 808/810).",
+   "scenariosChecked": [
+    {
+     "scenario": "typed/hooks/uninstall",
+     "old": "render.native 0 (kind absent); parse.native 113; .claude/settings.json readOpens 20, pathOpens 146, stats 208; openat 5194",
+     "new": "render.native 12 = 5 under the apply operation.phase (workCount 2) + 7 under observation.phase (workCount 1); parse.native 25; settings.json readOpens 18, pathOpens 94, stats 132; openat 3566",
+     "accountedBy": "Renders that already ran, now counted. The 5 apply reconciles render once each, where the old code rendered 1+matched owners each, so the old total was at least 12. Settings reads fell 20->18 and parses fell 113->25."
+    },
+    {
+     "scenario": "typed/hooks/update",
+     "old": "render.native 0; parse.native 68; settings.json readOpens 10; read-file 127",
+     "new": "render.native 8, all observation.phase dry runs, workCount 0; parse.native 8; settings.json readOpens 7; read-file 75",
+     "accountedBy": "Dry-run renders on the same code path as the old binary, now counted. Fewer reconciles (4344fcd42) means fewer target reads: 10->7."
+    },
+    {
+     "scenario": "typed/hooks/configure",
+     "old": "render.native 0; parse.native 77; settings.json readOpens 14, writeOpens 1; read-file 148",
+     "new": "render.native 7 = 3 apply (workCount 6) + 4 observation (workCount 4+0); parse.native 14; settings.json readOpens 11, writeOpens 1; read-file 99",
+     "accountedBy": "Renders that already ran, now counted. The apply drops its per-owner re-render, and the single write is unchanged."
+    },
+    {
+     "scenario": "preview/hooks-uninstall",
+     "old": "render.native 0; parse.native 64; settings.json readOpens 9, pathOpens 69",
+     "new": "render.native 7, all observation (workCount 1); parse.native 10; settings.json readOpens 7, pathOpens 33",
+     "accountedBy": "Dry-run renders that already ran, now counted. Fewer reconcile reads (9->7)."
+    },
+    {
+     "scenario": "registry/1/sync-restore/cold/baseline",
+     "old": "render.native 0; parse.native 3; settings.json absent (openFailed 8, stats 3)",
+     "new": "render.native 6, observation only, workCount 0; parse.native 3; settings.json openFailed 8, stats 3",
+     "accountedBy": "Dry-run renders of an absent target ('{}\\n'), now counted. Parses and kernel access to the target are identical."
+    },
+    {
+     "scenario": "local/lint",
+     "old": "render.native 0; parse.native 1; read-file 76; openat 699",
+     "new": "render.native 2, observation, workCount 0; parse.native 1; read-file 75; openat 675",
+     "accountedBy": "Dry-run renders, now counted. Parses unchanged, reads down."
+    },
+    {
+     "scenario": "installed/uninstall",
+     "old": "render.native 0; parse.native 4; read-file 304; openat 6167",
+     "new": "render.native 2, observation, workCount 0; parse.native 2; read-file 256; openat 4194",
+     "accountedBy": "Dry-run renders, now counted. Parses and reads down."
+    },
+    {
+     "scenario": "preview/hooks-install",
+     "old": "render.native 0; parse.native 10; read-file 42; file-read 16",
+     "new": "render.native 1, observation, workCount 1; parse.native 3; read-file 25; file-read 6",
+     "accountedBy": "One dry-run render, now counted. Parses and reads down."
+    },
+    {
+     "scenario": "typed/hooks/install",
+     "old": "render.native 0; parse.native 20; settings.json readOpens 2, renamedTo 1",
+     "new": "render.native 3 = 1 observation + 2 apply (workCount 1+2); parse.native 9; settings.json readOpens 2, renamedTo 1",
+     "accountedBy": "Renders that already ran, now counted. Target reads and the publication are unchanged."
+    }
+   ],
+   "classification": "new-counter-kind",
+   "underlyingPhysicalWork": "In none of the scenarios checked did the physical work a render depends on go up. Every render needs the target settings text, which reconcileNativeHookConfig reads once per call before rendering, and each render parses its input and output through parseNativeConfigRoot, which is counted as axm.parse.native.\n\nReads of <ws>/.claude/settings.json (kernel readOpens) fell or held:\n- typed/hooks/uninstall 20->18\n- typed/hooks/update 10->7\n- typed/hooks/configure 14->11\n- preview/hooks-uninstall 9->7\n- typed/hooks/install 2->2\n- in sync-restore the target is absent: openFailed 8->8, stats 3->3\n\naxm.parse.native fell or held:\n- uninstall 113->25, update 68->8, configure 77->14, preview/hooks-uninstall 64->10, preview/hooks-install 10->3, typed/hooks/install 20->9, installed/uninstall 4->2\n- sync-restore 3->3 and local/lint 1->1, where identical '{}\\n' text is shared by the read view in both binaries\n\nWrites to the settings file are unchanged (writeOpens 1->1, renamedTo 1->1). Syscall totals (openat, read, statx, readlink) fall in every checked scenario.\n\nFrom the code: dry-run renders per reconcile are the same as before, apply renders per reconcile fell from 1+matched owners to 1, and reconcile calls did not rise (target reads did not rise, and 4344fcd42 removed the repeated dry runs). So renders per invocation went down in apply scenarios and stayed the same or went down in dry-run-only scenarios. They did not go up.",
+   "openIssues": [
+    "The old binary emits no axm.render.native, so its exact render count per scenario cannot be read from the evidence. The claim that renders went down or stayed rests on the code: old renders per reconcile = 1 + matched owners, and the new code drops that per-owner term in applies. It is backed by kernel reads of the target, which did not rise. The parse.native reduction is mixed up with parse sharing from the same commit and from 4344fcd42, so it cannot be used to recover the old render count.",
+    "Matched-owner counts per reconcile are not in the trace dimensions, so the exact old totals (for example the lower bound of 12 for typed/hooks/uninstall) cannot be computed. Only the direction is supported.",
+    "installed/adopt-enabled-native-refusal has no new-binary trace work, so this counter cannot be measured there."
+   ]
+  },
+  {
+   "subject": "trace kind axm.registry.metadata-reuse (Registry read-phase metadata lookup), 60 -> 76",
+   "totals": "Total count 60 -> 76 (+16). requested 60 -> 76, executed 60 -> 60, reused 0 -> 16. It rises in 16 scenarios, each by exactly 1 (1 -> 2): typed/{publish, skills, subagents, rules, packs, mcps, knowledge, hooks}/publish and preview/{publish, skills, subagents, rules, packs, mcps, knowledge, hooks}-publish. The worst case, typed/subagents/publish 1 -> 2, is the same size as every other rise. The 44 other scenarios that record the kind (install, update, view, migrate, demote, verify, startup checks) stay at 1. installed/adopt-enabled-native-refusal does not record this kind and is not involved.",
+   "whatIsCounted": "One occurrence is one metadata request for one identity made through the in-invocation Registry read-phase cache. It is recorded by withWork(\"axm.registry.metadata-reuse\", ...) in RegistryReadPhase.get in packages/supporting/registry-client/src/read-phase.ts, around line 154, with axm.work.requested=1. That recording code is the same at ada862c27 and 15cac0d07, so the counter's meaning did not change. Each occurrence's dimensions and counters say what happened. With axm.cache.outcome=miss and executed=1, this requester started the real lookup (the cache's lookup function ran, which for a file Registry is the batched index.json read under axm.registry.metadata-batch). With outcome hit or coalesced, executed=0 and reused=1, the answer came from the phase cache and no request or decode ran. So the kind counts lookups requested from the phase, whether executed or reused. The executed and reused fields tell real work apart from reuse hits.",
+   "mechanism": "Commit 66ef873fc, \"perf(registry): answer file Registry publication previews from the open read phase\", causes the rise. Before it, the file Registry client's previewExtensionPublishes (packages/supporting/registry-client/src/local-client.ts) checked and read each target's and pack dependency's index.json directly with fs (registryPathExists + readExtensionIndex). That read was outside the read phase and was never counted under this kind. The commit adds LocalRegistryClientOptions.previewIndex. In packages/supporting/registry-client/src/registry-client-factory.ts, forEndpoint now passes a previewIndex that, while the read phase is open (new isOpen on the guarded phase), calls phase.get(endpoint, entry, selectionPolicy). That call is under the same key PublishExtensions.prepare used for its selectMany. phase.get always records one axm.registry.metadata-reuse occurrence. Because the selection's batch already holds the result, the preview's occurrence is outcome=hit, executed=0, reused=1. With no phase, or a phase that has ended, the preview still reads index.json itself. So in every file-Registry publish scenario, a direct read that was not counted became a counted cache hit, giving +1 occurrence per scenario.",
+   "scenariosChecked": [
+    {
+     "scenario": "typed/subagents/publish (worst)",
+     "old": "1 row: outcome=miss, owner axm.observation.phase under axm.cli.operation, requested 1 executed 1 reused 0; metadata-batch 1 (batchItems 1); registry.eligibility 2; kernel extensions/@acme/subagents/bench-authored/index.json readOpens 3, readBytes 1116, access 3; io.read-file 36",
+     "new": "2 rows: the same miss row (requested 1 executed 1) plus outcome=hit requested 1 executed 0 reused 1; metadata-batch 1 (batchItems 1); eligibility 2; index.json readOpens 2, readBytes 744, access 2, renamedTo 1 (publish write kept); io.read-file 31",
+     "accountedBy": "66ef873fc: the preview's index read is now served from the phase cache (hit). One direct index.json read is removed. The locked re-read before the write is kept."
+    },
+    {
+     "scenario": "typed/publish",
+     "old": "miss 1/1/0; metadata-batch 1; index.json readOpens 3, readBytes 1107; io.read-file 34",
+     "new": "miss 1/1/0 + hit 1/0/1; metadata-batch 1; index.json readOpens 2, readBytes 738; io.read-file 29",
+     "accountedBy": "66ef873fc preview reuse"
+    },
+    {
+     "scenario": "typed/knowledge/publish",
+     "old": "miss 1/1/0; index.json readOpens 3, readBytes 1119; io.read-file 35",
+     "new": "miss + hit (executed 0, reused 1); index.json readOpens 2, readBytes 746; io.read-file 29",
+     "accountedBy": "66ef873fc preview reuse"
+    },
+    {
+     "scenario": "typed/mcps/publish",
+     "old": "miss 1/1/0; index.json readOpens 3; io.read-file 28",
+     "new": "miss + hit; index.json readOpens 2; io.read-file 23",
+     "accountedBy": "66ef873fc preview reuse"
+    },
+    {
+     "scenario": "preview/publish (small)",
+     "old": "miss 1/1/0; metadata-batch 1; index.json readOpens 2, readBytes 738, access 2; io.read-file 20",
+     "new": "miss + hit 1/0/1; metadata-batch 1; index.json readOpens 1, readBytes 369, access 1; io.read-file 15",
+     "accountedBy": "66ef873fc. In preview mode only the selection's read remains."
+    },
+    {
+     "scenario": "preview/packs-publish (small)",
+     "old": "miss 1/1/0; packs/bench-authored/index.json readOpens 2, readBytes 788; io.read-file 19",
+     "new": "miss + hit 1/0/1; index.json readOpens 1, readBytes 394; io.read-file 14; no pack-dependency index paths and no second miss",
+     "accountedBy": "66ef873fc preview reuse"
+    },
+    {
+     "scenario": "preview/hooks-publish (small)",
+     "old": "miss 1/1/0; index.json readOpens 2; io.read-file 28",
+     "new": "miss + hit; index.json readOpens 1; io.read-file 23",
+     "accountedBy": "66ef873fc preview reuse"
+    },
+    {
+     "scenario": "all 16 rising scenarios",
+     "old": "metadata-reuse 1 each (all miss, executed 1); index.json readOpens 3 (typed apply) or 2 (preview)",
+     "new": "metadata-reuse 2 each (1 miss executed + 1 hit reused); index.json readOpens 2 (typed) or 1 (preview); metadata-batch 1 -> 1 and eligibility 2 -> 2 (typed) unchanged everywhere",
+     "accountedBy": "66ef873fc in every case"
+    }
+   ],
+   "classification": "reuse-hits-not-executed-work",
+   "underlyingPhysicalWork": "Registry metadata requests and decodes went down, not up. Across all 260 scenarios, metadata-reuse executed stays at 60 -> 60. All 16 added occurrences are reused=1, executed=0, outcome=hit. In every rising scenario axm.registry.metadata-batch stays 1 -> 1 with batchItems 1, and for typed publishes axm.registry.eligibility stays 2 -> 2. The kernel recordings show one fewer read of the target's registry index.json in each of the 16 scenarios. For typed apply publishes readOpens go 3 -> 2, readBytes fall by a third (for example 1116 -> 744), access 3 -> 2, and the atomic write and rename are unchanged. For preview publishes readOpens go 2 -> 1 and readBytes are halved (for example 738 -> 369). Trace axm.io.read-file falls by 5 or 6 in each scenario (for example 34 -> 29, 20 -> 15), partly from other commits in the change. The fresh checks are kept. The selection's batched read still executes. Typed publishes keep the re-read of index.json under the publication lock before the write, which is the second remaining read, and the commit says a changed precondition is still refused. So the counter rises because one avoided read is now a counted reuse hit, and the executed work drops by one index.json read and decode per scenario.",
+   "openIssues": [
+    "The aggregate work-before.json names candidate sourceRevision e1ff86151c22ca4e4250265a5bd137bd909de358 for the old binary, while the task names ada862c27. I did not reconcile this, but the recording code in read-phase.ts is the same at ada862c27 and at the new revision, so the conclusion does not depend on it.",
+    "I assigned the drop in kernel index.json reads to the preview path from the commit message, the factory test expectations and the counts (3->2 typed, 2->1 preview). Kernel counters carry no call stacks, so which call site each remaining read comes from was not observed directly."
+   ]
+  },
+  {
+   "subject": "trace kind axm.hash.content, rising 0 -> 1 in the five typed/knowledge/concepts-* scenarios",
+   "totals": "The total falls from 662 to 541 (-121, -18.3%). It rises in exactly 5 of the 259 measurable scenarios, each from 0 to 1: typed/knowledge/concepts-capabilities, concepts-get, concepts-query, concepts-related and concepts-resolve. It falls in 41 scenarios, for example typed/packs/uninstall 55 -> 45 and typed/packs/update 39 -> 29. In installed/adopt-enabled-native-refusal it shows 3 -> 0, but the new binary has no trace work for that scenario, so the drop cannot be measured and is not counted here. In all five rising scenarios the new row is the same: count 1, workCount 2, bytes 261, success.",
+   "whatIsCounted": "axm.hash.content is a bounded WorkKind (packages/generic/host-primitives/src/work-observation.ts:67). One occurrence is one withWork span around executed hashing; axm.work.count is the number of items hashed and axm.work.bytes is the bytes hashed. It is executed work, not a reuse hit. In the old revision only one place recorded it: packages/core/workspace-kernel/src/workspace-state/workspace/rendered-files.ts:43. The change adds a second place, withSourceRevisions in packages/core/workspace-features/src/knowledge-query/knowledge-revision.ts. That span wraps the sha256 source revisions (computeKnowledgeSourceRevision) of a settled Knowledge corpus capture, with count = number of sources and bytes = their total size. In all five scenarios the new row comes from this place, owned by the KnowledgeDiscovery.* operation (for capabilities the owner is axm.cli.operation). No other scenario has a row with these 261 bytes.",
+   "mechanism": "The rise comes from commit 6a823aafd, \"perf(knowledge): hash corpus sources once, after the confirming read\", in packages/core/workspace-features/src/knowledge-query/knowledge-revision.ts.\n\n- Old code: captureOnce computed computeKnowledgeSourceRevision(bytes) for every source, and it did so in both the capture read and the confirming read. captureKnowledgeCorpus also hashed the whole capture into a corpus fingerprint. None of this hashing was inside a withWork span. The old revision had no withWork import in knowledge-query, so the work was executed but recorded under no kind.\n- New code: captureOnce only reads. After the byte compare succeeds, withSourceRevisions hashes the settled capture once, inside withWork(\"axm.hash.content\", { count: captured.length, bytes }).\n\nCommit ee72066b3 (\"fingerprint a captured corpus once, in its index snapshot\", knowledge-revision.ts and knowledge-index.ts makeKnowledgeIndexSnapshot) then removed the capture's unused corpus fingerprint. With one bundle, the snapshot now reuses the corpus fingerprint as the bundle fingerprint, so 3 fingerprint hashes become 1. Fingerprints are still uncounted under any kind.\n\nCommits ddeac6394 and 74cbeb4a6 touch the same scenarios (manifest decode reuse, and one workspace read phase). They explain the fall in axm.io.read-file, axm.parse.* and axm.access, but not the hash row.\n\nNet effect: the new counter makes visible a hash that already ran, and the amount of hashing behind it fell.",
+   "scenariosChecked": [
+    {
+     "scenario": "typed/knowledge/concepts-resolve",
+     "old": "axm.hash.content 0 (no axm.hash.* rows at all); axm.io.read-file 13, axm.parse.lockfile 3, axm.parse.settings 3",
+     "new": "axm.hash.content 1 (owner KnowledgeDiscovery.resolve, workCount 2, bytes 261); axm.io.read-file 9, parse.lockfile 2, parse.settings 2; adds observation.phase 1, resolve.desired-state 1, desired-state-reuse miss 1",
+     "accountedBy": "6a823aafd: source revisions are now hashed once and counted; before, they were hashed twice and not counted. Kernel: architecture.md readOpens 2->2 (284 B), index.md readOpens 2->2 (238 B); 142+119 = 261 B equals the hashed bytes."
+    },
+    {
+     "scenario": "typed/knowledge/concepts-get",
+     "old": "axm.hash.content 0; io.read-file 13",
+     "new": "axm.hash.content 1 (owner KnowledgeDiscovery.get, workCount 2, bytes 261); io.read-file 9",
+     "accountedBy": "6a823aafd, same mechanism. Kernel source .md reads unchanged (2->2 each); axm.json and axm.lock readOpens 3->2; knowledge.json readOpens 2->1"
+    },
+    {
+     "scenario": "typed/knowledge/concepts-query",
+     "old": "axm.hash.content 0; io.read-file 13",
+     "new": "axm.hash.content 1 (owner KnowledgeDiscovery.query, workCount 2, bytes 261); io.read-file 9",
+     "accountedBy": "6a823aafd, same mechanism; kernel reads identical to concepts-resolve"
+    },
+    {
+     "scenario": "typed/knowledge/concepts-related",
+     "old": "axm.hash.content 0; io.read-file 13",
+     "new": "axm.hash.content 1 (owner KnowledgeDiscovery.related, workCount 2, bytes 261); io.read-file 9",
+     "accountedBy": "6a823aafd, same mechanism; kernel reads identical to concepts-resolve"
+    },
+    {
+     "scenario": "typed/knowledge/concepts-capabilities",
+     "old": "axm.hash.content 0; io.read-file 13",
+     "new": "axm.hash.content 1 (owner axm.cli.operation, workCount 2, bytes 261); io.read-file 9",
+     "accountedBy": "6a823aafd, same mechanism; kernel reads identical to concepts-resolve except home axm.json access 3->3"
+    },
+    {
+     "scenario": "installed/adopt-enabled-native-refusal",
+     "old": "axm.hash.content 3",
+     "new": "no new-binary trace work (behavior check failed on a diagnostic source line number)",
+     "accountedBy": "Cannot be measured for trace counters; excluded"
+    }
+   ],
+   "classification": "newly-counted-existing-work",
+   "underlyingPhysicalWork": "Physical work did not rise in any of the five scenarios.\n\nKernel reads, identical across all five scenarios (old -> new):\n- The two corpus sources keep their double read. <ws>/knowledge/bench-authored/src/architecture.md: readOpens 2->2, readBytes 284->284. src/index.md: readOpens 2->2, readBytes 238->238. The fresh capture-and-confirm read is preserved.\n- The hashed bytes in the new row (261) equal exactly one copy of the two sources (142 + 119). This shows the counter covers the settled capture only.\n- Other reads fell: <ws>/axm.json readOpens 3->2 (792->528 B), <ws>/axm.lock readOpens 3->2 (408->272 B), knowledge.json readOpens 2->1 (580->290 B) with access 2->0.\n- Syscall totals fell (concepts-resolve): openat 86->81, read 84->76, access 31->25, readlink 14->13, write 81->70.\n\nTrace counters (old -> new): axm.io.read-file 13->9, axm.parse.lockfile 3->2, axm.parse.lockfile-decode 3->2, axm.parse.settings 3->2, axm.io.real-path 7->6, axm.io.access 25->19.\n\nHashing, from the code:\n- Old: 4 source-revision sha256 computations over 522 B (both captures), 3 corpus or bundle fingerprint hashes over the same sources (capture, snapshot corpus, single bundle), and no counter for any of it.\n- New: 2 source-revision hashes over 261 B, counted, and 1 fingerprint hash, uncounted.\n\nThe old binary had no axm.hash.package, axm.hash.materialized-tree, axm.hash.preimage or other axm.hash.* rows in these scenarios. The work was not moved from another kind; it simply had no counter before.",
+   "openIssues": [
+    "The corpus or bundle fingerprint hashing (computeKnowledgeCorpusFingerprint in knowledge-index.ts makeKnowledgeIndexSnapshot) is still not counted under any kind. The drop from 3 to 1 fingerprint hash per single-bundle invocation rests on the code and the ee72066b3 commit message, not on trace evidence.",
+    "The old binary's double source hashing (4 hashes over 522 B) is inferred from the old code, because the old revision had no counter for it. The trace cannot confirm the old count directly; the kernel shows only that the reads (2 per source) were unchanged.",
+    "installed/adopt-enabled-native-refusal (old axm.hash.content 3) has no new-binary trace work, so its contribution to the 662 -> 541 total cannot be measured."
+   ]
+  },
+  {
+   "subject": "Kernel per-path counters that rise for the new binary (15cac0d07) against the old one (ada862c27), from runs/fixtures-old-new/physical-work-comparison.json",
+   "totals": "I scanned every rising (path, counter) pair outside /proc, /sys and /dev across all 260 scenarios. They fall in 13 scenarios on 9 distinct paths, and they are exactly the 7 groups in the task list; nothing on a workspace, home or fixture path was missed. (1) <tmp> directoryReads 108->109 in git/update. (2) The candidate binary's path, pathOpens 0->1, in maintenance/already-current, maintenance/changed and preview/upgrade. (3) <ws>/native/hook-bundle.json openFailed 0->1 in typed/hooks/import and preview/hooks-import. (4) <home>/.cache/axm/update-check.json openFailed 0->1 in startup/missing-cancelled and startup/missing-success. (5) <ws>/.mcp.json/mcp.json openFailed 0->1 in typed/mcps/check and typed/mcps/show. (6) In installed/adopt-enabled-native-refusal, 9 counters each on <ws>/axm.json.tmp.e8a5983ec9d6 and <ws>/axm.lock.tmp.cc305fe6d11b rise from 0 (access/readOpens/readCalls/readlinks/writeOpens/writeCalls 1, stats 3, readBytes and writeBytes 213 and 601). (7) Archive stats: nmC_... .zip 1->2 in registry/10/sync-restore/cold/baseline and NGPj... .zip 3->4 in registry/50/sync-restore/cold/baseline. Runtime paths: /proc/<pid>/maps readBytes rises in 259 scenarios and falls in 1 (sum 2637943->2648053). /proc/<pid>/statm readOpens rises in 17 scenarios and falls in 186 (sum 20109->18658); its readBytes rises in 18. /sys/devices/system/cpu/online readOpens rises in 3 and falls in 7 (sum 43->39). Every rise except (5) is offset exactly by a matching fall or comes from naming or timing variation. (5) is a real extra failed open, introduced on purpose, and the same scenarios still fall overall.",
+   "whatIsCounted": "These are kernel counters, not trace work. benchmarks/observability-physical-work.ts reduces one strace of an untraced invocation (the whole process tree) to per-path counters:\n- openFailed: any open/openat that returns <0, including O_PATH opens.\n- pathOpens: a successful O_PATH openat. Bun's realpath does this.\n- directoryReads: a getdents64 call that returns >0, counted against the fd's path.\n- stats: a stat, lstat or statx.\n- access: an access/faccessat call. Effect's fs.exists does this.\nPaths are projected to <ws>, <home>, <tmp> and so on. Temporary names are folded only when they match /\\.tmp\\.[0-9a-z]+\\.[0-9a-z]+\\.[0-9a-z]+$/ (\".tmp.<atomic>\"). A 12-hex suffix like axm.json.tmp.e8a5983ec9d6 does not match, so each run's random names appear as distinct paths. One occurrence is therefore one syscall on one path. A swap between syscall kinds (access -> failed open) or between names (old temp name -> new temp name) shows up as one counter rising and another falling.",
+   "mechanism": "(1) <tmp> in git/update is the host /tmp. Each Bun process (two per invocation, the same in both binaries) lists / and then /tmp at startup; this is runtime code, not product code. directoryOpens is 2->2. The /tmp listing spans about 9400 shared host entries: the baseline's second process read 9411 entries in 54 non-empty getdents64 batches, the candidate's read 9412 in 55. That is one more batch only because the shared host /tmp changed size. getdents64 totals fell 542->533.\n\n(2) Upgrade realpaths its own executable once. The old binary's path .../binaries/final-baseline/axm-linux-x64 goes pathOpens 1->0 and the candidate's .../binaries/candidate-15cac0d07/axm-linux-x64 goes 0->1. Net 0.\n\n(3) Commit ea5e12097 ('reuse prepared pack manifests, read hook metadata once'), in packages/core/workspace-features/src/authoring/hooks/interchange.ts. The function prepareNativeHookImport used to run fs.exists(hook-bundle.json) and then read the file. It now calls readOptionalMetadata, which reads once, treats NotFound as absence, and probes only on other failures. For the absent file, the access becomes a failed O_RDONLY open: access 1->0, openFailed 0->1. Commit 9150d2c12 also removed a second realPath of the root (<ws>/native pathOpens 2->1).\n\n(4) Commit fcf4471d9 ('read the update-check cache and install metadata once'), in packages/supporting/cli-maintenance/src/self-update/adapters/native/update-cache/index.ts. makeUpdateCheckCache.read changed from exists+readFileString to readFileStringIfPresent. For the missing cache file: access 1->0, openFailed 0->1.\n\n(5) Commit 5907df664 ('read a sourced connection's manifest without a prior probe'), in packages/core/workspace-kernel/src/projection/mcps/inspection.ts, function findManifestRoot. For each canonical root it now tries readFileStringIfPresent(<root>/mcp.json) first, and keeps the old fs.exists probe only when the read fails for a reason other than NotFound. That fallback preserves the old diagnostic and failure precedence, as the commit message states. One candidate root in these scenarios is the file <ws>/.mcp.json. Its read attempt resolves the path first, as an O_PATH realpath, which fails with ENOTDIR. ENOTDIR is not NotFound, so the retained access probe still runs (access 1->1). The result is one new failed open: openFailed 0->1, plus a new io.real-path trace row with failure.kind=failure (count 1) in axm.observation.phase. For the real package root, the read replaces probe-plus-read, so both scenarios fall overall.\n\n(6) Both binaries write the same two staged files, axm.json and axm.lock, under random 12-hex suffixes that the projection does not fold. The old names (axm.json.tmp.54dacddf6b6d, axm.lock.tmp.0415c04b2469) fall by exactly the amounts the new names rise: 213 and 601 bytes, stats 3, one read and one write each.\n\n(7) After writes, the archive cache's automatic prune (packages/supporting/registry-client/src/archive-cache.ts) lists <home>/.cache/axm/archives and stats every archive present at that moment. directoryOpens is 2->2 for 10 archives and 12->12 for 50. How many prune passes see an archive depends on when its concurrent download, slowed by the fixture's 100 ms archive-body delay, gets renamed into place. In the 10-archive case the baseline's second prune listed the directory just before nmC_ was renamed; the candidate's listed it just after. Neither recent commit to archive-cache.ts (51bc21ce4, d92264013) touches pruning.\n\n(8) maps: Bun reads /proc/self/maps once per process. The candidate's directory name is 5 characters longer (candidate-15cac0d07 has 19, final-baseline has 14), and the binary path appears on 6 mappings. That gives +30 bytes per process (181 scenarios) or +60 for two processes (77). The two outliers differ by one anonymous mapping line of about 49 bytes: maintenance/changed -19 and typed/hooks/test +79. statm and cpu/online are read by the runtime: memory and GC sampling, and thread-pool sizing. Product code contains no memoryUsage, statm or cpus calls. They follow runtime activity and wall time, and fall overall.",
+   "scenariosChecked": [
+    {
+     "scenario": "git/update <tmp>",
+     "old": "directoryReads 108, directoryOpens 2; second process 54 non-empty batches over 9411 entries; getdents64 total 542",
+     "new": "directoryReads 109, directoryOpens 2; second process 55 batches over 9412 entries; getdents64 total 533",
+     "accountedBy": "Bun runtime startup listing of the shared host /tmp; the batch count follows how many entries /tmp held at that moment"
+    },
+    {
+     "scenario": "maintenance/already-current, maintenance/changed, preview/upgrade binary path",
+     "old": "final-baseline/axm-linux-x64 pathOpens 1",
+     "new": "candidate-15cac0d07/axm-linux-x64 pathOpens 1 (final-baseline 0)",
+     "accountedBy": "the upgrade realpaths the running binary's own path; the two binaries live at different paths"
+    },
+    {
+     "scenario": "typed/hooks/import, preview/hooks-import hook-bundle.json",
+     "old": "access 1, openFailed 0; <ws>/native pathOpens 2; openat 922, access 217 (import)",
+     "new": "access 0, openFailed 1; <ws>/native pathOpens 1; openat 737, access 186 (import)",
+     "accountedBy": "ea5e12097 (read-first optional metadata) and 9150d2c12 (one realPath of the root)"
+    },
+    {
+     "scenario": "startup/missing-cancelled, startup/missing-success update-check.json",
+     "old": "access 1, openFailed 0; access total 31, openat 82 (cancelled)",
+     "new": "access 0, openFailed 1; access total 27, openat 79 (cancelled)",
+     "accountedBy": "fcf4471d9: update cache read through readFileStringIfPresent instead of exists+read"
+    },
+    {
+     "scenario": "typed/mcps/show .mcp.json/mcp.json",
+     "old": "access 1, openFailed 0; io.real-path 79; openat 194, access 127, read 90",
+     "new": "access 1, openFailed 1 (O_PATH ENOTDIR); io.real-path 79 (new failure row +1, cli.command row 5->4); openat 192, access 125, read 87",
+     "accountedBy": "5907df664: read-first manifest root selection; a non-NotFound read failure still falls back to the probe that was already there"
+    },
+    {
+     "scenario": "typed/mcps/check .mcp.json/mcp.json",
+     "old": "openFailed 0; <ws>/.mcp.json access 7, pathOpens 22; io.real-path 390; openat 636, access 222",
+     "new": "openFailed 1; <ws>/.mcp.json access 1, pathOpens 15; io.real-path 381; openat 625, access 184",
+     "accountedBy": "5907df664 (one added failed open) together with the change's other MCP probe reductions"
+    },
+    {
+     "scenario": "installed/adopt-enabled-native-refusal temp files",
+     "old": "axm.json.tmp.54dacddf6b6d 213 B written and read, stats 3; axm.lock.tmp.0415c04b2469 601 B, stats 3",
+     "new": "axm.json.tmp.e8a5983ec9d6 213 B, stats 3; axm.lock.tmp.cc305fe6d11b 601 B, stats 3; axm.json readOpens 24->21, axm.lock 29->22",
+     "accountedBy": "random 12-hex temp names not folded by the projection; the same staged writes under different names"
+    },
+    {
+     "scenario": "registry/10/sync-restore/cold/baseline archives",
+     "old": "nmC_ stats 1 (renamed after the second prune listing); 10-archive stats sum 22; archives directoryOpens 2",
+     "new": "nmC_ stats 2 (renamed before the second listing); sum 23; directoryOpens 2; statx total 23333->10873",
+     "accountedBy": "timing of concurrent archive renames against the automatic archive-cache prune passes"
+    },
+    {
+     "scenario": "registry/50/sync-restore/cold/baseline archives",
+     "old": "NGPj stats 3; 50-archive stats sum 365; directoryOpens 12",
+     "new": "NGPj 3->4, while nmC_ 12->11, 2Y_N.. 9->8 and 8K_B.. 12->11; sum 363; directoryOpens 12",
+     "accountedBy": "the same prune and rename timing; the order is swapped and the total falls"
+    },
+    {
+     "scenario": "all scenarios /proc/<pid>/maps",
+     "old": "e.g. auth/login 7688 B",
+     "new": "7718 B; deltas +30 in 181, +60 in 77, -19 maintenance/changed, +79 typed/hooks/test",
+     "accountedBy": "the candidate binary's path is 5 characters longer across 6 mappings per process; the outliers differ by one anonymous mapping"
+    },
+    {
+     "scenario": "statm and cpu/online",
+     "old": "statm readOpens 20109 total; cpu/online 43",
+     "new": "statm 18658 (17 rises, e.g. registry/1/sync-restore/warm 198->211; 186 falls); cpu/online 39 (rises local/setup 5->6, registry/1/install/cold 4->5, registry/1/sync-restore/cold 4->5)",
+     "accountedBy": "Bun/JSC runtime memory sampling and thread-pool sizing; not product code"
+    }
+   ],
+   "classification": "timing-or-naming-variation",
+   "underlyingPhysicalWork": "No reads, parses, hashes or path resolutions of axm.json, axm.lock, archives or native config files went up in any of the scenarios checked.\n- Items 1, 2 and 6–8 are naming, timing or runtime variation. In each, a matching path falls by the same amount (binary path; temp names, exactly 213 and 601 bytes; archive stat totals), or the rise comes from shared host state or runtime sampling. Archive stat totals are 22->23 for 10 archives and 365->363 for 50.\n- Items 3 and 4 swap a syscall kind: an access probe becomes a failed open, one for one.\n- Item 5 is the only real added syscall: one failed O_PATH open per invocation on the file-as-root candidate <ws>/.mcp.json/mcp.json. It is a deliberate by-product of 5907df664, which keeps the old existence probe for non-NotFound read failures so diagnostics stay the same. Both scenarios still fall overall (show: openat 194->192, access 127->125, read 90->87; check: openat 636->625, access 222->184, io.real-path 390->381).\n- Totals in the same scenarios fell: in registry/10/sync-restore/cold, openat 27043->19506 and statx 23333->10873; in git/update, openat 3784->3088 and statx 2603->1226; in adopt-refusal, axm.json readOpens 24->21 and axm.lock 29->22.",
+   "openIssues": [
+    "installed/adopt-enabled-native-refusal has no new-binary trace work (its behavior check failed), so trace counters cannot be compared there. Only the kernel per-path match (identical counters under different temp names) is available.",
+    "Why <ws>/.mcp.json, a file, is one of the canonical roots findManifestRoot tries in typed/mcps/check and typed/mcps/show was not traced to its source. The old binary already probed <ws>/.mcp.json/mcp.json (access ENOTDIR), so this is not new. Only the extra failed read attempt (openFailed 0->1) is new.",
+    "In typed/mcps/check and typed/mcps/show, the access on .mcp.json/mcp.json fails with ENOTDIR and is counted in both binaries as io.access failure.kind=failure. Whether findManifestRoot records an McpConfigIoFailed diagnostic for it was not checked in code. Behavior was verified identical for both binaries.",
+    "The baseline counts directoryReads 108 where my strace count of /tmp getdents64 calls gives 110 (54+54 non-empty batches plus two empty terminators). This matches the reducer counting only calls that return >0, but I did not reconcile it line by line for the candidate (109 = 54+55).",
+    "The two /proc/<pid>/maps outliers (-19 in maintenance/changed, +79 in typed/hooks/test) are put down to one anonymous mapping line of about 49 bytes. That was inferred from the arithmetic, not checked against the recorded maps contents."
+   ]
+  }
+ ],
+ "verdicts": [
+  {
+   "subject": "trace kind axm.observation.reuse: 146,877 -> 222,437, rising in 5 scenarios; worst registry/50/sync-restore/cold/baseline 46,622 -> 129,432",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Mechanism checked against the code. In c4f23d1be, runMaterializeOperation's validate step wraps manager.isInstalled in withFreshWorkspaceObservationReadView (operations.ts:1011 at 15cac0d07). validateNativeOutputPostconditions moves the retention-witness check, observeNativeOutputs and the instruction readback into one fresh view, and returns early only when both retained and required are empty. share() in observation-read-view.ts records one axm.observation.reuse span per request. A miss runs the wrapped live fs call once, a hit or coalesced request reuses the stored result, and bypass goes to the live fs. Nothing in the capture path reads ahead or prefetches, so a view adds no reads of its own. One caveat: decode-text is shared over io.readFileString, which goes through the shared readFile, so one physical document read records two miss spans (decode-text and read-file). That is double counting inside this counter, not double I/O.",
+    "Re-measured the cited scenarios registry/50 cold, registry/10 cold, installed/enable, installed/skills-enable and typed/subagents/enable. The uncited ones were registry/1/sync-restore/warm, path/cold-sync, git/cold-sync and typed/subagents/update. Totals, per-outcome and per-operation splits match the explanation exactly: operation-phase misses 6,303->85,502 and hits 3,949->14,845 in registry/50, bypass 11,000 unchanged, observation.phase 4->105 and 4->25. Every axm.io.* kind falls in every scenario where reuse changes, and parse.settings and parse.lockfile fall too. Per-path kernel scan of all nine scenarios: no workspace, native-output, settings or lockfile path gains a readOpen, stat, readlink, access or directory read. The only rises are /proc/<pid>/statm and /proc/<pid>/maps runtime polling, plus one cache archive .zip whose stats go 3->4 (registry/50) or 1->2 (registry/10). In both cases every archive .tmp file loses a stat (1->0), so the archive cache loses stats overall. Treated as cache-ordering noise, not added work.",
+    "The rise of this counter cannot be split from the other commits in the aggregates (canonical-path memoisation, 869f3c5ae, ceeed0a72, 9b3f55f79). c4f23d1be's own physical effect is shown only by the per-path kernel counts and falling totals, not one to one. Example: in registry/50, <ws>/axm.json readOpens 660->457 and axm.lock 758->407, while native skill directories stay unchanged.",
+    "Other counters that rise in the same scenarios belong to other subjects but should be reviewed together with this one. axm.resolve.desired-state goes 3->103 in registry/50, 3->23 in registry/10 and 2->3 in the enable scenarios. That span exists only inside a captured phase (read-view.ts:284), so evaluations that used to run on live readers were never counted; parse.settings 508->306 and parse.lockfile 606->256 fall at the same time. axm.render.native goes 0->6, with workCount 0 on every row. It is newly counted by 21208f5f8 (\"share native Hook settings parses and count renders\").",
+    "Old trace work comes from e1ff86151, 6 commits before ada862c27. The diff between them under packages/core touches only knowledge, lint-catalog and publishing-verification code, nothing in observation views, reconciliation or sync. The kernel recordings for both binaries come from the old-versus-new campaign, so the physical comparison does not depend on this gap."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.resolve.desired-state-reuse (1,608 -> 1,855; 51 rising scenarios; worst registry/50/sync-restore/cold/baseline 26 -> 274)",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Re-measured the totals independently and they match exactly: 1,608 -> 1,855 over the measurable scenarios, 51 rising and 58 falling. Across the rising scenarios: requests 373 -> 792, executed 80 -> 231, axm.resolve.desired-state 80 -> 231, parse.lockfile 1402 -> 679, parse.settings 1356 -> 878, <ws>/axm.lock readOpens 1792 -> 1063, <ws>/axm.json readOpens 1856 -> 1371.",
+    "The instrumentation is the same at both revisions. Only read-view.ts emits axm.resolve.desired-state and the reuse kind; the read-view.ts diff adds only a builtModel and knowledgeInspections cache. The live makeDesiredStateReader emits neither kind, so the old binary's live evaluations were uncounted.",
+    "Code check of 5780128e5 (operations.ts runInstallOperation): the prior graph, the source-authority check, observeSatisfiedInstall and captureAgentOutputAuthority now run inside withWorkspaceReadView. Before, each was a live DesiredStateReader.graph or evaluate call. The priorAuthority guard changed from implicit to Option.isNone(satisfied); this is equivalent, because before it ran only after the satisfied early return.",
+    "Code check of c4f23d1be: validate wraps manager.isInstalled in withFreshWorkspaceObservationReadView. manager-kit isInstalled -> isObservedInstalled -> WorkspaceRecords.getExtensionInventory, which already called desiredState.graph() live at ada862c27, so the post-write evaluation existed before; it is now a counted miss. One edge: native-output-postconditions now opens a phase when only retention witnesses exist (retained > 0, required = 0). That moves the witness check that already ran into the phase and adds no evaluation.",
+    "Per-scenario sweep of all 51 rising scenarios: none shows an increase in parse.lockfile, parse.settings, io.read-file, kernel readOpens or readBytes of <ws>/axm.json or <ws>/axm.lock, or openat/read syscalls. Re-measured cited scenarios: registry/50 and registry/10 sync-restore, typed/knowledge/new, typed/rules/new, concepts-get, git/update and registry/1/install. Uncited: typed/subagents/new (exec 1 -> 3, lockfile 33 -> 15, settings 26 -> 17, openat 5078 -> 3687), authoring/skills-new (0 -> 1 exec, lockfile 25 -> 12, openat 3633 -> 2521) and typed/hooks/configure (exec unchanged at 2, the old bypass becomes a miss, lockfile 18 -> 7, settings 26 -> 11).",
+    "Residual uncertainty, already disclosed: the in-memory graph-construction CPU of the 231 executed misses cannot be compared with the old live evaluations, which left no bounded span. The commit messages say evaluation counts fell (for example a registry Rule goes from 3 to 1), and document parses fell everywhere, but the number of old live evaluations is not directly measured.",
+    "Outside this subject: axm.render.native 0 -> N and axm.archive.integrity 0 -> N rise in several of the same scenarios. render.native is new instrumentation at this revision (managed-groups.ts; workCount 0 in registry/50). archive.integrity has a new emit site in registry-client verified-archive.ts. Both should be judged in their own reviews, not under this kind."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.observation.phase (read-phase lifetime span), old ada862c27 -> new 15cac0d07: 447 -> 638 across 259 comparable scenarios",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Minor inaccuracy in the explanation: read-view.ts is not unchanged. The file changed through 6e2610aaa and 33cffb50b, which add a knowledgeInspections map, a builtModel cell and knowledgeManifestParse to the capture. The withReadView function, which emits and annotates the span (reuse join vs capture, then close with phase-exit), is identical, so the counted unit is unchanged.",
+    "Provenance gap: the 'old' trace counters come from fixtures-old-old-2, whose binary was built from e1ff86151, not ada862c27. e1ff86151 is 5 commits behind ada862c27 (release 0.53.0, knowledge diagnostics and titles, publish verification). A grep of their non-test TS diff finds no read-view, withLiveWorkspaceObservations, withWork or withSpan changes, so this counter is unaffected. Counters in knowledge and lint scenarios, such as hash.content 0->1 in typed/knowledge/concepts-*, may still carry differences from those commits.",
+    "Re-measured split matches the explanation exactly: fresh +166 and reuse +25 over the 57 rising scenarios. Fresh: 128 post-write checks in sync, 20 directly under operation.phase (authoring/import/adopt/enable/demote), 18 under cli.operation. Reuse: 23 under operation.phase (6 sync plus 17 install/update/handoff), 2 under cli.operation (instructions-enable).",
+    "Detail trace for registry/50 confirms the placement: 100 fresh observation phases whose parent is operation.phase[apply] in the new binary, against 0 in the old. There is also exactly 1 reused phase nested in an observation phase.",
+    "If read 'at this owner' literally, counters attributed to axm.work.owner=axm.observation.phase do rise. In registry/50: io.read-file 198->2848, parse.settings 0->50, io.stat 8471->26621. This is reattribution: readers that used to run on live ports under operation.phase now run inside phases. Scenario totals fall for every io.*, parse.* and hash.* kind except hash.content 0->1 in concepts-*, and that one is owned by KnowledgeDiscovery.get, not the phase.",
+    "Under the observation-phase owner, axm.render.native (0->6 in sync-restore, 0->8 in typed/hooks/update, 0->161 overall) and axm.resolve.desired-state rise. render.native is newly instrumented: the kind exists only in the new work vocabulary and in managed-groups.ts withWork, so it has no old baseline here. desired-state spans exist only inside captured views (read-view.ts:284 new, :270 old). Both need their own subject review; neither changes kernel reads.",
+    "The installed/enable apply-phase fresh phase is still unresolved. The detail trace shows the new phase (90.1 ms) under apply, holding 1 resolve.desired-state, 1 lockfile parse, 1 settings parse and 2 read-file. Apply-phase lockfile parses fall 7->4 and settings 7->6, consistent with c4f23d1be (materialize presence check). The exact call is still not named by an owner span.",
+    "The typed/demote attribution checks out in code: demote-to-external-source.ts:226 passes sourceReplacements, so runInstallOperation skips observeSatisfiedInstall and the 5780128e5 preflight view is a new fresh phase.",
+    "Kernel recordings: no syscall class rises in any of the 57 rising scenarios. Re-measured axm.json and axm.lock readOpens all fall. Cited scenarios: typed/rules/new 44->30 and 39->23, installed/enable 24->21 and 15->12, local/agents-list 3->2. Uncited scenarios: typed/hooks/update 24->12 and 23->12, registry/1/update/warm 24->21 and 24->19, typed/skills/handoff 25->23 and 21->17, typed/demote 30->27 and 22->17."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.resolve.desired-state",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "One detail of the mechanism is wrong. The native-output postcondition is reached from reconciliation/plan.ts (old lines 1345 and 1390), and both callers pass the planned `graph` as desiredGraph, so old observeNativeOutputs skips its own `(yield* DesiredStateReader).graph()` there. The live evaluation actually happens in records.rows -> withScoped -> `desiredState.graph()` (old workspace-records.ts:88), once per rows call. The presence check isInstalled reaches the same path. The conclusion is unchanged: the old binary did at least one uncounted live evaluation per check, and the new binary does exactly one counted evaluation per fresh phase.",
+    "Phase counts are 2N+1 new phases, not 2N. registry/50 goes 4->105 (+101), registry/10 4->25 (+21), registry/1 4->7 (+3). Desired-state misses are exactly 2N (100, 20, 2), so one extra phase per scenario has no desired-state miss. That phase does not affect this counter.",
+    "Work owned by the axm.resolve.desired-state span rises: across all scenarios, parse.lockfile 250->383, parse.settings 221->285, io.read-file 451->648, io.access 975->1443. registry/50 alone goes from 3 to 103 lockfile parses. This is moved attribution, not added work. In every one of the 35 rising scenarios the scenario totals fall: parse.settings 1127->731, parse.lockfile 1223->576, and no rising scenario shows a rise in parse.settings, parse.lockfile, io.read-file, io.access, io.stat, io.real-path or parse.manifest. The old 600 lockfile and 500 settings parses owned by axm.operation.phase drop to 150 and 200 at the same time.",
+    "In typed/knowledge/concepts-get, -query, -related, -resolve and -capabilities, axm.hash.content rises 0->1. Its owner is KnowledgeDiscovery.get, not desired-state, so it belongs to another subject's review (probably 6a823aafd, which hashes corpus sources once). It is not added work at this owner.",
+    "The trace cannot directly count the old binary's live evaluations. The live reader's Effect.fn span 'DesiredStateReader.evaluate' carries no axm.work.count, and the detail inspections contain only the work aggregate, not spans. So the claim that old did at least the same number of evaluations rests on code reading and on falling parse and kernel counts, not on a measured count.",
+    "The totals reconcile. Old is 308 over 260 scenarios and 307 over the 259 that have new evidence; installed/adopt-enabled-native-refusal (1->0) is missing from work-after.json. So +138 = +160 - 22 is correct, and the refusal scenario is not measurable."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.archive.integrity (68 -> 142, +74, rising in 27 scenarios; worst typed/hooks/install 0 -> 6)",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Re-measured all scenarios with the helper. Exactly 27 rise, all from 0, all typed/* or preview/*. Totals in the rising set: 74 counted (all executed=1), 27175 counted archiveBytes; kernel local .zip readOpens 104->74 and readBytes 38951->27175. In every rising scenario the new count equals the new kernel .zip readOpens and the counted bytes equal the new kernel readBytes. No scenario has new reads above old reads. The 10 already-counted remote/cache scenarios and installed/* stay equal (registry/50 50, registry/10 10, five registry/1 at 1, installed/verify, cache-verify and skills-update at 1). installed/adopt-enabled-native-refusal has no new inspection, so it cannot be measured; it has 0 old rows.",
+    "Cited scenarios re-measured and confirmed: typed/hooks/install (6 rows: 2 eligibility 948 B, 2+1 SourceHostProviders.fetch, 1 operation.phase; kernel bench-hooks/2.0.0.zip readOpens 11->6, readBytes 5214->2844, stats 11->6, access 5->1), typed/demote (3 = 3 reads, 999 B, kernel unchanged), preview/rules-install (1 hash of 333 B; readOpens 2->1), typed/hooks/update (2 = 2 reads, 948 B unchanged). Uncited scenarios also confirmed: typed/packs/install (3 hashes, 666 B = 3 reads of 222 B, kernel unchanged; buffered-archive 2->1), typed/rules/enable and typed/hooks/configure (2 eligibility hashes = 2 unchanged reads), preview/hooks-install (3 hashes, 1422 B; readOpens 8->3, readBytes 3792->1422; archive.parse, extraction and buffered-archive 4->3, read-member 8->6, io.file-read 16->6), preview/mcps-install (2 = 2 reads; 4->2 opens).",
+    "Code check. Old ada862c27: only archive-cache.ts verifyArchiveIntegrity wrapped computeIntegrity in withWork(\"axm.archive.integrity\"). Old local-client.ts validateExtensionAccessBatch (:840-861) read each archive and always ran a bare createHash(\"sha512\"). The exact getExtensionPackage path (:926-945) did the same. Old host-provider.ts:224 and :676 and registry-materialization.ts:164 re-hashed with an untraced computeIntegrity. New 15cac0d07: VerifiedArchive.check (verified-archive.ts:37-50) is the only caller of computeIntegrity and the only recorder of this kind. admitLocalArchive (local-client.ts:587) and readAdmittedArchive (:636) hash through it. Callers skip the hash when verified.covers() is true. A single exact getExtensionPackage (:1251-1257) returns the admission bytes. The commit message of d92264013 says the same.",
+    "Why there are no extra hashes. In the new code every hash site either directly follows an archive read (admission, callback read, cache read, download) or is a caller fallback when the evidence does not cover the buffer. Since hashes equal kernel reads in every rising scenario, no fallback re-hash of an already-verified buffer ran in these local-Registry scenarios. Old executed hashes were at least the old client-side hashes plus the caller re-hashes, so physical hashing fell.",
+    "Minor inaccuracy: the explanation says every old local-Registry archive read was immediately followed by a client-side sha512. Old getExtensionPackage hashed only when args.exact was defined. Non-exact reads were hashed only by the caller, when an expected integrity was present. This does not change the conclusion, but the lower bound of one old hash per kernel read rests partly on caller hashing.",
+    "Minor inaccuracy: the claim that git grep finds no other sha512 of archives outside tests is slightly overstated. Publishing still computes sha512Integrity(zipBytes) in workspace-features/src/publishing/archive.ts:569/583 (it was publish/model.ts:999 and use-case.ts:797 in the old revision). That hashes archives being built for publication, not Registry archive reads, and no publish scenario changes this counter.",
+    "Not exercised: the old remote-client.ts:1061 no-cache download hash was also untraced and is now counted through VerifiedArchive.check. No benchmark scenario takes that path (the remote scenarios are unchanged), so it adds no measured delta."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.render.native (native Hook settings document renders), 0 -> 161 in 43 scenarios",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Code check: commit 21208f5f8 wraps the existing updateHooksJson body (now renderHooksJson) in withWork(\"axm.render.native\") and annotates axm.work.count from an onEdit callback. It also changes the per-owner loop in reconcileNativeHookConfig from `for (const owner of expected)` (old native-config.ts line 159, which ran in dry runs and applies) to `for (const owner of args.dryRun === true ? expected : [])`. Old and new revisions have the same production callers: updateHooksJson is called only at native-config.ts (old 111/162, new 123/175), reconcileNativeHookConfig only from manager.ts reconcileNativeHookTarget, and the observe/apply adapters are at old 808/810 and new 1245/1247. No commit in the range adds a render call site. In the manager, observeProjectionPlans+return becomes withObservedProjectionPlans(nativePlans, use).",
+    "Re-measured cited scenarios typed/hooks/uninstall, typed/hooks/update, typed/hooks/configure, typed/hooks/install and registry/1/sync-restore (cold and warm). The render rows match the explanation: uninstall has 5 renders in operation.phase (workCount 2) plus 7 in observation (workCount 1), and install has 2 + 1. For .claude/settings.json, readOpens went 20->18, 10->7, 14->11 and 2->2, and writeOpens stayed 1->1. parse.native went 113->25, 68->8, 77->14 and 20->9. Sync-restore stayed at openFailed 8->8 and parse.native 3->3.",
+    "Re-measured uncited scenarios typed/hooks/disable, typed/hooks/check, preview/hooks-enable and typed/mcps/uninstall. disable has 6 renders (4 observation, 2 apply); its settings.json readOpens went 14->11, writeOpens stayed 1->1, and parse.native went 76->16. check has 6 renders with settings.json reads 1->1 and parse.native 2->2. preview/hooks-enable has 1 render, readOpens 6->3 and parse.native 40->4. typed/mcps/uninstall has 2 renders, settings.json stats 7->3 and parse.native 26->19. Syscall totals fall in every one.",
+    "Broad scan: in all 43 scenarios with renders, no kernel counter on any Hook target path (.claude/settings.json, */hooks.json, .codex/config.toml, .gemini/settings.json) rises from the old binary to the new one.",
+    "Weak proxy: target reads are not one per reconcile call. In typed/hooks/check there are 6 renders but only 1 readOpen of .claude/settings.json, so the other renders come from absent targets (counted under openFailed on other paths) or are shared. Flat or falling reads (readOpens plus openFailed) support 'reconcile calls did not rise' only in direction. No trace dimension directly records how many reconcile calls the old binary made per scenario.",
+    "The 'old total was at least 12' bound for typed/hooks/uninstall holds only if the old binary ran at least the same reconcile calls as the new one. Commit 4344fcd42 and the kernel reads support that, but the bound is inferred, not measured. Also, 'apply' for the operation.phase rows is inferred from the owner dimension, not from a dryRun dimension.",
+    "Seen but not part of this counter: in registry/1/sync-restore, observation.phase rises 4->7 and resolve.desired-state 3->5. This is work moving between owner spans. It does not raise renders or Hook target I/O: openFailed 8->8, and total I/O and syscalls fall.",
+    "installed/adopt-enabled-native-refusal has no new-binary trace work, so this counter cannot be measured there."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.registry.metadata-reuse (Registry read-phase metadata lookup), 60 -> 76",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "The explanation holds up. Commit 66ef873fc makes previewExtensionPublishes in local-client.ts get each entry through options.previewIndex. In registry-client-factory.ts, forEndpoint wires that to phase.get(endpoint, entry, selectionPolicy) while the phase's isOpen is true, and to the direct registryPathExists + readExtensionIndex read otherwise. phase.get in read-phase.ts always wraps the lookup in withWork(\"axm.registry.metadata-reuse\", ..., requested=1), so each preview lookup now adds one counted occurrence. Before the change it was an uncounted direct fs read.",
+    "For a file endpoint, authorityContext returns a constant (Effect.succeed(fileAuthority)), so the extra phase.get adds no credential or other hidden work. The cache key matches the selection's key, and every new occurrence is outcome=hit.",
+    "Across all 260 scenarios, the aggregate (work-before.json vs work-after.json) gives requested 60->76, executed 60->60, reused 0->16, miss 60->60, hit 0->16. Exactly the 16 typed and preview publish scenarios change. In none of them does executed rise. metadata-batch and eligibility are unchanged everywhere except installed/adopt-enabled-native-refusal, whose eligibility rows vanish only because it has no new-binary trace (not measurable).",
+    "Cited scenarios re-measured. typed/subagents/publish: index.json readOpens 3->2, readBytes 1116->744, access 3->2, renamedTo 1->1. preview/skills-publish: readOpens 2->1, 738->369. preview/packs-publish: readOpens 2->1, 788->394.",
+    "Uncited scenarios re-measured. typed/rules/publish: readOpens 3->2, 1104->736. typed/hooks/publish: readOpens 3->2; lock read, archive rename and index rename are all unchanged; only the tmp-file stats go 1->0. preview/rules-publish: readOpens 2->1. typed/packs/publish: readOpens 3->2. The non-rising registry/1/install/cold/baseline is unchanged at one miss with executed 1.",
+    "Minor caveat: the pack-dependency branch of the preview (dependency index lookups) is not exercised by any benchmark scenario. typed/packs and preview/packs-publish show no dependency index paths, so that branch is supported by the code alone, not measured.",
+    "Minor caveat: the explanation's io.read-file drops of 5 to 6 per scenario include other commits. Only the one index.json read per scenario is attributable to 66ef873fc, and the kernel counters confirm that read but carry no call sites. Neither caveat changes the verdict."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "trace kind axm.hash.content rising 0 -> 1 in typed/knowledge/concepts-{capabilities,get,query,related,resolve}",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": true,
+   "concerns": [
+    "Rising set checked independently from byKind in work-before.json and work-after.json. Exactly 5 scenarios rise, each 0 -> 1, all with comparisonVerified true: concepts-capabilities, -get, -query, -related and -resolve. Totals: 662 -> 541 without installed/adopt-enabled-native-refusal, which has old 3 and no row in the new data (665 if it is included). The explanation's handling of that scenario is correct.",
+    "Mechanism checked against the code. At ada862c27, captureOnce in knowledge-revision.ts computed computeKnowledgeSourceRevision for every source. captureKnowledgeCorpus calls it twice (capture, then confirm) and adds computeKnowledgeCorpusFingerprint. At ada862c27, knowledge-query has no withWork at all: git grep finds the only non-test axm.hash.content call site in rendered-files.ts:43. At 15cac0d07, withSourceRevisions (knowledge-revision.ts:140) wraps one hash of the settled capture in withWork('axm.hash.content', count = sources, bytes = sum). The ee72066b3 diff in knowledge-index.ts reuses the corpus fingerprint for a lone bundle and drops the capture fingerprint. Old fingerprint hashes: 3, new: 1, and none are counted.",
+    "Re-measured resolve, capabilities, get, related and query with the helper. The new row in each is count 1, workCount 2, bytes 261. Kernel reads of the hashed sources are unchanged: architecture.md readOpens 2 -> 2 (284 B), index.md readOpens 2 -> 2 (238 B). One copy of both files is 142 + 119 = 261 B, the same as the counted bytes. Two reads per source means a single capture attempt in both binaries, so the old binary computed 4 uncounted source hashes over 522 B and the new one computes 2 counted hashes over 261 B. No 261-byte hash.content row appears in any other scenario.",
+    "No axm.hash.* row of any kind exists in the old traces of these scenarios, so no hashing moved here from axm.hash.package, materialized-tree or preimage.",
+    "Re-measured three scenarios the explanation does not cite: typed/knowledge/new, typed/knowledge/install and preview/knowledge-new. Their hash rows all hold or fall, for example hash.content 4 -> 2, materialized-tree 6 -> 3 and package 2 -> 1. The new knowledge-revision row does not appear there, and nothing hides a new row behind an unchanged total. Across all scenarios, owner totals at the rendered-files span only hold or fall; the only new owners are the four KnowledgeDiscovery.* rows.",
+    "Minor point: the new rows for observation.phase, resolve.desired-state and desired-state-reuse in these scenarios come from 74cbeb4a6 and ddeac6394, not from this subject. Physical reads still fell (axm.json and axm.lock readOpens 3 -> 2, knowledge.json 2 -> 1). The explanation correctly lists them as outside the hash row.",
+    "Remaining blind spot, already listed in the explanation: the old double hashing and the fingerprint 3 -> 1 reduction are shown by the code and commit messages, not by any trace counter, because neither the old source hashes nor any fingerprint hash is counted."
+   ],
+   "isRegression": false
+  },
+  {
+   "subject": "Kernel per-path counters that rise for the new binary (15cac0d07) against the old one (ada862c27), from runs/fixtures-old-new/physical-work-comparison.json",
+   "mechanismConfirmed": true,
+   "classificationConfirmed": false,
+   "concerns": [
+    "Totals check out. I rescanned all 260 scenarios and found rises outside /proc, /sys and /dev in exactly 13 scenarios on 9 paths, the same 7 groups the explanation lists. The runtime sums also reproduce exactly: maps readBytes 2637943->2648053, with deltas +30 in 181 scenarios, +60 in 77, -19 in 1 and +79 in 1; statm readOpens 20109->18658 (17 rises, 186 falls); cpu/online 43->39 (3 rises, 7 falls).",
+    "The explanation is wrong about typed/mcps/show. It says that for the real package root the read replaces probe-plus-read, so the change's own saving offsets the new failed open. In show, the root's mcp.json (.../bench-mcps/mcp.json) has unchanged kernel counters: access 1->1, readOpens 1->1, pathOpens 1->1, stats 3->3. The trace shows why. In the old binary, findManifestRoot executed the access probe at axm.observation.phase and Inspection.mcpPackageFacts reused it (observation.reuse access hit, executed 0). In the new binary, findManifestRoot no longer probes, so mcpPackageFacts executes the access itself (reuse miss, executed 1). The probe moved owner and was not removed.",
+    "So in typed/mcps/show the change to findManifestRoot nets +1 executed operation at axm.observation.phase. The new work is one failed read-file and decode-text (reuse miss, failure.kind=failure), one failed io.real-path, and one kernel openFailed with ENOTDIR on <ws>/.mcp.json/mcp.json. Nothing at this owner offsets it. The scenario's overall falls (openat 194->192, access 127->125, read 90->87) come from other commits: /proc/version 1->0, <ws>/agent_extensions access 1->0, <proc-fd> readlinks 20->19 and <ws> pathOpens 11->10. Only typed/mcps/check gets a real offset at the root, with registry mcp.json access 6->3, pathOpens 9->8 and stats 12->11.",
+    "The classification 'timing-or-naming-variation' does not fit the whole subject. Items 3 and 4 swap one syscall kind for another, an access probe for a failed open, one for one. Item 5 is one genuinely added failed open per invocation, a stated trade-off, which the explanation itself admits. Only items 1, 2 and 6 to 8 are naming, timing or runtime variation.",
+    "Item 7 is not an exact offset. In registry/10/sync-restore/cold/baseline the archive stat total rises 22->23 and nothing falls to match. I checked the strace. The baseline lists the archives directory with 10 entries (strace line 10200) before nmC_'s rename (line 10277). The candidate renames first (line 9483), then lists (line 9503), then stats nmC_ (line 9522). That confirms timing, not added work. Archive readOpens and readBytes are 0 in both binaries, renamedTo is 10/10 and 50/50, and the directory counters are identical.",
+    "Item 1 is confirmed from the raw strace. Each Bun process makes one non-empty getdents64 batch per 8 KB of /tmp entries. The baseline's two processes made 54+54 batches over 9408 and 9411 entries. The candidate's made 54+55 over 9408 and 9412. One extra entry in the shared host /tmp pushed the second process into a 55th batch. Each process also had one empty terminator, which the reducer does not count, so the explanation's 'open issue' about the 110 count is resolved.",
+    "The explanation leaves out three rising syscall totals in scenarios it does not cite: installed/check read 129->130, and typed/subagents/check read 124->126 and openat 850->851. In both, every workspace and fixture path falls. The rises come from runtime /proc/<pid>/statm sampling (installed/check 86->89 reads, subagents/check 79->83 opens and reads), partly offset by /proc/version 1->0. No product-path work rises there.",
+    "Items 2, 3, 4 and 6 are confirmed exactly. The binary path swaps (final-baseline 1->0, candidate 0->1). ea5e12097's readOptionalMetadata turns the hook-bundle.json access into a failed open (access 1->0, openFailed 0->1), and 9150d2c12 cuts <ws>/native pathOpens 2->1. fcf4471d9's readFileStringIfPresent does the same for update-check.json (access 1->0, openFailed 0->1). The temp names swap with identical counters and exactly 213 and 601 bytes. The trace in the re-measured scenarios falls: startup/missing-cancelled io.access 25->21 and io.read-file 5->4; typed/hooks/import openat 922->737; typed/mcps/check io.access 216->178 and io.real-path 390->381."
+   ],
+   "isRegression": false
+  }
+ ]
+}

@@ -28,6 +28,13 @@ remaining work. Historical evidence retains its actual source/binary provenance;
 earlier failed runs remain failed. Isolated repeated elapsed/RSS qualification
 is explicitly deferred, not passed.
 
+The route and case counts in this ledger (148 routes, 249 cases) describe the
+inventory at its captured revisions. The command tree now registers 159 routes
+and the fixture inventory has 260 cases: 159 route defaults, 81 previews, one
+additional lint repair, seven startup outcomes and 12 risk paths. The
+[prepared-input reuse ledger](../prepared-input-reuse/README.md) records
+behavior and accounting evidence for that inventory.
+
 The [retained capture archives](captures/README.md) contain the reviewed raw
 evidence for the cases below, original reports and source/binary/harness
 identities, exact receipt/receiver payloads and independent fixture observations.

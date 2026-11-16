@@ -399,9 +399,9 @@ and both preflight and timing require the receipt to match it exactly. This is
 selected interval detail, not a claim to retain every I/O interval in a large
 restoration. The earlier unscoped overflow remains incomplete evidence.
 It requires the running loopback Seq and pinned client but makes no performance
-verdict. The finite campaign has 259 cases: 158 registered route defaults, 81
+verdict. The finite campaign has 260 cases: 159 registered route defaults, 81
 previews, one additional lint repair, seven startup outcomes and 12 distinct risk
-paths. Its preflight schedules 1,036 workload invocations and 518 full trace
+paths. Its preflight schedules 1,040 workload invocations and 520 full trace
 inspections.
 `AXM_OBSERVABILITY_SCENARIO_FILTER` may narrow a diagnostic fixture run using
 comma-separated scenario substrings; it never filters a measured campaign.
@@ -419,7 +419,7 @@ host. The run first completes full preflight, then measures every case without
 filtering. Each timing block has one baseline and candidate disabled, summary
 and detail runs in rotated order. All three candidates reference that block's
 single baseline. One warmup and five initial measured blocks schedule another
-6,216 workload invocations: 7,252 including preflight. Discovery and fixture
+6,240 workload invocations: 7,280 including preflight. Discovery and fixture
 preparation invocations are recorded separately. These counts imply no promised
 wall-clock duration.
 
@@ -428,8 +428,8 @@ checks, elapsed time, RSS and producer receipts, and checks zero diagnostic loss
 and shutdown limits. It does not repeat full filesystem inventories, Seq
 inspection or per-sample compression. Timing receipts explicitly report delivery
 as `not-individually-inspected`; they do not claim receiver completeness. There
-are 3,626 traced workload invocations initially: 518 inspected in preflight and
-3,108 with producer receipts during timing.
+are 3,640 traced workload invocations initially: 520 inspected in preflight and
+3,120 with producer receipts during timing.
 
 Escalate an individual case from five to ten measured blocks when any subject's
 range/median exceeds 20% or the first-two versus last-two baseline medians drift

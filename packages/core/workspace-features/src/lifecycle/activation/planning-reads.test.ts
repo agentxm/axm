@@ -406,12 +406,14 @@ describe("Activation planning observes canonical content only where a decision r
         // the member root. The retained reference takes the tree digest the
         // retirement just verified; the retirement and the withdrawal
         // description still hash the tree.
+        // The outcome evaluation takes the root's real path its validation
+        // resolved; measured before: 4 probes.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 4 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -455,12 +457,14 @@ describe("Activation planning observes canonical content only where a decision r
         const steps = counted.result.execution.plan.jobs.flatMap((job) => job.steps);
         expect(steps.map((step) => step.readiness)).toEqual(["error"]);
         expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
+        // The outcome evaluation takes the root's real path its validation
+        // resolved; measured before: 4 probes.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 4 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 4, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -511,12 +515,14 @@ describe("Activation planning observes canonical content only where a decision r
         const steps = counted.result.execution.plan.jobs.flatMap((job) => job.steps);
         expect(steps.map((step) => step.readiness)).toEqual(["ready"]);
         expect(steps[0]?.artifact?.executionChanges).toBeUndefined();
+        // The outcome evaluation takes the root's real path its validation
+        // resolved; measured before: 4 probes.
         expect({
           treeHashes: counted.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree")
             .length,
           rootDirectoryReads: counted.recording.counts(root).readDirectory,
           rootProbes: counted.recording.counts(root).access,
-        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 4 });
+        }).toEqual({ treeHashes: 3, rootDirectoryReads: 5, rootProbes: 3 });
       });
     },
     { timeout: 60_000 },
@@ -680,7 +686,9 @@ describe("Activation planning hands settlement's observation to step collection"
       publish: (r: InstallWorld["registry"]) => r.writeHook("review", [{ version: "1.0.0" }]),
       steps: [],
       repeated: { treeHashes: 5, rootDirectoryReads: 10, rootProbes: 7 },
-      observed: { treeHashes: 4, rootDirectoryReads: 9, rootProbes: 6 },
+      // Each outcome evaluation takes its validation's real path of the root;
+      // measured before: 6 probes.
+      observed: { treeHashes: 4, rootDirectoryReads: 9, rootProbes: 4 },
     },
     {
       type: "rule",

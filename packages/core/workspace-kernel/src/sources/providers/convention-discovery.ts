@@ -23,6 +23,7 @@ import {
   type SourceStanding,
 } from "../package-discovery.js";
 import type { GitOperationFailed, SourceError } from "../errors.js";
+import type { AcquiredTreeObservation } from "../../acquisition/index.js";
 
 type ExternalSource = GitBasedSource | LocalSource;
 
@@ -351,7 +352,11 @@ export const discoverConventionRefs = (
   source: ExternalSource,
   basePath: string,
   options: FindOptions,
-  discoveryOptions: { readonly rootName?: string } = {},
+  discoveryOptions: {
+    readonly rootName?: string;
+    /** A completed measure of a local source's tree, with nothing written since. */
+    readonly acquiredTree?: AcquiredTreeObservation;
+  } = {},
 ): Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const root = yield* searchRootFor(source, basePath);

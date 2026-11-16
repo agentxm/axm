@@ -36,6 +36,7 @@ import {
 } from "./plugin-distribution.js";
 import { readPluginMarketplace } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
+import type { AcquiredTreeObservation } from "../acquisition/index.js";
 import { readSourceWorkspace } from "./source-workspace.js";
 import {
   extensionTypeForManifestFilename,
@@ -311,7 +312,16 @@ const rejectAmbiguousDuplicates = (candidates: ReadonlyArray<DiscoveredExtension
 export const discoverExtensionPackages = (
   root: string,
   filter: ExtensionPackageFilter,
-  options: { readonly rootName?: string } = {},
+  options: {
+    readonly rootName?: string;
+    /**
+     * What a completed measure of the tree at `root` observed in the same
+     * acquisition, with nothing written since: the walk takes the root's
+     * existence, directory listings and entry kinds from it, and inspects
+     * every path it did not observe live.
+     */
+    readonly acquiredTree?: AcquiredTreeObservation;
+  } = {},
 ): Effect.Effect<
   ReadonlyArray<DiscoveredExtensionPackage>,
   SourceNotResolvable,
@@ -320,20 +330,45 @@ export const discoverExtensionPackages = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const measured = options.acquiredTree;
+    const listing = (directory: string) =>
+      measured === undefined ? Option.none() : measured.listing(directory);
+    const measuredEntry = (entry: string) =>
+      measured === undefined ? Option.none() : measured.entry(entry);
 
-    const exists = yield* fs.exists(root).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Source does not exist: ${root}`,
-            cause,
-          }),
-      ),
-    );
+    const exists =
+      measured !== undefined && measured.root === path.resolve(root)
+        ? true
+        : yield* fs.exists(root).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SourceNotResolvable({
+                  category: "validation",
+                  detail: `Source does not exist: ${root}`,
+                  cause,
+                }),
+            ),
+          );
     if (!exists) {
       return [];
     }
+
+    /** A directory's listing, from the measure when it listed this directory. */
+    const readDirectory = (directory: string) =>
+      Option.match(listing(directory), {
+        onSome: (entries) => Effect.succeed(entries),
+        onNone: () =>
+          fs.readDirectory(directory).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SourceNotResolvable({
+                  category: "validation",
+                  detail: `Extension source directory could not be read: ${directory}`,
+                  cause,
+                }),
+            ),
+          ),
+      });
 
     const resolvedRoot = path.resolve(root);
     const workspace = yield* readSourceWorkspace(resolvedRoot);
@@ -353,16 +388,7 @@ export const discoverExtensionPackages = (
       SourceNotResolvable
     > =>
       Effect.gen(function* () {
-        const entries = yield* fs.readDirectory(directory).pipe(
-          Effect.mapError(
-            (cause) =>
-              new SourceNotResolvable({
-                category: "validation",
-                detail: `Extension source directory could not be read: ${directory}`,
-                cause,
-              }),
-          ),
-        );
+        const entries = yield* readDirectory(directory);
         // A directory that is not a skill is resolved once, and that root
         // bounds both its own distribution and its marketplace membership.
         const physicalRoot = entries.includes("SKILL.md")
@@ -544,6 +570,9 @@ export const discoverExtensionPackages = (
         (entry) =>
           Effect.gen(function* () {
             const child = path.join(directory, entry);
+            const observed = measuredEntry(child);
+            if (Option.isSome(observed))
+              return observed.value.link || observed.value.type !== "Directory" ? [] : [child];
             const link = yield* fs.readLink(child).pipe(Effect.option);
             if (Option.isSome(link)) return [];
             const info = yield* fs.stat(child).pipe(Effect.option);
@@ -582,16 +611,7 @@ export const discoverExtensionPackages = (
       Effect.gen(function* () {
         const [authoredRoot] = yield* folders(path.dirname(directory), [path.basename(directory)]);
         if (authoredRoot === undefined) return [];
-        const entries = yield* fs.readDirectory(authoredRoot).pipe(
-          Effect.mapError(
-            (cause) =>
-              new SourceNotResolvable({
-                category: "validation",
-                detail: `Extension source directory could not be read: ${authoredRoot}`,
-                cause,
-              }),
-          ),
-        );
+        const entries = yield* readDirectory(authoredRoot);
         const children = yield* Effect.forEach(
           yield* folders(authoredRoot, entries),
           (child) =>

@@ -13,7 +13,7 @@ import type {
 } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import {
   MAX_ACQUIRED_TREE_ENTRIES,
-  measureAcquiredTree,
+  observeAcquiredTree,
   MAX_ACQUIRED_TREE_BYTES,
   MAX_OPERATION_SCRATCH_BYTES,
   OperationScratchBudget,
@@ -166,12 +166,12 @@ export const findHttpSource = (
           accepted === undefined
             ? yield* acquireHttpOffer(offer, { maxEntries: remainingEntries })
             : yield* acquireAcceptedHttpPackage(accepted);
-        const measured = yield* measureAcquiredTree(acquired.directory, {
+        const measured = yield* observeAcquiredTree(acquired.directory, {
           maxEntries: remainingEntries,
         });
         remainingEntries -= measured.entries;
         yield* reservation.settle(measured.bytes);
-        return acquired;
+        return { ...acquired, tree: measured.observation };
       }).pipe(
         Effect.catchTags({
           OperationScratchLimitExceeded: (cause) =>
@@ -213,7 +213,8 @@ export const findHttpSource = (
           names:
             source.kind !== "index" && source.entry !== undefined ? [source.entry] : options.names,
         },
-        { rootName: offer.name },
+        // Nothing writes this offer's tree between its measure and its walk.
+        { rootName: offer.name, acquiredTree: acquired.tree },
       );
       for (const candidate of candidates) {
         if (candidate.refType !== "local") continue;

@@ -26,6 +26,7 @@ export {
   MAX_ACQUIRED_TREE_ENTRIES,
   measureAcquiredTree,
 } from "./measure-acquired-tree.js";
+export { observeAcquiredTree, type AcquiredTreeObservation } from "./measure-acquired-tree.js";
 export {
   MAX_ACQUIRED_TREE_BYTES,
   MAX_OPERATION_SCRATCH_BYTES,

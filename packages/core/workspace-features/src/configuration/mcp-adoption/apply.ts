@@ -35,6 +35,7 @@ import {
   validateInlineMcpServerTargets,
   validateInlineMcpServerTargetsInOrder,
   syncInlineMcpServerToAgents,
+  withNativeConfigObservationView,
   NativeWriteAuthority,
   type CodingAgentFailure,
 } from "@agentxm/workspace-kernel/agent-adapters";
@@ -92,6 +93,11 @@ interface McpDiscoveredText {
  * Discover the native MCP config sources the configured agents contribute for
  * this workspace scope, with unsupported-format findings and the text of every
  * source document read, for target validation in the same read phase.
+ *
+ * Agents that declare the same native file share, for this one discovery, its
+ * route check, its read and its fingerprint, and parse each exact text once
+ * per grammar; every source still decodes its own servers value. A failure is
+ * never shared: it ends discovery where it first occurs.
  */
 export const collectMcpNativeSources = (
   location: WorkspaceLocationService,
@@ -103,6 +109,33 @@ export const collectMcpNativeSources = (
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
     const texts: Array<McpDiscoveredText> = [];
+    const routes = new Map<string, string>();
+    const reads = new Map<string, Option.Option<string>>();
+    const fingerprints = new Map<string, string>();
+    const resolveRoute = (target: McpNativeSource["target"]) => {
+      const routeKey = JSON.stringify([target.scope, target.path, target.nativeRoot ?? null]);
+      const known = routes.get(routeKey);
+      if (known !== undefined) return Effect.succeed(known);
+      return resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
+        Effect.tap((configPath) => Effect.sync(() => routes.set(routeKey, configPath))),
+        Effect.mapError(readFailureToConfigurationFailed),
+      );
+    };
+    const readSourceText = (filePath: string) => {
+      const known = reads.get(filePath);
+      if (known !== undefined) return Effect.succeed(known);
+      return readNativeMcpConfig(filePath).pipe(
+        Effect.tap((raw) => Effect.sync(() => reads.set(filePath, raw))),
+        Effect.mapError(readFailureToConfigurationFailed),
+      );
+    };
+    const fingerprintOf = (filePath: string, raw: string): string => {
+      const known = fingerprints.get(filePath);
+      if (known !== undefined) return known;
+      const computed = createHash("sha256").update(raw).digest("hex");
+      fingerprints.set(filePath, computed);
+      return computed;
+    };
     const addSource = (
       filePath: string,
       serversPath: McpNativeSource["serversPath"],
@@ -115,9 +148,7 @@ export const collectMcpNativeSources = (
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return Effect.gen(function* () {
-        const raw = yield* readNativeMcpConfig(filePath).pipe(
-          Effect.mapError(readFailureToConfigurationFailed),
-        );
+        const raw = yield* readSourceText(filePath);
         if (Option.isNone(raw)) return;
         texts.push(Object.freeze({ path: filePath, raw: raw.value }));
         if (agentId === "github-copilot-cli" && location.scope === "project") {
@@ -147,7 +178,7 @@ export const collectMcpNativeSources = (
           agentId,
           dialect,
           workspaceRoot: location.baseDir,
-          fingerprint: createHash("sha256").update(raw.value).digest("hex"),
+          fingerprint: fingerprintOf(filePath, raw.value),
           filePath,
           serversPath,
           target,
@@ -201,9 +232,7 @@ export const collectMcpNativeSources = (
           format: declaration.format,
           attribution: declaration.attribution ?? ("agent" as const),
         };
-        const configPath = yield* resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
-          Effect.mapError(readFailureToConfigurationFailed),
-        );
+        const configPath = yield* resolveRoute(target);
         yield* addSource(
           configPath,
           serversPath,
@@ -253,7 +282,7 @@ export const collectMcpNativeSources = (
       skipped: Array.from(skipped.values()),
       texts: Object.freeze([...texts]),
     };
-  });
+  }).pipe(withNativeConfigObservationView);
 
 const adoptNativeMcpEntry = (
   location: WorkspaceLocationService,

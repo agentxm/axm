@@ -4,9 +4,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
+import {
+  SettingsReader,
+  WorkspaceLocation,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { AdoptMcpServers } from "../index.js";
-import { prepareMcpAdoptionTargets } from "./apply.js";
+import { collectMcpNativeSources, prepareMcpAdoptionTargets } from "./apply.js";
 import { makeConfigurationFixture, type ConfigurationFixtureOptions } from "../testing.js";
 
 const remote = { type: "http", url: "https://mcp.example.test/alpha" };
@@ -240,6 +246,125 @@ describe("native MCP discovery for import", () => {
           preapprovedPlanExecution,
         );
         expect(Effect.isEffect(refused)).toBe(true);
+      }),
+    ),
+  );
+});
+
+const sharedProjectFile = (agents: ReadonlyArray<string>): ConfigurationFixtureOptions => ({
+  settings: { agents },
+  files: { ".mcp.json": JSON.stringify({ mcpServers: { alpha: remote } }) },
+});
+
+/**
+ * Discover native sources once, counting only that discovery's content reads
+ * of the workspace's `.mcp.json` and its native parses by format.
+ */
+const discoverSharedFile = Effect.gen(function* () {
+  const recording = yield* FileSystemRecorder;
+  const location = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
+  const work = workObservations(false);
+  recording.reset();
+  const discovery = yield* withWorkspaceReadView(collectMcpNativeSources(location, settings)).pipe(
+    work.provide,
+  );
+  const filePath = discovery.sources[0]?.filePath ?? "";
+  const parses = work.facts
+    .filter((fact) => fact.kind === "axm.parse.native")
+    .map((fact) => fact.attributes["axm.format"]);
+  return {
+    discovery,
+    filePath,
+    reads: recording.contentReads(filePath),
+    calls: recording.counts(filePath),
+    parses,
+  };
+});
+
+describe("native MCP discovery of a file several configured agents declare", () => {
+  it.effect("reads, parses and fingerprints the shared file once for every agent", () =>
+    withRecordedFixture(
+      sharedProjectFile(["claude-code", "qoder"]),
+      Effect.gen(function* () {
+        const { discovery, filePath, reads, calls, parses } = yield* discoverSharedFile;
+        const [first, second] = discovery.sources;
+
+        expect(discovery.sources.map((source) => source.agentId)).toEqual(["claude-code", "qoder"]);
+        expect(second?.filePath).toBe(filePath);
+        expect(second?.fingerprint).toBe(first?.fingerprint);
+        expect(second?.servers).toEqual(first?.servers);
+        // Every source owns its servers value.
+        expect(second?.servers).not.toBe(first?.servers);
+        expect(discovery.texts.map((text) => text.path)).toEqual([filePath, filePath]);
+        expect({ reads, parses }).toEqual({ reads: 1, parses: ["json"] });
+        // One route check and one read for the file, as for a single agent.
+        expect(calls).toEqual({ readLink: 1, stat: 1, realPath: 1, readFile: 1 });
+      }),
+    ),
+  );
+
+  it.effect("reads the shared file once but parses each declared grammar on its own", () =>
+    withRecordedFixture(
+      sharedProjectFile(["claude-code", "codebuddy"]),
+      Effect.gen(function* () {
+        const { discovery, reads, parses } = yield* discoverSharedFile;
+
+        expect(discovery.sources.map((source) => source.agentId)).toEqual([
+          "claude-code",
+          "codebuddy",
+        ]);
+        expect(discovery.sources.map((source) => source.target.format)).toEqual(["json", "jsonc"]);
+        expect({ reads, parses }).toEqual({ reads: 1, parses: ["json", "jsonc"] });
+      }),
+    ),
+  );
+
+  it.effect("does no more work for one agent's file", () =>
+    withRecordedFixture(
+      sharedProjectFile(["claude-code"]),
+      Effect.gen(function* () {
+        const { discovery, reads, calls, parses } = yield* discoverSharedFile;
+
+        expect(discovery.sources.map((source) => source.agentId)).toEqual(["claude-code"]);
+        expect({ reads, parses }).toEqual({ reads: 1, parses: ["json"] });
+        expect(calls).toEqual({ readLink: 1, stat: 1, realPath: 1, readFile: 1 });
+      }),
+    ),
+  );
+
+  it.effect("parses a Copilot project file once for its container check and its servers", () =>
+    withRecordedFixture(
+      sharedProjectFile(["github-copilot-cli"]),
+      Effect.gen(function* () {
+        const { discovery, reads, parses } = yield* discoverSharedFile;
+
+        expect(discovery.sources.map((source) => source.agentId)).toEqual(["github-copilot-cli"]);
+        expect({ reads, parses }).toEqual({ reads: 1, parses: ["json"] });
+      }),
+    ),
+  );
+
+  it.effect("reads the shared file once less across discovery and preparation", () =>
+    withRecordedFixture(
+      sharedProjectFile(["claude-code", "qoder"]),
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const warm = yield* AdoptMcpServers.prepare(["alpha"]);
+        const filePath = warm.preflight.candidates[0]?.adoptions[0]?.filePath ?? "";
+
+        recording.reset();
+        const discovered = yield* AdoptMcpServers.discover(["alpha"]);
+        const discoverReads = recording.contentReads(filePath);
+
+        recording.reset();
+        const prepared = yield* AdoptMcpServers.prepare(["alpha"]);
+        const prepareReads = recording.contentReads(filePath);
+
+        expect(discovered.preflight).toEqual(prepared.preflight);
+        expect(prepared.preflight.candidates.map((candidate) => candidate.name)).toEqual(["alpha"]);
+        // Discovery's one read, and the competing-entry read of each agent's target.
+        expect({ discoverReads, prepareReads }).toEqual({ discoverReads: 3, prepareReads: 3 });
       }),
     ),
   );

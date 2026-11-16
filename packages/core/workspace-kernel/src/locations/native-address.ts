@@ -452,6 +452,21 @@ export const assertNativeMutationWithin = (
   mutation: "entry" | "content" = "entry",
   ownerRoot: string = root,
 ): Effect.Effect<NativeEntryAddress, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(
+    admitNativeMutationWithin(root, target, mutation, ownerRoot),
+    ({ address }) => address,
+  );
+
+/**
+ * `assertNativeMutationWithin`, returning the fresh resolutions it admitted:
+ * the physical roots, the entry's address and the followed stat behind it.
+ */
+export const admitNativeMutationWithin = (
+  root: string,
+  target: string,
+  mutation: "entry" | "content" = "entry",
+  ownerRoot: string = root,
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const physicalRoot = yield* resolveNativeReferent(root);
@@ -459,14 +474,15 @@ export const assertNativeMutationWithin = (
       path.resolve(root) === path.resolve(ownerRoot)
         ? physicalRoot
         : yield* resolveNativeReferent(ownerRoot);
-    const address = yield* resolveNativeEntryWithin(target, physicalRoot);
-    return yield* assertResolvedNativeMutationWithin({
+    const { address, referent } = yield* resolveObservedNativeEntryWithin(target, physicalRoot);
+    yield* assertResolvedNativeMutationWithin({
       physicalRoot,
       physicalOwnerRoot,
       target,
       mutation,
       address,
     });
+    return { physicalRoot, physicalOwnerRoot, address, referent };
   });
 
 /** Internal to one admission: callers supply only its fresh resolutions, never retained witnesses. */

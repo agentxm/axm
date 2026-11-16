@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
+  admitNativeMutationWithin,
   assertResolvedNativeMutationWithin,
   observeNativeReferent,
   resolveNativeEntryWithin,
@@ -15,6 +16,7 @@ import {
   NativeLocationError,
   resolveNativeEntry,
   resolveNativeReferent,
+  type NativeEntryAddress,
   type NativeReferentObservation,
 } from "./native-address.js";
 
@@ -110,17 +112,10 @@ const identityOfObserved = (target: string, observed: NativeReferentObservation)
 const identityOf = (target: string, info: FileSystem.File.Info) =>
   identityOfObserved(target, observeNativeReferent(info));
 
-/** Capture proof only after a successful managed creation/publication. */
-export const captureContainerIdentity = (
-  args: ContainerIdentityContext,
-): Effect.Effect<ContainerIdentity, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+/** The live owner observation that opens every capture. */
+const observeOwner = (ownerRoot: string, ownerPath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const nativeRoot = path.resolve(args.nativeRoot);
-    const ownerRoot = path.resolve(args.ownerRoot ?? nativeRoot);
-    const identityOwnerRoot = path.resolve(args.identityOwnerRoot ?? ownerRoot);
-    const ownerPath = yield* resolveNativeReferent(identityOwnerRoot);
     const ownerInfo = yield* fs.stat(ownerPath);
     if (ownerInfo.type !== "Directory")
       return yield* new NativeLocationError({
@@ -129,23 +124,31 @@ export const captureContainerIdentity = (
         cause: "workspace-owner-not-directory",
       });
     const owner = { path: ownerPath, identity: yield* identityOf(ownerPath, ownerInfo) };
-    const target = path.resolve(args.target);
-    const rootPath =
-      nativeRoot === identityOwnerRoot ? ownerPath : yield* resolveNativeReferent(nativeRoot);
-    const physicalOwnerRoot =
-      ownerRoot === identityOwnerRoot
-        ? ownerPath
-        : ownerRoot === nativeRoot
-          ? rootPath
-          : yield* resolveNativeReferent(ownerRoot);
-    const { address, referent } = yield* resolveObservedNativeEntryWithin(target, rootPath);
-    yield* assertResolvedNativeMutationWithin({
-      physicalRoot: rootPath,
-      physicalOwnerRoot,
-      target,
-      mutation: "content",
-      address,
-    });
+    return { ownerInfo, owner };
+  });
+
+/** One capture's resolved routes and owner observation, before the container is observed. */
+interface AdmittedContainer {
+  readonly nativeRoot: string;
+  readonly ownerRoot: string;
+  readonly identityOwnerRoot: string;
+  readonly target: string;
+  readonly aliases: ReadonlyArray<string>;
+  readonly ownerInfo: FileSystem.File.Info;
+  readonly owner: typeof LocatedIdentity.Type;
+  readonly rootPath: string;
+  readonly address: NativeEntryAddress;
+  readonly referent: Option.Option<NativeReferentObservation>;
+}
+
+/** Observe the admitted container, its root, parents and aliases into its identity. */
+const completeContainerIdentity = (admitted: AdmittedContainer) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { nativeRoot, ownerRoot, identityOwnerRoot, target, ownerInfo, owner, rootPath } =
+      admitted;
+    const { address, referent } = admitted;
     const physicalPath = address.referentPath;
     if (physicalPath === undefined || address.kind === "absent")
       return yield* new NativeLocationError({
@@ -190,7 +193,7 @@ export const captureContainerIdentity = (
     }
     const aliases: Array<typeof AliasIdentity.Type> = [];
     for (const alias of [
-      ...new Set([target, ...(args.aliases ?? []).map((value) => path.resolve(value))]),
+      ...new Set([target, ...admitted.aliases.map((value) => path.resolve(value))]),
     ].sort()) {
       const resolved =
         alias === target ? address : yield* resolveNativeEntryWithin(alias, rootPath);
@@ -219,13 +222,102 @@ export const captureContainerIdentity = (
       entry,
       aliases,
     };
-  }).pipe(
-    Effect.mapError((cause) =>
-      cause instanceof NativeLocationError
-        ? cause
-        : new NativeLocationError({ target: args.target, reason: "unreadable", cause }),
-    ),
-  );
+  });
+
+const asCaptureFailure =
+  (target: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.mapError((cause) =>
+        cause instanceof NativeLocationError
+          ? cause
+          : new NativeLocationError({ target, reason: "unreadable", cause }),
+      ),
+    );
+
+/** Capture proof only after a successful managed creation/publication. */
+export const captureContainerIdentity = (
+  args: ContainerIdentityContext,
+): Effect.Effect<ContainerIdentity, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const nativeRoot = path.resolve(args.nativeRoot);
+    const ownerRoot = path.resolve(args.ownerRoot ?? nativeRoot);
+    const identityOwnerRoot = path.resolve(args.identityOwnerRoot ?? ownerRoot);
+    const ownerPath = yield* resolveNativeReferent(identityOwnerRoot);
+    const { ownerInfo, owner } = yield* observeOwner(ownerRoot, ownerPath);
+    const target = path.resolve(args.target);
+    const rootPath =
+      nativeRoot === identityOwnerRoot ? ownerPath : yield* resolveNativeReferent(nativeRoot);
+    const physicalOwnerRoot =
+      ownerRoot === identityOwnerRoot
+        ? ownerPath
+        : ownerRoot === nativeRoot
+          ? rootPath
+          : yield* resolveNativeReferent(ownerRoot);
+    const { address, referent } = yield* resolveObservedNativeEntryWithin(target, rootPath);
+    yield* assertResolvedNativeMutationWithin({
+      physicalRoot: rootPath,
+      physicalOwnerRoot,
+      target,
+      mutation: "content",
+      address,
+    });
+    return yield* completeContainerIdentity({
+      nativeRoot,
+      ownerRoot,
+      identityOwnerRoot,
+      target,
+      aliases: args.aliases ?? [],
+      ownerInfo,
+      owner,
+      rootPath,
+      address,
+      referent,
+    });
+  }).pipe(asCaptureFailure(args.target));
+
+/**
+ * Admit a content mutation of `target` beneath `nativeRoot` exactly as
+ * `assertNativeMutationWithin(nativeRoot, target, "content", ownerRoot)` does,
+ * then capture its identity from that admission's own resolutions. The result
+ * equals that admission followed at once by `captureContainerIdentity` of the
+ * same context; every later capture or verification observes afresh.
+ */
+export const admitAndCaptureContainerIdentity = (args: {
+  readonly nativeRoot: string;
+  readonly ownerRoot: string;
+  readonly target: string;
+  readonly identityOwnerRoot?: never;
+  readonly aliases?: never;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const admitted = yield* admitNativeMutationWithin(
+      args.nativeRoot,
+      args.target,
+      "content",
+      args.ownerRoot,
+    );
+    const identity = yield* Effect.gen(function* () {
+      const nativeRoot = path.resolve(args.nativeRoot);
+      const ownerRoot = path.resolve(args.ownerRoot);
+      const { ownerInfo, owner } = yield* observeOwner(ownerRoot, admitted.physicalOwnerRoot);
+      return yield* completeContainerIdentity({
+        nativeRoot,
+        ownerRoot,
+        identityOwnerRoot: ownerRoot,
+        target: path.resolve(args.target),
+        aliases: [],
+        ownerInfo,
+        owner,
+        rootPath: admitted.physicalRoot,
+        address: admitted.address,
+        referent: admitted.referent,
+      });
+    }).pipe(asCaptureFailure(args.target));
+    return { address: admitted.address, identity };
+  });
 
 /** A copied workspace, recreated entry, replaced parent, or retargeted alias expires proof. */
 export const verifyContainerIdentity = (

@@ -1,4 +1,4 @@
-import { unlinkSync } from "node:fs";
+import { linkSync, symlinkSync, unlinkSync } from "node:fs";
 
 import {
   FileSystemRecorder,
@@ -384,6 +384,145 @@ describe("document round-trip structural inverse", () => {
           remaining: [],
         });
       }).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+describe("document round-trip preparation of an existing document", () => {
+  /** Prepare one publication, counting only the preparation's work on each named path. */
+  const prepareCounted = (
+    args: { readonly nativeRoot: string; readonly runtimeDir: string; readonly target: string },
+    before: string | undefined,
+    counted: ReadonlyArray<string>,
+  ) =>
+    Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      const locks = yield* WorkspaceFileWriteLocks;
+      recording.reset();
+      const prepared = yield* prepareDocumentRoundTrip({
+        context: {
+          nativeRoot: args.nativeRoot,
+          runtimeDir: args.runtimeDir,
+          eligible: true,
+          locks,
+        },
+        target: args.target,
+        before,
+        after: '{"a":1,"b":2}\n',
+        unitPrefix: `["doc",`,
+        insertions: [owned("b")],
+        withdrawals: [],
+        acceptRestored: () => Effect.succeed(true),
+        mapFailure: (failedTarget, cause) => ({ target: failedTarget, cause }),
+      });
+      const work = counted.map((target) => {
+        const counts = recording.counts(target);
+        return {
+          target,
+          realPath: counts.realPath ?? 0,
+          readLink: counts.readLink ?? 0,
+          stat: counts.stat ?? 0,
+          access: counts.access ?? 0,
+        };
+      });
+      recording.reset();
+      yield* prepared.revalidate;
+      const revalidated = recording.counts(args.target);
+      return {
+        work,
+        revalidate: { realPath: revalidated.realPath ?? 0, readLink: revalidated.readLink ?? 0 },
+      };
+    });
+
+  it.effect("admits a project document once and captures its identity from that admission", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const fs = yield* FileSystem.FileSystem;
+      const target = `${paths.root}/doc.json`;
+      yield* fs.writeFileString(target, '{"a":1}\n');
+      const { work, revalidate } = yield* transaction(
+        prepareCounted(
+          { nativeRoot: paths.root, runtimeDir: paths.runtimeDir, target },
+          '{"a":1}\n',
+          [target, paths.root],
+        ),
+      ).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
+      expect(work).toEqual([
+        { target, realPath: 1, readLink: 1, stat: 1, access: 0 },
+        { target: paths.root, realPath: 1, readLink: 0, stat: 1, access: 0 },
+      ]);
+      // Revalidation still captures the document afresh.
+      expect(revalidate).toEqual({ realPath: 1, readLink: 1 });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("admits a user-scope document once beneath its separate native root", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const fs = yield* FileSystem.FileSystem;
+      const owner = `${paths.root}/.axm/workspace`;
+      const runtimeDir = `${owner}/.axm`;
+      const target = `${owner}/axm.json`;
+      yield* fs.makeDirectory(runtimeDir, { recursive: true });
+      yield* fs.writeFileString(target, '{"a":1}\n');
+      const { work } = yield* transaction(
+        prepareCounted({ nativeRoot: paths.root, runtimeDir, target }, '{"a":1}\n', [
+          target,
+          `${paths.root}/.axm/axm.json`,
+          `${paths.root}/.axm/.axm`,
+        ]),
+      ).pipe(Effect.provide(recordedSettlement(paths.root, runtimeDir)));
+      expect(work).toEqual([
+        { target, realPath: 1, readLink: 1, stat: 1, access: 0 },
+        { target: `${paths.root}/.axm/axm.json`, realPath: 0, readLink: 0, stat: 0, access: 1 },
+        { target: `${paths.root}/.axm/.axm`, realPath: 0, readLink: 0, stat: 0, access: 1 },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("keeps an absent document's preparation work", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const target = `${paths.root}/doc.json`;
+      const { work } = yield* transaction(
+        prepareCounted(
+          { nativeRoot: paths.root, runtimeDir: paths.runtimeDir, target },
+          undefined,
+          [target, paths.root],
+        ),
+      ).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)));
+      expect(work).toEqual([
+        { target, realPath: 0, readLink: 2, stat: 1, access: 0 },
+        { target: paths.root, realPath: 4, readLink: 1, stat: 2, access: 0 },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("still refuses a hardlinked or dangling document before capturing it", () =>
+    Effect.gen(function* () {
+      const paths = yield* fixture;
+      const fs = yield* FileSystem.FileSystem;
+      const linked = `${paths.root}/linked.json`;
+      const dangling = `${paths.root}/dangling.json`;
+      yield* fs.writeFileString(linked, '{"a":1}\n');
+      linkSync(linked, `${paths.root}/linked-copy.json`);
+      symlinkSync("missing.json", dangling);
+      const refusal = (target: string) =>
+        transaction(
+          prepareCounted(
+            { nativeRoot: paths.root, runtimeDir: paths.runtimeDir, target },
+            '{"a":1}\n',
+            [],
+          ),
+        ).pipe(Effect.provide(recordedSettlement(paths.root, paths.runtimeDir)), Effect.flip);
+      expect(yield* refusal(linked)).toMatchObject({
+        target: linked,
+        cause: { _tag: "NativeLocationError", reason: "hardlink" },
+      });
+      expect(yield* refusal(dangling)).toMatchObject({
+        target: dangling,
+        cause: { _tag: "NativeLocationError", reason: "dangling-leaf" },
+      });
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

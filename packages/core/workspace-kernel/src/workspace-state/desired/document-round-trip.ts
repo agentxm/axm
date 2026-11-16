@@ -9,6 +9,7 @@ import * as Path from "effect/Path";
 import { writeFileAtomic } from "@agentxm/host-primitives";
 import {
   NativeEntryRemoval,
+  admitAndCaptureContainerIdentity,
   applyStructuralInverse,
   assertNativeMutationWithin,
   captureContainerIdentity,
@@ -84,15 +85,22 @@ export const prepareDocumentRoundTrip = <E>(args: {
       ownerRoot: path.dirname(args.context.runtimeDir),
       target: args.target,
     };
-    const address = yield* assertNativeMutationWithin(
-      proof.nativeRoot,
-      proof.target,
-      "content",
-      proof.ownerRoot,
-    );
+    // An existing document's prior identity is captured from the admission's own resolutions.
+    const admitted =
+      args.before === undefined
+        ? {
+            address: yield* assertNativeMutationWithin(
+              proof.nativeRoot,
+              proof.target,
+              "content",
+              proof.ownerRoot,
+            ),
+            identity: undefined,
+          }
+        : yield* admitAndCaptureContainerIdentity(proof);
+    const address = admitted.address;
     const physicalPath = address.referentPath ?? address.entryPath;
-    const priorIdentity =
-      args.before === undefined ? undefined : yield* captureContainerIdentity(proof);
+    const priorIdentity = admitted.identity;
     const parentProof = { ...proof, target: path.dirname(args.target) };
     const parentIdentity =
       args.before === undefined ? yield* captureContainerIdentity(parentProof) : undefined;

@@ -11,6 +11,7 @@
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
+  AcceptedResolutionWriter,
   UNCONSTRAINED_DESIRED_NODE,
   RulesLockMapSchema,
   type RulesLockMap,
@@ -23,22 +24,29 @@ import {
   AcceptedResolutionWriterTest,
   MockWorkspaceTransactionScope,
   treeIntegrityOfSync,
+  exactVersion,
+  extensionName,
+  handle,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   SourceHostProviders,
+  SourceNotResolvable,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
 import { RuleManager } from "@agentxm/workspace-kernel/materialization";
@@ -46,12 +54,17 @@ import {
   applyPlannedProjections,
   applyProjectionPlans,
   captureAgentOutputAuthority,
+  observeObservedPlans,
   observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
+import type {
+  LocalRuleRef,
+  RegistryRuleRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { RuleManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 
@@ -212,8 +225,20 @@ describe("RuleManager graph-derived region projection", () => {
   const makeTestLayer = (args: {
     readonly graph: DesiredStateGraph;
     readonly locked: RulesLockMap;
+    /** Replaces the native filesystem every service in the layer uses. */
+    readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
+    /** Replaces the source host providers, which otherwise serve nothing. */
+    readonly providers?: SourceHostProvidersService;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
+    const wrapFileSystem = args.fileSystem;
+    const platform =
+      wrapFileSystem === undefined
+        ? NativePlatformTest
+        : Layer.provideMerge(
+            Layer.effect(FileSystem.FileSystem, Effect.map(FileSystem.FileSystem, wrapFileSystem)),
+            NativePlatformTest,
+          );
     return RuleManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
@@ -231,10 +256,10 @@ describe("RuleManager graph-derived region projection", () => {
         ),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
-      Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
+      Layer.provide(Layer.succeed(SourceHostProviders, args.providers ?? providersStub)),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), platform),
       ),
     );
   };
@@ -388,6 +413,54 @@ describe("RuleManager graph-derived region projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("decodes each contributor's manifest once while planning the region", () => {
+    writeRulePackage("acquired-rule", { priority: 10 });
+    writeAuthoredRulePackage("authored-rule");
+    const acquiredRoot = nodePath.join(
+      baseDir,
+      "agent_extensions",
+      "registry.agentxm.ai",
+      OWNER,
+      "rules",
+      "acquired-rule",
+    );
+    const authoredRoot = nodePath.join(baseDir, "rules", "authored-rule");
+    let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+    const layer = makeTestLayer({
+      graph: completeGraph([settingsRuleNode("acquired-rule"), workspaceRuleNode("authored-rule")]),
+      locked: decodeLockMap({ "acquired-rule": registryLock(baseDir, "acquired-rule") }),
+      fileSystem: (native) => {
+        const recorded = makeRecordingFileSystem(native);
+        recording = recorded.recording;
+        return recorded.fileSystem;
+      },
+    });
+    const observed = workObservations(false);
+    return Effect.gen(function* () {
+      const manager = yield* RuleManager;
+      recording?.reset();
+      const observations = yield* manager
+        .observedProjectionPlans(undefined, observeObservedPlans)
+        .pipe(observed.provide);
+
+      expect(observations).toEqual([
+        expect.objectContaining({
+          expectedContributors: ["@acme/rules/acquired-rule", "@acme/rules/authored-rule"],
+        }),
+      ]);
+      // The acquired rule: the observation's manifest read and its tree hash.
+      expect(recording?.contentReads(nodePath.join(acquiredRoot, "rule.json"))).toBe(2);
+      // The authored rule: the observation's manifest read only.
+      expect(recording?.contentReads(nodePath.join(authoredRoot, "rule.json"))).toBe(1);
+      // The body is read once for rendering, plus the acquired tree hash.
+      expect(recording?.contentReads(nodePath.join(acquiredRoot, "src", "RULE.md"))).toBe(2);
+      expect(recording?.contentReads(nodePath.join(authoredRoot, "src", "RULE.md"))).toBe(1);
+      expect(
+        observed.facts.filter((fact) => fact.kind === "axm.hash.materialized-tree"),
+      ).toHaveLength(1);
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect("renders a rule reached both directly and through a pack exactly once", () => {
     writeRulePackage("dual-route-rule");
     const direct = settingsRuleNode("dual-route-rule");
@@ -442,5 +515,303 @@ describe("RuleManager graph-derived region projection", () => {
       expect(error).toMatchObject({ _tag: "DesiredStateIncomplete" });
       expect(readInstructions()).toBe("# Project\n");
     }).pipe(Effect.provide(layer));
+  });
+
+  describe("instruction target route work", () => {
+    /** One authored Rule over an existing instruction file, with every call recorded. */
+    const routedLayer = () => {
+      writeAuthoredRulePackage("routed-rule");
+      const holder: { recording?: FileSystemRecording } = {};
+      const layer = makeTestLayer({
+        graph: completeGraph([workspaceRuleNode("routed-rule")]),
+        locked: decodeLockMap({}),
+        fileSystem: (native) => {
+          const recorded = makeRecordingFileSystem(native);
+          holder.recording = recorded.recording;
+          return recorded.fileSystem;
+        },
+      });
+      /** Route probes of `paths` that `effect` makes, after setup noise is reset. */
+      const probes = <A, E, R>(paths: ReadonlyArray<string>, effect: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          holder.recording?.reset();
+          const value = yield* effect;
+          const work = paths.map((target) => {
+            const counts = holder.recording?.counts(target) ?? {};
+            return {
+              readLink: counts.readLink ?? 0,
+              stat: counts.stat ?? 0,
+              realPath: counts.realPath ?? 0,
+            };
+          });
+          return { value, work };
+        });
+      return { layer, probes };
+    };
+    /** What an observation reports, with the temporary workspace spelled `<root>`. */
+    const reported = (value: unknown): unknown =>
+      JSON.parse(JSON.stringify(value).replaceAll(baseDir, "<root>"));
+
+    it.effect("keys the region generation from the target's admission", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const generation = yield* probes([instructionsPath()], manager.regionGeneration);
+        // The target's admission only; resolving its key again probed it twice.
+        expect(generation.work).toEqual([{ readLink: 1, stat: 1, realPath: 1 }]);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("keys the eager observation from the plan's admission and later ones live", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const eager = yield* probes(
+          [instructionsPath(), baseDir],
+          manager.observedProjectionPlans(undefined, observeObservedPlans),
+        );
+        const retained = yield* manager.projectionPlans();
+        const later = yield* probes(
+          [instructionsPath(), baseDir],
+          observeProjectionPlans(retained),
+        );
+        // The eager observation keys the row from the plan's admission and
+        // admits the target once in its dry run. A later observation resolves
+        // the key live. Measured before either: 7, 4 and 6, 3 readLink probes.
+        expect({ eager: eager.work, later: later.work }).toEqual({
+          eager: [
+            { readLink: 5, stat: 5, realPath: 5 },
+            { readLink: 3, stat: 3, realPath: 6 },
+          ],
+          later: [
+            { readLink: 5, stat: 5, realPath: 5 },
+            { readLink: 2, stat: 2, realPath: 5 },
+          ],
+        });
+        expect(reported(eager.value)).toEqual(reported(later.value));
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("keys a second observation inside the producing call live", () => {
+      nodeFs.writeFileSync(instructionsPath(), "# Project\n");
+      const { layer, probes } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const second = yield* manager.observedProjectionPlans(undefined, (observed) =>
+          observeObservedPlans(observed).pipe(
+            Effect.andThen(
+              probes([instructionsPath(), baseDir], observeProjectionPlans(observed.plans)),
+            ),
+          ),
+        );
+        // The plan's admission keys its eager observation only; a consumer's
+        // fresh observation in the same call resolves the key live, as a
+        // later observation of a retained plan does.
+        expect(second.work).toEqual([
+          { readLink: 5, stat: 5, realPath: 5 },
+          { readLink: 2, stat: 2, realPath: 5 },
+        ]);
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("reports a symlinked instruction file alike in eager and later observations", () => {
+      nodeFs.writeFileSync(nodePath.join(baseDir, "original.md"), "# Project\n");
+      nodeFs.symlinkSync("original.md", instructionsPath());
+      const { layer } = routedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        const eager = yield* manager.observedProjectionPlans(undefined, observeObservedPlans);
+        const later = yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans));
+        expect(reported(eager)).toEqual(reported(later));
+        expect(reported(eager)).toEqual([
+          expect.objectContaining({
+            path: "AGENTS.md#rules",
+            current: false,
+            nativeLocations: [
+              expect.objectContaining({
+                address: { kind: "region", path: "<root>/original.md", region: "rules" },
+                aliases: expect.arrayContaining(["<root>/AGENTS.md", "<root>/original.md"]),
+              }),
+            ],
+          }),
+        ]);
+        yield* applyPlannedProjections(manager);
+        expect(nodeFs.readFileSync(nodePath.join(baseDir, "original.md"), "utf8")).toContain(
+          "Guidance for routed-rule.",
+        );
+        expect(nodeFs.lstatSync(instructionsPath()).isSymbolicLink()).toBe(true);
+
+        // The row is keyed by the link's own location, not its referent.
+        const rows = yield* (yield* AcceptedResolutionWriter).projectionRows("rules");
+        expect([...rows.keys()]).toEqual(["AGENTS.md"]);
+        const recorded = [...rows.values()][0]?.row.gen;
+        expect(recorded).toBeDefined();
+        // Region generation and a new producing call's eager observation key
+        // that row from the admission, and find it current.
+        expect(yield* manager.regionGeneration).toBe(recorded);
+        const eagerAfter = yield* manager.observedProjectionPlans(undefined, observeObservedPlans);
+        const laterAfter = yield* manager
+          .projectionPlans()
+          .pipe(Effect.flatMap(observeProjectionPlans));
+        expect(eagerAfter).toEqual([
+          expect.objectContaining({ path: "AGENTS.md#rules", present: true, current: true }),
+        ]);
+        expect(eagerAfter[0]).not.toHaveProperty("lastWrite");
+        expect(reported(eagerAfter)).toEqual(reported(laterAfter));
+      }).pipe(Effect.provide(layer));
+    });
+  });
+
+  describe("prepared Rule inputs", () => {
+    const localRuleRef = (name: string): LocalRuleRef => {
+      const root = nodePath.join(baseDir, "rules", name);
+      return {
+        type: "rule",
+        refType: "local",
+        owner: handle(OWNER),
+        name: extensionName(name),
+        source: { type: "local", path: root },
+        sourcePath: nodePath.join("rules", name),
+        location: pathToFileURL(root).href,
+        rule: { name: extensionName(name) },
+      };
+    };
+    /** A manager with no installed Rules whose filesystem records every call after setup. */
+    const recordedLayer = (providers?: SourceHostProvidersService) => {
+      const holder: { recording?: FileSystemRecording } = {};
+      const layer = makeTestLayer({
+        graph: completeGraph([]),
+        locked: decodeLockMap({}),
+        ...(providers === undefined ? {} : { providers }),
+        fileSystem: (native) => {
+          const recorded = makeRecordingFileSystem(native);
+          holder.recording = recorded.recording;
+          return recorded.fileSystem;
+        },
+      });
+      return { layer, holder };
+    };
+
+    it.effect("resolves the instruction source target once per preparation", () => {
+      writeAuthoredRulePackage("alpha");
+      writeAuthoredRulePackage("beta");
+      const { layer, holder } = recordedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        /** The route probes of the instruction file that `effect` makes. */
+        const probes = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          Effect.gen(function* () {
+            holder.recording?.reset();
+            yield* effect;
+            return holder.recording?.calls({ path: instructionsPath(), method: "readLink" }).length;
+          });
+        const counted = {
+          nothingPrepared: yield* probes(
+            manager.observedProjectionPlans(undefined, (observed) =>
+              Effect.succeed(observed.plans),
+            ),
+          ),
+          noRefs: yield* probes(manager.prepareProjection([])),
+          oneRef: yield* probes(manager.prepareProjection([localRuleRef("alpha")])),
+          twoRefs: yield* probes(
+            manager.prepareProjection([localRuleRef("alpha"), localRuleRef("beta")]),
+          ),
+        };
+        // Resolving the target probes the absent instruction file twice; the
+        // plan observation and each input's overlap check probe it too.
+        // Measured before one preparation shared its resolution: 11, 11, 17
+        // and 23; before the eager observation's dry run took its admission
+        // for the target route: 11, 11, 15 and 19; before the eager
+        // observation keyed the region from the plan's admission: 9, 9, 13
+        // and 17.
+        expect(counted).toEqual({ nothingPrepared: 7, noRefs: 7, oneRef: 11, twoRefs: 15 });
+      }).pipe(Effect.provide(layer));
+    });
+
+    it.effect("refuses an unwritable instruction source at the first prepared input", () => {
+      writeAuthoredRulePackage("alpha");
+      writeAuthoredRulePackage("beta");
+      const outside = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-rules-outside-"));
+      nodeFs.writeFileSync(nodePath.join(outside, "AGENTS.md"), "# Elsewhere\n");
+      nodeFs.symlinkSync(nodePath.join(outside, "AGENTS.md"), instructionsPath());
+      const { layer, holder } = recordedLayer();
+      return Effect.gen(function* () {
+        const manager = yield* RuleManager;
+        holder.recording?.reset();
+        const failure = yield* manager
+          .prepareProjection([localRuleRef("alpha"), localRuleRef("beta")])
+          .pipe(Effect.flip);
+        expect(failure).toMatchObject({
+          _tag: "RuleDefinitionInvalid",
+          detail: "Rule instruction source is not writable: AGENTS.md",
+        });
+        // The second input is never read once the first input's target is refused.
+        expect(
+          holder.recording?.contentReads(nodePath.join(baseDir, "rules", "beta", "rule.json")),
+        ).toBe(0);
+        expect(nodeFs.readFileSync(nodePath.join(outside, "AGENTS.md"), "utf8")).toBe(
+          "# Elsewhere\n",
+        );
+      }).pipe(
+        Effect.provide(layer),
+        Effect.ensuring(
+          Effect.sync(() => nodeFs.rmSync(outside, { recursive: true, force: true })),
+        ),
+      );
+    });
+
+    it.effect(
+      "reports a first input's fetch failure before an unwritable instruction source",
+      () => {
+        writeAuthoredRulePackage("beta");
+        const outside = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-rules-outside-"));
+        nodeFs.writeFileSync(nodePath.join(outside, "AGENTS.md"), "# Elsewhere\n");
+        nodeFs.symlinkSync(nodePath.join(outside, "AGENTS.md"), instructionsPath());
+        const unavailable: RegistryRuleRef = {
+          type: "rule",
+          refType: "registry",
+          owner: handle(OWNER),
+          name: extensionName("alpha"),
+          version: exactVersion("1.0.0"),
+          integrity: Option.none(),
+          publisherBindingId: "hbnd_test",
+          packages: [],
+          source: {
+            type: "registry",
+            name: "agentxm",
+            location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+            owner: Option.none(),
+          },
+          rule: { name: extensionName("alpha") },
+        };
+        const { layer, holder } = recordedLayer({
+          ...providersStub,
+          fetch: () =>
+            Effect.fail(
+              new SourceNotResolvable({ category: "network", detail: "Registry unavailable" }),
+            ),
+        });
+        return Effect.gen(function* () {
+          const manager = yield* RuleManager;
+          holder.recording?.reset();
+          const failure = yield* manager
+            .prepareProjection([unavailable, localRuleRef("beta")])
+            .pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "SourceNotResolvable",
+            detail: "Registry unavailable",
+          });
+          // The instruction source is first resolved after the first input's fetch.
+          expect(holder.recording?.calls({ path: instructionsPath() }).length).toBe(0);
+        }).pipe(
+          Effect.provide(layer),
+          Effect.ensuring(
+            Effect.sync(() => nodeFs.rmSync(outside, { recursive: true, force: true })),
+          ),
+        );
+      },
+    );
   });
 });

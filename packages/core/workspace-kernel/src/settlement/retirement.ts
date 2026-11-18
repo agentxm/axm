@@ -1,15 +1,21 @@
 import { NativeEntryRemoval } from "../locations/index.js";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { updateTransactionLedger } from "./ledger-admission.js";
+import { modifyTransactionLedger } from "./ledger-admission.js";
 
-import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../locations/index.js";
+import {
+  assertNativeMutationWithinRoots,
+  resolveNativeReferent,
+  type NativeEntryAddress,
+} from "../locations/index.js";
 import {
   CurrentWorkspaceClosure,
   CurrentWorkspaceTransaction,
-  protectInContext,
+  protectTransition,
+  type ProtectObservation,
 } from "./context.js";
 import {
   WorkspaceRestorationError,
@@ -17,8 +23,29 @@ import {
   type WorkspaceRecoveryEntry,
 } from "./errors.js";
 import { recordFootprint } from "./footprint-recorder.js";
-import type { Snapshot } from "./ledger.js";
-import { equalPathStates, observePathState } from "./path-state.js";
+import type { Snapshot, TransactionLedger } from "./ledger.js";
+import { equalPathStates, observePathState, observePathStateExcept } from "./path-state.js";
+
+/** Whether an observed root value is an entry of the fresh address kind. */
+const sameEntryKind = (root: string | undefined, kind: NativeEntryAddress["kind"]): boolean => {
+  switch (kind) {
+    case "symlink":
+      return root?.startsWith("link:") === true;
+    case "file":
+      return root?.startsWith("file:") === true;
+    case "directory":
+      return root?.startsWith("directory:") === true;
+    default:
+      return false;
+  }
+};
+
+/** The retirement's outcome and the ledger it commits: the protected one unless it retired. */
+const settle = (
+  exit: Exit.Exit<TransactionLedger, WorkspaceSnapshotError>,
+  protectedLedger: TransactionLedger,
+): readonly [Exit.Exit<void, WorkspaceSnapshotError>, TransactionLedger] =>
+  Exit.isSuccess(exit) ? [Exit.void, exit.value] : [Exit.failCause(exit.cause), protectedLedger];
 
 /**
  * Removal capability for an owner that has just verified its unit's ownership.
@@ -47,8 +74,7 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
     return;
   }
   const context = current.value;
-  yield* protectInContext(context, target, closure);
-  yield* updateTransactionLedger(context.ledger, (ledger) =>
+  const retire = (ledger: TransactionLedger, observed: Option.Option<ProtectObservation>) =>
     Effect.gen(function* () {
       const selected = yield* assertNativeMutationWithinRoots(
         context.nativeRoots,
@@ -70,7 +96,19 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
           step: "inspect-target",
           cause: "unprotected-retirement",
         });
-      const actual = yield* observePathState(fs, path, owner.target);
+      // This admission's protection observed the owner tree. While the fresh
+      // address still names it with the same kind, that observation stands
+      // in for another; the check before the rename stays fresh.
+      const reused = Option.filter(
+        observed,
+        (observation) =>
+          observation.target === owner.target &&
+          owner.target === address.entryPath &&
+          sameEntryKind(observation.state.get(""), address.kind),
+      );
+      const actual = Option.isSome(reused)
+        ? reused.value.state
+        : yield* observePathState(fs, path, owner.target);
       if (!equalPathStates(actual, owner.expected))
         return yield* new WorkspaceSnapshotError({
           target,
@@ -78,47 +116,93 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
           cause: "foreign-change",
         });
       if (address.kind === "absent") return ledger;
-      const original = yield* observePathState(fs, path, address.entryPath);
-      if (options?.emptyOnly === true && (address.kind !== "directory" || original.size !== 1))
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "directory-not-empty",
-        });
-      // Keep the quarantine outside the retired subtree on its own device.
-      // Walking toward the authorized native root stops at a mount boundary.
-      const nativeRoot = yield* resolveNativeReferent(selected.nativeRoot);
-      const workspaceRoot = yield* resolveNativeReferent(context.nativeRoot);
-      const separateRoot = nativeRoot !== workspaceRoot;
-      if (address.entryPath === nativeRoot && (!separateRoot || options?.emptyOnly !== true))
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "cannot-retire-authority-root",
-        });
-      let anchor = separateRoot ? path.dirname(nativeRoot) : path.dirname(address.entryPath);
-      const device = (yield* fs.stat(anchor)).dev;
-      while (!separateRoot && anchor !== nativeRoot) {
-        const parent = path.dirname(anchor);
-        if (parent === anchor || (yield* fs.stat(parent)).dev !== device) break;
-        anchor = parent;
-      }
-      if (anchor === owner.target || anchor.startsWith(`${owner.target}${path.sep}`)) {
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "retirement-needs-separate-boundary",
-        });
-      }
-      const store = yield* fs.makeTempDirectory({ directory: anchor, prefix: ".axm-retired-" });
+      // A refusal decided on a reused observation is preceded by a fresh one,
+      // so a foreign change since protection still takes precedence.
+      const refuse =
+        (store?: string) =>
+        <A, E, R>(
+          effect: Effect.Effect<A, E, R>,
+        ): Effect.Effect<A, E | WorkspaceSnapshotError, R> =>
+          Option.isNone(reused)
+            ? effect
+            : effect.pipe(
+                Effect.catch((failure) =>
+                  Effect.gen(function* () {
+                    if (
+                      equalPathStates(
+                        yield* observePathState(fs, path, owner.target),
+                        owner.expected,
+                      )
+                    )
+                      return yield* Effect.fail(failure);
+                    if (store !== undefined)
+                      yield* removal.removeEmptyDirectory(store).pipe(Effect.ignore);
+                    return yield* new WorkspaceSnapshotError({
+                      target,
+                      step: "inspect-target",
+                      cause: "foreign-change",
+                    });
+                  }),
+                ),
+              );
+      const { original, anchor } = yield* Effect.gen(function* () {
+        const original = Option.isSome(reused)
+          ? new Map(actual)
+          : yield* observePathState(fs, path, address.entryPath);
+        if (options?.emptyOnly === true && (address.kind !== "directory" || original.size !== 1))
+          return yield* new WorkspaceSnapshotError({
+            target,
+            step: "inspect-target",
+            cause: "directory-not-empty",
+          });
+        // Keep the quarantine outside the retired subtree on its own device.
+        // Walking toward the authorized native root stops at a mount boundary.
+        // This admission's route assertion resolved an ordinary selected root
+        // live; other spellings resolve fresh.
+        const nativeRoot = selected.root.ordinary
+          ? selected.root.physicalRoot
+          : yield* resolveNativeReferent(selected.nativeRoot);
+        const workspaceRoot =
+          selected.root.ordinary && context.nativeRoot === selected.nativeRoot
+            ? nativeRoot
+            : yield* resolveNativeReferent(context.nativeRoot);
+        const separateRoot = nativeRoot !== workspaceRoot;
+        if (address.entryPath === nativeRoot && (!separateRoot || options?.emptyOnly !== true))
+          return yield* new WorkspaceSnapshotError({
+            target,
+            step: "inspect-target",
+            cause: "cannot-retire-authority-root",
+          });
+        let anchor = separateRoot ? path.dirname(nativeRoot) : path.dirname(address.entryPath);
+        const device = (yield* fs.stat(anchor)).dev;
+        while (!separateRoot && anchor !== nativeRoot) {
+          const parent = path.dirname(anchor);
+          if (parent === anchor || (yield* fs.stat(parent)).dev !== device) break;
+          anchor = parent;
+        }
+        if (anchor === owner.target || anchor.startsWith(`${owner.target}${path.sep}`)) {
+          return yield* new WorkspaceSnapshotError({
+            target,
+            step: "inspect-target",
+            cause: "retirement-needs-separate-boundary",
+          });
+        }
+        return { original, anchor };
+      }).pipe(refuse());
+      const store = yield* fs
+        .makeTempDirectory({ directory: anchor, prefix: ".axm-retired-" })
+        .pipe(refuse());
       const backup = path.join(store, "entry");
-      const storeIdentity = (yield* observePathState(fs, path, store)).get("");
-      if (storeIdentity === undefined || !storeIdentity.startsWith("directory:"))
-        return yield* new WorkspaceSnapshotError({
-          target: store,
-          step: "create-store",
-          cause: "retirement-store-unreadable",
-        });
+      const storeIdentity = yield* Effect.gen(function* () {
+        const storeIdentity = (yield* observePathState(fs, path, store)).get("");
+        if (storeIdentity === undefined || !storeIdentity.startsWith("directory:"))
+          return yield* new WorkspaceSnapshotError({
+            target: store,
+            step: "create-store",
+            cause: "retirement-store-unreadable",
+          });
+        return storeIdentity;
+      }).pipe(refuse(store));
       yield* Effect.gen(function* () {
         const fresh = yield* assertNativeMutationWithinRoots(
           context.nativeRoots,
@@ -158,8 +242,21 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
           ? cause
           : new WorkspaceSnapshotError({ target, step: "copy", cause }),
       ),
-    ),
+    );
+  // Protection and retirement are one admission. A failed retirement still
+  // commits the protection, whose snapshot and store remain the transaction's.
+  const retired = yield* modifyTransactionLedger(context.ledger, (ledger) =>
+    Effect.gen(function* () {
+      const protection = yield* protectTransition(context, ledger, target, closure).pipe(
+        Effect.withSpan("axm.publish.snapshot"),
+      );
+      return settle(
+        yield* retire(protection.ledger, protection.observed).pipe(Effect.exit),
+        protection.ledger,
+      );
+    }),
   );
+  yield* retired;
   yield* recordFootprint({ path: target, change: "removed" });
 }, Effect.uninterruptible);
 
@@ -174,7 +271,14 @@ export const cleanupRetirements = (
     (entry) =>
       Effect.gen(function* () {
         const store = path.dirname(entry.backup);
-        const storeState = yield* observePathState(fs, path, store);
+        // A matching store's entry is observed fresh, in full, just below.
+        const storeState = yield* observePathStateExcept(
+          fs,
+          path,
+          store,
+          path.basename(entry.backup),
+          entry.storeIdentity,
+        );
         if (
           storeState.get("") !== entry.storeIdentity ||
           [...storeState.keys()].some(

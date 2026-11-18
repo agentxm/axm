@@ -107,13 +107,17 @@ it.effect.each(["corrupt", "truncated", "bad-refetch"])(
         expect(Option.isNone(yield* cache.read(integrity))).toBe(true);
       } else {
         expect(result).toMatchObject({ _tag: "Success", success: { archive: bytes } });
-        expect(yield* cache.read(integrity)).toEqual(Option.some(bytes));
+        expect(Option.map(yield* cache.read(integrity), (cached) => cached.bytes)).toEqual(
+          Option.some(bytes),
+        );
       }
       expect(requests).toEqual([
         "POST /v1/resolutions",
         "POST /v1/resolutions",
         "GET /v1/extensions/%40acme/skills/recover/1.0.0/archive",
       ]);
-      expect(yield* cache.read(unrelatedIntegrity)).toEqual(Option.some(unrelated));
+      expect(Option.map(yield* cache.read(unrelatedIntegrity), (cached) => cached.bytes)).toEqual(
+        Option.some(unrelated),
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );

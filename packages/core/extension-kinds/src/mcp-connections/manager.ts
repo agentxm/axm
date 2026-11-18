@@ -24,8 +24,11 @@ import {
   acquiredPackageRelativePath,
   validateExactResolvedVersion,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
+  acceptedCanonicalObservationPath,
   acceptedLockedResolutionRef,
   removableAcceptedCanonicalPath,
+  type CapturedManifest,
   type TreeIntegrity,
   acceptedRowKey,
   desiredMcpSourceKey,
@@ -113,10 +116,12 @@ export const McpServerManagerLive = Layer.effect(
 
     const acquired = (
       treeIntegrity: Option.Option<TreeIntegrity>,
+      capturedManifest?: Option.Option<CapturedManifest>,
     ): McpServerMaterializationFacts => ({
       observation: NO_MATERIALIZATION_OBSERVATION,
       treeIntegrity,
       removal: Option.none(),
+      ...(capturedManifest === undefined ? {} : { capturedManifest }),
     });
 
     const materializeInstall: McpServerManagerService["materializeInstall"] = Effect.fn(
@@ -160,7 +165,8 @@ export const McpServerManagerLive = Layer.effect(
       if (ref.refType !== "registry") {
         if (force !== true) {
           const target = { type: "mcp-server" as const, name: ref.server.name };
-          const canonical = yield* acceptedCanonicalObservation(target);
+          const { observed: canonical, manifest } =
+            yield* acceptedCanonicalObservationCapturing(target);
           const accepted = yield* acceptedLockedResolutionRef(target);
           if (
             Option.isSome(canonical) &&
@@ -169,7 +175,9 @@ export const McpServerManagerLive = Layer.effect(
             Option.isSome(accepted) &&
             sourceRefContentKey(accepted.value) === sourceRefContentKey(ref)
           )
-            return acquired(Option.some(canonical.value.accepted.treeIntegrity));
+            // Nothing is written, so the manifest this observation read is the
+            // one the kept tree holds; the install selects from its decode.
+            return acquired(Option.some(canonical.value.accepted.treeIntegrity), manifest);
         }
         return yield* Effect.scoped(
           Effect.gen(function* () {
@@ -389,16 +397,16 @@ export const McpServerManagerLive = Layer.effect(
           nodes,
           (node) =>
             Effect.gen(function* () {
+              // Only the canonical root reaches the inspection, and the root
+              // an observation reports never depends on the content it reads.
               const canonical =
                 node.authority === "inline"
                   ? Option.none<string>()
-                  : (yield* acceptedCanonicalObservation({
+                  : yield* acceptedCanonicalObservationPath({
                       type: "mcp-server",
                       name: node.name,
                       desired: node,
-                    })).pipe(
-                      Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
-                    );
+                    });
               const { outcomes, conflict } = yield* inspectDesiredMcpServer({
                 nativeDirectoryInputs: location.nativeDirectoryInputs,
                 workspaceRoot: baseDir,

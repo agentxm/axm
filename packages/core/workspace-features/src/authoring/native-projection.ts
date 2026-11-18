@@ -1,7 +1,13 @@
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import {
+  readExtensionManifest,
+  type ExtensionManifest,
+  type ManifestError,
+} from "@agentxm/extension-content";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 import type {
   ExtensionFqnParts,
@@ -29,6 +35,8 @@ import type {
 import {
   computePackageContentHash,
   WorkspaceLocation,
+  withWorkspaceReadView,
+  type PackageContentHashFailed,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { authoringRefused } from "./errors.js";
 
@@ -37,15 +45,130 @@ export type AuthoredNativeProjection = Pick<
   "agentOutcomes" | "nativeLocations" | "targets"
 >;
 
-export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
-  function* (args: {
-    readonly identity: ExtensionFqnParts;
-    readonly packageRoot: string;
-    readonly enabled: boolean;
-  }) {
-    if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
+/**
+ * The identity a staged manifest declares, as immutable strings a caller that
+ * already read the manifest hands to a native preflight instead of the
+ * decoded manifest itself.
+ */
+export interface PreparedManifestFacts {
+  readonly owner: ExtensionManifest["owner"];
+  readonly name: ExtensionManifest["name"];
+  readonly type: ExtensionManifest["type"];
+  readonly version: ExtensionManifest["version"];
+  readonly description?: string;
+}
+
+/** Copy the facts a native preflight uses out of a `readExtensionManifest` result. */
+export const preparedManifestFacts = ({
+  manifest,
+}: {
+  readonly manifest: ExtensionManifest;
+}): PreparedManifestFacts => ({
+  owner: manifest.owner,
+  name: manifest.name,
+  type: manifest.type,
+  version: manifest.version,
+  ...(manifest.type === "subagent" && manifest.description !== undefined
+    ? { description: manifest.description }
+    : {}),
+});
+
+/**
+ * What a native preflight inspects: the staged package, and optionally the
+ * values its caller already settled for that same package in the same
+ * boundary.
+ *
+ * Each value is non-authoritative and replaces only a read the run would
+ * make itself, so a supplied manifest is identity-checked as a read one is.
+ * The source hash fills the ref handed to the managers and, for a Hook, keys
+ * the HookManager's fixture-evidence lookup, whose outcome the preflight
+ * discards. No preflight consumer may read either as freshness evidence:
+ * staged-byte freshness belongs to publication validation.
+ */
+interface AuthoredPreflightArgs {
+  readonly identity: ExtensionFqnParts;
+  readonly packageRoot: string;
+  readonly enabled: boolean;
+  /** The package hash the caller computed over `packageRoot`. */
+  readonly sourceHash?: Effect.Effect<SourceHash, PackageContentHashFailed>;
+  /** The facts the caller read from `packageRoot`'s manifest. */
+  readonly manifest?: Effect.Effect<PreparedManifestFacts, ManifestError>;
+  /**
+   * The full decode the caller made of `packageRoot`'s manifest, in place of
+   * `manifest`. A Rule, Hook or Knowledge manager prepares from it instead of
+   * reading the manifest again; it is deep-frozen before that hand-off.
+   */
+  readonly decodedManifest?: Effect.Effect<ExtensionManifest, ManifestError>;
+}
+
+/** Deep-freeze a decoded manifest before a manager shares it with its caller. */
+const frozenManifest = (manifest: ExtensionManifest): ExtensionManifest => {
+  const freeze = (value: unknown): void => {
+    if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
+    for (const nested of Object.values(value)) freeze(nested);
+    Object.freeze(value);
+  };
+  freeze(manifest);
+  return manifest;
+};
+
+/**
+ * The staged manifest of `type`: its facts, and the full decode when the run
+ * read it itself or its caller supplied one. A supplied value of another type
+ * is ignored and the manifest read.
+ */
+const stagedManifest = (
+  args: AuthoredPreflightArgs,
+  type: ExtensionType,
+): Effect.Effect<
+  { readonly facts: PreparedManifestFacts; readonly decoded: Option.Option<ExtensionManifest> },
+  ManifestError,
+  FileSystem.FileSystem | Path.Path
+> => {
+  const decodedOf = (manifest: ExtensionManifest) => ({
+    facts: preparedManifestFacts({ manifest }),
+    decoded: Option.some(frozenManifest(manifest)),
+  });
+  const read = readExtensionManifest(args.packageRoot, type).pipe(
+    Effect.map(({ manifest }) => decodedOf(manifest)),
+  );
+  if (args.decodedManifest !== undefined)
+    return args.decodedManifest.pipe(
+      Effect.flatMap((manifest) =>
+        manifest.type === type ? Effect.succeed(decodedOf(manifest)) : read,
+      ),
+    );
+  if (args.manifest !== undefined)
+    return args.manifest.pipe(
+      Effect.flatMap((facts) =>
+        facts.type === type
+          ? Effect.succeed({ facts, decoded: Option.none<ExtensionManifest>() })
+          : read,
+      ),
+    );
+  return read;
+};
+
+/** The staged manifest's facts: the supplied ones when they describe `type`, else a fresh read. */
+const stagedManifestFacts = (args: AuthoredPreflightArgs, type: ExtensionType) =>
+  stagedManifest(args, type).pipe(Effect.map(({ facts }) => facts));
+
+/** The staged package's hash: the supplied one, else a fresh hash of the staged root. */
+const stagedSourceHash = (args: AuthoredPreflightArgs) =>
+  args.sourceHash ?? computePackageContentHash(args.packageRoot);
+
+// Each enabled preflight run reads the workspace documents in one document
+// phase: its managers share one decoding of the settings and the lockfile and
+// one desired evaluation, or the phase the caller already holds. The phase
+// ends when the run returns, so a later run, such as the one under the
+// transition lock, observes current documents. Physical destination checks
+// keep the caller's live filesystem.
+
+/** The enabled subagent preflight body, run inside its document phase. */
+const subagentProjection = (args: AuthoredPreflightArgs) =>
+  Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
-    const { manifest } = yield* readExtensionManifest(args.packageRoot, "subagent").pipe(
+    const manifest = yield* stagedManifestFacts(args, "subagent").pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "validation",
@@ -69,7 +192,7 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
       name: manifest.name,
       version: manifest.version,
       location: args.packageRoot,
-      sourceHash: yield* computePackageContentHash(args.packageRoot),
+      sourceHash: yield* stagedSourceHash(args),
       source: {
         type: "workspace" as const,
         owner: manifest.owner,
@@ -79,12 +202,12 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
       subagent: { name: manifest.name, description: Option.fromUndefinedOr(manifest.description) },
     };
     // Enabling writes the projection, so a differing file AXM has no record of
-    // writing refuses here; the observation below only reports it.
-    yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+    // writing refuses first; the observation, from the same package load,
+    // only reports it.
+    const observation = yield* manager.projectionObservation(ref, {
       sourceRoot: args.packageRoot,
       validateDestinations: true,
     });
-    const observation = yield* manager.projectionObservation(ref, { sourceRoot: args.packageRoot });
     const outcomes = (observation.agentOutcomes ?? []).map((outcome) =>
       outcome.outcome === "current" ? { ...outcome, outcome: "projected" as const } : outcome,
     );
@@ -115,25 +238,20 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
           }) satisfies JobStepArtifactTarget,
       ),
     } satisfies AuthoredNativeProjection;
+  });
+
+export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
+  function* (args: AuthoredPreflightArgs) {
+    if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
+    return yield* withWorkspaceReadView(subagentProjection(args));
   },
 );
 
-/** Inspect staged content against final native destinations before publishing its source. */
-export const preflightAuthoredNativeProjection = (args: {
-  readonly identity: ExtensionFqnParts;
-  readonly packageRoot: string;
-  readonly enabled: boolean;
-}): Effect.Effect<
-  AuthoredNativeProjection,
-  OperationRefused | ExtensionManagerFailure,
-  ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
-> =>
+/** The enabled rule, hook, or knowledge preflight body, run inside its document phase. */
+const nativeProjection = (args: AuthoredPreflightArgs) =>
   Effect.gen(function* () {
-    if (args.identity.type === "subagent") return yield* preflightAuthoredSubagentProjection(args);
-    if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
-      return {};
     const location = yield* WorkspaceLocation;
-    const { manifest } = yield* readExtensionManifest(args.packageRoot, args.identity.type).pipe(
+    const { facts: manifest, decoded } = yield* stagedManifest(args, args.identity.type).pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "validation",
@@ -152,6 +270,7 @@ export const preflightAuthoredNativeProjection = (args: {
         detail: "Prepared authored package identity does not match the requested identity",
       });
     }
+    const sourceHash = yield* stagedSourceHash(args);
     const details = {
       refType: "workspace" as const,
       scope: location.scope,
@@ -159,9 +278,20 @@ export const preflightAuthoredNativeProjection = (args: {
       name: manifest.name,
       version: manifest.version,
       location: args.packageRoot,
-      sourceHash: yield* computePackageContentHash(args.packageRoot),
+      sourceHash,
     };
-    const options = { nativeInsertionEligibleNames: new Set<string>() };
+    // This run's manifest decode and package hash for the staged root, owned
+    // by this call and handed to the manager it calls; the run under the
+    // transition lock reads and hashes for itself.
+    const preparedManifests = Option.match(decoded, {
+      onNone: () => ({}),
+      onSome: (value) => ({
+        preparedManifests: new Map([
+          [manifest.name, { packageRoot: args.packageRoot, manifest: value }],
+        ]),
+      }),
+    });
+    const options = { nativeInsertionEligibleNames: new Set<string>(), ...preparedManifests };
     const source = { type: "workspace" as const, owner: manifest.owner, name: manifest.name };
     switch (manifest.type) {
       case "rule":
@@ -187,7 +317,12 @@ export const preflightAuthoredNativeProjection = (args: {
               hook: { name: manifest.name },
             },
           ],
-          options,
+          {
+            ...options,
+            preparedContentHashes: new Map([
+              [manifest.name, { packageRoot: args.packageRoot, contentHash: sourceHash }],
+            ]),
+          },
         );
         break;
       case "knowledge":
@@ -205,6 +340,21 @@ export const preflightAuthoredNativeProjection = (args: {
         break;
     }
     return {};
+  });
+
+/** Inspect staged content against final native destinations before publishing its source. */
+export const preflightAuthoredNativeProjection = (
+  args: AuthoredPreflightArgs,
+): Effect.Effect<
+  AuthoredNativeProjection,
+  OperationRefused | ExtensionManagerFailure,
+  ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
+> =>
+  Effect.gen(function* () {
+    if (args.identity.type === "subagent") return yield* preflightAuthoredSubagentProjection(args);
+    if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
+      return {};
+    return yield* withWorkspaceReadView(nativeProjection(args));
   });
 
 /** Attach actual native observations after the authored transition has settled. */

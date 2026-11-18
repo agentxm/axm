@@ -19,8 +19,10 @@ import { recordFootprint } from "./footprint-recorder.js";
 import type { Snapshot } from "./ledger.js";
 import {
   equalPathStates,
-  observeAncestorRoute,
+  observeNativeRoute,
+  observePathEntry,
   observePathState,
+  observePathStateExcept,
   sameRootEntry,
 } from "./path-state.js";
 import { resolveNativeEntry, resolveNativeReferent } from "../locations/index.js";
@@ -95,6 +97,9 @@ const hashPathState = Effect.fnUntraced(
   Effect.catch(() => Effect.succeed("unhashable")),
 );
 
+const bytesEqual = (left: Uint8Array, right: Uint8Array): boolean =>
+  left.byteLength === right.byteLength && Buffer.compare(left, right) === 0;
+
 /** Whether anything occupies the path: a file, directory, or (broken) symlink. */
 const pathPresent = (
   fs: FileSystem.FileSystem,
@@ -141,7 +146,7 @@ const reconcilePreimage = Effect.fnUntraced(function* (
       yield* fs.remove(target, { recursive: true, force: true });
     const bytes = yield* fs.readFile(source);
     const current = yield* fs.readFile(target).pipe(Effect.option);
-    if (Option.isNone(current) || (yield* sha256(current.value)) !== (yield* sha256(bytes)))
+    if (Option.isNone(current) || !bytesEqual(current.value, bytes))
       yield* fs.writeFile(target, bytes);
   }
   yield* fs.chmod(target, sourceInfo.mode);
@@ -189,10 +194,7 @@ const restoreSnapshot = Effect.fnUntraced(function* (
     const rootLink = Option.getOrUndefined(
       yield* fs.readLink(snapshot.route.nativeRoot).pipe(Effect.option),
     );
-    const parents = new Map([
-      ...(yield* observeAncestorRoute(fs, path, snapshot.target)),
-      ...(yield* observeAncestorRoute(fs, path, snapshot.route.nativeRoot)),
-    ]);
+    const parents = yield* observeNativeRoute(fs, path, snapshot.target, snapshot.route.nativeRoot);
     if (
       address.entryPath !== snapshot.target ||
       physicalRoot !== snapshot.route.physicalRoot ||
@@ -240,10 +242,15 @@ const restoreSnapshot = Effect.fnUntraced(function* (
     // Verify every retained original before moving any of them. A changed
     // quarantine is recovery evidence, never an acceptable preimage.
     for (const original of originals) {
-      if (
-        (yield* observePathState(fs, path, path.dirname(original.backup))).get("") !==
-        original.storeIdentity
-      ) {
+      // A matching store's entry is observed in full by the next check.
+      const store = yield* observePathStateExcept(
+        fs,
+        path,
+        path.dirname(original.backup),
+        path.basename(original.backup),
+        original.storeIdentity,
+      );
+      if (store.get("") !== original.storeIdentity) {
         return yield* new WorkspaceRestorationError({
           target: original.backup,
           step: "foreign-change",
@@ -385,8 +392,9 @@ export const verifySnapshots = (
               new WorkspaceRestorationError({ target: snapshot.target, step: "verify", cause }),
           ),
         )) {
-          const restored = yield* observePathState(fs, path, original.target);
-          if (restored.get("") !== original.original.get(""))
+          // Its content was verified before it moved back and is compared below.
+          const restored = yield* observePathEntry(fs, path, original.target);
+          if (restored !== original.original.get(""))
             return yield* new WorkspaceRestorationError({
               target: original.target,
               step: "verify",

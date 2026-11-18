@@ -1,4 +1,5 @@
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
+import type { PlannedSkillEntries } from "./skill-targets.js";
 import { observeSetupOutputConcerns, setupOutputConcernMessage } from "./output-concerns.js";
 import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 /**
@@ -22,6 +23,7 @@ import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
@@ -248,6 +250,12 @@ export interface SetupWorkspaceRequest {
   readonly projectRoot: AbsolutePath;
   /** Whether telemetry is enabled for this invocation, reported in the outcome. */
   readonly telemetryEnabled: boolean;
+  /**
+   * The settings absence the caller itself observed at `settingsPath` within
+   * the same call, with nothing written since. Preparation uses it in place of
+   * probing only for the identical path; the transaction still checks afresh.
+   */
+  readonly observedSettings?: { readonly settingsPath: string; readonly exists: false };
 }
 
 export interface SetupWorkspaceCandidate {
@@ -306,15 +314,18 @@ export const prepareSetupWorkspace = (
         ? path.join(userWorkspaceRoot, SETTINGS_FILENAME)
         : path.join(request.projectRoot, SETTINGS_FILENAME);
     const fileSystem = yield* FileSystem.FileSystem;
-    const settingsExist = yield* fileSystem.exists(settingsPath).pipe(
-      Effect.mapError((cause) =>
-        configurationRefused({
-          category: "internal",
-          detail: `Failed to inspect setup state: ${workspaceDir}`,
-          cause,
-        }),
-      ),
-    );
+    const settingsExist =
+      request.observedSettings?.settingsPath === settingsPath
+        ? request.observedSettings.exists
+        : yield* fileSystem.exists(settingsPath).pipe(
+            Effect.mapError((cause) =>
+              configurationRefused({
+                category: "internal",
+                detail: `Failed to inspect setup state: ${workspaceDir}`,
+                cause,
+              }),
+            ),
+          );
 
     const unattended = request.nonInteractive || request.yes === true;
     const intentComplete =
@@ -399,6 +410,12 @@ export interface SetupTransition {
   readonly footprint?: ReadonlyArray<FootprintObservation>;
   readonly outputConcerns?: ReadonlyArray<NativeOutputConcern>;
   readonly plan?: ReadonlyArray<SetupPlanRow>;
+  /**
+   * A preview only: the bundled-skill entries its planning resolved, each under
+   * the target path spelled exactly as planned, so the preview's report
+   * describes the entries that planning observed.
+   */
+  readonly plannedSkillEntries?: PlannedSkillEntries;
 }
 
 /**
@@ -448,19 +465,32 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
       ...(candidate.request.preview !== undefined ? { preview: candidate.request.preview } : {}),
     };
     const recorder = yield* makeFootprintRecorder;
-    const initialize = Effect.gen(function* () {
-      const settled = yield* bootstrapWorkspace(workspaceOptions);
-      if (settled.initialized && options?.bundledSkill !== undefined) {
-        yield* options.bundledSkill;
-      }
-      return { ...settled, footprint: yield* readFootprint };
-    }).pipe(Effect.provideService(FootprintRecorder, recorder));
+    const initialize = (observed?: Parameters<typeof bootstrapWorkspace>[1]) =>
+      Effect.gen(function* () {
+        const settled = yield* bootstrapWorkspace(workspaceOptions, observed);
+        if (settled.initialized && options?.bundledSkill !== undefined) {
+          yield* options.bundledSkill;
+        }
+        return { ...settled, footprint: yield* readFootprint };
+      }).pipe(Effect.provideService(FootprintRecorder, recorder));
     // A workspace that exists changes only when setup settles the instruction
     // choice it left open, and that change needs the same transaction.
-    const completes =
-      candidate.settingsExist && (yield* setupCompletesInstructionChoice(workspaceOptions));
-    if (candidate.request.preview === true || (candidate.settingsExist && !completes)) {
-      return yield* initialize;
+    const decision = candidate.settingsExist
+      ? yield* setupCompletesInstructionChoice(workspaceOptions)
+      : { completes: false, settings: Option.none<Settings>() };
+    if (candidate.request.preview === true || (candidate.settingsExist && !decision.completes)) {
+      // Nothing is written under a transaction here, so initialization works
+      // from the settings this call has just read rather than reading them
+      // again. A missing file is never carried forward: initialization checks
+      // for it again itself.
+      return yield* Option.match(decision.settings, {
+        onNone: () => initialize(),
+        onSome: (settings) =>
+          initialize({
+            settingsPath: path.join(workspaceOptions.projectRoot, SETTINGS_FILENAME),
+            settings,
+          }),
+      });
     }
     const scopes = yield* WorkspaceTransactionScopes;
     const scope = yield* scopes.forWorkspace({
@@ -470,9 +500,11 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
       settingsPath: candidate.settingsPath,
       lockPath: path.join(path.dirname(candidate.settingsPath), LOCK_FILENAME),
     });
+    // The transaction reads the settings again under its lock, so a change
+    // made before the lock is taken is never overwritten.
     return yield* runWorkspaceTransaction({
       claimDefaultTargets: false,
-      transition: initialize,
+      transition: initialize(),
       validate: () => Effect.void,
     }).pipe(Effect.provideService(WorkspaceTransactionScope, scope));
   });
@@ -602,7 +634,6 @@ const reportSetupWorkspace = (
 
     const physicalBaseDir = yield* resolveNativeReferent(location.baseDir);
     const planBaseDir = scope === "user" ? request.candidate.nativeRoot : physicalBaseDir;
-    const gitManaged = scope === "project" && (yield* isGitManaged(location.baseDir));
     const changeForPath = (filePath: string): typeof ArtifactChangeSchema.Type => {
       if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
         return "unchanged";
@@ -641,10 +672,16 @@ const reportSetupWorkspace = (
       const relative = path.relative(physicalBaseDir, filePath);
       return relative === "" || !isRelativeWithin(path, relative) ? filePath : relative;
     };
-    const targetsFor = (paths: ReadonlyArray<string>) =>
+    // A preview's report describes the bundled-skill entries its planning
+    // resolved; every other status resolves them again.
+    const plannedSkillEntries: PlannedSkillEntries =
+      resolvedStatus === "preview" ? (request.transition.plannedSkillEntries ?? []) : [];
+    const targetsFor = (paths: ReadonlyArray<string>, planned: PlannedSkillEntries = []) =>
       Effect.forEach([...new Set(paths)], (filePath) =>
         Effect.gen(function* () {
-          const entry = yield* resolveNativeEntry(filePath);
+          const entry =
+            planned.find((known) => known.path === filePath)?.entry ??
+            (yield* resolveNativeEntry(filePath));
           const row = request.transition.plan?.find(
             (row) => path.resolve(planBaseDir, row.target) === entry.entryPath,
           );
@@ -673,13 +710,16 @@ const reportSetupWorkspace = (
         : [
             request.candidate.settingsPath,
             location.lockPath,
-            ...(gitManaged ? [path.join(location.baseDir, ".gitignore")] : []),
+            // Only this view lists the ignore file from Git management.
+            ...(scope === "project" && (yield* isGitManaged(location.baseDir))
+              ? [path.join(location.baseDir, ".gitignore")]
+              : []),
           ],
     );
     const instructionTargets = yield* targetsFor(
       plannedPaths(["instructionSource", "instructionTarget"]),
     );
-    const skillTargets = yield* targetsFor(plannedPaths(["bundledSkill"]));
+    const skillTargets = yield* targetsFor(plannedPaths(["bundledSkill"]), plannedSkillEntries);
     const instructionBlocked = instructionTargets.some((target) => target.action === "blocked");
     const instructionDeferred =
       plan.some((row) => row.detail._tag === "instructionSource" && row.detail.deferred === true) &&

@@ -1,4 +1,4 @@
-import type { LockfileReaderService } from "./read-contracts.js";
+import type { AcceptedEntryOptions, LockfileReaderService } from "./read-contracts.js";
 export type { LockfileReaderService } from "./read-contracts.js";
 /**
  * Lockfile reader: the selected scope's accepted resolutions — the lockfile
@@ -23,10 +23,17 @@ export class LockfileReader extends ServiceMap.Service<LockfileReader, LockfileR
   "@agentxm/workspace-kernel/workspace-state/LockfileReader",
 ) {}
 
-export const makeLockfileReader = (
+/**
+ * `takesCurrentGraph` is set only for the live reader, whose bound desired
+ * reader evaluates live on every call; a read phase's reader never takes a
+ * caller's graph, since its phase may end between the caller's evaluation and
+ * this lookup.
+ */
+const lockfileReaderOver = (
   documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
-  acceptedGraph?: DesiredStateGraph,
+  acceptedGraph: DesiredStateGraph | undefined,
+  takesCurrentGraph: boolean,
 ): LockfileReaderService => {
   const lockfile = documents.acceptedResolutions;
   const acceptedConnections =
@@ -37,9 +44,13 @@ export const makeLockfileReader = (
             .filter((node) => node.type === "mcp-server")
             .map((node) => [node.name, acceptedRowKey(node)] as const),
         );
-  const mcpConnectionKey = (localName: string) =>
+  const currentGraph = (options: AcceptedEntryOptions | undefined) =>
+    takesCurrentGraph && options?.current !== undefined && options.current.reader === desiredState
+      ? Effect.succeed(options.current.graph)
+      : desiredState.graph();
+  const mcpConnectionKey = (localName: string, options: AcceptedEntryOptions | undefined) =>
     acceptedConnections === undefined
-      ? Effect.map(desiredState.graph(), (graph) => {
+      ? Effect.map(currentGraph(options), (graph) => {
           const node = graph.nodes.find(
             (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
           );
@@ -52,14 +63,23 @@ export const makeLockfileReader = (
     entries: (type) => lockfile.pipe(Effect.map((value) => lockEntries[type].entries(value))),
     entry: (type, name) =>
       lockfile.pipe(Effect.map((value) => lockEntries[type].entry(value, name))),
-    acceptedEntry: (type, name) =>
+    acceptedEntry: (type, name, options) =>
       Effect.gen(function* () {
-        const key = type === "mcp-server" ? yield* mcpConnectionKey(name) : Option.some(name);
+        const key =
+          type === "mcp-server" ? yield* mcpConnectionKey(name, options) : Option.some(name);
         if (Option.isNone(key)) return Option.none();
-        return lockEntries[type].entry(yield* lockfile, key.value);
+        const accepted = yield* lockfile;
+        options?.receiveLockfile?.(accepted);
+        return lockEntries[type].entry(accepted, key.value);
       }),
   };
 };
+
+export const makeLockfileReader = (
+  documents: WorkspaceDocumentsService,
+  desiredState: DesiredStateReaderService,
+  acceptedGraph?: DesiredStateGraph,
+): LockfileReaderService => lockfileReaderOver(documents, desiredState, acceptedGraph, false);
 
 export const LockfileReaderLive: Layer.Layer<
   LockfileReader,
@@ -68,6 +88,11 @@ export const LockfileReaderLive: Layer.Layer<
 > = Layer.effect(
   LockfileReader,
   Effect.gen(function* () {
-    return makeLockfileReader(yield* WorkspaceDocuments, yield* DesiredStateReader);
+    return lockfileReaderOver(
+      yield* WorkspaceDocuments,
+      yield* DesiredStateReader,
+      undefined,
+      true,
+    );
   }),
 );

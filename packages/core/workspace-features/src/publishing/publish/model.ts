@@ -48,26 +48,25 @@ import {
   normalizePublishInput,
   type ValidatedArchive,
 } from "@agentxm/extension-content";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import {
-  archiveSha256Hex,
-  type ExtensionIndex,
-} from "@agentxm/registry-protocol/unstable/registry";
-import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
+  collectKnowledgeBundleEntries,
+  inspectKnowledgeEntries,
+} from "@agentxm/extension-content/knowledge";
 import { RegistryContext } from "@agentxm/registry-client";
 import {
   SettingsReader,
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   settingsEntries,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import { planZipArchive, type ArchivePlan } from "../archive.js";
+import { prepareZipArchive, type ArchivePlan } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 import { runPublishLintGate } from "../lint-gate.js";
 import { nonMonotonicVersionConflict } from "../preflight.js";
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
-import { sha512Integrity } from "@agentxm/host-primitives";
 import {
   expandGlobs,
   isGlobPattern,
@@ -297,7 +296,12 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
 ) {
   // The canonical observation is the one judge of where the package sits
   // and, for an authored package, whether its manifest is this workspace's.
-  const accepted = yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
+  // It hands over the manifest text it read, so the identity is decoded from
+  // that text rather than from a second read.
+  const { observed: accepted, manifest: captured } = yield* acceptedCanonicalObservationCapturing({
+    type: entry.type,
+    name: entry.name,
+  });
   const extensionDir = Option.getOrUndefined(
     Option.flatMap(accepted, ({ observation }) => Option.fromUndefinedOr(observation.path)),
   );
@@ -321,7 +325,10 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const manifestPath = path.join(extensionDir, manifestFilenameForType(entry.type));
-  const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
+  const observedText = Option.filter(captured, (read) => read.path === manifestPath);
+  const raw = Option.isSome(observedText)
+    ? Option.some(observedText.value.text)
+    : yield* fs.readFileString(manifestPath).pipe(Effect.option);
   if (Option.isNone(raw)) return undefined;
   const json = yield* Effect.sync((): unknown => {
     try {
@@ -541,22 +548,34 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       if (packDir === undefined) {
         return yield* validation(`Cannot read dependencies for ${pack.fqn}`);
       }
-      const manifestPath = path.join(packDir, manifestFilenameForType("pack"));
-      const raw = yield* fs
-        .readFileString(manifestPath)
-        .pipe(
-          Effect.mapError((cause) =>
-            validation(`Cannot read dependencies for ${pack.fqn}`, { cause }),
-          ),
-        );
-      const json = yield* Effect.try({
-        try: (): unknown => JSON.parse(raw),
-        catch: (cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
-      });
-      const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(json).pipe(
-        Effect.mapError((cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause })),
-      );
-      for (const dependencyFqn of Object.keys(manifest.dependencies ?? {})) {
+      // An identity settled from the pack's manifest already decoded its
+      // dependencies with this schema; only a source-derived identity reads it.
+      const dependencies =
+        pack.declaredVersion !== undefined
+          ? pack.declaredDependencies
+          : yield* Effect.gen(function* () {
+              const manifestPath = path.join(packDir, manifestFilenameForType("pack"));
+              const raw = yield* fs
+                .readFileString(manifestPath)
+                .pipe(
+                  Effect.mapError((cause) =>
+                    validation(`Cannot read dependencies for ${pack.fqn}`, { cause }),
+                  ),
+                );
+              const json = yield* Effect.try({
+                try: (): unknown => JSON.parse(raw),
+                catch: (cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
+              });
+              const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(
+                json,
+              ).pipe(
+                Effect.mapError((cause) =>
+                  validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
+                ),
+              );
+              return manifest.dependencies;
+            });
+      for (const dependencyFqn of Object.keys(dependencies ?? {})) {
         const dependency = identities.find((entry) => entry.fqn === dependencyFqn);
         if (dependency === undefined) {
           const parsed = yield* Effect.fromResult(
@@ -858,7 +877,14 @@ export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
   return { selected, manifest, manifestJson, manifestPath, extensionDir };
 });
 
-export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(function* (
+/**
+ * Prepare one candidate, also handing its own source assessment, and nothing
+ * else, what the preparation already observed of the package: the Git root
+ * the archive's ignore discovery found from the package, when it walked for
+ * one, and what the archive walk observed of each source entry, which the
+ * assessment takes or releases.
+ */
+export const prepareCandidateForAssessment = Effect.fn("axm.publish.prepareCandidate")(function* (
   candidate: NonNullable<Effect.Success<ReturnType<typeof decodeCandidate>>>,
   index: Option.Option<ExtensionIndex>,
   backfillRequested: boolean,
@@ -885,7 +911,10 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     Option.isSome(index) &&
     index.value.versions.some((entry) => entry.version === manifest.version)
   ) {
-    return { ...version, action: "skip" } satisfies ExistingVersionCandidate;
+    return {
+      candidate: { ...version, action: "skip" } satisfies ExistingVersionCandidate,
+      source: {},
+    };
   }
   let backfill = false;
   if (Option.isSome(index)) {
@@ -908,13 +937,32 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
       backfill = true;
     }
   }
+  // Bundle documents the Knowledge inspection read, by absolute path, until the
+  // archive takes each one; nothing else holds these bytes.
+  const inspectedDocuments = new Map<string, Uint8Array>();
+  const takeInspectedDocument = (abs: string) => {
+    const bytes = inspectedDocuments.get(abs);
+    inspectedDocuments.delete(abs);
+    return bytes;
+  };
   if (selected.type === "knowledge") {
     const knowledgeManifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(
       manifestJson,
     ).pipe(Effect.mapError((cause) => validation(`Invalid manifest: ${manifestPath}`, { cause })));
-    const inspection = yield* inspectKnowledgeBundle(
-      path.join(extensionDir, KNOWLEDGE_SOURCE_DIR),
-    ).pipe(
+    const sourceRoot = path.join(extensionDir, KNOWLEDGE_SOURCE_DIR);
+    const inspection = yield* collectKnowledgeBundleEntries(sourceRoot).pipe(
+      Effect.flatMap((entries) =>
+        inspectKnowledgeEntries(entries, (relativePath) => {
+          const abs = path.join(sourceRoot, relativePath);
+          // Decoded exactly as readFileString decodes; the bytes wait for the archive.
+          return fs.readFile(abs).pipe(
+            Effect.map((bytes) => {
+              inspectedDocuments.set(abs, bytes);
+              return new TextDecoder().decode(bytes);
+            }),
+          );
+        }),
+      ),
       Effect.mapError((cause) =>
         validation(`Failed to inspect Knowledge bundle: ${selected.fqn}`, { cause }),
       ),
@@ -961,14 +1009,19 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     selected.existingDirectoryVersion === undefined
       ? manifest.publish
       : selected.sourcePublicationOptions;
-  const plannedArchive = yield* planZipArchive(extensionDir, {
-    ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
-    ...(selected.existingDirectoryVersion === undefined
-      ? {}
-      : {
-          skillEnvelope: new TextEncoder().encode(`${JSON.stringify(manifestJson, null, 2)}\n`),
-        }),
-  });
+  const plannedArchive = yield* prepareZipArchive(
+    extensionDir,
+    {
+      ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
+      ...(selected.existingDirectoryVersion === undefined
+        ? {}
+        : {
+            skillEnvelope: new TextEncoder().encode(`${JSON.stringify(manifestJson, null, 2)}\n`),
+          }),
+    },
+    takeInspectedDocument,
+  );
+  inspectedDocuments.clear();
   const archive = plannedArchive.archive;
   const archivePlan: ArchivePlan = {
     ...plannedArchive.plan,
@@ -995,9 +1048,7 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
       validation(`Cannot publish ${selected.fqn}: ${cause.detail}`, { cause }),
     ),
   );
-  const archiveBytes = archive.copyBytes();
-  const integrity = sha512Integrity(archiveBytes);
-  const archiveDigest = archiveSha256Hex(archiveBytes);
+  const { integrity, sha256: archiveDigest } = plannedArchive.digests();
   yield* normalizePublishInput({
     declaredIdentity: {
       owner: selected.owner,
@@ -1019,20 +1070,32 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     ),
   );
   return {
-    ...version,
-    action: "publish",
-    manifestJson,
-    ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
-    ...(publicationOptions === undefined ? {} : { publishOptions: publicationOptions }),
-    fileSelection: plannedArchive.selection,
-    policyFingerprint: plannedArchive.policyFingerprint,
-    archive,
-    archiveSha256Hex: archiveDigest,
-    archivePlan,
-    integrity,
-    backfill,
-  } satisfies UploadCandidate;
+    candidate: {
+      ...version,
+      action: "publish",
+      manifestJson,
+      ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
+      ...(publicationOptions === undefined ? {} : { publishOptions: publicationOptions }),
+      fileSelection: plannedArchive.selection,
+      policyFingerprint: plannedArchive.policyFingerprint,
+      archive,
+      archiveSha256Hex: archiveDigest,
+      archivePlan,
+      integrity,
+      backfill,
+    } satisfies UploadCandidate,
+    source: {
+      ...(plannedArchive.gitRoot === undefined ? {} : { repositoryRoot: plannedArchive.gitRoot }),
+      ...(plannedArchive.sourceObservations === undefined
+        ? {}
+        : { observations: plannedArchive.sourceObservations }),
+    },
+  };
 });
+
+/** Prepare one candidate. */
+export const prepareCandidate = (...args: Parameters<typeof prepareCandidateForAssessment>) =>
+  prepareCandidateForAssessment(...args).pipe(Effect.map(({ candidate }) => candidate));
 
 /**
  * Per-type publish selection: a bare name means "this type's package with

@@ -8,16 +8,17 @@ import {
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as Ref from "effect/Ref";
 import {
   AcceptedResolutionWriter,
   contributorSetBlockers,
   contributorSetComplete,
   computeExtensionPathsForLayout,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
+  capturedManifestFor,
   type DesiredExtensionNode,
   computePackageContentHash,
-  computeMaterializedTreeIntegrity,
   type TreeIntegrity,
   type KnowledgeLockEntry,
   type KnowledgeMap,
@@ -28,6 +29,8 @@ import {
   type DesiredStateGraph,
   type ResolvedKnowledgeDiscoveryConfig,
   workspaceReadPhaseFor,
+  inspectKnowledgePackageInPhase,
+  CurrentWorkspaceReadPhase,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -64,7 +67,7 @@ import {
   type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 import {
-  applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   formatProjectionExclusions,
   planAggregateProjection,
   type ProjectionContributorExclusion,
@@ -73,15 +76,18 @@ import {
   requireCompleteContributors,
   KNOWLEDGE_REGION_OWNER,
   knowledgeRegionGeneration,
-  projectionUnitPath,
+  projectionUnitPathOfEntry,
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
   resolveInstructionsConfig,
   canonicalObservationFactText,
   resolveKnowledgeInstructionEntry,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  withObservedProjectionPlans,
+  withHandedProjectionObservations,
+  handedOverCanonicalObservation,
   type NativeRegionSource,
+  type ProjectionUnitObservation,
 } from "@agentxm/workspace-kernel/projection";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
@@ -94,12 +100,14 @@ import {
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
+import { withSharedGitDiscoveryCheckouts } from "@agentxm/workspace-kernel/sources";
 import {
   KNOWLEDGE_SOURCE_DIR,
   type KnowledgeManifest,
 } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import {
   inspectKnowledgePackage,
+  inspectKnowledgePackageWithManifest,
   type KnowledgeInspection,
 } from "@agentxm/extension-content/knowledge";
 import { ManifestError } from "@agentxm/extension-content";
@@ -121,6 +129,22 @@ interface PreparedKnowledgePackage {
 }
 
 /**
+ * A deeply frozen value: the value itself when it is already frozen, as
+ * decoded workspace documents are, otherwise a frozen copy this call owns.
+ */
+const ownedFrozen = <A>(value: A): A => {
+  if (Object.isFrozen(value)) return value;
+  const copy = structuredClone(value);
+  const freeze = (current: unknown): void => {
+    if (typeof current !== "object" || current === null || Object.isFrozen(current)) return;
+    for (const nested of Object.values(current)) freeze(nested);
+    Object.freeze(current);
+  };
+  freeze(copy);
+  return copy;
+};
+
+/**
  * Name the failure that stopped a restore in the operator's sentence: the
  * producing family carries its own detail, so no application envelope is
  * needed to describe it.
@@ -129,6 +153,9 @@ const describeKnowledgeFailure = (
   failure: { readonly _tag: string } | ExtensionKindFailure,
 ): string =>
   "detail" in failure && typeof failure.detail === "string" ? failure.detail : failureTag(failure);
+
+/** A differing digest a sync's own observation computed of one canonical tree. */
+type ObservedCanonicalMismatch = Parameters<typeof acquireCanonicalForRef>[0]["observedMismatch"];
 
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
@@ -168,9 +195,19 @@ export const KnowledgeManagerLive = Layer.effect(
       computeExtensionPathsForLayout(path.join, currentLayout(), ref, "knowledge", ref.name)
         .canonicalPath;
 
-    const inspectPackage = (packageRoot: string) =>
+    /**
+     * Judge a package inspection: a failure is the package's definition
+     * problem, and so is any error diagnostic it reports.
+     */
+    const judgeInspection = <R>(
+      inspected: Effect.Effect<
+        Effect.Success<ReturnType<typeof inspectKnowledgePackage>>,
+        Effect.Error<ReturnType<typeof inspectKnowledgePackage>>,
+        R
+      >,
+    ) =>
       Effect.gen(function* () {
-        const { manifest, inspection } = yield* inspectKnowledgePackage(packageRoot).pipe(
+        const { manifest, inspection } = yield* inspected.pipe(
           Effect.mapError(
             (cause) =>
               new KnowledgeDefinitionInvalid({
@@ -197,10 +234,22 @@ export const KnowledgeManagerLive = Layer.effect(
         return { manifest, inspection };
       });
 
+    /**
+     * Inspect a package, decoding its manifest unless the caller supplies the
+     * decode it already made of this package's manifest.
+     */
+    const inspectPackage = (packageRoot: string, decoded?: KnowledgeManifest) =>
+      judgeInspection(
+        decoded === undefined
+          ? inspectKnowledgePackage(packageRoot)
+          : inspectKnowledgePackageWithManifest(packageRoot, decoded),
+      );
+
     const preparePackage = (
       ref: KnowledgeExtensionRef,
       force = false,
       nativeInsertionEligible = false,
+      observedMismatch?: ObservedCanonicalMismatch,
     ): Effect.Effect<
       PreparedKnowledgePackage,
       ExtensionManagerFailure,
@@ -235,6 +284,7 @@ export const KnowledgeManagerLive = Layer.effect(
           accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
           force,
           stage: { baseDir: tempDir, destinationPath: stagedPath },
+          ...(observedMismatch === undefined ? {} : { observedMismatch }),
           copyFailure: {
             code: "validation",
             detail: (target) => `Failed to copy knowledge package to ${target}`,
@@ -273,18 +323,13 @@ export const KnowledgeManagerLive = Layer.effect(
             copyFailureCode: "internal",
             copyFailureDetail: (target) =>
               `Failed to publish prepared Knowledge package: ${target}`,
-            validate: (staged) =>
-              computeMaterializedTreeIntegrity(staged).pipe(
-                Effect.flatMap((actual) =>
-                  actual === treeIntegrity
-                    ? Effect.void
-                    : Effect.fail(
-                        new KnowledgeDefinitionInvalid({
-                          detail: "Prepared Knowledge package changed before publication",
-                        }),
-                      ),
-                ),
-              ),
+            expectedTreeIntegrity: {
+              integrity: treeIntegrity,
+              mismatch: () =>
+                new KnowledgeDefinitionInvalid({
+                  detail: "Prepared Knowledge package changed before publication",
+                }),
+            },
           }).pipe(
             Effect.flatMap(() => recordMaterializedPackage(ref, canonicalPath, treeIntegrity)),
           ),
@@ -332,23 +377,117 @@ export const KnowledgeManagerLive = Layer.effect(
           ),
         );
         return {
-          path: address.referentPath ?? address.entryPath,
-          declaredPath,
-          enabled,
+          target: {
+            path: address.referentPath ?? address.entryPath,
+            declaredPath,
+            enabled,
+          },
+          entryPath: address.entryPath,
         };
       });
 
     /**
-     * The canonical observation of one desired Knowledge node: the only
-     * judge of whether its accepted content may serve as discovery input.
+     * The canonical observation of one desired Knowledge node, also handing
+     * over the manifest it read: the only judge of whether its accepted
+     * content may serve as discovery input. It always reads live.
      */
-    const observeDesiredKnowledge = (
+    const observeDesiredKnowledgeLive = (
+      layout: ReturnType<typeof currentLayout>,
       node: DesiredExtensionNode,
       locked: KnowledgeLockEntry | undefined,
     ) =>
-      provideRead(
-        observeCanonicalExtension({ layout: currentLayout(), desired: node, accepted: locked }),
-      );
+      provideRead(observeCanonicalExtensionCapturing({ layout, desired: node, accepted: locked }));
+    type KnowledgeObservationCapture = Effect.Success<
+      ReturnType<typeof observeDesiredKnowledgeLive>
+    >;
+
+    /** The read phase and filesystem port an observation reads through. */
+    const currentReadPort = Effect.gen(function* () {
+      return {
+        phase: yield* CurrentWorkspaceReadPhase,
+        fileSystem: yield* FileSystem.FileSystem,
+      };
+    });
+    type ReadPort = Effect.Success<typeof currentReadPort>;
+
+    /**
+     * Usable observations one sync call made of its desired nodes before
+     * anything was written, each with the exact layout, read phase and
+     * filesystem port it was made through. They stand in only for an
+     * observation of the same layout, through the same port and the same
+     * read phase while it is still active (or with no phase on either side),
+     * of a node and accepted row structurally equal to the ones observed; the
+     * caller receives its own copy. A phase that has ended in between, for
+     * example by a restore writing through its port, observes live again.
+     */
+    interface ObservedKnowledgeNode {
+      readonly layout: ReturnType<typeof currentLayout>;
+      readonly port: ReadPort;
+      readonly node: DesiredExtensionNode;
+      readonly accepted: KnowledgeLockEntry | undefined;
+      readonly capture: KnowledgeObservationCapture;
+    }
+    const usableObservationsOf = (observed: ReadonlyArray<ObservedKnowledgeNode>) => {
+      const recorded = Object.freeze([...observed]);
+      return (
+        layout: ReturnType<typeof currentLayout>,
+        port: ReadPort,
+        node: DesiredExtensionNode,
+        accepted: KnowledgeLockEntry | undefined,
+      ): Option.Option<Pick<KnowledgeObservationCapture, "observation" | "manifest">> => {
+        const prior = recorded.find(
+          (entry) =>
+            entry.layout === layout &&
+            entry.node.type === node.type &&
+            entry.node.name === node.name,
+        );
+        return prior === undefined ||
+          prior.port.phase !== port.phase ||
+          (port.phase !== undefined && !port.phase.isActive()) ||
+          prior.port.fileSystem !== port.fileSystem ||
+          !Equal.equals(prior.node, node) ||
+          !Equal.equals(prior.accepted, accepted)
+          ? Option.none()
+          : Option.some({
+              observation: structuredClone(prior.capture.observation),
+              manifest: Option.map(prior.capture.manifest, ({ path, text, decode }) => ({
+                path,
+                text,
+                decode,
+              })),
+            });
+      };
+    };
+    type UsableObservations = ReturnType<typeof usableObservationsOf>;
+
+    /**
+     * The same observation for one selection step; the capture belongs to
+     * the step that asked for it. A caller that already observed this
+     * identical node against the identical accepted row and layout, in the
+     * still active observation phase this selection reads through, hands
+     * over its own observation instead, and so does the sync call this
+     * selection runs in for a node it found usable.
+     */
+    const observeDesiredKnowledgeCapturing = (
+      node: DesiredExtensionNode,
+      locked: KnowledgeLockEntry | undefined,
+      observed?: UsableObservations,
+    ) =>
+      Effect.gen(function* () {
+        const layout = currentLayout();
+        const handedOver = yield* handedOverCanonicalObservation({
+          layout,
+          node,
+          accepted: locked,
+        });
+        if (Option.isSome(handedOver)) return handedOver.value;
+        const own =
+          observed === undefined
+            ? Option.none()
+            : observed(layout, yield* currentReadPort, node, locked);
+        if (Option.isSome(own)) return own.value;
+        return yield* observeDesiredKnowledgeLive(layout, node, locked);
+      });
 
     const toProjectionBundle = (
       root: string,
@@ -417,6 +556,7 @@ export const KnowledgeManagerLive = Layer.effect(
       configured: KnowledgeMap,
       config: ResolvedKnowledgeDiscoveryConfig,
       instructionFilesEnabled: boolean,
+      observed?: UsableObservations,
     ): Effect.Effect<
       ProjectionSelection<KnowledgeDiscoveryBundle>,
       ExtensionManagerFailure,
@@ -426,7 +566,8 @@ export const KnowledgeManagerLive = Layer.effect(
         graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
         (node) =>
           Effect.gen(function* () {
-            const observation = yield* observeDesiredKnowledge(node, locked[node.name]);
+            const { observation, manifest: capturedManifest } =
+              yield* observeDesiredKnowledgeCapturing(node, locked[node.name], observed);
             const workspaceInstructionEntry = configured[node.name]?.instructionEntry;
             const resolveInclusion = (manifestInstructionEntry?: boolean) =>
               resolveKnowledgeInstructionEntry({
@@ -465,7 +606,21 @@ export const KnowledgeManagerLive = Layer.effect(
                 detail: canonicalObservationFactText(node, observation),
               });
             }
-            const inspection = yield* Effect.result(inspectPackage(root));
+            // The decode the observation just made of this package's manifest,
+            // when it is that manifest; otherwise the inspection reads it. A
+            // later inspection of this root through the same observation
+            // phase receives this outcome.
+            const decoded = capturedManifestFor(path, capturedManifest, root, "knowledge");
+            const inspection = yield* Effect.result(
+              judgeInspection(
+                inspectKnowledgePackageInPhase(
+                  root,
+                  Option.isSome(decoded)
+                    ? inspectKnowledgePackageWithManifest(root, decoded.value)
+                    : inspectKnowledgePackage(root),
+                ),
+              ),
+            );
             if (Result.isFailure(inspection)) {
               return excluded(yield* excludedContributor(node.name, root, inspection.failure));
             }
@@ -483,7 +638,11 @@ export const KnowledgeManagerLive = Layer.effect(
         })),
       );
 
-    const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
+    /**
+     * The projection inputs, with the entry the instruction target's route
+     * admission resolved. Only the resolving call may key from that entry.
+     */
+    const resolveAdmittedKnowledgeProjection = (options?: NativeProjectionOptions) =>
       Effect.gen(function* () {
         const phase = yield* workspaceReadPhaseFor(location);
         const currentSettings = phase?.readers.settings ?? settings;
@@ -493,9 +652,34 @@ export const KnowledgeManagerLive = Layer.effect(
         const locked = yield* currentLocks.entries("knowledge");
         const configured = yield* currentSettings.entries("knowledge");
         const config = yield* currentSettings.knowledgeDiscoveryConfig;
-        const instructionsTarget = yield* getInstructionsTarget();
-        return { graph, locked, configured, config, instructionsTarget };
+        const { target: instructionsTarget, entryPath } = yield* getInstructionsTarget();
+        return { inputs: { graph, locked, configured, config, instructionsTarget }, entryPath };
       });
+    const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
+      Effect.map(resolveAdmittedKnowledgeProjection(options), ({ inputs }) => inputs);
+    type KnowledgeProjectionInputs = Effect.Success<ReturnType<typeof resolveKnowledgeProjection>>;
+
+    /**
+     * The projection inputs one preparation call shares between its source
+     * checks and its plan, frozen so neither consumer can change what the
+     * other reads. A caller's desired graph is handed to both as it is today;
+     * a graph the manager read is shared only when its reader froze it.
+     * Otherwise there is nothing to share and the plan resolves its own. The
+     * accepted rows have one consumer, the plan, and pass to it unchanged.
+     */
+    const shareableKnowledgeProjection = (
+      resolved: KnowledgeProjectionInputs,
+      options?: NativeProjectionOptions,
+    ): KnowledgeProjectionInputs | undefined =>
+      options?.desiredGraph === resolved.graph || Object.isFrozen(resolved.graph)
+        ? {
+            graph: resolved.graph,
+            locked: resolved.locked,
+            configured: ownedFrozen(resolved.configured),
+            config: ownedFrozen(resolved.config),
+            instructionsTarget: ownedFrozen(resolved.instructionsTarget),
+          }
+        : undefined;
 
     const runKnowledgeProjectionAdapter = (args: {
       readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
@@ -551,10 +735,36 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
+    /** The discovery region's observation from one dry run of `contributors`. */
+    const discoveryObservation = (
+      result: Effect.Success<ReturnType<typeof runKnowledgeProjectionAdapter>>,
+      contributors: ReadonlyArray<KnowledgeDiscoveryBundle>,
+      instructionsTarget: { readonly path: string },
+    ): ProjectionUnitObservation => ({
+      unitId: "knowledge:discovery-region",
+      nativeLocations: result.nativeLocations,
+      path: `${instructionsTarget.path}#knowledge`,
+      owner: KNOWLEDGE_REGION_OWNER,
+      present: result.present,
+      current: !result.changed,
+      expectedContributors: contributors.map(({ owner, name }) => `${owner}/knowledge/${name}`),
+      ...Option.match(result.lastWrite, {
+        onNone: () => ({}),
+        onSome: (lastWrite) => ({ lastWrite }),
+      }),
+    });
+
+    /**
+     * Plan the discovery region. A caller that resolved these same options'
+     * projection inputs earlier in its own call, in the read phase still
+     * current, hands them over instead of resolving them again.
+     */
     const makeKnowledgeProjectionPlan = (
       prospective: ReadonlyArray<KnowledgeDiscoveryBundle> = [],
       options?: NativeProjectionOptions,
       replacedNames: ReadonlySet<string> = new Set(prospective.map(({ name }) => name)),
+      resolved?: KnowledgeProjectionInputs,
+      preselected?: ProjectionSelection<KnowledgeDiscoveryBundle>,
     ): Effect.Effect<
       ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>,
       ExtensionManagerFailure,
@@ -562,7 +772,7 @@ export const KnowledgeManagerLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         const { graph, locked, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options);
+          resolved ?? (yield* resolveKnowledgeProjection(options));
         const configuredAgents =
           options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
         const accepted = yield* captureAgentOutputAuthority();
@@ -576,18 +786,20 @@ export const KnowledgeManagerLive = Layer.effect(
             scope: location.scope,
           })),
         ];
-        const selection = yield* selectKnowledgeBundles(
-          {
-            ...graph,
-            nodes: graph.nodes.filter(
-              (node) => node.type !== "knowledge" || !replacedNames.has(node.name),
-            ),
-          },
-          locked,
-          configured,
-          config,
-          instructionsTarget.enabled,
-        );
+        const selection =
+          preselected ??
+          (yield* selectKnowledgeBundles(
+            {
+              ...graph,
+              nodes: graph.nodes.filter(
+                (node) => node.type !== "knowledge" || !replacedNames.has(node.name),
+              ),
+            },
+            locked,
+            configured,
+            config,
+            instructionsTarget.enabled,
+          ));
         const bundles = [...selection.contributors, ...prospective];
         const eligible =
           bundles.some(({ name }) => options?.nativeInsertionEligibleNames?.has(name)) ||
@@ -609,21 +821,9 @@ export const KnowledgeManagerLive = Layer.effect(
                 eligible,
                 dryRun: true,
               }).pipe(
-                Effect.map((result) => ({
-                  unitId: "knowledge:discovery-region",
-                  nativeLocations: result.nativeLocations,
-                  path: `${instructionsTarget.path}#knowledge`,
-                  owner: KNOWLEDGE_REGION_OWNER,
-                  present: result.present,
-                  current: !result.changed,
-                  expectedContributors: input.contributors.map(
-                    ({ owner, name }) => `${owner}/knowledge/${name}`,
-                  ),
-                  ...Option.match(result.lastWrite, {
-                    onNone: () => ({}),
-                    onSome: (lastWrite) => ({ lastWrite }),
-                  }),
-                })),
+                Effect.map((result) =>
+                  discoveryObservation(result, input.contributors, instructionsTarget),
+                ),
               ),
             apply: (input) =>
               runKnowledgeProjectionAdapter({
@@ -636,13 +836,14 @@ export const KnowledgeManagerLive = Layer.effect(
               }).pipe(Effect.asVoid),
           },
         });
-        yield* observeProjectionPlans([plan]);
         return plan;
       });
 
     const regionGeneration: KnowledgeManagerService["regionGeneration"] = Effect.gen(function* () {
-      const { graph, locked, configured, config, instructionsTarget } =
-        yield* resolveKnowledgeProjection();
+      const {
+        inputs: { graph, locked, configured, config, instructionsTarget },
+        entryPath,
+      } = yield* resolveAdmittedKnowledgeProjection();
       const selection = yield* selectKnowledgeBundles(
         graph,
         locked,
@@ -650,7 +851,12 @@ export const KnowledgeManagerLive = Layer.effect(
         config,
         instructionsTarget.enabled,
       );
-      const target = yield* projectionUnitPath(baseDir, instructionsTarget.declaredPath);
+      // Only reads separate the target's admission from its key.
+      const target = yield* projectionUnitPathOfEntry(
+        baseDir,
+        instructionsTarget.declaredPath,
+        entryPath,
+      );
       return yield* knowledgeRegionGeneration({
         target,
         scopeRoot: baseDir,
@@ -660,12 +866,26 @@ export const KnowledgeManagerLive = Layer.effect(
       });
     });
 
+    // Every plan is observed as the pre-write refusal before its consumer runs.
+    const observedProjectionPlans: KnowledgeManagerService["observedProjectionPlans"] = (
+      options,
+      use,
+    ) =>
+      makeKnowledgeProjectionPlan([], options).pipe(
+        Effect.flatMap((plan) => withObservedProjectionPlans([plan], use)),
+      );
     const projectionPlans: KnowledgeManagerService["projectionPlans"] = (options) =>
-      makeKnowledgeProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
-    const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
+      observedProjectionPlans(options, (observed) => Effect.succeed(observed.plans));
+    const observedPrepareProjection: KnowledgeManagerService["observedPrepareProjection"] = (
+      refs,
+      options,
+      use,
+    ) =>
       Effect.gen(function* () {
-        const { graph, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options);
+        const phase = yield* workspaceReadPhaseFor(location);
+        const resolved = yield* resolveKnowledgeProjection(options);
+        const shared = shareableKnowledgeProjection(resolved, options);
+        const { graph, configured, config, instructionsTarget } = shared ?? resolved;
         const prospective = yield* Effect.forEach(
           refs,
           (ref) =>
@@ -686,7 +906,17 @@ export const KnowledgeManagerLive = Layer.effect(
                       }),
                   ),
                 );
-                const inspected = yield* inspectPackage(source);
+                // The decode the caller made of this same package's knowledge
+                // manifest in this boundary; otherwise inspection reads it.
+                const prepared = options?.preparedManifests?.get(ref.knowledge.name);
+                const inspected = yield* inspectPackage(
+                  source,
+                  prepared !== undefined &&
+                    prepared.packageRoot === source &&
+                    prepared.manifest.type === "knowledge"
+                    ? prepared.manifest
+                    : undefined,
+                );
                 const workspaceInstructionEntry = configured[ref.knowledge.name]?.instructionEntry;
                 const manifestInstructionEntry = inspected.manifest.instructionEntry;
                 const inclusion = resolveKnowledgeInstructionEntry({
@@ -711,56 +941,71 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        return [
-          yield* makeKnowledgeProjectionPlan(
-            prospective.flat(),
-            options,
-            new Set(refs.map((ref) => ref.knowledge.name)),
-          ),
-        ];
+        // The plan reuses this call's inputs only while the read phase they
+        // came from is still the current one; otherwise it reads its own.
+        const samePhase = (yield* workspaceReadPhaseFor(location)) === phase;
+        return yield* withObservedProjectionPlans(
+          [
+            yield* makeKnowledgeProjectionPlan(
+              prospective.flat(),
+              options,
+              new Set(refs.map((ref) => ref.knowledge.name)),
+              samePhase ? shared : undefined,
+            ),
+          ],
+          use,
+        );
       });
+    const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
+      observedPrepareProjection(refs, options, (observed) => Effect.succeed(observed.plans));
 
-    const applyKnowledgeProjection = projectionPlans().pipe(
-      Effect.flatMap(applyInstructionSurfacePlans),
-      Effect.asVoid,
-      Effect.provideService(AcceptedResolutionWriter, accepted),
-    );
+    // The plan's eager dry run, with nothing written since, decides the
+    // apply's alias reconciliation; the write still re-reads under its lock.
+    const applyKnowledgeProjection = observedProjectionPlans(undefined, (observed) =>
+      applyObservedInstructionSurfacePlans(observed),
+    ).pipe(Effect.asVoid, Effect.provideService(AcceptedResolutionWriter, accepted));
 
-    const reconcileDiscovery = (options?: {
+    /**
+     * Reconcile the discovery region from the projection inputs its sync
+     * call resolved for these same options, with nothing written since.
+     */
+    const reconcileDiscovery = (options: {
+      readonly projection: KnowledgeProjectionInputs;
+      readonly observed: UsableObservations;
       readonly dryRun?: boolean;
       readonly nativeProjection?: NativeProjectionOptions;
       readonly prospective?: ReadonlyArray<KnowledgeDiscoveryBundle>;
       readonly replacedNames?: ReadonlySet<string>;
     }) =>
       Effect.gen(function* () {
-        const { graph, locked, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(options?.nativeProjection);
+        const { graph, locked, configured, config, instructionsTarget } = options.projection;
         const completeGraph = yield* requireCompleteContributors(graph, "knowledge");
         const selection = yield* selectKnowledgeBundles(
           {
             ...completeGraph,
             nodes: completeGraph.nodes.filter(
-              (node) => node.type !== "knowledge" || !options?.replacedNames?.has(node.name),
+              (node) => node.type !== "knowledge" || !options.replacedNames?.has(node.name),
             ),
           },
           locked,
           configured,
           config,
           instructionsTarget.enabled,
+          options.observed,
         );
-        const contributors = [...selection.contributors, ...(options?.prospective ?? [])];
+        const contributors = [...selection.contributors, ...(options.prospective ?? [])];
         const exclusions = selection.exclusions;
         const authority = yield* captureAgentOutputAuthority();
         const configuredAgents =
-          options?.nativeProjection?.configuredAgents ??
+          options.nativeProjection?.configuredAgents ??
           (yield* (yield* planningSettings).configuredAgents);
         const eligible =
           contributors.some(({ name }) =>
-            options?.nativeProjection?.nativeInsertionEligibleNames?.has(name),
+            options.nativeProjection?.nativeInsertionEligibleNames?.has(name),
           ) ||
           (configuredAgents.length > 0 &&
             configuredAgents.every((id) =>
-              options?.nativeProjection?.nativeInsertionEligibleAgentIds?.has(id),
+              options.nativeProjection?.nativeInsertionEligibleAgentIds?.has(id),
             ));
         const result = yield* runKnowledgeProjectionAdapter({
           bundles: contributors,
@@ -768,19 +1013,30 @@ export const KnowledgeManagerLive = Layer.effect(
           instructionsTarget,
           ownership: [
             ...authority.expectedRegions.knowledge,
-            ...(options?.nativeProjection?.priorAuthority?.expectedRegions.knowledge ?? []),
+            ...(options.nativeProjection?.priorAuthority?.expectedRegions.knowledge ?? []),
           ],
           configuredAgents,
           eligible,
-          ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+          ...(options.dryRun === undefined ? {} : { dryRun: options.dryRun }),
         });
         return {
           ...result,
           warnings: formatProjectionExclusions({ exclusions, targetFile: instructionsTarget.path }),
+          selection,
+          contributors,
         };
       });
 
-    const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
+    /**
+     * Restore one locked bundle. `observedMismatch` is the differing digest
+     * the caller's observation of its canonical tree computed in this same
+     * iteration, which the restore's reuse decision refuses reuse from.
+     */
+    const restoreLockedPackage = (
+      name: string,
+      entry: KnowledgeLockEntry,
+      observedMismatch?: ObservedCanonicalMismatch,
+    ) =>
       Effect.gen(function* () {
         const ref = yield* lockEntryToRef.knowledge(name, entry, {
           baseDir,
@@ -794,7 +1050,7 @@ export const KnowledgeManagerLive = Layer.effect(
           });
         }
         if (ref.refType !== "git-hosted") {
-          return yield* preparePackage(ref);
+          return yield* preparePackage(ref, false, false, observedMismatch);
         }
         const discovered = yield* sources.find(ref.source, {
           names: [name],
@@ -830,30 +1086,55 @@ export const KnowledgeManagerLive = Layer.effect(
         const desired = yield* activeKnowledgeNodes(nativeProjection?.desiredGraph);
         const locked = yield* lockfile.entries("knowledge");
         const prepared: Array<PreparedKnowledgePackage> = [];
-        for (const node of desired) {
-          const { name } = node;
-          const entry = locked[name];
-          const observation = yield* observeDesiredKnowledge(node, entry);
-          if (observation.status === "usable") continue;
-          if (node.identity.authority === "workspace") {
-            return yield* new KnowledgeDefinitionInvalid({
-              detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
-            });
-          }
-          if (entry === undefined) {
-            return yield* new KnowledgeResolutionMissing({ name });
-          }
-          const restored = yield* Effect.result(restoreLockedPackage(name, entry));
-          if (Result.isFailure(restored)) {
-            const restoreFailure = restored.failure;
-            return yield* new KnowledgeUnavailable({
-              detail: `Active Knowledge bundle could not be restored: ${name}. ${describeKnowledgeFailure(restoreFailure)}`,
-              cause: restoreFailure,
-            });
-          } else prepared.push(restored.success);
-        }
-        const { configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection(nativeProjection);
+        const usable: Array<ObservedKnowledgeNode> = [];
+        // Bundles this call restores from one Git repository revision find
+        // their packages in one read-only discovery checkout, held in this
+        // call's scope; each still checks its own commit and tree.
+        yield* withSharedGitDiscoveryCheckouts(
+          Effect.gen(function* () {
+            for (const node of desired) {
+              const { name } = node;
+              const entry = locked[name];
+              const layout = currentLayout();
+              const port = yield* currentReadPort;
+              const capture = yield* observeDesiredKnowledgeLive(layout, node, entry);
+              const { observation } = capture;
+              if (observation.status === "usable") {
+                if (
+                  observation.path !== undefined &&
+                  (port.phase === undefined || port.phase.isActive())
+                )
+                  usable.push({ layout, port, node, accepted: entry, capture });
+                continue;
+              }
+              if (node.identity.authority === "workspace") {
+                return yield* new KnowledgeDefinitionInvalid({
+                  detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
+                });
+              }
+              if (entry === undefined) {
+                return yield* new KnowledgeResolutionMissing({ name });
+              }
+              const restored = yield* Effect.result(
+                restoreLockedPackage(name, entry, capture.mismatchedTree),
+              );
+              if (Result.isFailure(restored)) {
+                const restoreFailure = restored.failure;
+                return yield* new KnowledgeUnavailable({
+                  detail: `Active Knowledge bundle could not be restored: ${name}. ${describeKnowledgeFailure(restoreFailure)}`,
+                  cause: restoreFailure,
+                });
+              } else prepared.push(restored.success);
+            }
+          }),
+        );
+        // One resolution serves this call until a restored bundle is
+        // published: restoring stages outside canonical state, and nothing
+        // between here and the discovery dry run writes.
+        const resolved = yield* resolveKnowledgeProjection(nativeProjection);
+        const shared = shareableKnowledgeProjection(resolved, nativeProjection);
+        const projection = shared ?? resolved;
+        const { configured, config, instructionsTarget } = projection;
         const prospective = prepared.flatMap((item) => {
           const workspaceInstructionEntry =
             configured[item.inspected.manifest.name]?.instructionEntry;
@@ -869,6 +1150,11 @@ export const KnowledgeManagerLive = Layer.effect(
             : [];
         });
         const discovery = yield* reconcileDiscovery({
+          projection,
+          // Restoring writes nothing canonical, so the selection may take what
+          // this loop found usable, through the read phase it was found in
+          // while that phase is still active.
+          observed: usableObservationsOf(usable),
           dryRun: true,
           prospective,
           replacedNames: new Set(prepared.map((item) => item.inspected.manifest.name)),
@@ -876,12 +1162,41 @@ export const KnowledgeManagerLive = Layer.effect(
         });
         if (!dryRun) {
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
-          yield* projectionPlans(nativeProjection).pipe(
-            Effect.flatMap((plans) =>
-              applyInstructionSurfacePlans(plans, nativeProjection?.instructionAliases),
-            ),
-            Effect.provideService(AcceptedResolutionWriter, accepted),
-          );
+          const aliases = nativeProjection?.instructionAliases;
+          // With nothing published, the plan takes this call's inputs and the
+          // discovery dry run's selection, both frozen, and that dry run, which
+          // rendered exactly this plan's unit, is its pre-write observation.
+          // After a publication the plan resolves, selects and observes the
+          // published state for itself, and hands that observation on.
+          const apply =
+            prepared.length === 0 && shared !== undefined
+              ? Effect.gen(function* () {
+                  const plan = yield* makeKnowledgeProjectionPlan(
+                    [],
+                    nativeProjection,
+                    undefined,
+                    shared,
+                    ownedFrozen(discovery.selection),
+                  );
+                  const observation = discoveryObservation(
+                    { ...discovery, nativeLocations: structuredClone(discovery.nativeLocations) },
+                    discovery.contributors,
+                    shared.instructionsTarget,
+                  );
+                  return yield* withHandedProjectionObservations(
+                    [plan],
+                    [
+                      plan.exclusions.length === 0
+                        ? observation
+                        : { ...observation, exclusions: plan.exclusions },
+                    ],
+                    (observed) => applyObservedInstructionSurfacePlans(observed, aliases),
+                  );
+                })
+              : observedProjectionPlans(nativeProjection, (observed) =>
+                  applyObservedInstructionSurfacePlans(observed, aliases),
+                );
+          yield* apply.pipe(Effect.provideService(AcceptedResolutionWriter, accepted));
         }
         return {
           changed: prepared.length > 0 || discovery.changed,
@@ -935,7 +1250,9 @@ export const KnowledgeManagerLive = Layer.effect(
 
     return {
       projectionPlans,
+      observedProjectionPlans,
       prepareProjection,
+      observedPrepareProjection,
       regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       refreshCatalog: () =>

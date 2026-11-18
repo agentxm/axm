@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Predicate from "effect/Predicate";
+import * as Result from "effect/Result";
 import {
   AxmSkillCompatibilityPolicy,
   AxmSkillCompatibilityUnavailable,
@@ -60,26 +61,30 @@ export interface ValidateAxmSkillCandidateArgs {
   readonly skillSourcePath: string;
 }
 
-/** Inspect candidate bytes and evaluate official AXM skill compatibility. */
-export const evaluateAxmSkillCandidate = (
-  args: ValidateAxmSkillCandidateArgs,
-): Effect.Effect<
-  AxmSkillCompatibility | null,
-  AxmSkillCompatibilityUnavailable,
-  FileSystem.FileSystem | Path.Path
-> =>
+/** The candidate's manifest and SKILL.md, each read once. */
+const readAxmSkillCandidate = (args: ValidateAxmSkillCandidateArgs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const [manifestContent, skillContent] = yield* Effect.all([
+    const skillMdPath = path.join(args.skillSourcePath, "SKILL.md");
+    const [manifestContent, skillMd] = yield* Effect.all([
       fs
         .readFileString(path.join(args.packageRoot, manifestFilenameForType("skill")))
         .pipe(Effect.option),
-      fs.readFileString(path.join(args.skillSourcePath, "SKILL.md")).pipe(Effect.option),
+      fs.readFileString(skillMdPath).pipe(Effect.result),
     ]);
-    const manifest = parseManifest(manifestContent);
+    return { manifestContent, skillMd: { path: skillMdPath, outcome: skillMd } };
+  });
+
+const evaluateAxmSkillCandidateRead = (
+  args: ValidateAxmSkillCandidateArgs,
+  read: Effect.Success<ReturnType<typeof readAxmSkillCandidate>>,
+): Effect.Effect<AxmSkillCompatibility | null, AxmSkillCompatibilityUnavailable> =>
+  Effect.gen(function* () {
+    const manifest = parseManifest(read.manifestContent);
     if (!isKnownOfficialRef(args.ref) && !manifest.official) return null;
 
+    const skillContent = Result.getSuccess(read.skillMd.outcome);
     const parsedSkill = Option.flatMap(skillContent, (content) => parseSkillMd(content, "axm"));
     const candidate = {
       manifestVersion: manifest.version,
@@ -104,6 +109,25 @@ export const evaluateAxmSkillCandidate = (
     return result;
   });
 
+/** Inspect candidate bytes and evaluate official AXM skill compatibility. */
+export const evaluateAxmSkillCandidate = (
+  args: ValidateAxmSkillCandidateArgs,
+): Effect.Effect<
+  AxmSkillCompatibility | null,
+  AxmSkillCompatibilityUnavailable,
+  FileSystem.FileSystem | Path.Path
+> =>
+  readAxmSkillCandidate(args).pipe(
+    Effect.flatMap((read) => evaluateAxmSkillCandidateRead(args, read)),
+  );
+
+const refuseIncompatible = (
+  result: AxmSkillCompatibility | null,
+): Effect.Effect<AxmSkillCompatibility | null, AxmSkillIncompatible> =>
+  result !== null && result.status === "incompatible"
+    ? Effect.fail(new AxmSkillIncompatible({ compatibility: result }))
+    : Effect.succeed(result);
+
 /** Validate official AXM skill bytes before any workspace state is changed. */
 export const validateAxmSkillCandidate = (
   args: ValidateAxmSkillCandidateArgs,
@@ -111,12 +135,19 @@ export const validateAxmSkillCandidate = (
   AxmSkillCompatibility | null,
   AxmSkillCompatibilityUnavailable | AxmSkillIncompatible,
   FileSystem.FileSystem | Path.Path
-> =>
+> => evaluateAxmSkillCandidate(args).pipe(Effect.flatMap(refuseIncompatible));
+
+/**
+ * Validate as `validateAxmSkillCandidate` does, and return the outcome of the
+ * one SKILL.md read the check made, with the path it read, so the caller can
+ * derive the skill's native name from the same bytes before anything is
+ * written. The outcome is the read's own content or failure.
+ */
+export const validateAxmSkillCandidateReadingSkillMd = (args: ValidateAxmSkillCandidateArgs) =>
   Effect.gen(function* () {
-    const result = yield* evaluateAxmSkillCandidate(args);
-    if (result === null) return null;
-    if (result.status === "incompatible") {
-      return yield* new AxmSkillIncompatible({ compatibility: result });
-    }
-    return result;
+    const read = yield* readAxmSkillCandidate(args);
+    const compatibility = yield* evaluateAxmSkillCandidateRead(args, read).pipe(
+      Effect.flatMap(refuseIncompatible),
+    );
+    return { compatibility, skillMd: read.skillMd };
   });

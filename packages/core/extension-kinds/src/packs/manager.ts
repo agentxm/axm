@@ -209,14 +209,15 @@ export const PackManagerLive = Layer.effect(
         ref,
         ref.pack.name,
       ).canonicalPath;
-      const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
       if (ref.refType === "workspace") {
         if (ref.scope !== location.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
           return yield* new PackDefinitionInvalid({
             detail: `Invalid workspace pack source location: ${ref.location}`,
           });
         }
-        if (!canonicalExists) {
+        // Only the authored package is probed here; acquisition observes an
+        // acquired Pack's canonical directory itself.
+        if (!(yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false)))) {
           return yield* new PackDefinitionInvalid({
             detail: `Workspace pack package is missing: ${packDir}`,
           });
@@ -246,18 +247,24 @@ export const PackManagerLive = Layer.effect(
           reuse: Option.isSome(accepted) && accepted.value.manifestContentIdentity === expected,
         },
         copyFailure: { code: "internal", detail: (target) => `Failed to retain Pack at ${target}` },
-        validate: (stagingPath) =>
+        // A kept accepted tree's manifest is validated from the text its
+        // integrity walk read; anything else reads the manifest itself.
+        reuseValidationFiles: [manifestFilenameForType("pack")],
+        validate: (stagingPath, reused) =>
           Effect.gen(function* () {
             const manifestPath = path.join(stagingPath, manifestFilenameForType("pack"));
-            const contents = yield* fs.readFileString(manifestPath).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new PackDefinitionInvalid({
-                    detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
-                    cause,
-                  }),
-              ),
-            );
+            const read = reused === undefined ? Option.none() : reused.text(manifestPath);
+            const contents = Option.isSome(read)
+              ? read.value
+              : yield* fs.readFileString(manifestPath).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new PackDefinitionInvalid({
+                        detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
+                        cause,
+                      }),
+                  ),
+                );
             const observed = yield* decodePackManifestDocument(contents);
             if (observed.status !== "decoded") {
               return yield* new PackDefinitionInvalid({

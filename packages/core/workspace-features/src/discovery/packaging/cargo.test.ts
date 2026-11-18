@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,7 @@ const detectInTempDir = (cargoToml?: string) =>
     if (cargoToml !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "Cargo.toml"), cargoToml);
     }
-    return yield* cargoDetector.detect(tmpDir);
+    return yield* detectIn(cargoDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("cargoDetector", () => {

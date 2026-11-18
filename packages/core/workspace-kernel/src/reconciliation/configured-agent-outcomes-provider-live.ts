@@ -21,8 +21,9 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   CodingAgentRepository,
+  CurrentCanonicalObservationHandoff,
   observeConfiguredSkillLocations,
-  observeInstructionSurfacePlans,
+  observeObservedInstructionSurfacePlans,
   inspectDesiredMcpServer,
 } from "../projection/index.js";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
@@ -31,6 +32,7 @@ import {
   workspaceReadPhaseFor,
   ConfiguredAgentOutcomesUnavailable,
   DesiredStateReader,
+  usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalRef,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
@@ -97,6 +99,24 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         ...(step.cause === undefined ? {} : { cause: step.cause }),
       });
     };
+    /**
+     * The usable accepted ref of a Subagent row. A row that carries the
+     * observation its caller made of the same desired node and accepted row
+     * derives the ref from it; any other row observes the package itself.
+     */
+    const acceptedSubagentRef = (row: ConfiguredAgentOutcomesRequest["rows"][number]) =>
+      Effect.gen(function* () {
+        const observe = usableAcceptedCanonicalRef({ type: "subagent", name: row.name });
+        const prepared = row.acceptedCanonical;
+        if (prepared === undefined) return yield* observe;
+        const desired = (yield* (yield* DesiredStateReader).graph()).nodes.find(
+          (node) => node.type === "subagent" && node.name === row.name,
+        );
+        if (desired === undefined || desired !== prepared.desired) return yield* observe;
+        const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+        if (Option.getOrUndefined(accepted) !== prepared.accepted) return yield* observe;
+        return Option.map(yield* usableAcceptedCanonicalFrom(prepared), (usable) => usable.ref);
+      });
     const subagents = yield* SubagentManager;
     const rules = yield* RuleManager;
     const knowledge = yield* KnowledgeManager;
@@ -134,23 +154,55 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         };
       }),
     });
+    /**
+     * Hand the contributor selection of one projection the canonical
+     * observations the request's rows carry from the active observation phase
+     * this call runs in; without any, the selection observes for itself.
+     */
+    const withRowObservations =
+      (request: ConfiguredAgentOutcomesRequest) =>
+      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          if (phase === undefined || !phase.observations) return yield* effect;
+          const captures = request.rows.flatMap((row) =>
+            row.canonicalObservation?.phase === phase ? [row.canonicalObservation] : [],
+          );
+          if (captures.length === 0) return yield* effect;
+          return yield* Effect.provideService(effect, CurrentCanonicalObservationHandoff, {
+            phase,
+            fileSystem: phase.fileSystem,
+            observed: (desired) =>
+              Option.map(
+                Option.fromUndefinedOr(captures.find((capture) => capture.desired === desired)),
+                ({ accepted, layout, observation, manifest }) => ({
+                  accepted,
+                  layout,
+                  observation,
+                  manifest,
+                }),
+              ),
+          });
+        });
     const aggregate =
-      (manager: Pick<typeof hookManager, "projectionPlans">) =>
+      (manager: Pick<typeof hookManager, "observedProjectionPlans">) =>
       (request: ConfiguredAgentOutcomesRequest) =>
         Effect.gen(function* () {
           const observed = yield* manager
-            .projectionPlans({
-              configuredAgents: request.agentIds,
-              ...(request.desiredGraph === undefined ? {} : { desiredGraph: request.desiredGraph }),
-            })
-            .pipe(
-              Effect.flatMap((plans) =>
-                observeInstructionSurfacePlans(plans, {
+            .observedProjectionPlans(
+              {
+                configuredAgents: request.agentIds,
+                ...(request.desiredGraph === undefined
+                  ? {}
+                  : { desiredGraph: request.desiredGraph }),
+              },
+              (plans) =>
+                observeObservedInstructionSurfacePlans(plans, {
                   view: "current",
                   configuredAgents: request.agentIds,
                 }),
-              ),
-            );
+            )
+            .pipe(withRowObservations(request));
           const graph = request.desiredGraph ?? (yield* (yield* DesiredStateReader).graph());
           const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(
@@ -254,9 +306,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               Effect.gen(function* () {
                 const authored = refs.find((candidate) => candidate.subagent.name === row.name);
                 const accepted =
-                  authored === undefined
-                    ? yield* usableAcceptedCanonicalRef({ type: "subagent", name: row.name })
-                    : Option.none();
+                  authored === undefined ? yield* acceptedSubagentRef(row) : Option.none();
                 const ref =
                   authored ??
                   (Option.isSome(accepted) && accepted.value.type === "subagent"

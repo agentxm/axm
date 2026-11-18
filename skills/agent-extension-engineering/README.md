@@ -1,7 +1,11 @@
 # Agent extension engineering routing skill
 
-One small skill selects use-case guidance from the required knowledge sibling. It contains no helper scripts or embedded specialist workflows.
+This skill selects engineering guidance for the extension you are designing or
+reviewing. Install the pack to get the skill and its required knowledge bundle.
 
-Install the collection with `axm install @agentxm/packs/agent-extension-engineering@0.1.0`.
+```sh
+axm install @agentxm/packs/agent-extension-engineering
+```
 
-See the [pack migration and release notes](https://github.com/agentxm/axm/tree/main/packs/agent-extension-engineering).
+Ask “Should this build instruction go at the repository root or in the website
+package?” The skill selects the scoped instructions pattern.

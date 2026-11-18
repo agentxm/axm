@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0 — 2026-11-14
+
+- Report an unquoted `okf_version: 0.2` once, as `okf-version-type`. It no
+  longer also reports that it declares 0.2 when 0.2 is the target.
+- Add warning `source-id-type` when YAML loads a `sources[].id` as a number or
+  boolean. For example, an unquoted `001` becomes `1` and no longer matches its
+  `[^001]` footnote. The resulting `footnote-unmatched` warning names the
+  cause, and the converted ID is no longer reported as `source-uncited`. A
+  numeric `type` error now suggests quoting. Add YAML quoting guidance to the
+  frontmatter reference.
+- Explain how to handle READMEs, changelogs, agent instructions, and immutable
+  records under a bundle root, which OKF v0.2 cannot exclude. The validator
+  reports such a file once, as a base error with a relocation hint, and not
+  also as an unreachable concept.
+- Add info finding `self-verification` when every valid verification event is
+  by the non-human `generated.by` actor. The §5.3 trust tier is unchanged.
+  Guidance now prefers an independent verifier.
+- Add a package README with an upstream watch list: the proposed move to a
+  vendor-neutral repository with OKF v0.3, and open specification questions
+  with this skill's interim handling. Agents treat the pinned v0.2 text as
+  authoritative until the skill is aligned.
+- Migration: `--strict` runs fail on bundles with unquoted digit-only or boolean
+  source IDs; quote the intended labels. OKF remains v0.2, with no new metadata
+  fields, runtime dependencies, network access, or execution authority. Retain
+  skill 0.3.0 to recover earlier validation behavior. No existing bundle is
+  migrated.
+
 ## 0.3.0 — 2026-10-30
 
 - Add discovery-route review, concept-boundary guidance, and a synthetic

@@ -14,6 +14,7 @@ import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import { createDefaultSettings } from "../desired/settings/index.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { packMemberBindings } from "./desired-pack-members.js";
@@ -85,9 +86,19 @@ export const makeWorkspaceRecords = (
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
-      const graph = yield* provide(desiredState.graph());
+      // Without a captured view, the evaluation reads the accepted resolutions
+      // through the documents `locks` reads, and this call writes nothing
+      // after it: the evaluation's owned copy serves the expected paths and the
+      // install root, so all three observe one document. With a view, `locks`
+      // keeps its own phase-bounded read.
+      const evaluation = view === undefined ? yield* provide(desiredState.evaluate()) : undefined;
+      const graph =
+        evaluation === undefined ? yield* provide(desiredState.graph()) : evaluation.graph;
       const layout = yield* Ref.get(location.layout);
-      const accepted = yield* locks.lockfile;
+      const accepted =
+        evaluation === undefined
+          ? yield* locks.lockfile
+          : freezeWorkspaceValue(evaluation.inputs.acceptedResolutions);
       const expectedPaths = new Map<string, string>();
       for (const node of graph.nodes) {
         const key = acceptedRowKey(node);
@@ -98,7 +109,8 @@ export const makeWorkspaceRecords = (
         if (expected !== undefined) expectedPaths.set(`${node.type}:${node.name}`, expected);
       }
       const installRoot = yield* provide(
-        view?.installRoot ?? observeInstallRoot({ layout, graph, locks }),
+        view?.installRoot ??
+          observeInstallRoot({ layout, graph, locks: { lockfile: Effect.succeed(accepted) } }),
       );
       const useModel = (scoped: WorkspaceReadModel) =>
         Effect.gen(function* () {

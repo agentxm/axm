@@ -29,9 +29,23 @@ export interface DetectedPackage {
   readonly declaration?: { readonly name: string; readonly specifier: string };
   /** Adapters that resolve local packages carry their exact metadata location to readers. */
   readonly resolution?:
-    | { readonly state: "resolved"; readonly metadataPath: string }
+    | {
+        readonly state: "resolved";
+        readonly metadataPath: string;
+        /** The installed metadata members readers decode, as resolution read them; deep-frozen. */
+        readonly metadata: Readonly<Record<string, unknown>>;
+      }
     | { readonly state: "unavailable" };
 }
+
+/**
+ * The entry names of the project directory, listed at most once for every
+ * detector of one detection and frozen; `none` when the directory cannot be
+ * listed. Nothing lists it until a detector asks.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ProjectEntries = Effect.Effect<Option.Option<ReadonlyArray<string>>>;
 
 /**
  * Scans a project directory for packages of a specific type.
@@ -42,6 +56,7 @@ export interface PackageDetector {
   readonly type: PackageType;
   readonly detect: (
     projectDir: string,
+    projectEntries: ProjectEntries,
   ) => Effect.Effect<
     ReadonlyArray<DetectedPackage>,
     PlatformError.PlatformError,
@@ -63,4 +78,12 @@ export interface PackageReader {
     Config.ConfigError,
     FileSystem.FileSystem | Path.Path
   >;
+  /**
+   * Opens one read of several packages of this type. Inputs that all of them
+   * share, such as a package-manager root or a project's package index, are
+   * read at most once for the packages the returned read serves and are
+   * released with it. Opening reads nothing. Readers whose inputs are all
+   * per package have none.
+   */
+  readonly prepare?: Effect.Effect<PackageReader["read"]>;
 }

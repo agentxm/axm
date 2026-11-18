@@ -3,12 +3,31 @@ import type * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { GitOperationFailed } from "../errors.js";
-import type { GitDirectoryComparisonResult } from "./operations.js";
+import type {
+  GitDirectoryComparisonResult,
+  GitHeadFacts,
+  GitPayloadObservation,
+} from "./operations.js";
 
 /** Input material for comparing one directory with its enclosing Git HEAD. */
 interface GitDirectoryComparisonInput {
   readonly directory: string;
   readonly currentPaths: ReadonlyArray<string>;
+  /**
+   * What the caller already observed of the enclosing repository within the
+   * same read: the Git root a walk from `directory` found (none when it found
+   * none), and the HEAD facts an earlier comparison of that root returned.
+   * Omitted, the comparison observes both itself.
+   */
+  readonly repository?: {
+    readonly root: Option.Option<string>;
+    readonly head?: GitHeadFacts;
+  };
+  /**
+   * Takes, at most once, what the caller already observed of one current
+   * path within the same read; a path it returns nothing for is read live.
+   */
+  readonly takeObservation?: (currentPath: string) => GitPayloadObservation | undefined;
 }
 
 /** Git worktree comparison capability used by publication preflight. */

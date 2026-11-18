@@ -18,6 +18,7 @@
 export {
   invalidNativeConfig,
   parseNativeConfigRoot,
+  withNativeConfigObservationView,
   withNativeConfigReadView,
 } from "./native-config-syntax.js";
 export {
@@ -131,6 +132,7 @@ export {
 } from "./mcps/native-config.js";
 export { manifestInputs, mcpInputVariables, mcpInputId, resolveMcpInputs } from "./mcps/inputs.js";
 export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
+export { decodeMcpServerManifestRead } from "./mcps/manifest.js";
 export {
   planMcpServerTargets,
   unresolvedMcpAgentTargets,
@@ -141,18 +143,24 @@ export {
   configuredMcpCapability,
   declaredMcpWriterTargets,
   resolveConfiguredMcpTargets,
+  resolveConfiguredMcpTargetAdmissions,
+  mcpTargetAdmissionKey,
   observeNativeMcpTargets,
   isConfigurableAgentId,
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
   removeMcpServerFromAgents,
+  prepareMcpServerRemovals,
+  previewMcpServerWithdrawal,
+  type ObservedMcpWithdrawal,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
   syncPluginMcpServerToAgents,
   validatePluginMcpServerTargets,
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
+  validateInlineMcpServerTargetsInOrder,
   type SyncInlineMcpServerArgs,
 } from "./mcps/sync.js";
 
@@ -165,6 +173,7 @@ export {
   updateHooksJson,
   type HookNativeDeclaration,
 } from "./hooks/managed-groups.js";
+export { readHookSettingsObservation } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers
 export { readYamlEntry } from "./yaml.js";

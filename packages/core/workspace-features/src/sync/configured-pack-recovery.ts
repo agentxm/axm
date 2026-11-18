@@ -56,6 +56,7 @@ import {
   acquisitionConfiguredEntries,
   SettingsReader,
   WorkspaceLocation,
+  type AcceptedCanonicalObservation,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -299,12 +300,19 @@ export const collectConfiguredPackRecovery = (args: {
                 };
           }
           const memberRefs = selection.refs.filter((ref) => ref.type !== "pack");
+          // Each member observed here, against its proposed node and accepted
+          // row, is also judged for reuse below from the same observation;
+          // nothing between them writes. This Pack's planning owns the list.
+          const memberObservations: Array<
+            Readonly<{ ref: ExtensionRef; observed: AcceptedCanonicalObservation }>
+          > = [];
           for (const ref of memberRefs) {
             const desired = proposedGraph.nodes.find(
               (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
             );
             if (desired === undefined) continue;
             const canonical = yield* observeDesiredCanonical(desired);
+            memberObservations.push(Object.freeze({ ref, observed: canonical }));
             if (
               canonical.accepted !== undefined &&
               (canonical.observation.status === "corrupt" ||
@@ -335,19 +343,12 @@ export const collectConfiguredPackRecovery = (args: {
               )
                 return ref;
               // A first acceptance judges members against the proposed graph;
-              // an accepted Pack already contributes its recorded routes.
-              const desired = proposedGraph.nodes.find(
-                (node) => node.type === ref.type && node.name === target,
-              );
-              if (desired === undefined) return ref;
-              const canonical = yield* acceptedCanonicalObservation({
-                type: ref.type,
-                name: target,
-                desired,
-              });
-              return Option.isSome(canonical) && canonical.value.observation.status === "usable"
-                ? undefined
-                : ref;
+              // an accepted Pack already contributes its recorded routes. A
+              // member without a proposed node was never observed and is
+              // acquired.
+              const observed = memberObservations.find((entry) => entry.ref === ref)?.observed;
+              if (observed === undefined) return ref;
+              return observed.observation.status === "usable" ? undefined : ref;
             }),
           ).pipe(
             Effect.mapError((cause) =>

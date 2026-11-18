@@ -30,6 +30,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { readExtensionManifest } from "@agentxm/extension-content";
 
 import {
   SkillManager,
@@ -102,6 +103,7 @@ import {
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { preflightCreateOnly } from "../create-preflight.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
@@ -391,7 +393,7 @@ const prepareForkExtension: (
       ),
     );
     const stagedPackage = path.join(stagingRoot, "package");
-    yield* forkExtensionPackage({
+    const stagedManifestText = yield* forkExtensionPackage({
       sourceDir: selected.directory,
       targetDir: stagedPackage,
       sourceIdentity: selected.identity,
@@ -407,12 +409,29 @@ const prepareForkExtension: (
     const current = yield* declaration.read;
     const enabled = request.enable || Option.getOrElse(current.enabled, () => false);
 
-    const nativePreflight = preflightAuthoredNativeProjection({
-      identity: target,
-      packageRoot: stagedPackage,
-      enabled,
-    });
-    const nativeProjection = yield* nativePreflight;
+    // Preparation hands the preflight the hash it just pinned for the same
+    // staged package and the manifest text the fork just wrote there, which
+    // the preflight decodes as it would the file it reads; under the lock the
+    // preflight reads, decodes and hashes the staged package fresh.
+    const nativePreflight = (sourceHash?: SourceHash, manifestText?: string) =>
+      preflightAuthoredNativeProjection({
+        identity: target,
+        packageRoot: stagedPackage,
+        enabled,
+        ...(sourceHash === undefined ? {} : { sourceHash: Effect.succeed(sourceHash) }),
+        ...(manifestText === undefined
+          ? {}
+          : {
+              decodedManifest: readExtensionManifest(stagedPackage, target.type, {
+                text: manifestText,
+              }).pipe(
+                Effect.map(({ manifest }) => manifest),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              ),
+            }),
+      });
+    const nativeProjection = yield* nativePreflight(stagedHash, stagedManifestText);
 
     const artifact: JobStepArtifact = {
       ...nativeProjection,
@@ -442,7 +461,7 @@ const prepareForkExtension: (
       buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
         authoredNativeArtifact({ type: target.type, artifact, change, projected: enabled }),
       preflight: Effect.gen(function* () {
-        yield* nativePreflight;
+        yield* nativePreflight();
         yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
         yield* createOnly;
       }),
@@ -513,6 +532,8 @@ const prepareForkExtension: (
               materializeAuthoredMcpServer({
                 ref,
                 nonInteractive: request.nonInteractive,
+                // The authored declaration is the last axm.json write before this install.
+                entryJustPublished: true,
               }),
             buildArtifact: ({ change, materialization }) =>
               authoredNativeArtifact({

@@ -4,10 +4,15 @@
 
 import { credentialKeyOf } from "./test-helpers.js";
 import { describe, it } from "@effect/vitest";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { expect } from "vitest";
@@ -15,10 +20,13 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/ha
 import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 import {
   CredentialStore,
+  CredentialStoreLive,
   CredentialStoreSessionLive,
   CredentialStoreTest,
   type CredentialStoreService,
   type EnvironmentInfo,
+  KeyringEntryLoader,
+  KeyringUnavailable,
   canUsePersistedCredentials,
   selectTier,
 } from "./credential-store.js";
@@ -480,11 +488,35 @@ describe("CredentialStore", () => {
     });
   });
 
+  describe("CredentialStoreLive construction", () => {
+    it.live("chooses the storage tier without reading the host platform version", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped({ prefix: "axm-credentials-" });
+        const dependencies = Layer.mergeAll(
+          layerRecordingFileSystem(NodeFileSystem.layer),
+          NodePath.layer,
+          ConfigProvider.layer(ConfigProvider.fromEnvRecord({ AXM_USER_HOME: home })),
+          Layer.succeed(
+            KeyringEntryLoader,
+            Effect.fail(new KeyringUnavailable({ reason: "module-load-failed" })),
+          ),
+        );
+        yield* Effect.gen(function* () {
+          yield* CredentialStore;
+          const recording = yield* FileSystemRecorder;
+          expect(recording.counts("/proc/version")).toEqual({});
+        }).pipe(
+          Effect.provide(Layer.fresh(CredentialStoreLive).pipe(Layer.provideMerge(dependencies))),
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeFileSystem.layer)),
+    );
+  });
+
   describe("selectTier", () => {
     const baseEnv: EnvironmentInfo = {
       isSSH: false,
       isContainer: false,
-      isWSL: false,
       isCI: false,
       isRoot: false,
       isGenericBunExecutable: false,
@@ -510,10 +542,6 @@ describe("CredentialStore", () => {
       expect(selectTier({ ...baseEnv, isGenericBunExecutable: true })).toBe("restricted-file");
     });
 
-    it("selects keychain for WSL desktop environments", () => {
-      expect(selectTier({ ...baseEnv, isWSL: true })).toBe("keychain");
-    });
-
     it("container takes precedence over SSH", () => {
       expect(selectTier({ ...baseEnv, isContainer: true, isSSH: true })).toBe("restricted-file");
     });
@@ -527,7 +555,6 @@ describe("CredentialStore", () => {
     const baseEnv: EnvironmentInfo = {
       isSSH: false,
       isContainer: false,
-      isWSL: false,
       isCI: false,
       isRoot: false,
       isGenericBunExecutable: false,

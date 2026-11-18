@@ -10,6 +10,7 @@ import {
   combineNativeLocationOutcomes,
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
+  resolveNativeReferent,
   retireCopiedDirectory,
   type NativeLocationOutcome,
 } from "../locations/index.js";
@@ -28,7 +29,7 @@ import {
   retiredNativeArtifactLocationOutcomes,
   observeAgentOutputs,
   captureAgentOutputAuthority,
-  scopeUnitPath,
+  scopeUnitPathBeneath,
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
@@ -66,6 +67,12 @@ export interface ReconcileAgentOutputsArgs {
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
   /** Delete recorded Subagent files even when they were modified since AXM wrote them. */
   readonly discardModified?: boolean;
+  /**
+   * The inventory a dry run describes, when its caller observed it in the same
+   * read phase with these desired agents, expected names and authority. A run
+   * that removes outputs ignores it and inventories live, before and after.
+   */
+  readonly preparedInventory?: AgentOutputInventory;
 }
 
 /**
@@ -80,6 +87,7 @@ type SubagentResidueDecision =
 
 const inventory = (
   args: ReconcileAgentOutputsArgs,
+  options: { readonly retainSkillLocations?: boolean } = {},
 ): Effect.Effect<
   AgentOutputInventory,
   OperationRefused | Config.ConfigError,
@@ -119,6 +127,7 @@ const inventory = (
           ),
       },
       ...authority,
+      ...(options.retainSkillLocations === true ? { retainSkillLocations: true } : {}),
     });
   });
 
@@ -191,7 +200,11 @@ export const reconcileAgentOutputs = (
         ),
       ));
     const authorizedArgs = { ...args, authority };
-    const before = yield* inventory(authorizedArgs);
+    // Only an inventory this call made lends its skill resolutions to the
+    // classification below; a prepared inventory's read phase is not extended.
+    const prepared = args.dryRun === true ? args.preparedInventory : undefined;
+    const before = prepared ?? (yield* inventory(authorizedArgs, { retainSkillLocations: true }));
+    const observedSkillLocations = prepared === undefined ? before.skillLocations : undefined;
     const location = yield* WorkspaceLocation;
     const selected = (output: AgentOutputObservation) =>
       args.subjects === undefined ||
@@ -211,9 +224,13 @@ export const reconcileAgentOutputs = (
       )).projections,
       "subagents",
     );
+    // The physical scope root, resolved live by this call's first residue
+    // decision and keying every later one; no decision, no resolution.
+    const physicalScopeRoot = yield* Effect.cached(resolveNativeReferent(location.baseDir));
     const residueDecision = (output: AgentOutputObservation) =>
       Effect.gen(function* () {
-        const unit = yield* scopeUnitPath(location.baseDir, output.path).pipe(
+        const unit = yield* physicalScopeRoot.pipe(
+          Effect.flatMap((root) => scopeUnitPathBeneath(root, output.path)),
           Effect.mapError((cause) =>
             cleanupFailure("Cannot locate a recorded Subagent output", cause),
           ),
@@ -346,10 +363,18 @@ export const reconcileAgentOutputs = (
             agents,
             configuredAgentIds: args.desiredAgentIds,
             sharedSkillPolicy: extensionType === "skill",
+            ...(extensionType === "skill" && observedSkillLocations !== undefined
+              ? { locationSet: observedSkillLocations }
+              : {}),
             targets: outputs.map((output) => ({
               path: output.path,
               kind: output.proof === "copied-directory-receipt" ? "skill" : extensionType,
               state: candidates.includes(output) ? "removed" : "retained",
+              // The inventory just read this directory's receipt and matched its source.
+              ...(output.proof === "copied-directory-receipt" &&
+              observedSkillLocations !== undefined
+                ? { copyReceipt: { directory: output.path, present: true } }
+                : {}),
             })),
           });
           return facts.map((fact): NativeLocationOutcome => {

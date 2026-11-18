@@ -10,8 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import {
@@ -26,12 +27,17 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import type { ExtensionManifest } from "@agentxm/extension-content";
 import {
   contributorSetBlockers,
   contributorSetComplete,
+  CurrentWorkspaceReadPhase,
   desiredStateProblemsText,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
   unresolvedPackRoutesText,
+  type CanonicalObservation,
+  type CapturedManifest,
   type DesiredContributorBlockers,
   type LockEntry,
   type DesiredExtensionNode,
@@ -49,6 +55,18 @@ export interface AggregateContributor {
    * sources derive marker identity from the canonical manifest instead.
    */
   readonly identityOwner: Option.Option<Handle>;
+  /**
+   * The manifest this contributor's canonical observation read, handed only
+   * to a caller that asked for it, for that caller's own call.
+   */
+  readonly manifest?: Option.Option<CapturedManifest>;
+  /**
+   * The package content hash of `packageRoot`, framed from the strict walk
+   * this contributor's canonical observation made of the accepted tree,
+   * handed only to a caller that asked for it, for that caller's own call.
+   * `None` when the observation made no such walk.
+   */
+  readonly contentHash?: Option.Option<{ readonly root: string; readonly contentHash: SourceHash }>;
 }
 
 /** Stable recovery-conformance identity for aggregate writes blocked by an incomplete contributor set. */
@@ -78,6 +96,185 @@ export const requireCompleteContributors = (
     : new DesiredStateIncomplete({ problems: contributorBlockersText(blockers) });
 };
 
+/**
+ * Canonical observations one caller made of desired nodes inside one
+ * observation read phase, through that phase's own observation port.
+ */
+export interface CanonicalObservationHandoff {
+  readonly phase: NonNullable<Context.Service.Shape<typeof CurrentWorkspaceReadPhase>>;
+  readonly fileSystem: FileSystem.FileSystem;
+  /**
+   * The observation of exactly this desired node object, with the accepted
+   * row and layout it was made against; `None` when the caller made none.
+   */
+  readonly observed: (desired: DesiredExtensionNode) => Option.Option<{
+    readonly accepted: LockEntry | undefined;
+    readonly layout: WorkspaceLayout;
+    readonly observation: CanonicalObservation;
+    readonly manifest: Option.Option<CapturedManifest>;
+  }>;
+  /**
+   * The resolution the caller settled, through the same port in the same
+   * phase, of the workspace-authored package of `type` named `name` under
+   * exactly `layout`: the package root it resolved, its deep-frozen manifest
+   * decode, and its package content hash. `None` when it settled none.
+   */
+  readonly authoredPackage?: (args: {
+    readonly type: ExtensionType;
+    readonly name: string;
+    readonly layout: WorkspaceLayout;
+  }) => Option.Option<{
+    readonly root: string;
+    readonly manifest: ExtensionManifest;
+    readonly hash: SourceHash;
+  }>;
+}
+
+/** The handoff contributor selection may take observations from; none by default. */
+export const CurrentCanonicalObservationHandoff = Context.Reference<
+  CanonicalObservationHandoff | undefined
+>("@agentxm/workspace-kernel/projection/contributors/CurrentCanonicalObservationHandoff", {
+  defaultValue: () => undefined,
+});
+
+/**
+ * The current handoff, only while the phase it was made in is still the
+ * active observation phase and the caller reads through that phase's own
+ * port, the port the handoff was made through.
+ */
+const currentHandoff = Effect.gen(function* () {
+  const handoff = yield* CurrentCanonicalObservationHandoff;
+  if (handoff === undefined) return Option.none<CanonicalObservationHandoff>();
+  const phase = yield* CurrentWorkspaceReadPhase;
+  const fileSystem = yield* FileSystem.FileSystem;
+  return phase === undefined ||
+    phase !== handoff.phase ||
+    !phase.isActive() ||
+    !phase.observations ||
+    fileSystem !== phase.fileSystem ||
+    fileSystem !== handoff.fileSystem
+    ? Option.none<CanonicalObservationHandoff>()
+    : Option.some(handoff);
+});
+
+/**
+ * The handed-over resolution of the workspace-authored package of `type`
+ * named `name` under exactly `layout`, gated as `handedOverCanonicalObservation`
+ * gates observations. Anything else resolves the package for itself.
+ */
+export const handedOverAuthoredPackage = (args: {
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly layout: WorkspaceLayout;
+}) =>
+  Effect.map(currentHandoff, (current) =>
+    Option.flatMap(current, (handoff) =>
+      handoff.authoredPackage === undefined ? Option.none() : handoff.authoredPackage(args),
+    ),
+  );
+
+/** A package content hash for exactly one package root, as contributor selection takes it. */
+interface PreparedPackageContentHash {
+  readonly packageRoot: string;
+  readonly contentHash: string;
+}
+
+/**
+ * A read-only view of `entries` that answers only while `isActive` holds and
+ * is empty once it does not, so a lookup after the phase ended finds nothing.
+ */
+const answeringWhileActive = (
+  entries: ReadonlyMap<string, PreparedPackageContentHash>,
+  isActive: () => boolean,
+): ReadonlyMap<string, PreparedPackageContentHash> => {
+  const none: ReadonlyMap<string, PreparedPackageContentHash> = new Map();
+  const current = () => (isActive() ? entries : none);
+  const view: ReadonlyMap<string, PreparedPackageContentHash> = {
+    get size() {
+      return current().size;
+    },
+    get: (key) => current().get(key),
+    has: (key) => current().has(key),
+    forEach: (callback, thisArg) => {
+      current().forEach((value, key) => {
+        callback.call(thisArg, value, key, view);
+      });
+    },
+    entries: () => current().entries(),
+    keys: () => current().keys(),
+    values: () => current().values(),
+    [Symbol.iterator]: () => current()[Symbol.iterator](),
+  };
+  return Object.freeze(view);
+};
+
+/**
+ * Package content hashes, by name, of the handed-over resolutions of the
+ * workspace-authored packages of `type` that `names` lists, under exactly
+ * `layout`, gated as `handedOverAuthoredPackage` gates one resolution. Each
+ * lookup in the result answers only while the handoff's phase is still
+ * active, so a selection that looks a name up after the phase ended hashes
+ * the package for itself. `names` runs only while a handoff is current, and
+ * every call builds its own map; `None` when nothing is handed over.
+ */
+export const handedOverAuthoredContentHashes = <R>(args: {
+  readonly type: ExtensionType;
+  readonly layout: WorkspaceLayout;
+  readonly names: Effect.Effect<ReadonlyArray<string>, never, R>;
+}) =>
+  Effect.gen(function* () {
+    const current = yield* currentHandoff;
+    if (Option.isNone(current) || current.value.authoredPackage === undefined)
+      return Option.none<ReadonlyMap<string, PreparedPackageContentHash>>();
+    const handoff = current.value;
+    const entries = new Map<string, PreparedPackageContentHash>();
+    for (const name of yield* args.names) {
+      const authored = yield* handedOverAuthoredPackage({
+        type: args.type,
+        name,
+        layout: args.layout,
+      });
+      if (Option.isSome(authored))
+        entries.set(
+          name,
+          Object.freeze({ packageRoot: authored.value.root, contentHash: authored.value.hash }),
+        );
+    }
+    return entries.size === 0
+      ? Option.none<ReadonlyMap<string, PreparedPackageContentHash>>()
+      : Option.some(answeringWhileActive(entries, handoff.phase.isActive));
+  });
+
+/**
+ * The handed-over observation of `node`, only while the phase it was made in
+ * is still the active observation phase, the caller reads through that
+ * phase's own port, and the observation was made against the identical
+ * accepted row and layout. The caller receives its own copy; anything else
+ * observes for itself.
+ */
+export const handedOverCanonicalObservation = (args: {
+  readonly layout: WorkspaceLayout;
+  readonly node: DesiredExtensionNode;
+  readonly accepted: LockEntry | undefined;
+}) =>
+  Effect.gen(function* () {
+    const current = yield* currentHandoff;
+    if (Option.isNone(current)) return Option.none();
+    const handoff = current.value;
+    return Option.flatMap(handoff.observed(args.node), (prior) =>
+      prior.accepted === args.accepted && prior.layout === args.layout
+        ? Option.some({
+            observation: structuredClone(prior.observation),
+            manifest: Option.map(prior.manifest, ({ path, text, decode }) => ({
+              path,
+              text,
+              decode,
+            })),
+          })
+        : Option.none(),
+    );
+  });
+
 /** Enabled desired nodes of one extension type. */
 const activeNodesOfType = (
   graph: DesiredStateGraph,
@@ -97,6 +294,8 @@ const contributorForNode = (args: {
   readonly layout: WorkspaceLayout;
   readonly node: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
+  readonly captureManifests: boolean;
+  readonly captureContentHash: boolean;
 }): Effect.Effect<
   AggregateContributor,
   | AuthoredContributorUnsupported
@@ -124,7 +323,15 @@ const contributorForNode = (args: {
         identity: formatDesiredIdentity(node.identity),
       });
     }
-    const observation = yield* observeCanonicalExtension({ layout, desired: node, accepted });
+    const handedOver = yield* handedOverCanonicalObservation({ layout, node, accepted });
+    const { observation, manifest, digests } = Option.isSome(handedOver)
+      ? { ...handedOver.value, digests: Option.none() }
+      : yield* observeCanonicalExtensionCapturing({
+          layout,
+          desired: node,
+          accepted,
+          ...(args.captureContentHash ? { digestAcceptedTree: () => true } : {}),
+        });
     if (observation.status === "missing-resolution") {
       return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }
@@ -138,6 +345,14 @@ const contributorForNode = (args: {
         authoredIdentity === undefined
           ? Option.fromUndefinedOr(accepted?.identity.owner)
           : Option.some(authoredIdentity.owner),
+      ...(args.captureManifests ? { manifest } : {}),
+      ...(args.captureContentHash
+        ? {
+            contentHash: Option.flatMap(digests, ({ root, contentHash }) =>
+              Option.map(contentHash, (hash) => Object.freeze({ root, contentHash: hash })),
+            ),
+          }
+        : {}),
     };
   });
 
@@ -146,12 +361,18 @@ const contributorForNode = (args: {
  * node the desired-state graph reaches, whether declared directly or
  * contributed by a Pack, each resolved to its canonical package root. The
  * set is proven complete for that type before any contributor is resolved.
+ * A caller that decodes each contributor's manifest itself may ask for the
+ * manifest each observation read, and a caller that hashes a contributor's
+ * package may ask that contributor's observation for that hash.
  */
 export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
   readonly type: ExtensionType;
   readonly graph: DesiredStateGraph;
   readonly accepted: Readonly<Record<string, LockEntry>>;
+  readonly captureManifests?: true;
+  /** Whether a contributor's observation also frames its package content hash. */
+  readonly captureContentHashFor?: (node: DesiredExtensionNode) => boolean;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
   | DesiredStateIncomplete
@@ -164,7 +385,13 @@ export const activeContributors = (args: {
   requireCompleteContributors(args.graph, args.type).pipe(
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
-        contributorForNode({ layout: args.layout, node, accepted: args.accepted[node.name] }),
+        contributorForNode({
+          layout: args.layout,
+          node,
+          accepted: args.accepted[node.name],
+          captureManifests: args.captureManifests === true,
+          captureContentHash: args.captureContentHashFor?.(node) === true,
+        }),
       ),
     ),
   );

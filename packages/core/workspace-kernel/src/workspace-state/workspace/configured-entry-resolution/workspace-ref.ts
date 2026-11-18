@@ -9,7 +9,11 @@ import {
   type ExtensionType,
   manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import {
+  readExtensionManifest,
+  type ExtensionManifest,
+  type ManifestError,
+} from "@agentxm/extension-content";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { computePackageContentHash } from "../package-hash.js";
 import { WorkspaceSourceInvalid, type PackageContentHashFailed } from "../errors.js";
@@ -52,6 +56,23 @@ export const resolveWorkspaceExtensionRef = (args: {
     readonly owner: Handle;
     readonly name: ExtensionName;
     readonly root: string;
+  };
+  /**
+   * The manifest decode, and optionally the tree hash, a caller already settled
+   * for one package root inside the same validity boundary. They replace this
+   * resolution's own reads only when they describe the resolved root and the
+   * expected type; path safety, presence and the identity check still run
+   * here, and the package is hashed here when no hash is given.
+   */
+  readonly prepared?: {
+    readonly root: string;
+    readonly type: ExtensionType;
+    readonly manifest: Effect.Effect<
+      { readonly manifest: ExtensionManifest },
+      ManifestError,
+      FileSystem.FileSystem | Path.Path
+    >;
+    readonly hash?: ReturnType<typeof computePackageContentHash>;
   };
 }): Effect.Effect<
   WorkspaceExtensionRef,
@@ -106,8 +127,14 @@ export const resolveWorkspaceExtensionRef = (args: {
       );
     }
 
+    const prepared =
+      args.prepared?.root === packageDir && args.prepared.type === args.expectedType
+        ? args.prepared
+        : undefined;
     const manifestPath = path.join(packageDir, manifestFilenameForType(args.expectedType));
-    const { manifest } = yield* readExtensionManifest(packageDir, args.expectedType).pipe(
+    const { manifest } = yield* (
+      prepared?.manifest ?? readExtensionManifest(packageDir, args.expectedType)
+    ).pipe(
       Effect.mapError((cause) => {
         const detail =
           cause.code === "manifest_missing" || cause.code === "manifest_unreadable"
@@ -125,7 +152,7 @@ export const resolveWorkspaceExtensionRef = (args: {
       );
     }
 
-    const sourceHash = yield* computePackageContentHash(packageDir);
+    const sourceHash = yield* prepared?.hash ?? computePackageContentHash(packageDir);
     const details = {
       source,
       owner: source.owner,

@@ -17,6 +17,7 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import type { LockEntry, PathTraversalDetected, TreeIntegrity } from "../workspace-state/index.js";
 import {
   observeAcceptedCanonicalReuse,
+  observeAcceptedCanonicalReuseReading,
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   LockfileReader,
@@ -56,14 +57,37 @@ export interface AcquireCanonicalArgs<E = never> {
   };
   /** Knowledge stages bytes separately; reuse is still judged at canonicalPath. */
   readonly stage?: { readonly baseDir: string; readonly destinationPath: string };
+  /**
+   * For a staged acquisition only: a digest the caller's own observation of
+   * canonicalPath computed in this read phase and found different from the
+   * accepted integrity, with nothing written since. The reuse decision
+   * refuses reuse from it instead of hashing the same tree again; any other
+   * root or accepted integrity is hashed as usual.
+   */
+  readonly observedMismatch?: Parameters<
+    typeof observeAcceptedCanonicalReuse
+  >[0]["observedMismatch"];
   readonly external?: {
     readonly sourcePath?: (packageRoot: string) => string;
     readonly targetPath?: string;
     readonly reuse?: boolean;
   };
+  /**
+   * Root-relative files `validate` reads from a kept accepted tree. The reuse
+   * decision's integrity walk keeps their text, and only the validation of
+   * the tree that same decision kept receives it, as `reused`.
+   */
+  readonly reuseValidationFiles?: ReadonlyArray<string>;
   readonly validate?: (
     stagingPath: string,
+    reused?: ReusedTreeFiles,
   ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path>;
+}
+
+/** Text of the files a reuse decision's integrity walk read from the tree it kept. */
+interface ReusedTreeFiles {
+  /** The text of the regular file the walk read at exactly `absolutePath`, if any. */
+  readonly text: (absolutePath: string) => Option.Option<string>;
 }
 
 export interface AcquiredCanonical {
@@ -151,41 +175,73 @@ export const acquireCanonicalForRef = <E = never>(
         return { packageRoot: destination, treeIntegrity: current, reused: true };
       }
     }
-    if (ref.refType === "registry" || args.external?.reuse === true) {
-      const reuse =
-        args.stage === undefined ? reusableCanonicalTree : observeAcceptedCanonicalReuse;
-      const reusable = yield* reuse({
-        canonicalPath: args.canonicalPath,
-        requested:
-          ref.refType === "registry"
-            ? {
-                refType: "registry",
-                owner: ref.owner,
-                name: ref.name,
-                version: ref.version,
-                publisherBindingId: ref.publisherBindingId,
-              }
-            : ref.refType === "http"
-              ? {
-                  refType: "http",
-                  name: extensionRefName(ref),
-                  owner: ref.owner,
-                  snapshot: ref.snapshot,
-                }
-              : { refType: ref.refType, name: extensionRefName(ref) },
-        accepted: args.accepted,
-        force: args.force,
-      });
-      // Validation is a refusal boundary, not permission to fetch replacement
-      // bytes. Owners decide whether their selected declaration allows reuse.
-      if (Option.isSome(reusable)) {
-        if (args.validate !== undefined) yield* args.validate(args.canonicalPath);
-        return {
-          packageRoot: args.canonicalPath,
-          treeIntegrity: reusable.value,
-          reused: true,
-        } satisfies AcquiredCanonical;
-      }
+    // Without a stage the reuse decision first recovers the canonical path it
+    // judges; that recovery is the proof the Registry publication of the same
+    // path may consume once.
+    const reuseDecision =
+      ref.refType === "registry" || args.external?.reuse === true
+        ? yield* Effect.gen(function* () {
+            const reuseArgs = {
+              canonicalPath: args.canonicalPath,
+              requested:
+                ref.refType === "registry"
+                  ? {
+                      refType: "registry",
+                      owner: ref.owner,
+                      name: ref.name,
+                      version: ref.version,
+                      publisherBindingId: ref.publisherBindingId,
+                    }
+                  : ref.refType === "http"
+                    ? {
+                        refType: "http",
+                        name: extensionRefName(ref),
+                        owner: ref.owner,
+                        snapshot: ref.snapshot,
+                      }
+                    : { refType: ref.refType, name: extensionRefName(ref) },
+              accepted: args.accepted,
+              force: args.force,
+            } satisfies Parameters<typeof observeAcceptedCanonicalReuse>[0];
+            const path = yield* Path.Path;
+            const readPaths = args.reuseValidationFiles?.map((file) =>
+              path.join(args.canonicalPath, file),
+            );
+            if (args.stage === undefined)
+              return yield* reusableCanonicalTree({
+                ...reuseArgs,
+                ...(readPaths === undefined ? {} : { readPaths }),
+              });
+            if (readPaths === undefined)
+              return {
+                reusable: yield* observeAcceptedCanonicalReuse({
+                  ...reuseArgs,
+                  ...(args.observedMismatch === undefined
+                    ? {}
+                    : { observedMismatch: args.observedMismatch }),
+                }),
+                recovery: undefined,
+              };
+            const kept = yield* observeAcceptedCanonicalReuseReading(reuseArgs, readPaths);
+            return {
+              reusable: Option.map(kept, (tree) => tree.treeIntegrity),
+              recovery: undefined,
+              ...(Option.isSome(kept) ? { read: kept.value.read } : {}),
+            };
+          })
+        : undefined;
+    // Validation is a refusal boundary, not permission to fetch replacement
+    // bytes. Owners decide whether their selected declaration allows reuse.
+    if (reuseDecision !== undefined && Option.isSome(reuseDecision.reusable)) {
+      if (args.validate !== undefined)
+        yield* "read" in reuseDecision && reuseDecision.read !== undefined
+          ? args.validate(args.canonicalPath, reuseDecision.read)
+          : args.validate(args.canonicalPath);
+      return {
+        packageRoot: args.canonicalPath,
+        treeIntegrity: reuseDecision.reusable.value,
+        reused: true,
+      } satisfies AcquiredCanonical;
     }
 
     const parentReceipt =
@@ -221,6 +277,9 @@ export const acquireCanonicalForRef = <E = never>(
           integrityMismatchDetail: integrityMismatchDetail(args.type, ref.name, ref.version),
         },
         ...(args.validate === undefined ? {} : { validate: args.validate }),
+        ...(args.stage === undefined && reuseDecision?.recovery !== undefined
+          ? { recovered: reuseDecision.recovery }
+          : {}),
       });
       return {
         packageRoot: materialized.canonicalPath,

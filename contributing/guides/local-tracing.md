@@ -84,6 +84,11 @@ executing owner remain available; an individual primitive interval is not
 claimed. Extraction intervals still have spans. Selected detail certifies the
 declared retained span set, not a full history of every internal action.
 
+Native Hook settings renders are `axm.render.native` work in the `render`
+category: one occurrence per rendered Hook settings document, with its
+`axm.format` and an `axm.work.count` equal to the structured edits applied in
+that render. A render that leaves the document unchanged counts zero edits.
+
 For an installed executable, choose a fresh receipt path:
 
 ```bash
@@ -394,9 +399,10 @@ and both preflight and timing require the receipt to match it exactly. This is
 selected interval detail, not a claim to retain every I/O interval in a large
 restoration. The earlier unscoped overflow remains incomplete evidence.
 It requires the running loopback Seq and pinned client but makes no performance
-verdict. The finite campaign has 251 cases: 150 registered routes, 81 previews,
-one additional lint repair, seven startup outcomes and 12 distinct risk paths.
-Its preflight schedules 1,004 workload invocations and 502 full trace inspections.
+verdict. The finite campaign has 260 cases: 159 registered route defaults, 81
+previews, one additional lint repair, seven startup outcomes and 12 distinct risk
+paths. Its preflight schedules 1,040 workload invocations and 520 full trace
+inspections.
 `AXM_OBSERVABILITY_SCENARIO_FILTER` may narrow a diagnostic fixture run using
 comma-separated scenario substrings; it never filters a measured campaign.
 
@@ -413,7 +419,7 @@ host. The run first completes full preflight, then measures every case without
 filtering. Each timing block has one baseline and candidate disabled, summary
 and detail runs in rotated order. All three candidates reference that block's
 single baseline. One warmup and five initial measured blocks schedule another
-6,024 workload invocations: 7,028 including preflight. Discovery and fixture
+6,240 workload invocations: 7,280 including preflight. Discovery and fixture
 preparation invocations are recorded separately. These counts imply no promised
 wall-clock duration.
 
@@ -422,8 +428,8 @@ checks, elapsed time, RSS and producer receipts, and checks zero diagnostic loss
 and shutdown limits. It does not repeat full filesystem inventories, Seq
 inspection or per-sample compression. Timing receipts explicitly report delivery
 as `not-individually-inspected`; they do not claim receiver completeness. There
-are 3,514 traced workload invocations initially: 502 inspected in preflight and
-3,012 with producer receipts during timing.
+are 3,640 traced workload invocations initially: 520 inspected in preflight and
+3,120 with producer receipts during timing.
 
 Escalate an individual case from five to ten measured blocks when any subject's
 range/median exceeds 20% or the first-two versus last-two baseline medians drift
@@ -465,6 +471,50 @@ or shutdown gates. Historical failed campaigns keep their original verdicts.
 Investigate evidence of unbounded retention, data surviving its intended phase
 lifetime, or a substantial sustained increase separately; an informational RSS
 verdict does not prove their absence.
+
+For a paired before/after product comparison on an ordinary development host, set
+`AXM_OBSERVABILITY_RUN=compare` and `AXM_OBSERVABILITY_SCENARIOS` to a
+comma-separated list of exact scenario ids from `scenarios.json`. An empty,
+duplicate or unknown id fails configuration before preflight; substring filters
+and `AXM_OBSERVABILITY_REFERENCE_HOST=1` are refused. The report records the
+selection, `isolationDeclared: false` and a `qualification` label, and assesses
+only the selected scenarios. Each one runs full preflight and then the timing
+blocks and escalation rules above; the memory and noise policies apply unchanged.
+`productComparison` lists baseline and candidate-disabled median elapsed times,
+paired per-block deltas and the largest paired peak-RSS increment. This
+establishes old-versus-new behavior equality in preflight and paired elapsed and
+RSS observations. It is neither isolated-host qualification nor an
+observability-overhead result, and by itself it provides no per-path evidence.
+
+Product trace counters carry no operands, so a trace cannot show one path being
+read twice. In fixtures or compare mode on Linux,
+`AXM_OBSERVABILITY_PHYSICAL_WORK=strace` records each scenario's preflight
+baseline and candidate disabled-mode invocations under
+`strace -f -qq -y` with a fixed file-syscall set, writing only to the sample's
+artifact directory. Measure mode, any other value, and an `strace` that is
+missing or cannot run that exact capture (an unknown syscall name, or ptrace
+not permitted) fail configuration before fixtures are prepared; unset changes
+nothing. Each sample retains the losslessly compressed recording and a
+`physical-work.json` reduction: syscall totals and per-path opens, reads,
+writes, stats, access checks, readlinks, renames, removals, directory creation
+and reads, links and failed opens. Split `<unfinished ...>` calls are joined and
+counted once. Relative paths resolve against the calling process's own working
+directory, tracked from its `AT_FDCWD` annotations and `chdir`/`fchdir`, so a
+`git` child working in a temporary clone is not charged to the workspace; a
+relative path from a process whose directory is not yet known is counted as
+unresolved. Paths are projected to `<ws>`, `<home>`, `<fixture>`,
+`<account-home>` and `<tmp>`, with temporary names, random suffixes, UUIDs and
+`/proc` descriptors replaced by stable tokens. `physical-work-comparison.json`
+lists every differing path counter between baseline and candidate per
+scenario; `report.json` carries its digest and summary counts. A recorded
+invocation has a ten-minute process deadline, because recording multiplies the
+cost of every filesystem call. This establishes
+kernel-observed per-path counts for the whole process tree of one untraced
+invocation, independent of product traces, and lets an old and a new binary be
+compared path by path in one run. It is not timing evidence: tracing perturbs
+elapsed time and RSS, so it never runs in timing blocks. Counts include child
+processes such as `git`, and lock heartbeat traffic varies with hold time, so
+differences are reported and never fail fixture checks or the assessment.
 
 This method applies only to the observability campaign. The accepted compiled
 `list` latency specification and its independent performance target retain their
@@ -670,3 +720,16 @@ CLI work during measurement. Leave unrelated services untouched. Full traced
 fixture retrieval sizes describe preflight artifacts; timing still ingests spans.
 Neither JSON sizes nor compression establishes Seq's on-disk growth or replaces
 a receiver capacity check.
+
+Other AXM processes of the same operating-system account contaminate a campaign
+even when every sample has its own workspace and `AXM_USER_HOME`. Physical
+boundary claims are coordinated under the account home's `.axm-runtime`
+directory, which follows the account and not the environment. A test suite or
+another worktree's CLI run that overlaps a sample makes that sample probe
+foreign leases: it records workspace-lock waits and failed lock acquisitions,
+rewrites the shared claim table once more, and can push a large restoration
+over the summary span limit. Both binaries are affected alike, so the symptom
+is a summary/detail work mismatch or extra waits that an isolated rerun does not
+reproduce. Run fixture and timing campaigns with no other AXM process on the
+account, or inside a private mount namespace that binds an empty directory
+over that `.axm-runtime` directory, and record which was used.

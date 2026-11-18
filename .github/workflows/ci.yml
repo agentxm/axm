@@ -83,6 +83,11 @@ jobs:
         with:
           fallback-sha: ${{ steps.affected-fallback.outputs.sha }}
           main-branch-name: main
+          # One push may integrate several hundred commits. The default strategy
+          # only accepts a successful run among the latest 100 commits of main, so
+          # after such a push every later one would take the broad fallback.
+          lookup-strategy: per-commit
+          max-commits: 1000
 
       # Cover all changes since successful CI, including failed or superseded pushes.
       - name: Select complete affected range

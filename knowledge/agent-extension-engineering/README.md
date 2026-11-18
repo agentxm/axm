@@ -1,10 +1,14 @@
 # Agent extension engineering knowledge
 
-Focused guidance for extension authors and reviewers. Browse [the knowledge index](src/index.md).
+Browse the [guides, patterns, and glossary](src/index.md) when choosing, writing, or
+reviewing an extension. For example, [Choosing extension boundaries](src/guides/choosing-extensions.md)
+helps you decide whether a task calls for a skill, scoped instructions, or a hook.
 
-Install the collection with `axm install @agentxm/packs/agent-extension-engineering@0.1.0`.
+To have your agent select the relevant guide, install the pack.
 
-See the [pack migration and release notes](https://github.com/agentxm/axm/tree/main/packs/agent-extension-engineering).
+```sh
+axm install @agentxm/packs/agent-extension-engineering
+```
 
 The extension-focused guidance adapts concepts from the published
 `@agentxm/knowledge/agent-engineering@0.11.0` (AgentXM, CC-BY-4.0),

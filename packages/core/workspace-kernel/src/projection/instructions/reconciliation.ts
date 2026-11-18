@@ -30,8 +30,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   applyProjectionPlans,
+  observeObservedPlans,
   observeProjectionPlans,
   projectionPlanExclusionWarnings,
+  unobservedProjectionPlans,
+  type ObservedProjectionPlans,
   type ProjectionPlan,
 } from "../planning.js";
 
@@ -57,6 +60,7 @@ import {
   replaceableUnrecorded,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
+  assertObservedInstructionsGitignoreSafe,
   instructionProjectionIsCurrent,
   observeInstructionProjection,
   removeInstructionsGitignore,
@@ -115,6 +119,8 @@ export interface InstructionOutputOverrides {
 export const observeInstructions = Effect.fn("Instructions.observe")(function* (
   args: {
     readonly config: ResolvedInstructionsConfig;
+    /** Symlink capability this caller already probed for the same workspace. */
+    readonly symlinkSupported?: boolean;
   } & InstructionOutputOverrides,
 ): Effect.fn.Return<
   InstructionProjectionSnapshot,
@@ -139,6 +145,7 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
     configuredAgents: agents,
     config: args.config,
     rows,
+    ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
     replaceUnrecorded: args.replaceUnrecorded ?? posture.replaceUnrecorded === true,
     discardModified: args.discardModified ?? posture.discardModified === true,
   });
@@ -194,7 +201,7 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
       Effect.all(
         [
           assertInstructionTargetsSafe(args.snapshot),
-          assertInstructionsGitignoreSafe(args.workspaceRoot),
+          assertObservedInstructionsGitignoreSafe(args.snapshot, args.workspaceRoot),
         ],
         { concurrency: 1, discard: true },
       ),
@@ -212,9 +219,10 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
  * never leaves the old arrangement behind. Refuses on an unowned target like
  * every other path; a modified copy is retained unless `discardModified`.
  */
-export const removeInstructionTargetsFor = Effect.fnUntraced(function* (
+const removeInstructionTargetsFor = Effect.fnUntraced(function* (
   args: {
     readonly config: ResolvedInstructionsConfig;
+    readonly symlinkSupported: boolean;
   } & InstructionOutputOverrides,
 ): Effect.fn.Return<
   ReadonlyArray<string>,
@@ -241,9 +249,16 @@ export interface InstructionsReconciliation<A> extends InstructionsSyncResult {
   readonly transition: A;
 }
 
-type ReconcileInstructionsArgs = Omit<ObserveInstructionProjectionArgs, "rows"> & {
-  readonly preflightConfig?: ResolvedInstructionsConfig;
-};
+type ReconcileInstructionsArgs = Omit<ObserveInstructionProjectionArgs, "rows">;
+
+/**
+ * The configuration a transition replaces. Its preflight is observed in its
+ * place, and its owned aliases are removed after the gates and before the
+ * transition runs.
+ */
+interface SupersededInstructionsArgs {
+  readonly supersededConfig?: ResolvedInstructionsConfig;
+}
 
 type ReconcileRequirements =
   | FileSystem.FileSystem
@@ -259,32 +274,58 @@ type ReconcileFailure =
 /**
  * Gate, transition, apply, and read back one instruction projection. Rows are
  * read before the preflight and again after the transition, and the applied
- * row edits are staged before the read-back.
+ * row edits are staged before the read-back. A superseded configuration's
+ * aliases are removed between the gates and the transition, observed afresh
+ * with the symlink capability the preflight probed.
  */
 export function reconcileInstructions<A, E, R>(
-  args: ReconcileInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
+  args: ReconcileInstructionsArgs & {
+    readonly supersededConfig?: never;
+    readonly transition: Effect.Effect<A, E, R>;
+  },
 ): Effect.Effect<InstructionsReconciliation<A>, E | ReconcileFailure, R | ReconcileRequirements>;
-export function reconcileInstructions(
-  args: ReconcileInstructionsArgs & { readonly transition?: undefined },
-): Effect.Effect<InstructionsReconciliation<void>, ReconcileFailure, ReconcileRequirements>;
+export function reconcileInstructions<A, E, R>(
+  args: ReconcileInstructionsArgs &
+    SupersededInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
+): Effect.Effect<
+  InstructionsReconciliation<A>,
+  E | ReconcileFailure | WorkspaceSettingsReadFailure,
+  R | ReconcileRequirements | SettingsReader | WorkspaceLocation
+>;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & {
-    readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
+    readonly supersededConfig?: never;
+    readonly transition?: undefined;
   },
+): Effect.Effect<InstructionsReconciliation<void>, ReconcileFailure, ReconcileRequirements>;
+export function reconcileInstructions(
+  args: ReconcileInstructionsArgs &
+    SupersededInstructionsArgs & {
+      readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
+    },
 ): Effect.Effect<InstructionsReconciliation<unknown>, unknown, unknown> {
   return Effect.gen(function* () {
     const recorded = yield* readInstructionRows;
     const preflight = yield* observeInstructionProjection({
       ...args,
       rows: recorded,
-      config: args.preflightConfig ?? args.config,
+      config: args.supersededConfig ?? args.config,
     });
     yield* assertInstructionTargetsSafe(preflight);
-    yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
+    yield* assertObservedInstructionsGitignoreSafe(preflight, args.workspaceRoot);
+    if (args.supersededConfig !== undefined)
+      yield* removeInstructionTargetsFor({
+        config: args.supersededConfig,
+        symlinkSupported: preflight.symlinkSupported,
+        ...(args.replaceUnrecorded === undefined
+          ? {}
+          : { replaceUnrecorded: args.replaceUnrecorded }),
+        ...(args.discardModified === undefined ? {} : { discardModified: args.discardModified }),
+      });
     const transition = yield* args.transition ?? Effect.void;
     const rows = args.transition === undefined ? recorded : yield* readInstructionRows;
     const snapshot =
-      args.transition === undefined && args.preflightConfig === undefined
+      args.transition === undefined && args.supersededConfig === undefined
         ? preflight
         : yield* observeInstructionProjection({
             ...args,
@@ -389,17 +430,22 @@ export const recordInstructionCopiesBeforeSourceWrite = Effect.fn(
   yield* stageInstructionRows(yield* recordIdenticalInstructionCopies(snapshot));
 });
 
+/** How instruction-surface observation reports routes, and for which agents. */
+interface InstructionSurfaceObservationOptions {
+  readonly view?: "current" | "proposed";
+  readonly configuredAgents?: ReadonlyArray<string>;
+}
+
 /**
  * Observe shared instruction content with the routes owned by instruction
  * management. The current view reports actual alias entries; only the proposed
  * view includes future alias readers after a declared shared-surface write.
+ * The plans' producer observation is consumed when handed over; the routes are
+ * always observed.
  */
-export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
-  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
-  options?: {
-    readonly view?: "current" | "proposed";
-    readonly configuredAgents?: ReadonlyArray<string>;
-  },
+export const observeObservedInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
+  observed: ObservedProjectionPlans<E, R>,
+  options?: InstructionSurfaceObservationOptions,
 ): Effect.fn.Return<
   ReadonlyArray<ProjectionUnitObservation>,
   E | WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure | InstructionMaintenanceFailure,
@@ -411,7 +457,7 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
   | WorkspaceLocation
   | LockfileReader
 > {
-  const observations = yield* observeProjectionPlans(plans);
+  const observations = yield* observeObservedPlans(observed);
   const proposedLocations = observations
     .filter(
       (observation) =>
@@ -647,6 +693,12 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
   });
 });
 
+/** {@link observeObservedInstructionSurfacePlans} over plans observed fresh. */
+export const observeInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  options?: InstructionSurfaceObservationOptions,
+) => observeObservedInstructionSurfacePlans(unobservedProjectionPlans(plans), options);
+
 /** Link one selected contributor to the instruction owner's proposed physical units. */
 export const plannedInstructionContributorObservation = (args: {
   readonly type: "rule" | "knowledge";
@@ -701,19 +753,23 @@ export const plannedInstructionContributorObservation = (args: {
  * defers the aliases to that final reconciliation, so no alias is judged against
  * an intermediate canonical file.
  */
-export const applyInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
-  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+export const applyObservedInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
+  observed: ObservedProjectionPlans<E, R>,
   aliases: "reconcile" | "deferred" = "reconcile",
 ): Effect.fn.Return<
   ReadonlyArray<string>,
   E | WorkspaceSettingsReadFailure | ReconcileFailure,
   R | ReconcileRequirements | SettingsReader | WorkspaceLocation
 > {
-  const instructionPlans = plans.filter(
-    ({ unitId }) =>
-      unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region",
-  );
-  const instructionChanges = yield* observeProjectionPlans(instructionPlans);
+  const plans = observed.plans;
+  const isInstructionUnit = (unitId: string | undefined) =>
+    unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region";
+  // Only instruction regions decide alias reconciliation. A handed-over
+  // observation covers every plan in order; other units' entries are dropped.
+  const handed = yield* observed.take;
+  const instructionChanges = Option.isSome(handed)
+    ? handed.value.filter((_, index) => isInstructionUnit(plans[index]?.unitId))
+    : yield* observeProjectionPlans(plans.filter(({ unitId }) => isInstructionUnit(unitId)));
   const reconcilesAliases = instructionChanges.some((observation) => !observation.current);
   const accepted = yield* AcceptedResolutionWriter;
   // Rows join the enclosing accepted-resolution batch, or one opened here,
@@ -742,6 +798,12 @@ export const applyInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>(
   );
   return projectionPlanExclusionWarnings(plans);
 });
+
+/** {@link applyObservedInstructionSurfacePlans} over plans observed fresh. */
+export const applyInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  aliases?: "reconcile" | "deferred",
+) => applyObservedInstructionSurfacePlans(unobservedProjectionPlans(plans), aliases);
 
 /** What disabling instruction management removed. */
 export interface DisabledInstructionManagement {
@@ -774,6 +836,9 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
     workspaceRoot: location.baseDir,
     rows: snapshot.rows,
     dryRun: false,
+    // Removing an alias writes to the observed workspace; only a disable that
+    // removed none may decide the region removal from the observation.
+    ...(removals.removed.length === 0 ? { observed: snapshot } : {}),
   });
   yield* stageInstructionRows([...removals.rowChanges, ...Option.toArray(gitignore.rowChange)]);
   yield* settingsWriter.setInstructionsConfig(false);

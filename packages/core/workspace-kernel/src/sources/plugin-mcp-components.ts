@@ -12,7 +12,10 @@ const PortableMap = Schema.Struct({
   mcpServers: Schema.Record(Schema.String, Schema.Unknown),
 });
 
-/** Portable MCP discovery reads keys only; entry semantics belong to requested activation. */
+/**
+ * Portable MCP discovery reads keys only; entry semantics belong to requested activation.
+ * `distribution` is the one read from `directory`, whose resolved root bounds the configuration.
+ */
 export const discoverPluginMcpComponents = (
   directory: string,
   distribution: PluginSkillDistribution,
@@ -35,13 +38,10 @@ export const discoverPluginMcpComponents = (
         ))
     )
       return [];
-    const root = yield* fs
-      .realPath(directory)
-      .pipe(Effect.mapError((cause) => invalid("Cannot resolve plugin root", cause)));
     const physical = yield* fs
       .realPath(config)
       .pipe(Effect.mapError((cause) => invalid("Cannot resolve plugin MCP configuration", cause)));
-    if (!isLexicallyWithin(path, root, physical))
+    if (!isLexicallyWithin(path, distribution.resolvedRoot, physical))
       return yield* invalid("Plugin MCP configuration escapes its package");
     const raw = yield* fs
       .readFileString(config)

@@ -10,6 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   type ExtensionFileAccessor,
@@ -18,23 +19,35 @@ import {
 
 const decoder = new TextDecoder();
 
-export const readManifestJson = (
+/**
+ * Read and parse a manifest as {@link readManifestJson} does, also returning
+ * the text it decoded: `Some` whenever the bytes were read, even when the text
+ * is not valid JSON.
+ */
+export const readManifestJsonCapture = (
   accessor: ExtensionFileAccessor,
   filename: string,
-): Effect.Effect<unknown | undefined> =>
+): Effect.Effect<{ readonly json: unknown | undefined; readonly text: Option.Option<string> }> =>
   Effect.gen(function* () {
     const exists = yield* accessor.exists(filename);
     if (!exists) {
-      return undefined;
+      return { json: undefined, text: Option.none() };
     }
 
     const bytes = yield* accessor.readBytes(filename).pipe(Effect.catch(() => Effect.void));
     if (bytes === undefined) {
-      return undefined;
+      return { json: undefined, text: Option.none() };
     }
 
     const raw = decoder.decode(bytes);
-    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
+    const json = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
       Effect.catch(() => Effect.succeed(makeManifestJsonParseFailure(filename))),
     );
+    return { json, text: Option.some(raw) };
   });
+
+export const readManifestJson = (
+  accessor: ExtensionFileAccessor,
+  filename: string,
+): Effect.Effect<unknown | undefined> =>
+  readManifestJsonCapture(accessor, filename).pipe(Effect.map((capture) => capture.json));

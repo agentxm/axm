@@ -38,12 +38,11 @@ import {
   desiredPackageKey,
   effectiveDesiredConstraint,
   formatDesiredSourceAuthority,
-  observeDesiredCanonical,
+  observeDesiredUsableCanonical,
   sameSourceAuthority,
   sameSourceIdentity,
   packMemberSourceAuthority,
   usableAcceptedCanonical,
-  usableAcceptedCanonicalFrom,
   acceptedLockedResolutionRef,
   computePackManifestContentIdentity,
   type DesiredConstraintConflict,
@@ -51,6 +50,7 @@ import {
   type DesiredExtensionOrigin,
   type DesiredSourceAuthority,
   type DesiredStateGraph,
+  type CapturedManifest,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   installRefused,
@@ -165,6 +165,18 @@ export interface WorkspaceAuthorityScan {
   readonly fingerprint: string;
 }
 
+/**
+ * The manifest of a workspace-authored member the authority scan found
+ * usable, exactly as that scan's observation of `packageRoot` read it. It
+ * belongs to the planning call that ran the scan.
+ */
+export interface ScannedMemberManifest {
+  readonly type: "knowledge" | "rule" | "hook";
+  readonly name: string;
+  readonly packageRoot: string;
+  readonly manifest: CapturedManifest;
+}
+
 /** What reading workspace source authority and accepted canonical content needs. */
 type WorkspaceAuthorityRequirements =
   | FileSystem.FileSystem
@@ -174,9 +186,22 @@ type WorkspaceAuthorityRequirements =
   | LockfileReader
   | DesiredStateReader;
 
-export const scanWorkspaceAuthority: (
+/** A scan, with the manifests it read for usable workspace-authored members. */
+interface CapturingAuthorityScan {
+  readonly scan: WorkspaceAuthorityScan;
+  readonly memberManifests: ReadonlyArray<ScannedMemberManifest>;
+}
+
+const noMemberManifests: ReadonlyArray<ScannedMemberManifest> = Object.freeze([]);
+
+/**
+ * Scan like `scanWorkspaceAuthority`, also handing the caller the manifest
+ * each usable workspace-satisfied Knowledge, Rule or Hook member's
+ * observation read. Nothing is decoded for them here.
+ */
+const scanWorkspaceAuthorityCapturing: (
   pack: PackRef,
-) => Effect.Effect<WorkspaceAuthorityScan, OperationRefused, WorkspaceAuthorityRequirements> =
+) => Effect.Effect<CapturingAuthorityScan, OperationRefused, WorkspaceAuthorityRequirements> =
   Effect.fnUntraced(function* (pack: PackRef) {
     const graph = yield* readDesiredGraph;
     const path = yield* Path.Path;
@@ -184,6 +209,7 @@ export const scanWorkspaceAuthority: (
     const packIdentity = `${pack.owner}/packs/${pack.name}`;
     const blockers: Array<SourceAuthorityBlockedFact> = [];
     const workspaceRefs = new Map<string, ExtensionRef>();
+    const memberManifests: Array<ScannedMemberManifest> = [];
 
     const root = graph.nodes.find(
       (node) =>
@@ -283,13 +309,12 @@ export const scanWorkspaceAuthority: (
 
       // One observation judges the configured workspace package; its usable
       // ref is read from that observation rather than by observing again.
-      const canonical = yield* observeDesiredCanonical(desired).pipe(
-        Effect.flatMap((observed) =>
-          Effect.map(usableAcceptedCanonicalFrom(observed), (usable) => ({
-            status: observed.observation.status,
-            usable,
-          })),
-        ),
+      const canonical = yield* observeDesiredUsableCanonical(desired).pipe(
+        Effect.map(({ observed, usable, manifest }) => ({
+          status: observed.observation.status,
+          usable,
+          manifest,
+        })),
         Effect.mapError((cause) =>
           installRefused({
             category: "internal",
@@ -319,6 +344,19 @@ export const scanWorkspaceAuthority: (
       if (decision.kind !== "workspace-satisfied" || Option.isNone(canonical.usable)) continue;
       const ref = canonical.usable.value.ref;
       workspaceRefs.set(`${parsed.type}:${parsed.owner}/${parsed.name}`, ref);
+      if (
+        (parsed.type === "knowledge" || parsed.type === "rule" || parsed.type === "hook") &&
+        Option.isSome(canonical.manifest)
+      ) {
+        memberManifests.push(
+          Object.freeze({
+            type: parsed.type,
+            name: parsed.name,
+            packageRoot: canonical.usable.value.observation.path,
+            manifest: canonical.manifest.value,
+          }),
+        );
+      }
     }
 
     const workspaceResolver: WorkspacePackDependencyResolver = ({ owner, type, name }) =>
@@ -334,8 +372,17 @@ export const scanWorkspaceAuthority: (
       )
       .sort()
       .join("|");
-    return { graph, blockers, workspaceResolver, fingerprint };
+    return {
+      scan: { graph, blockers, workspaceResolver, fingerprint },
+      memberManifests: Object.freeze(memberManifests),
+    };
   });
+
+export const scanWorkspaceAuthority: (
+  pack: PackRef,
+) => Effect.Effect<WorkspaceAuthorityScan, OperationRefused, WorkspaceAuthorityRequirements> = (
+  pack,
+) => Effect.map(scanWorkspaceAuthorityCapturing(pack), ({ scan }) => scan);
 
 /**
  * The range each member of this Pack is selected within: the proposed
@@ -496,9 +543,30 @@ export type PackGraphSelection =
  * Install, update, and sync recovery render this one decision; none of them
  * re-implements a step of it.
  */
-export const selectPackGraph = Effect.fnUntraced(function* (intent: PackGraphSelectionRequest) {
+export const selectPackGraph = (intent: PackGraphSelectionRequest) =>
+  Effect.map(selectPackGraphCapturing(intent), ({ selection }) => selection);
+
+/**
+ * Select like `selectPackGraph`, also handing a selected graph's caller the
+ * manifests its authority scan read for workspace-authored members; a graph
+ * that is not selected hands none. They belong to that caller's call.
+ */
+export const selectPackGraphCapturing = Effect.fnUntraced(function* (
+  intent: PackGraphSelectionRequest,
+) {
+  const { scan, memberManifests } = yield* scanWorkspaceAuthorityCapturing(intent.packToInstall);
+  const selection = yield* selectWithinAuthority(intent, scan);
+  return {
+    selection,
+    memberManifests: selection.kind === "selected" ? memberManifests : noMemberManifests,
+  };
+});
+
+const selectWithinAuthority = Effect.fnUntraced(function* (
+  intent: PackGraphSelectionRequest,
+  authority: WorkspaceAuthorityScan,
+) {
   const sources = yield* SourceHostProviders;
-  const authority = yield* scanWorkspaceAuthority(intent.packToInstall);
   if (authority.blockers.length > 0) {
     return { kind: "authority-blocked", blockers: authority.blockers } satisfies PackGraphSelection;
   }

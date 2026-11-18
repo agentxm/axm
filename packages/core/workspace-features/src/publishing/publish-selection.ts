@@ -26,7 +26,12 @@ export const publishArchiveOptions = (
     manifest: manifestFilenameForType(type),
   });
 
-/** Resolve one operation-local policy, preserving the original source coordinates. */
+/**
+ * Resolve one operation-local policy, preserving the original source
+ * coordinates. A discovered policy also offers the package listing its ignore
+ * observation walked, which the caller's walk of the same tree may use and
+ * drops when that walk ends, and the Git root that observation found.
+ */
 export const resolvePublishSelection = (
   directory: string,
   options: PublishFileSelectionOptions,
@@ -38,12 +43,19 @@ export const resolvePublishSelection = (
         ? yield* observeGitIgnoreInputs({
             packageRoot: directory,
             ...(options.boundaryRoot === undefined ? {} : { boundaryRoot: options.boundaryRoot }),
+            retainListing: true,
           }).pipe(
             Effect.mapError((cause) =>
               publishRefused({ category: "validation", detail: cause.detail, cause }),
             ),
           )
-        : { packageDirectory: "", rules: [], fingerprint: "explicit" };
+        : {
+            packageDirectory: "",
+            rules: [],
+            fingerprint: "explicit",
+            listing: undefined,
+            gitRoot: undefined,
+          };
     const authoredSelection = resolveFileSelection({
       packageDirectory: snapshot.packageDirectory,
       gitignore: snapshot.rules,
@@ -79,6 +91,10 @@ export const resolvePublishSelection = (
     }
     return {
       selection,
+      /** The package tree the ignore observation listed, for this selection's own walk. */
+      ...(snapshot.listing === undefined ? {} : { listing: snapshot.listing }),
+      /** The Git root the ignore observation's walk from the package found. */
+      ...(snapshot.gitRoot === undefined ? {} : { gitRoot: snapshot.gitRoot }),
       policyFingerprint: JSON.stringify({
         snapshot: snapshot.fingerprint,
         include: options.include,

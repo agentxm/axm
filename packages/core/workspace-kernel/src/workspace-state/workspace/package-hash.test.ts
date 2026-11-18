@@ -80,4 +80,91 @@ layer(NodeServices.layer)("package content hashing", (it) => {
       }).pipe(Effect.scoped),
     );
   }
+
+  /** A package whose root manifest and fixture hold bytes that do not round-trip through text. */
+  const awkwardPackage = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.makeTempDirectoryScoped();
+    yield* fs.writeFile(
+      path.join(root, "hook.json"),
+      new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('{"a":1}')]),
+    );
+    yield* fs.makeDirectory(path.join(root, "fixtures"));
+    yield* fs.writeFile(
+      path.join(root, "fixtures", "input.json"),
+      new Uint8Array([0x22, 0xff, 0x22]),
+    );
+    return root;
+  });
+
+  it.effect(
+    "frames supplied root-file bytes and decodes named files without changing the hash",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* awkwardPackage;
+        const plain = yield* computePackageContentHash(root);
+        const received: Array<readonly [string, string]> = [];
+        const reads: Array<string> = [];
+        const hashed = yield* computePackageContentHash(root, {
+          rootFile: { name: "hook.json", bytes: yield* fs.readFile(path.join(root, "hook.json")) },
+          decodeText: {
+            entries: ["hook.json", "fixtures/input.json", "absent.json"],
+            receive: (relative, text) => {
+              received.push([relative, text]);
+            },
+          },
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fs,
+            readFile: (target) => {
+              reads.push(path.relative(root, target));
+              return fs.readFile(target);
+            },
+          }),
+        );
+        expect(hashed).toBe(plain);
+        expect(reads).toEqual(["fixtures/input.json"]);
+        expect(received).toEqual([
+          [
+            "fixtures/input.json",
+            yield* fs.readFileString(path.join(root, "fixtures", "input.json")),
+          ],
+          ["hook.json", yield* fs.readFileString(path.join(root, "hook.json"))],
+        ]);
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect("frames supplied bytes only for a regular file at the package root", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* awkwardPackage;
+      const other = new TextEncoder().encode("other");
+      const plain = yield* computePackageContentHash(root);
+      // Bytes framed in place of a regular root file are what the hash covers.
+      expect(
+        yield* computePackageContentHash(root, { rootFile: { name: "hook.json", bytes: other } }),
+      ).not.toBe(plain);
+      // A nested file of the same name and a linked root entry are read as usual.
+      expect(
+        yield* computePackageContentHash(root, {
+          rootFile: { name: "input.json", bytes: other },
+        }),
+      ).toBe(plain);
+      yield* fs.rename(path.join(root, "hook.json"), path.join(root, "fixtures", "hook.json"));
+      yield* fs.symlink("fixtures/hook.json", path.join(root, "hook.json"));
+      const linked = yield* computePackageContentHash(root);
+      const received: Array<string> = [];
+      expect(
+        yield* computePackageContentHash(root, {
+          rootFile: { name: "hook.json", bytes: other },
+          decodeText: { entries: ["hook.json"], receive: (relative) => received.push(relative) },
+        }),
+      ).toBe(linked);
+      expect(received).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
 });

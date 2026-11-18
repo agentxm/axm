@@ -7,8 +7,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Tracer from "effect/Tracer";
 import {
+  applyDigestedStructuralInverse,
   applyStructuralInverse,
   deriveStructuralInverse,
+  digestText,
+  isStructuralInsertion,
   readContainerReceipts,
 } from "./container-receipts.js";
 
@@ -44,6 +47,88 @@ it.effect("counts actual receipt digests including rejection using fixed UTF-8 v
       ),
     ).toBe(true);
     expect(JSON.stringify(hashes.map((span) => [...span.attributes]))).not.toContain("owned");
+  }),
+);
+
+it.effect(
+  "binds one receipt digest to the text it hashes and reuses it for inverse application",
+  () =>
+    Effect.gen(function* () {
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      const hashSpans = () =>
+        spans
+          .filter((span) => span.name === "axm.hash.receipt")
+          .map((span) => ({
+            bytes: span.attributes.get("axm.work.bytes"),
+            count: span.attributes.get("axm.work.count"),
+            status: span.status._tag,
+          }));
+      const before = "{}";
+      const after = '{"owned":"α"}';
+      const inverse = yield* deriveStructuralInverse(before, after);
+      expect(Option.isSome(inverse)).toBe(true);
+      if (Option.isNone(inverse)) return;
+      const text = yield* digestText(after).pipe(withDetailedWork(tracer));
+      expect({ raw: text.raw, sha256: text.sha256 }).toEqual({
+        raw: after,
+        sha256: inverse.value.afterSha256,
+      });
+      expect(hashSpans()).toEqual([{ bytes: 14, count: 1, status: "Ended" }]);
+      const changed = yield* digestText(after + "\n");
+      spans.length = 0;
+      const restored = yield* applyDigestedStructuralInverse(text, inverse.value).pipe(
+        withDetailedWork(tracer),
+      );
+      expect(Option.map(restored, (value) => [value.raw, value.sha256])).toEqual(
+        Option.some([before, inverse.value.beforeSha256]),
+      );
+      expect(hashSpans()).toEqual([{ bytes: 2, count: 1, status: "Ended" }]);
+      spans.length = 0;
+      const rejected = yield* applyDigestedStructuralInverse(changed, inverse.value).pipe(
+        withDetailedWork(tracer),
+      );
+      expect(hashSpans()).toEqual([]);
+      expect(Option.map(restored, (value) => value.raw)).toEqual(
+        yield* applyStructuralInverse(after, inverse.value),
+      );
+      expect(Option.map(rejected, (value) => value.raw)).toEqual(
+        yield* applyStructuralInverse(after + "\n", inverse.value),
+      );
+    }),
+);
+
+it.effect("judges structural insertions without receipt digests", () =>
+  Effect.gen(function* () {
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const corpus: ReadonlyArray<readonly [string, string]> = [
+      ['{"foreign":1}', '{"foreign":1,"owned":2}'],
+      ['{"foreign":1,"list":[]}', '{\n  "foreign": 1,\n  "list": ["owned"]\n}\n'],
+      ['{"foreign":1}', '{"foreign":2}'],
+      ['{"foreign":1}', '{"foreign":1}'],
+    ];
+    const verdicts = yield* Effect.sync(() =>
+      corpus.map(([before, after]) => isStructuralInsertion(before, after)),
+    ).pipe(withDetailedWork(tracer));
+    expect(verdicts).toEqual([true, true, false, false]);
+    expect(spans.filter((span) => span.name === "axm.hash.receipt")).toEqual([]);
+    const derived: Array<boolean> = [];
+    for (const [before, after] of corpus)
+      derived.push(Option.isSome(yield* deriveStructuralInverse(before, after)));
+    expect(verdicts).toEqual(derived);
   }),
 );
 

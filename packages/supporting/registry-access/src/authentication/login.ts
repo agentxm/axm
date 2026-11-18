@@ -22,9 +22,9 @@ import {
   makePersistedCredentialsUnsupportedError,
 } from "../credentials/credential-store.js";
 import {
-  initiateDeviceLogin,
   resumeDeviceLogin,
   runDeviceLogin,
+  startDeviceLogin,
   type RunDeviceLoginOptions,
   type DeviceLoginPendingResult,
 } from "./device-login.js";
@@ -35,7 +35,7 @@ import type {
 } from "../adapters/loopback-server.js";
 import type { LoginResult } from "./login-output.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
-import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
+import { PendingDeviceLoginStore, type PendingDeviceLogin } from "./pending-device-login-store.js";
 import { LOOPBACK_TIMEOUT_MINUTES, runLoopbackLogin } from "../adapters/loopback-login.js";
 import { selectLoginStrategy } from "./login-strategy.js";
 import { loginStrategyEnvironment } from "../adapters/environment.js";
@@ -150,18 +150,25 @@ const shouldReplaceValidSession = (request: LoginRequest, handle: string) =>
   });
 
 /**
- * Whether an unexpired device authorization is still pending for this
- * Registry. A sign-in that names no flow picks it up, so stopping a wait
- * never strands a code that is still good.
+ * This invocation's read of the pending device sign-in. A corrupt record is
+ * removed and fails the sign-in here, at the first read.
  */
-const hasResumableDeviceLogin = (endpoint: HttpRegistryEndpoint) =>
-  Effect.gen(function* () {
-    const pending = yield* (yield* PendingDeviceLoginStore).load();
-    if (Option.isNone(pending) || pending.value.registryUrl !== credentialKey(endpoint)) {
-      return false;
-    }
-    return !(yield* DateTime.isPast(pending.value.expiresAt));
-  });
+const observePendingDeviceLogin = Effect.gen(function* () {
+  return yield* (yield* PendingDeviceLoginStore).load();
+});
+
+/**
+ * Whether the observed pending store holds an unexpired device authorization
+ * for this Registry. A sign-in that names no flow picks it up, so stopping a
+ * wait never strands a code that is still good.
+ */
+const isResumableDeviceLogin = (
+  endpoint: HttpRegistryEndpoint,
+  pending: Option.Option<PendingDeviceLogin>,
+) =>
+  Option.isSome(pending) && pending.value.registryUrl === credentialKey(endpoint)
+    ? Effect.map(DateTime.isPast(pending.value.expiresAt), (expired) => !expired)
+    : Effect.succeed(false);
 
 export const login = Effect.fn("Login.run")(function* (
   request: LoginRequest,
@@ -216,7 +223,11 @@ export const login = Effect.fn("Login.run")(function* (
   }
 
   const namesFlow = request.deviceCode || request.waitForHumanSeconds !== undefined;
-  const resumesPending = !namesFlow && (yield* hasResumableDeviceLogin(endpoint));
+  // One read of the pending store serves the device flow that follows it
+  // directly; a flow reached after a loopback attempt reads the store again.
+  const observed = namesFlow ? undefined : yield* observePendingDeviceLogin;
+  const resumesPending =
+    observed !== undefined && (yield* isResumableDeviceLogin(endpoint, observed));
   const unattended = request.unattended || request.machineOutput;
   const strategy =
     request.waitForHumanSeconds !== undefined || resumesPending
@@ -232,18 +243,24 @@ export const login = Effect.fn("Login.run")(function* (
     if (!namesFlow && !resumesPending && !unattended) {
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
+    const start = { restart: request.restart, ...(observed === undefined ? {} : { observed }) };
     if (unattended && request.waitForHumanSeconds === undefined) {
-      const result = yield* initiateDeviceLogin(endpoint, { restart: request.restart });
+      // The pending record carries the secret device code; only the result leaves.
+      const { result } = yield* startDeviceLogin(endpoint, start);
       if (!request.machineOutput) yield* presenter.notePendingApproval(result);
       return { _tag: "PendingApproval", result } as const satisfies LoginOutcome;
     }
     const result = unattended
-      ? yield* initiateDeviceLogin(endpoint, { restart: request.restart }).pipe(
-          Effect.andThen(resumeDeviceLogin(endpoint, deviceOptions(false))),
+      ? yield* startDeviceLogin(endpoint, start).pipe(
+          // No handoff runs between starting and waiting.
+          Effect.andThen(({ pending }) =>
+            resumeDeviceLogin(endpoint, { ...deviceOptions(false), prepared: pending }),
+          ),
         )
       : yield* runDeviceLogin(
           endpoint,
           deviceOptions(request.waitForHumanSeconds !== undefined && !request.deviceCode),
+          observed,
         );
     return { _tag: "SignedIn", result } as const satisfies LoginOutcome;
   }

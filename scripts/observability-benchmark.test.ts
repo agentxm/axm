@@ -12,6 +12,9 @@ import {
   assessObservabilityEvidence,
   compareSummaryDetailWork,
   assessScenarioTiming,
+  observabilityScenarioSelection,
+  productTimingComparison,
+  selectObservabilityScenarios,
   timingBlockOrder,
   timingSubjects,
   ObservabilityBudgetsSchema,
@@ -618,6 +621,162 @@ describe("observability campaign evidence", () => {
         ).toBe(true);
       }),
   );
+});
+
+describe("compare run mode", () => {
+  const unset = { scenarios: undefined, scenarioFilter: undefined, referenceHost: undefined };
+  const failure = <A>(effect: Effect.Effect<A, { readonly message: string }>) =>
+    Effect.flip(effect).pipe(Effect.map(({ message }) => message));
+  const inventory = [{ id: "list/one" }, { id: "list/one/preview" }, { id: "show/two" }];
+
+  it.effect("parses an exact, trimmed, duplicate-free selection and matches ids exactly", () =>
+    Effect.gen(function* () {
+      const selection = yield* observabilityScenarioSelection("compare", {
+        ...unset,
+        scenarios: " show/two , list/one ",
+      });
+      expect(selection).toEqual(["show/two", "list/one"]);
+      expect(
+        (yield* selectObservabilityScenarios(inventory, selection ?? [])).map(({ id }) => id),
+      ).toEqual(["list/one", "show/two"]);
+      expect(yield* failure(selectObservabilityScenarios(inventory, ["list"]))).toBe(
+        "Unknown AXM_OBSERVABILITY_SCENARIOS id(s): list",
+      );
+      expect(
+        yield* failure(selectObservabilityScenarios(inventory, ["list/one", "show/three"])),
+      ).toBe("Unknown AXM_OBSERVABILITY_SCENARIOS id(s): show/three");
+      for (const scenarios of [undefined, "", " , "])
+        expect(
+          yield* failure(observabilityScenarioSelection("compare", { ...unset, scenarios })),
+        ).toMatch(/^Compare mode requires AXM_OBSERVABILITY_SCENARIOS/);
+      expect(
+        yield* failure(
+          observabilityScenarioSelection("compare", { ...unset, scenarios: "list/one,," }),
+        ),
+      ).toBe("AXM_OBSERVABILITY_SCENARIOS contains an empty scenario id.");
+      expect(
+        yield* failure(
+          observabilityScenarioSelection("compare", { ...unset, scenarios: "list/one, list/one" }),
+        ),
+      ).toBe("AXM_OBSERVABILITY_SCENARIOS repeats scenario id(s): list/one");
+    }),
+  );
+
+  it.effect(
+    "refuses an isolation declaration, substring filters and selection outside compare mode",
+    () =>
+      Effect.gen(function* () {
+        const scenarios = "list/one";
+        expect(
+          yield* failure(
+            observabilityScenarioSelection("compare", { ...unset, scenarios, referenceHost: "1" }),
+          ),
+        ).toMatch(/cannot declare a reference host/);
+        expect(
+          yield* failure(
+            observabilityScenarioSelection("compare", {
+              ...unset,
+              scenarios,
+              scenarioFilter: "list",
+            }),
+          ),
+        ).toMatch(/unset AXM_OBSERVABILITY_SCENARIO_FILTER/);
+        for (const mode of ["fixtures", "measure"] as const) {
+          expect(
+            yield* failure(observabilityScenarioSelection(mode, { ...unset, scenarios })),
+          ).toBe("AXM_OBSERVABILITY_SCENARIOS applies only to compare mode.");
+          expect(
+            yield* observabilityScenarioSelection(mode, {
+              ...unset,
+              scenarioFilter: "list",
+              referenceHost: "1",
+            }),
+          ).toBeUndefined();
+        }
+      }),
+  );
+
+  it("assesses only the selection while keeping every assessed gate", () => {
+    const wider = [
+      ...coverage,
+      { command: "show", variant: "default", scenarios: ["show/two"], status: "implemented" },
+      { command: "publish", variant: "preview", scenarios: [], status: "pending" },
+    ] as const;
+    const inventoryIds = ["list/one", "show/two"];
+    const compared = (
+      values: ReadonlyArray<ObservationSample>,
+      selection: ReadonlyArray<string> = ["list/one"],
+    ) =>
+      assessObservabilityEvidence(
+        budgets,
+        wider,
+        inventoryIds,
+        values,
+        preflight(),
+        "enforced",
+        "enforced",
+        selection,
+      );
+    const full = assessObservabilityEvidence(budgets, wider, inventoryIds, samples(), preflight());
+    expect(full.passed).toBe(false);
+    expect(full.issues).toContain("Missing verified preflight: show/two/disabled");
+    expect(full.issues).toContain("Pending successful fixture: publish/preview");
+    expect(compared(samples())).toMatchObject({ passed: true, issues: [] });
+    expect(compared(samples()).comparisons.map(({ scenario }) => scenario)).toEqual(
+      traceModes.map(() => "list/one"),
+    );
+    expect(compared(samples().slice(1)).issues).toContain(
+      "Incomplete matched block: list/one/disabled/true/0",
+    );
+    expect(
+      compared(
+        samples().map((sample) =>
+          sample.subject === "candidate" ? { ...sample, stdoutDigest: "changed" } : sample,
+        ),
+      ).passed,
+    ).toBe(false);
+    expect(
+      compared(samples().map((sample) => ({ ...sample, scenario: "show/two" }))).issues,
+    ).toContain("Undeclared sample: show/two/disabled/baseline/true/0");
+    expect(compared(samples(), []).issues).toContain("The compared scenario selection is empty.");
+    expect(compared(samples(), ["list/one", "risk/path"]).issues).toContain(
+      "Undeclared selected scenario: risk/path",
+    );
+  });
+
+  it("reports paired untraced old-versus-new timing from the retained assessment", () => {
+    const values = samples().map((sample) =>
+      sample.subject === "baseline"
+        ? { ...sample, durationMs: 100 + sample.iteration, peakRssBytes: 10_000_000 }
+        : sample.mode === "disabled"
+          ? {
+              ...sample,
+              durationMs: 90 + 2 * sample.iteration,
+              peakRssBytes: sample.warmup ? 10_500_000 : 10_200_000,
+            }
+          : sample,
+    );
+    const assessment = assessObservabilityEvidence(
+      budgets,
+      coverage,
+      ["list/one"],
+      values,
+      preflight(),
+      "enforced",
+      "enforced",
+      ["list/one"],
+    );
+    expect(productTimingComparison(assessment, values)).toEqual([
+      {
+        scenario: "list/one",
+        measuredBlocks: 5,
+        baselineMedianMs: 102,
+        candidateDisabledMedianMs: 94,
+        pairedBlockDeltasMs: [-10, -9, -8, -7, -6].map((deltaMs, block) => ({ block, deltaMs })),
+        maximumPairedPeakRssDeltaBytes: 500_000,
+      },
+    ]);
+  });
 });
 
 describe("independent comparison artifacts", () => {

@@ -7,6 +7,7 @@ import type {
   NativeLocationOutcome,
 } from "@agentxm/workspace-kernel/locations";
 import type { MaterializationTransition } from "@agentxm/workspace-kernel/operations";
+import type { PreparedProjectionFacts } from "@agentxm/workspace-kernel/projection";
 import type { SyncSelection } from "@agentxm/workspace-kernel/reconciliation";
 import type { DesiredStateGraph } from "@agentxm/workspace-kernel/workspace-state";
 import type { CheckSubject } from "./check-scope.js";
@@ -35,7 +36,11 @@ export interface LocalCheckOwners<
     LintError,
     LintRequirements
   >;
-  readonly convergence: (selection: SyncSelection) => Effect.Effect<
+  /** `prepared` is check's own facts from the active read phase, offered for reuse. */
+  readonly convergence: (
+    selection: SyncSelection,
+    prepared?: PreparedProjectionFacts,
+  ) => Effect.Effect<
     {
       readonly cleanupSafe: boolean;
       readonly unassessed: ReadonlyArray<CheckSubject & { readonly reason: string }>;

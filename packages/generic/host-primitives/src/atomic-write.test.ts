@@ -3,17 +3,23 @@
  *
  * Covers string and binary payloads, the content-equality short-circuit in
  * both read-error modes, target pre-removal, per-step error mapping, temp
- * cleanup on failure, and concurrent writers to one target.
+ * cleanup on failure and interruption (and no cleanup work once the rename
+ * consumed the temp), concurrent writers to one target, and which buffer
+ * instance reaches the filesystem under each content-ownership mode.
  */
 
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as PlatformError from "effect/PlatformError";
 
 import {
   sweepStaleAtomicWriteTemps,
@@ -27,6 +33,36 @@ const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
 const identityFailure = (failure: AtomicWriteFailure): AtomicWriteFailure => failure;
+
+const injectedFailure = (method: string, path: string) =>
+  PlatformError.systemError({
+    _tag: "PermissionDenied",
+    module: "FileSystem",
+    method,
+    pathOrDescriptor: path,
+    description: "injected failure",
+  });
+
+/** Removes of generated `<target>.tmp.*` siblings, the only paths this writer stages at. */
+const tempRemovals = (recording: FileSystemRecording, targetPath: string): number =>
+  recording.calls({ method: "remove" }).filter((call) => call.path.startsWith(`${targetPath}.tmp.`))
+    .length;
+
+/**
+ * Delegates to `fs`, remembering each byte buffer instance `writeFile` receives.
+ * `FileSystem.make` rebuilds the derived methods over the recorded `writeFile`.
+ */
+const recordWrittenInstances = (fs: FileSystem.FileSystem) => {
+  const written: Array<Uint8Array> = [];
+  const fileSystem = FileSystem.make({
+    ...fs,
+    writeFile: (path, data, options) => {
+      written.push(data);
+      return fs.writeFile(path, data, options);
+    },
+  });
+  return { fileSystem, written };
+};
 
 const ancient = new Date("2000-01-01T00:00:00.000Z");
 const cutoff = new Date("2001-01-01T00:00:00.000Z").getTime();
@@ -150,6 +186,98 @@ describe("writeFileAtomic", () => {
     ),
   );
 
+  describe("content ownership", () => {
+    it.effect("writes a transferred buffer without copying it", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([0, 1, 2, 253, 254, 255]);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            contentOwnership: "transferred",
+            mapError: identityFailure,
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).toBe(payload);
+          expect(Array.from(payload)).toEqual([0, 1, 2, 253, 254, 255]);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+          expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
+        }),
+      ),
+    );
+
+    it.effect("copies a buffer the caller keeps by default", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([7, 8, 9]);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            mapError: identityFailure,
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).not.toBe(payload);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+        }),
+      ),
+    );
+
+    it.effect("copies a buffer whose publication is witnessed", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([7, 8, 9]);
+          let witnessed: string | Uint8Array | undefined;
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            mapError: identityFailure,
+            onPublished: (publication) =>
+              Effect.sync(() => {
+                witnessed = publication.content;
+              }),
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).not.toBe(payload);
+          expect(witnessed).toBe(written[0]);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+        }),
+      ),
+    );
+
+    it("accepts a transfer only for byte content without a witness or comparison", () => {
+      // Each directive sits where the compiler reports the rejected combination.
+      const transferred = (fs: FileSystem.FileSystem) => [
+        // @ts-expect-error string content cannot be transferred
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: "text",
+          contentOwnership: "transferred",
+          mapError: identityFailure,
+        }),
+        // @ts-expect-error a publication witness needs the writer's own snapshot
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: new Uint8Array(),
+          contentOwnership: "transferred",
+          mapError: identityFailure,
+          onPublished: () => Effect.void,
+        }),
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: new Uint8Array(),
+          contentOwnership: "transferred",
+          // @ts-expect-error a content comparison needs the writer's own snapshot
+          skipIfUnchanged: "ignore-read-errors",
+          mapError: identityFailure,
+        }),
+      ];
+      expect(transferred).toBeTypeOf("function");
+    });
+  });
+
   describe("skipIfUnchanged", () => {
     it.effect("leaves an unchanged target untouched in fail-on-read-error mode", () =>
       withContext(
@@ -216,6 +344,136 @@ describe("writeFileAtomic", () => {
             mapError: identityFailure,
           });
           expect(nodeFs.readFileSync(target, "utf8")).toBe("fresh\n");
+        }),
+      ),
+    );
+  });
+
+  describe("temp cleanup", () => {
+    it.effect("does no temp cleanup once the rename consumed the temp", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "published\n",
+            mapError: identityFailure,
+          });
+          expect(recording.calls({ method: "rename" })).toHaveLength(1);
+          expect(tempRemovals(recording, target)).toBe(0);
+          expect(nodeFs.readFileSync(target, "utf8")).toBe("published\n");
+          expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
+        }),
+      ),
+    );
+
+    it.effect("removes a partially written temp when writing it fails", () =>
+      withContext(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const { fileSystem, recording } = makeRecordingFileSystem({
+            ...fs,
+            writeFile: (path, data, options) =>
+              fs
+                .writeFile(path, data.subarray(0, 1), options)
+                .pipe(Effect.andThen(Effect.fail(injectedFailure("writeFile", path)))),
+          });
+          const failure = yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "partial\n",
+            mapError: identityFailure,
+          }).pipe(Effect.flip);
+          expect(failure.step).toBe("write-temp");
+          expect(recording.calls({ method: "rename" })).toHaveLength(0);
+          expect(tempRemovals(recording, target)).toBe(1);
+          expect(nodeFs.readdirSync(tempDir)).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("removes the temp when the rename fails", () =>
+      withContext(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const { fileSystem, recording } = makeRecordingFileSystem({
+            ...fs,
+            rename: (path) => Effect.fail(injectedFailure("rename", path)),
+          });
+          const failure = yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "unpublished\n",
+            mapError: identityFailure,
+          }).pipe(Effect.flip);
+          expect(failure.step).toBe("rename");
+          expect(tempRemovals(recording, target)).toBe(1);
+          expect(nodeFs.readdirSync(tempDir)).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("removes the temp when interrupted before the rename", () =>
+      withContext(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const staged = yield* Deferred.make<void>();
+          const { fileSystem, recording } = makeRecordingFileSystem({
+            ...fs,
+            writeFile: (path, data, options) =>
+              fs
+                .writeFile(path, data, options)
+                .pipe(
+                  Effect.andThen(Deferred.succeed(staged, undefined)),
+                  Effect.andThen(Effect.never),
+                ),
+          });
+          const fiber = yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "interrupted\n",
+            mapError: identityFailure,
+          }).pipe(Effect.forkChild);
+          yield* Deferred.await(staged);
+          expect(nodeFs.readdirSync(tempDir)).toHaveLength(1);
+          yield* Fiber.interrupt(fiber);
+          expect(recording.calls({ method: "rename" })).toHaveLength(0);
+          expect(tempRemovals(recording, target)).toBe(1);
+          expect(nodeFs.readdirSync(tempDir)).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("does no temp cleanup when recording fails after the rename", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+          const failure = yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "published\n",
+            mapError: identityFailure,
+            onPublished: () => Effect.fail("record failed" as const),
+          }).pipe(Effect.flip);
+          expect(failure).toBe("record failed");
+          expect(tempRemovals(recording, target)).toBe(0);
+          expect(nodeFs.readFileSync(target, "utf8")).toBe("published\n");
+          expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
+        }),
+      ),
+    );
+
+    it.effect("still removes the target once before the rename when requested", () =>
+      withContext(
+        Effect.gen(function* () {
+          nodeFs.writeFileSync(target, "old");
+          const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: "new",
+            removeTargetBeforeRename: true,
+            mapError: identityFailure,
+          });
+          expect(recording.calls({ method: "remove", path: target })).toHaveLength(1);
+          expect(tempRemovals(recording, target)).toBe(0);
+          expect(nodeFs.readFileSync(target, "utf8")).toBe("new");
+          expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
         }),
       ),
     );

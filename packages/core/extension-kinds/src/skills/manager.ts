@@ -36,6 +36,7 @@ import {
   enabledConfiguredEntries,
   sanitizeName,
   readSkillDirectoryName,
+  skillDirectoryNameFromRead,
   computePackageContentHash,
   configuredRowsByName,
   acceptedCanonicalObservation,
@@ -63,7 +64,9 @@ import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
+  materializeSkillCanonicalReadingSkillMd,
   removeSkillAgentArtifact,
+  removeSkillAgentArtifactForSources,
 } from "./materialization.js";
 import {
   configuredSkillsToDiskRefs,
@@ -100,7 +103,7 @@ export const SkillManagerLive = Layer.effect(
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
       const previousCanonicalSkillSrcPaths = yield* captureSkillOutputSources(ref.skill.name);
 
-      const materialized = yield* materializeSkillCanonical({
+      const { materialized, skillMd } = yield* materializeSkillCanonicalReadingSkillMd({
         ref,
         sanitizedName: packageName,
         baseDir,
@@ -112,7 +115,13 @@ export const SkillManagerLive = Layer.effect(
         },
       });
       const skillSrcPath = materialized.skillSrcPath;
-      const sanitized = yield* readSkillDirectoryName(skillSrcPath, ref.skill.name).pipe(
+      // The compatibility check just read this SKILL.md and nothing has been
+      // written since; any other content root is read here.
+      const sanitized = yield* (
+        Option.isSome(skillMd) && skillMd.value.path === path.join(skillSrcPath, "SKILL.md")
+          ? skillDirectoryNameFromRead(skillMd.value.outcome, ref.skill.name)
+          : readSkillDirectoryName(skillSrcPath, ref.skill.name)
+      ).pipe(
         Effect.mapError(
           (cause) => new SkillDefinitionInvalid({ detail: "Cannot read skill identity", cause }),
         ),
@@ -220,6 +229,7 @@ export const SkillManagerLive = Layer.effect(
         declaredMcpNames: new Set(),
         expectedHooks: [],
         authoredSkills: { layout: currentLayout(), entries: yield* settings.entries("skill") },
+        retainSkillLocations: true,
       }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
       const obsolete = inventory.ownedResidue.filter(
         (output) =>
@@ -233,10 +243,20 @@ export const SkillManagerLive = Layer.effect(
         agents: yield* agentRepo.all,
         configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
         sharedSkillPolicy: true,
+        // Only pure filtering separates the inventory from this classification;
+        // the removals below still admit and prove each entry afresh.
+        ...(inventory.skillLocations === undefined
+          ? {}
+          : { locationSet: inventory.skillLocations }),
         targets: obsolete.map((output) => ({
           path: output.path,
           kind: "skill" as const,
           state: "unchanged" as const,
+          // The inventory just proved this copy from its receipt; only the
+          // presence crosses, and the removal still reads the receipt itself.
+          ...(output.proof === "copied-directory-receipt"
+            ? { copyReceipt: { directory: output.path, present: true } }
+            : {}),
         })),
       }).pipe(
         Effect.mapError(
@@ -248,15 +268,13 @@ export const SkillManagerLive = Layer.effect(
         ),
       );
       for (const output of obsolete) {
-        for (const source of sourcePaths) {
-          yield* removeSkillAgentArtifact({
-            targetDir: path.dirname(output.path),
-            sanitizedName: output.entryName,
-            canonicalSkillSrcPath: source,
-            baseDir,
-            nativeRoots,
-          });
-        }
+        yield* removeSkillAgentArtifactForSources({
+          targetDir: path.dirname(output.path),
+          sanitizedName: output.entryName,
+          canonicalSkillSrcPaths: sourcePaths,
+          baseDir,
+          nativeRoots,
+        });
       }
       const retiredLocations = yield* retiredNativeArtifactLocationOutcomes(previousLocations).pipe(
         Effect.mapError(
@@ -363,6 +381,7 @@ export const SkillManagerLive = Layer.effect(
           declaredMcpNames: new Set(),
           expectedHooks: [],
           authoredSkills: { layout, entries: yield* settings.entries("skill") },
+          retainSkillLocations: true,
         }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
         const ownedOutputs = inventory.outputs.filter(
           (output) =>
@@ -376,11 +395,21 @@ export const SkillManagerLive = Layer.effect(
           agents: yield* agentRepo.all,
           configuredAgentIds,
           sharedSkillPolicy: true,
+          // Only reads separate the inventory from this classification; the
+          // removal below still admits and proves each link afresh.
+          ...(inventory.skillLocations === undefined
+            ? {}
+            : { locationSet: inventory.skillLocations }),
           targets: ownedOutputs.map((output) => ({
             path: output.path,
             kind: "skill",
             state: "unchanged",
             ...(canonicalSkillSrcPath === undefined ? {} : { sourcePath: canonicalSkillSrcPath }),
+            // The inventory just proved this copy from its receipt; only the
+            // presence crosses, and the removal still reads the receipt itself.
+            ...(output.proof === "copied-directory-receipt"
+              ? { copyReceipt: { directory: output.path, present: true } }
+              : {}),
           })),
         }).pipe(
           Effect.mapError(
@@ -509,6 +538,7 @@ export const SkillManagerLive = Layer.effect(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
           ),
         );
+        const diskLayout = currentLayout();
         const workspaceRefs = yield* listMaterializableFromDisk({
           type: "skill",
           records: currentRecords,
@@ -519,9 +549,29 @@ export const SkillManagerLive = Layer.effect(
             path,
             baseDir,
             scope: location.scope,
-            layout: currentLayout(),
+            layout: diskLayout,
           },
         });
+        // Each authored ref the disk pass resolved, with the settings source it
+        // resolved from. Owned by this call; restoration reads it only for the
+        // same package resolved with the same inputs.
+        const resolvedFromDisk: ReadonlyMap<
+          string,
+          { readonly ref: SkillExtensionRef; readonly source: string }
+        > = new Map(
+          workspaceRefs.flatMap(
+            (
+              ref,
+            ): ReadonlyArray<
+              readonly [string, { readonly ref: SkillExtensionRef; readonly source: string }]
+            > => {
+              const source = configuredWithoutBundled[ref.skill.name]?.source;
+              return ref.refType === "workspace" && source !== undefined
+                ? [[ref.skill.name, { ref, source }]]
+                : [];
+            },
+          ),
+        );
         const trustedRefs = yield* listMaterializableFromAccepted({
           type: "skill",
           names: Effect.succeed(
@@ -529,6 +579,17 @@ export const SkillManagerLive = Layer.effect(
               .filter(([name]) => configuredEntries[name]?.origin !== "bundled")
               .map(([name]) => name),
           ),
+          preparedWorkspaceRef: (desired, resolution) => {
+            const resolved = resolvedFromDisk.get(desired.name);
+            return resolved !== undefined &&
+              desired.type === "skill" &&
+              desired.identity.authority === "workspace" &&
+              desired.source === resolved.source &&
+              resolution.layout === diskLayout &&
+              resolution.scope === location.scope
+              ? Option.some(resolved.ref)
+              : Option.none();
+          },
         });
         const refsByName = new Map(workspaceRefs.map((ref) => [ref.skill.name, ref]));
         for (const ref of trustedRefs) {

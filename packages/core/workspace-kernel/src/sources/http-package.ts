@@ -1,3 +1,4 @@
+import * as Arr from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -41,13 +42,17 @@ const archiveFormat = (urls: ReadonlyArray<URL>, contentType: string | undefined
   return Effect.fail(invalid("Archive URL and media type do not identify ZIP, tar, or gzip tar"));
 };
 
-/** Validate the complete inventory before requesting files or writing package content. */
+/**
+ * Validate the complete inventory before requesting files or writing package content.
+ * Returns the decoded paths in input order so the caller stages exactly what was validated.
+ */
 const validateFileInventory = (paths: ReadonlyArray<string | undefined>, maxEntries: number) =>
   Effect.gen(function* () {
     if (paths.length === 0 || paths.length > maxEntries)
       return yield* invalid("HTTP file inventory exceeds the supported entry count");
     const seen = new Set<string>();
     const retained = new Map<string, string>();
+    const decoded: Array<typeof ArtifactPathSchema.Type> = [];
     for (const item of paths) {
       const path = yield* Schema.decodeUnknownEffect(ArtifactPathSchema)(item).pipe(
         Effect.mapError(() => invalid("HTTP file inventory contains an unsafe path")),
@@ -68,6 +73,7 @@ const validateFileInventory = (paths: ReadonlyArray<string | undefined>, maxEntr
       const folded = path.normalize("NFC").toLocaleLowerCase("en-US");
       if (seen.has(folded)) return yield* invalid("HTTP file inventory contains duplicate paths");
       seen.add(folded);
+      decoded.push(path);
     }
     if (!paths.includes("SKILL.md"))
       return yield* invalid("HTTP file inventory is missing SKILL.md");
@@ -79,6 +85,7 @@ const validateFileInventory = (paths: ReadonlyArray<string | undefined>, maxEntr
           return yield* invalid("HTTP file inventory places a file below another file");
       }
     }
+    return decoded;
   });
 
 const writeArtifact = (directory: string, relative: string, bytes: Uint8Array) =>
@@ -109,16 +116,13 @@ export const acquireHttpOffer = (
       return yield* invalid("HTTP discovery exceeds the retained entry limit");
     const directory = yield* scratchDirectory;
     if (offer.format === "files") {
-      yield* validateFileInventory(
+      const decoded = yield* validateFileInventory(
         offer.artifacts.map((artifact) => artifact.path),
         maxEntries,
       );
       const files: Array<Extract<HttpArtifactSnapshot, { format: "files" }>["files"][number]> = [];
       let remaining = MAX_BUFFERED_ARCHIVE_BYTES;
-      for (const artifact of offer.artifacts) {
-        const relative = yield* Schema.decodeUnknownEffect(ArtifactPathSchema)(artifact.path).pipe(
-          Effect.mapError(() => invalid("HTTP file inventory contains an unsafe path")),
-        );
+      for (const [artifact, relative] of Arr.zip(offer.artifacts, decoded)) {
         const downloaded = yield* downloadHttpArtifact(artifact.url, {
           ...(artifact.digest === undefined ? {} : { digest: artifact.digest }),
           maxBytes: remaining,

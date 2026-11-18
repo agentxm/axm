@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -32,7 +32,7 @@ const detectInTempDir = (
         yield* fs.writeFileString(filePath, file.content);
       }
     }
-    return yield* mavenDetector.detect(tmpDir);
+    return yield* detectIn(mavenDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("mavenDetector", () => {

@@ -54,18 +54,24 @@ const NativeSpellingRoot = Context.Reference<string | undefined>(
   { defaultValue: () => undefined },
 );
 
+/** The live port's spelling of an existing path; undefined when no authoritative answer applies. */
+const portNativeSpelling = (
+  target: string,
+): Effect.Effect<string | undefined, NativeLocationError> =>
+  Effect.gen(function* () {
+    const capturedRoot = yield* NativeResolutionRoot;
+    const canonical = yield* CanonicalNativePath;
+    // Captured views must never call the host, even when the port is installed.
+    if (capturedRoot === undefined && canonical !== undefined) return yield* canonical(target);
+    return undefined;
+  });
+
 /** realPath can retain caller spelling; only ambiguous lookups need actual directory entries. */
-const existingNativeSpelling = (target: string) =>
+const listedNativeSpelling = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const capturedRoot = yield* NativeResolutionRoot;
-    const canonical = yield* CanonicalNativePath;
-    // Captured views must never call the host, even when the port is installed.
-    if (capturedRoot === undefined && canonical !== undefined) {
-      const spelling = yield* canonical(target);
-      if (spelling !== undefined) return spelling;
-    }
     const admissionRoot = yield* NativeSpellingRoot;
     const root =
       capturedRoot ??
@@ -118,9 +124,18 @@ const existingNativeSpelling = (target: string) =>
     ),
   );
 
-/** Resolve missing suffixes through the nearest existing physical ancestor. */
-export const resolveNativeReferent = (
+const existingNativeSpelling = (target: string) =>
+  Effect.gen(function* () {
+    const spelling = yield* portNativeSpelling(target);
+    return spelling ?? (yield* listedNativeSpelling(target));
+  });
+
+/** Follow the nearest existing physical ancestor and spell it with the given step. */
+const resolveReferentWith = (
   target: string,
+  spellExisting: (
+    resolved: string,
+  ) => Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>,
 ): Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -130,7 +145,7 @@ export const resolveNativeReferent = (
     while (true) {
       const resolved = yield* fs.realPath(current).pipe(Effect.result);
       if (resolved._tag === "Success")
-        return path.join(yield* existingNativeSpelling(resolved.success), ...suffix.reverse());
+        return path.join(yield* spellExisting(resolved.success), ...suffix.reverse());
       if (!notFound(resolved.failure)) {
         return yield* new NativeLocationError({
           target,
@@ -159,9 +174,73 @@ export const resolveNativeReferent = (
     }
   });
 
+/** Resolve missing suffixes through the nearest existing physical ancestor. */
+export const resolveNativeReferent = (
+  target: string,
+): Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  resolveReferentWith(target, existingNativeSpelling);
+
+/**
+ * Resolve an existing path strictly: a missing path or dangling link fails
+ * with its realPath failure. When the live port spells the followed path, that
+ * answer is final; otherwise resolution re-follows the path before walking its
+ * directory listings, so the port is consulted at most once.
+ */
+export const resolveExistingNativeSpelling = (
+  target: string,
+): Effect.Effect<
+  string,
+  PlatformError.PlatformError | NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const real = yield* fs.realPath(target);
+    const spelling = yield* portNativeSpelling(real);
+    if (spelling !== undefined) return spelling;
+    return yield* resolveReferentWith(real, listedNativeSpelling);
+  });
+
+/**
+ * The followed stat that a resolution made of an entry's referent, as plain
+ * values. It describes the same object `referentPath` names.
+ */
+export interface NativeReferentObservation {
+  readonly type: FileSystem.File.Type;
+  readonly device: string;
+  readonly inode: string | undefined;
+  /** Milliseconds; undefined where the host reports no birth time. */
+  readonly birthtime: number | undefined;
+  readonly mode: number;
+}
+
+/** The plain identity values of one followed stat. */
+export const observeNativeReferent = (info: FileSystem.File.Info): NativeReferentObservation => ({
+  type: info.type,
+  device: info.dev.toString(),
+  inode: Option.getOrUndefined(nativeInode(info)),
+  birthtime: Option.getOrUndefined(Option.map(info.birthtime, (time) => time.getTime())),
+  mode: info.mode,
+});
+
+/**
+ * An entry's address with the followed stat its resolution made, none when that
+ * stat found nothing. Valid only within the check that resolved it.
+ */
+export interface ObservedNativeEntry {
+  readonly address: NativeEntryAddress;
+  readonly referent: Option.Option<NativeReferentObservation>;
+}
+
 export const resolveNativeEntry = (
   target: string,
 ): Effect.Effect<NativeEntryAddress, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(resolveObservedNativeEntry(target), ({ address }) => address);
+
+/** `resolveNativeEntry`, keeping the followed stat that produced the address. */
+export const resolveObservedNativeEntry = (
+  target: string,
+): Effect.Effect<ObservedNativeEntry, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -184,19 +263,22 @@ export const resolveNativeEntry = (
         if (referentPath === lexicalPath) {
           const inode = nativeInode(info.value);
           return {
-            lexicalPath,
-            entryPath: referentPath,
-            referentPath,
-            kind:
-              info.value.type === "File"
-                ? "file"
-                : info.value.type === "Directory"
-                  ? "directory"
-                  : "other",
-            linkTarget: undefined,
-            device: info.value.dev.toString(),
-            inode: Option.getOrUndefined(inode),
-            links: Option.getOrUndefined(Option.map(info.value.nlink, String)),
+            address: {
+              lexicalPath,
+              entryPath: referentPath,
+              referentPath,
+              kind:
+                info.value.type === "File"
+                  ? "file"
+                  : info.value.type === "Directory"
+                    ? "directory"
+                    : "other",
+              linkTarget: undefined,
+              device: info.value.dev.toString(),
+              inode: Option.getOrUndefined(inode),
+              links: Option.getOrUndefined(Option.map(info.value.nlink, String)),
+            },
+            referent: Option.some(observeNativeReferent(info.value)),
           };
         }
       }
@@ -246,25 +328,29 @@ export const resolveNativeEntry = (
         : entryPath;
     const inode = Option.isSome(info) ? nativeInode(info.value) : Option.none<string>();
     return {
-      lexicalPath,
-      // Referent resolution supplies observed spelling for existing non-links, including case aliases.
-      entryPath: Option.isNone(link) && referentPath !== undefined ? referentPath : canonicalEntry,
-      referentPath,
-      kind: Option.isSome(link)
-        ? "symlink"
-        : Option.isNone(info)
-          ? "absent"
-          : info.value.type === "File"
-            ? "file"
-            : info.value.type === "Directory"
-              ? "directory"
-              : "other",
-      linkTarget: Option.getOrUndefined(link),
-      device: Option.isSome(info) ? info.value.dev.toString() : undefined,
-      inode: Option.getOrUndefined(inode),
-      links: Option.isSome(info)
-        ? Option.getOrUndefined(Option.map(info.value.nlink, String))
-        : undefined,
+      address: {
+        lexicalPath,
+        // Referent resolution supplies observed spelling for existing non-links, including case aliases.
+        entryPath:
+          Option.isNone(link) && referentPath !== undefined ? referentPath : canonicalEntry,
+        referentPath,
+        kind: Option.isSome(link)
+          ? "symlink"
+          : Option.isNone(info)
+            ? "absent"
+            : info.value.type === "File"
+              ? "file"
+              : info.value.type === "Directory"
+                ? "directory"
+                : "other",
+        linkTarget: Option.getOrUndefined(link),
+        device: Option.isSome(info) ? info.value.dev.toString() : undefined,
+        inode: Option.getOrUndefined(inode),
+        links: Option.isSome(info)
+          ? Option.getOrUndefined(Option.map(info.value.nlink, String))
+          : undefined,
+      },
+      referent: Option.map(info, observeNativeReferent),
     };
   });
 
@@ -275,15 +361,14 @@ const contains = (path: Path.Path, parent: string, child: string): boolean =>
 export const pathsOverlap = (path: Path.Path, left: string, right: string): boolean =>
   contains(path, left, right) || contains(path, right, left);
 
-/** Source and output trees must not coincide, nest, or address the same hardlinked file. */
-export const assertNoPhysicalOverlap = (
-  source: string,
+/** Judge two addresses resolved by the same check; `target` names the refused output. */
+const judgePhysicalOverlap = (
+  path: Path.Path,
   target: string,
-): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  sourceAddress: NativeEntryAddress,
+  targetAddress: NativeEntryAddress,
+): Effect.Effect<void, NativeLocationError> =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const sourceAddress = yield* resolveNativeEntry(source);
-    const targetAddress = yield* resolveNativeEntry(target);
     const sourcePath = sourceAddress.referentPath ?? sourceAddress.entryPath;
     const targetPath = targetAddress.referentPath ?? targetAddress.entryPath;
     const sameInode =
@@ -310,6 +395,53 @@ export const assertNoPhysicalOverlap = (
   });
 
 /**
+ * The overlap judgment of `assertNoPhysicalOverlap` over addresses the caller
+ * resolved within the same check, before any write; `target` names the refused
+ * output in the error.
+ */
+export const assertResolvedNoPhysicalOverlap = (
+  target: string,
+  sourceAddress: NativeEntryAddress,
+  targetAddress: NativeEntryAddress,
+): Effect.Effect<void, NativeLocationError, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* judgePhysicalOverlap(path, target, sourceAddress, targetAddress);
+  });
+
+/** Source and output trees must not coincide, nest, or address the same hardlinked file. */
+export const assertNoPhysicalOverlap = (
+  source: string,
+  target: string,
+): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const sourceAddress = yield* resolveNativeEntry(source);
+    const targetAddress = yield* resolveNativeEntry(target);
+    return yield* judgePhysicalOverlap(path, target, sourceAddress, targetAddress);
+  });
+
+/**
+ * The overlap check of several sources against one output within a single
+ * check. Each call resolves its source first, as `assertNoPhysicalOverlap`
+ * does; the output is resolved only by the first call and that resolution
+ * lives only as long as the returned checker.
+ */
+export const noPhysicalOverlapWith = (target: string) =>
+  Effect.map(
+    Effect.cached(resolveNativeEntry(target)),
+    (targetAddress) =>
+      (
+        source: string,
+      ): Effect.Effect<void, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const sourceAddress = yield* resolveNativeEntry(source);
+          return yield* judgePhysicalOverlap(path, target, sourceAddress, yield* targetAddress);
+        }),
+  );
+
+/**
  * Authorize the physical boundary beneath one workspace root. A nested workspace
  * is an independent writer; sharing its boundaries is refused. Content mutation
  * follows the leaf explicitly, while entry mutation preserves the leaf itself.
@@ -320,6 +452,21 @@ export const assertNativeMutationWithin = (
   mutation: "entry" | "content" = "entry",
   ownerRoot: string = root,
 ): Effect.Effect<NativeEntryAddress, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(
+    admitNativeMutationWithin(root, target, mutation, ownerRoot),
+    ({ address }) => address,
+  );
+
+/**
+ * `assertNativeMutationWithin`, returning the fresh resolutions it admitted:
+ * the physical roots, the entry's address and the followed stat behind it.
+ */
+export const admitNativeMutationWithin = (
+  root: string,
+  target: string,
+  mutation: "entry" | "content" = "entry",
+  ownerRoot: string = root,
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const physicalRoot = yield* resolveNativeReferent(root);
@@ -327,14 +474,15 @@ export const assertNativeMutationWithin = (
       path.resolve(root) === path.resolve(ownerRoot)
         ? physicalRoot
         : yield* resolveNativeReferent(ownerRoot);
-    const address = yield* resolveNativeEntryWithin(target, physicalRoot);
-    return yield* assertResolvedNativeMutationWithin({
+    const { address, referent } = yield* resolveObservedNativeEntryWithin(target, physicalRoot);
+    yield* assertResolvedNativeMutationWithin({
       physicalRoot,
       physicalOwnerRoot,
       target,
       mutation,
       address,
     });
+    return { physicalRoot, physicalOwnerRoot, address, referent };
   });
 
 /** Internal to one admission: callers supply only its fresh resolutions, never retained witnesses. */
@@ -384,3 +532,7 @@ export const assertResolvedNativeMutationWithin = (args: {
 /** Reuse only the physical spelling prefix freshly observed by this admission. */
 export const resolveNativeEntryWithin = (target: string, physicalRoot: string) =>
   resolveNativeEntry(target).pipe(Effect.provideService(NativeSpellingRoot, physicalRoot));
+
+/** `resolveNativeEntryWithin`, keeping the followed stat that produced the address. */
+export const resolveObservedNativeEntryWithin = (target: string, physicalRoot: string) =>
+  resolveObservedNativeEntry(target).pipe(Effect.provideService(NativeSpellingRoot, physicalRoot));

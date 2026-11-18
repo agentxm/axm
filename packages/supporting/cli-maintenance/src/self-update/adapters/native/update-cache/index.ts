@@ -6,7 +6,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { writeFileAtomic } from "@agentxm/host-primitives";
+import { readFileStringIfPresent, writeFileAtomic } from "@agentxm/host-primitives";
 
 const CACHE_SCHEMA = "axm.update-check-cache/v3";
 const StableVersionSchema = Schema.String.pipe(
@@ -35,9 +35,9 @@ export const makeUpdateCheckCache = (
 ): typeof UpdateCheckCache.Service => ({
   read: () =>
     Effect.gen(function* () {
-      if (!(yield* fs.exists(cachePath))) return Option.none();
-      const content = yield* fs.readFileString(cachePath);
-      return yield* decodeCache(content).pipe(
+      const content = yield* readFileStringIfPresent(fs, cachePath);
+      if (Option.isNone(content)) return Option.none();
+      return yield* decodeCache(content.value).pipe(
         Effect.option,
         Effect.map(Option.map(({ version, validatedAt }) => ({ version, validatedAt }))),
       );

@@ -15,8 +15,10 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   acceptedCanonicalObservation,
-  acceptedResolutionRef,
+  acceptedCanonicalObservationWalking,
   computeMaterializedTreeIntegrity,
+  DesiredStateReader,
+  LockfileReader,
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders, observeGitIgnoreInputs } from "@agentxm/workspace-kernel/sources";
@@ -34,6 +36,7 @@ import {
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { PrepareInstallRequirements } from "./install/vocabulary.js";
+import { acceptedRefFor, type ReconstructedAcceptedRef } from "./publisher-binding.js";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 import {
   computeDistributionTreeIntegrity,
@@ -213,11 +216,17 @@ const classifyPackMembers = (
 
 const ComparableManifestSchema = Schema.Struct({ publish: Schema.optional(Schema.Unknown) });
 
+/**
+ * The comparable digest of the tree at `directory`. `walked` is the strict
+ * walk an observation made of that same tree in this read phase, which the
+ * distribution digest replays instead of walking it again.
+ */
 const comparableTreeIntegrity = (
   directory: string,
   ref: ExtensionRef,
   compareWithRegistry: boolean,
   originalFiles?: { readonly directory: string; readonly publicationBoundaryRoot?: string },
+  walked?: Parameters<typeof computeDistributionTreeIntegrity>[3],
 ): Effect.Effect<string, OperationRefused, PrepareInstallRequirements> =>
   Effect.gen(function* () {
     if (!compareWithRegistry) {
@@ -232,7 +241,7 @@ const comparableTreeIntegrity = (
       );
     }
     if (ref.refType === "registry") {
-      return yield* computeDistributionTreeIntegrity(directory).pipe(
+      return yield* computeDistributionTreeIntegrity(directory, undefined, undefined, walked).pipe(
         Effect.mapError((cause) =>
           installRefused({ category: "validation", detail: cause.detail, cause }),
         ),
@@ -240,20 +249,21 @@ const comparableTreeIntegrity = (
     }
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const raw = yield* fs
-      .readFileString(path.join(directory, manifestFilenameForType(ref.type)))
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "validation",
-            detail: "Cannot read distribution manifest for source switch.",
-            cause,
-          }),
-        ),
-      );
+    const manifestName = manifestFilenameForType(ref.type);
+    // One read of the manifest serves both its publication policy and its
+    // bytes in the tree hash below, which still checks the entry's kind.
+    const manifestBytes = yield* fs.readFile(path.join(directory, manifestName)).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: "Cannot read distribution manifest for source switch.",
+          cause,
+        }),
+      ),
+    );
     const manifest = yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(ComparableManifestSchema),
-    )(raw).pipe(
+    )(new TextDecoder().decode(manifestBytes)).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "validation",
@@ -290,9 +300,14 @@ const comparableTreeIntegrity = (
                   "Distribution context unavailable: the original source's ancestor ignore policy was not retained; content equivalence cannot be established.",
               });
             }
+            // The ignore walk's listing serves the distribution hash below
+            // only when both walk this same tree.
             return yield* observeGitIgnoreInputs({
               packageRoot: files.directory,
               boundaryRoot: files.publicationBoundaryRoot,
+              retainListing:
+                originalFiles !== undefined &&
+                path.resolve(originalFiles.directory) === path.resolve(directory),
             }).pipe(
               Effect.mapError((cause) =>
                 installRefused({ category: "validation", detail: cause.detail, cause }),
@@ -305,14 +320,19 @@ const comparableTreeIntegrity = (
       gitignore: context?.rules ?? [],
       ...(options?.include === undefined ? {} : { include: options.include }),
       ...(options?.exclude === undefined ? {} : { exclude: options.exclude }),
-      manifest: manifestFilenameForType(ref.type),
+      manifest: manifestName,
     });
-    if (!selection.evaluate({ path: manifestFilenameForType(ref.type), kind: "file" }).included)
+    if (!selection.evaluate({ path: manifestName, kind: "file" }).included)
       return yield* installRefused({
         category: "validation",
         detail: "The distribution excludes its required manifest.",
       });
-    return yield* computeDistributionTreeIntegrity(directory, selection).pipe(
+    return yield* computeDistributionTreeIntegrity(
+      directory,
+      selection,
+      { path: manifestName, bytes: manifestBytes },
+      walked ?? context?.listing,
+    ).pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "validation", detail: cause.detail, cause }),
       ),
@@ -393,6 +413,7 @@ const blockedStep = <R, O>(
 /** Classify every acquired install proposal against the accepted source authority. */
 export const withSourceSwitches = <R, O>(
   plan: Plan<R, O>,
+  reconstructed: ReadonlyArray<ReconstructedAcceptedRef>,
 ): Effect.Effect<Plan<R, O>, OperationRefused, PrepareInstallRequirements | R> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -408,37 +429,64 @@ export const withSourceSwitches = <R, O>(
           steps.push(step);
           continue;
         }
-        const current = yield* acceptedCanonicalObservation({
-          type: proposal.extensionType,
-          name: proposal.target,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: `The accepted source for ${proposal.target} could not be inspected`,
-              cause,
-            }),
-          ),
+        const target = { type: proposal.extensionType, name: proposal.target };
+        const inspectionRefused = (cause: unknown) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for ${proposal.target} could not be inspected`,
+            cause,
+          });
+        const reconstructionRefused = (cause: unknown) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for ${proposal.target} could not be reconstructed`,
+            cause,
+          });
+        const observeCurrent = acceptedCanonicalObservation(target).pipe(
+          Effect.mapError(inspectionRefused),
         );
-        const previous = yield* acceptedResolutionRef({
-          type: proposal.extensionType,
-          name: proposal.target,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: `The accepted source for ${proposal.target} could not be reconstructed`,
-              cause,
-            }),
-          ),
+        const reconstructPrevious = acceptedRefFor(reconstructed, target).pipe(
+          Effect.mapError(reconstructionRefused),
         );
+        // Only an accepted row of a desired node can be switched away from.
+        // Its presence is read from the phase's documents, so the accepted
+        // content is observed only once the proposal leaves its locator.
+        const desired = (yield* (yield* DesiredStateReader)
+          .graph()
+          .pipe(Effect.mapError(inspectionRefused))).nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
+        const acceptedRow =
+          desired === undefined
+            ? Option.none()
+            : yield* (yield* LockfileReader)
+                .acceptedEntry(desired.type, desired.name)
+                .pipe(Effect.mapError(inspectionRefused));
+        if (desired === undefined || Option.isNone(acceptedRow)) {
+          yield* observeCurrent;
+          yield* reconstructPrevious;
+          steps.push(step);
+          continue;
+        }
+        const previous = yield* reconstructPrevious;
         if (
-          Option.isNone(current) ||
-          current.value.accepted === undefined ||
           Option.isNone(previous) ||
           sourceLocator(previous.value, path, location.baseDir) ===
             sourceLocator(proposal.ref, path, location.baseDir)
         ) {
+          steps.push(step);
+          continue;
+        }
+        // A comparison with a Registry digests the accepted tree again; the
+        // observation's own walk of it serves that digest.
+        const { observed: current, treeWalk } =
+          (previous.value.refType === "registry" || proposal.ref.refType === "registry") &&
+          sourceIdentity(previous.value) === sourceIdentity(proposal.ref)
+            ? yield* acceptedCanonicalObservationWalking(target).pipe(
+                Effect.mapError(inspectionRefused),
+              )
+            : { observed: yield* observeCurrent, treeWalk: Option.none() };
+        if (Option.isNone(current) || current.value.accepted === undefined) {
           steps.push(step);
           continue;
         }
@@ -472,7 +520,13 @@ export const withSourceSwitches = <R, O>(
         const compareWithRegistry =
           sourceFamily(previous.value) === "registry" || sourceFamily(proposal.ref) === "registry";
         const beforeTree = compareWithRegistry
-          ? yield* comparableTreeIntegrity(acceptedPath, previous.value, true)
+          ? yield* comparableTreeIntegrity(
+              acceptedPath,
+              previous.value,
+              true,
+              undefined,
+              Option.getOrUndefined(treeWalk),
+            )
           : current.value.accepted.treeIntegrity;
         const afterTree = yield* proposedTreeIntegrity(proposal.ref, compareWithRegistry);
         const beforeGuarantees: ReadonlyArray<string> =

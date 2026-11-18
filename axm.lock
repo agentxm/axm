@@ -89,10 +89,10 @@ tree = "sha256-tree-v2:1476e555735c6e9fc3133352deb2bc9f8ba54fadcc73fff38b81b1bfa
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/okf"
 source = { registry = "https://registry.agentxm.ai" }
-version = "0.3.0"
-archive = "sha512-33GaoCkVxjFQLeqWDHjyHs4KRx4OAJqyTPd1ZzC6WLwRVX/iCo8gv9TgMXRNentuo1a6Sc/a/YxbHQc2lIFJZA=="
+version = "0.4.0"
+archive = "sha512-sMbBeH3iHefiajRpeEx3xsnzF1MDT0myXCNfOKWZQzHvUQd+EKzjuSnoL2q//ABI4vNkKi1Q4Kj0zeR3CKR+mw=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:4a547185e28a387659a37babe4382e7b2e7bdab969bf2788dae0bb3843363c26"
+tree = "sha256-tree-v2:ca3c3243129136fde42efa39c2a01024b90f2db0775570df2a526b89b642d850"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/research"

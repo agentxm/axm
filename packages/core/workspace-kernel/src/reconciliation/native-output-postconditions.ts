@@ -13,6 +13,7 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   resolveConfiguredExtensionObservations,
+  withFreshWorkspaceObservationReadView,
   type ExtensionTarget,
   type DesiredStateGraph,
 } from "../workspace-state/index.js";
@@ -167,6 +168,11 @@ export const captureNativeOutputRetention = (expected: ReadonlyArray<NativeLocat
     ),
   );
 
+/**
+ * Read back the closure's native outputs after its last write. Witness and
+ * output observations share one fresh read phase; with neither retained
+ * witnesses nor required units, nothing is read.
+ */
 export const validateNativeOutputPostconditions = (
   evidence: ReadonlyArray<NativeLocationOutcome>,
   expected: ReadonlyArray<NativeLocationOutcome> = [],
@@ -175,13 +181,6 @@ export const validateNativeOutputPostconditions = (
   desiredGraph?: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
-    if (retained.length > 0) {
-      const location = yield* WorkspaceLocation;
-      yield* validateNativeRetentionWitnesses(retained, {
-        workspaceRoot: location.baseDir,
-        nativeDirectoryInputs: location.nativeDirectoryInputs,
-      });
-    }
     const retired = new Set(expected.filter((unit) => unit.state === "removed").map(nativeUnitKey));
     const required = [...expected, ...evidence].filter(
       (unit) =>
@@ -194,37 +193,49 @@ export const validateNativeOutputPostconditions = (
           unit.state === "updated") &&
         (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0),
     );
-    if (required.length === 0) return;
-    const observed = yield* observeNativeOutputs(subjects, undefined, desiredGraph);
-    if (required.some((unit) => unit.policyReasons.includes("instruction-propagation"))) {
-      const settings = yield* SettingsReader;
-      const location = yield* WorkspaceLocation;
-      const agentIds = yield* settings.configuredAgents;
-      const config = yield* settings.instructionsConfig;
-      if (Option.isSome(config) && config.value !== false) {
-        const instructions = yield* observeInstructionProjection({
-          workspaceRoot: location.baseDir,
-          scope: location.scope,
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          configuredAgents: agentIds,
-          config: resolveInstructionsConfig(config.value),
-          rows: yield* readInstructionRows,
-        });
-        observed.push(...instructions.nativeLocations);
-      }
-    }
-    const current = new Map(observed.map((unit) => [nativeUnitKey(unit), unit]));
-    for (const expected of required) {
-      const actual = current.get(nativeUnitKey(expected));
-      if (
-        (actual?.ownership !== "owned" && actual?.ownership !== "declared") ||
-        actual.state !== "unchanged"
-      )
-        return yield* syncRefused({
-          category: "conflict",
-          detail: `Required native output does not match desired content after reconciliation: ${expected.address.path}`,
-        });
-    }
+    if (retained.length === 0 && required.length === 0) return;
+    yield* withFreshWorkspaceObservationReadView(
+      Effect.gen(function* () {
+        if (retained.length > 0) {
+          const location = yield* WorkspaceLocation;
+          yield* validateNativeRetentionWitnesses(retained, {
+            workspaceRoot: location.baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+          });
+        }
+        if (required.length === 0) return;
+        const observed = yield* observeNativeOutputs(subjects, undefined, desiredGraph);
+        if (required.some((unit) => unit.policyReasons.includes("instruction-propagation"))) {
+          const settings = yield* SettingsReader;
+          const location = yield* WorkspaceLocation;
+          const agentIds = yield* settings.configuredAgents;
+          const config = yield* settings.instructionsConfig;
+          if (Option.isSome(config) && config.value !== false) {
+            const instructions = yield* observeInstructionProjection({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+              nativeDirectoryInputs: location.nativeDirectoryInputs,
+              configuredAgents: agentIds,
+              config: resolveInstructionsConfig(config.value),
+              rows: yield* readInstructionRows,
+            });
+            observed.push(...instructions.nativeLocations);
+          }
+        }
+        const current = new Map(observed.map((unit) => [nativeUnitKey(unit), unit]));
+        for (const expected of required) {
+          const actual = current.get(nativeUnitKey(expected));
+          if (
+            (actual?.ownership !== "owned" && actual?.ownership !== "declared") ||
+            actual.state !== "unchanged"
+          )
+            return yield* syncRefused({
+              category: "conflict",
+              detail: `Required native output does not match desired content after reconciliation: ${expected.address.path}`,
+            });
+        }
+      }),
+    );
   }).pipe(
     Effect.mapError((cause) =>
       cause instanceof OperationRefused

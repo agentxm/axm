@@ -44,6 +44,7 @@ import {
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
+  prepareCompositeChildPlan,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -109,7 +110,9 @@ import {
   findRetainedSourceComponents,
   retainedSelectionSatisfied,
   mergeRetainedSourceRefs,
+  withRetainedVerdicts,
 } from "./retained-source-components.js";
+import { makeLocatorProbeSources } from "./locator-probe-sharing.js";
 import {
   SourceHostProviders,
   formatRegistryProbe,
@@ -188,12 +191,15 @@ interface InstallDiagnostics {
 /**
  * A settled install: every decision is made and nothing is written. `types`
  * says which extension types the prepared closures cover, so a root locator
- * install can report the five it detected.
+ * install can report the five it detected. A composite operation settles the
+ * install as a child plan it seals itself, so its `execution` is that plan.
  */
-export interface InstallExtensionsCandidate {
+export interface InstallExtensionsCandidate<
+  Execution = ExecutionCandidate<InstallStepRequirements | BundledAxmSkillAsset>,
+> {
   readonly types: ReadonlyArray<InstallableExtensionType>;
   readonly diagnostics: InstallDiagnostics;
-  readonly execution: ExecutionCandidate<InstallStepRequirements | BundledAxmSkillAsset>;
+  readonly execution: Execution;
   readonly skillCandidates: ReadonlyArray<SkillAcquisitionCandidate>;
 }
 
@@ -829,6 +835,11 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
     const sources = yield* SourceHostProviders;
     const locatorSources = yield* makeLocatorSourceView(sources, candidateTypes.length);
     const settled = yield* Effect.gen(function* () {
+      // The probes read one unchanged tree; only an unfiltered probe loop shares its walks.
+      const probeSources =
+        explicitlySelectedTypes.length === 0
+          ? yield* makeLocatorProbeSources(locatorSources)
+          : locatorSources;
       const attempts = yield* Effect.forEach(
         candidateTypes,
         (type) =>
@@ -841,7 +852,7 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
             ),
           ),
         { concurrency: 1 },
-      );
+      ).pipe(withRetainedVerdicts, Effect.provideService(SourceHostProviders, probeSources));
       const opened = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
       // A type the request or the locator already named keeps its own answer.
       const left = opened.filter((choice) => choice.selection.selectors.length === 0);
@@ -1031,47 +1042,73 @@ const planSelection = (
     }
   });
 
-/** Plan a settled selection into a candidate without writing anything. */
-const planInstallExtensions: (
+/** How a planned install is settled: as its own candidate, or as a composite's child plan. */
+type SealInstallPlan<Execution> = (
+  plan: Plan<InstallStepRequirements | BundledAxmSkillAsset>,
+) => Effect.Effect<Execution, InstallExtensionsFailure, PrepareInstallRequirements>;
+
+/** Plan a settled selection without writing anything, settling its plan with `seal`. */
+const settleInstallPlan: <Execution>(
   request: InstallExtensionsRequest,
   selection: InstallExtensionsSelection,
+  seal: SealInstallPlan<Execution>,
 ) => Effect.Effect<
-  InstallExtensionsCandidate,
+  InstallExtensionsCandidate<Execution>,
   InstallExtensionsFailure,
   PrepareInstallRequirements | BundledAxmSkillAsset
-> = Effect.fn("InstallExtensions.plan")(function* (
+> = Effect.fn("InstallExtensions.plan")(function* <Execution>(
   request: InstallExtensionsRequest,
   selection: InstallExtensionsSelection,
+  seal: SealInstallPlan<Execution>,
 ) {
   const planned = yield* planSelection(request, selection);
   const grouped = yield* prepareAcquisitionPlan(planned.plan, false);
   const skillCandidates =
     request.subject.kind === "bundled" ? [] : yield* collectSkillAcquisitions(grouped, true);
-  const execution = yield* prepareExecutionCandidate(grouped);
+  const execution = yield* seal(grouped);
   return {
     types: planned.types,
     diagnostics: planned.diagnostics,
     execution,
     skillCandidates,
-  } satisfies InstallExtensionsCandidate;
+  } satisfies InstallExtensionsCandidate<Execution>;
 }, withWorkspaceReadView);
+
+/** Plan a settled selection into a candidate without writing anything. */
+const planInstallExtensions = (
+  request: InstallExtensionsRequest,
+  selection: InstallExtensionsSelection,
+) => settleInstallPlan(request, selection, (plan) => prepareExecutionCandidate(plan));
 
 // -----------------------------------------------------------------------------
 // prepare
 // -----------------------------------------------------------------------------
 
-/** Settle an install without writing anything: select, then plan. */
-const prepareInstallExtensions = (
+/** Select, then plan, settling the plan with `seal`. */
+const settleInstallExtensions = <Execution>(
   request: InstallExtensionsRequest,
+  seal: SealInstallPlan<Execution>,
 ): Effect.Effect<
-  InstallExtensionsCandidate,
+  InstallExtensionsCandidate<Execution>,
   InstallExtensionsFailure,
   PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
 > =>
   selectInstallExtensions(request).pipe(
-    Effect.flatMap((selection) => planInstallExtensions(request, selection)),
+    Effect.flatMap((selection) => settleInstallPlan(request, selection, seal)),
     Effect.withSpan("InstallExtensions.prepare"),
   );
+
+/** Settle an install without writing anything: select, then plan. */
+const prepareInstallExtensions = (request: InstallExtensionsRequest) =>
+  settleInstallExtensions(request, (plan) => prepareExecutionCandidate(plan));
+
+/**
+ * Settle an install as one child of a composite operation, which keeps the
+ * child's steps, risk conditions and configured-agent operations and seals
+ * them in its own candidate.
+ */
+const prepareCompositeInstallExtensions = (request: InstallExtensionsRequest) =>
+  settleInstallExtensions(request, (plan) => prepareCompositeChildPlan(plan));
 
 // -----------------------------------------------------------------------------
 // previewOrApply
@@ -1129,5 +1166,6 @@ export const InstallExtensions = {
   select: selectInstallExtensions,
   plan: planInstallExtensions,
   prepare: prepareInstallExtensions,
+  prepareForComposite: prepareCompositeInstallExtensions,
   previewOrApply: previewOrApplyInstallExtensions,
 } as const;

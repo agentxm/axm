@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -21,7 +21,7 @@ const detectInTempDir = (packageSwift?: string) =>
     if (packageSwift !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "Package.swift"), packageSwift);
     }
-    return yield* swiftDetector.detect(tmpDir);
+    return yield* detectIn(swiftDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("swiftDetector", () => {

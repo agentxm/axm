@@ -1,8 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Fiber from "effect/Fiber";
+import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
+import { TraceReceiptDocumentSchema, withLocalTracing } from "../index.js";
 import { makeLocalTraceReceiptWriter, type LocalTraceReceiptHandle } from "./index.js";
 
 class ReceiptIoFailed extends Data.TaggedError("ReceiptIoFailed")<{
@@ -229,4 +234,122 @@ describe("Local trace receipt persistence", () => {
       expect(file.maxActive()).toBe(1);
     }).pipe(Effect.ensuring(Effect.sync(file.release)));
   });
+});
+
+describe("Local trace receipt rewrites", () => {
+  const first = '{"schemaVersion":2,"service":"axm","captureState":"disabled"}\n';
+  const second = '{"schemaVersion":2,"service":"axm","captureState":"setup-failed"}\n';
+
+  it.effect("skips a document identical to the last persisted one", () =>
+    Effect.gen(function* () {
+      const file = receiptHandle();
+      const writer = makeLocalTraceReceiptWriter(file.handle);
+      yield* writer.write(first);
+      yield* writer.write(first);
+      expect(file.calls).toEqual(["write", "truncate"]);
+      expect(file.text()).toBe(first);
+      yield* writer.close;
+      expect(file.calls).toEqual(["write", "truncate", "close"]);
+    }),
+  );
+
+  it.effect("persists every document that differs from the last persisted one", () =>
+    Effect.gen(function* () {
+      const file = receiptHandle();
+      const writer = makeLocalTraceReceiptWriter(file.handle);
+      yield* writer.write(first);
+      yield* writer.write(second);
+      expect(file.calls).toEqual(["write", "truncate", "write", "truncate"]);
+      expect(file.text()).toBe(second);
+      // An earlier document is not the last persisted one, so it is written again.
+      yield* writer.write(first);
+      expect(file.calls).toEqual(["write", "truncate", "write", "truncate", "write", "truncate"]);
+      expect(file.text()).toBe(first);
+    }),
+  );
+
+  it.effect("skips an identical document only after its short writes all completed", () =>
+    Effect.gen(function* () {
+      const file = receiptHandle({ maxWriteBytes: 3 });
+      const writer = makeLocalTraceReceiptWriter(file.handle);
+      const document = '{"captureState":"é🙂"}\n';
+      const writes = Math.ceil(new TextEncoder().encode(document).length / 3);
+      yield* writer.write(document);
+      yield* writer.write(document);
+      expect(file.calls).toEqual([...Array.from({ length: writes }, () => "write"), "truncate"]);
+      expect(file.text()).toBe(document);
+    }),
+  );
+
+  it.effect("drops an identical document after a timed-out write retired the writer", () => {
+    const file = receiptHandle({ block: "write" });
+    return Effect.gen(function* () {
+      const writer = makeLocalTraceReceiptWriter(file.handle);
+      const writing = yield* writer.write(first).pipe(Effect.forkChild);
+      yield* Effect.promise(() => file.entered);
+      yield* TestClock.adjust("100 millis");
+      yield* Fiber.join(writing);
+      file.release();
+      yield* writer.write(first);
+      const closing = yield* writer.close.pipe(Effect.forkChild);
+      yield* TestClock.adjust("25 millis");
+      yield* Fiber.join(closing);
+      yield* Effect.promise(() => file.closed);
+      expect(file.calls).toEqual(["write", "close"]);
+      expect(file.text()).toBe(first);
+    }).pipe(Effect.ensuring(Effect.sync(file.release)));
+  });
+
+  it.effect("drops an identical document after a rejected truncate retired the writer", () =>
+    Effect.gen(function* () {
+      const file = receiptHandle({ reject: "truncate" });
+      const writer = makeLocalTraceReceiptWriter(file.handle);
+      yield* writer.write(first);
+      yield* writer.write(first);
+      expect(file.calls).toEqual(["write", "truncate"]);
+      yield* writer.close;
+      expect(file.calls).toEqual(["write", "truncate", "close"]);
+    }),
+  );
+
+  it.live("leaves exactly the capture state of a session-less invocation in the receipt file", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const directory = yield* Effect.acquireRelease(
+          Effect.promise(() => mkdtemp(join(tmpdir(), "axm-receipt-rewrite-"))),
+          (path) => Effect.promise(() => rm(path, { recursive: true, force: true })),
+        );
+        const decode = Schema.decodeUnknownSync(Schema.fromJsonString(TraceReceiptDocumentSchema));
+        const disabled = join(directory, "disabled.json");
+        expect(yield* withLocalTracing(Effect.succeed(42), { AXM_TRACE_RECEIPT: disabled })).toBe(
+          42,
+        );
+        const disabledText = yield* Effect.promise(() => readFile(disabled, "utf8"));
+        expect(disabledText).toBe(first);
+        expect(decode(disabledText)).toEqual({
+          schemaVersion: 2,
+          service: "axm",
+          captureState: "disabled",
+        });
+
+        const invalid = join(directory, "invalid-endpoint.json");
+        expect(
+          yield* withLocalTracing(Effect.succeed(42), {
+            AXM_TRACE: "1",
+            AXM_TRACE_ENDPOINT: "http://127.0.0.1:5341/ingest/otlp/v1/traces?private",
+            AXM_TRACE_RECEIPT: invalid,
+          }),
+        ).toBe(42);
+        const invalidText = yield* Effect.promise(() => readFile(invalid, "utf8"));
+        expect(invalidText).toBe(
+          '{"schemaVersion":2,"service":"axm","captureState":"invalid-endpoint"}\n',
+        );
+        expect(decode(invalidText)).toEqual({
+          schemaVersion: 2,
+          service: "axm",
+          captureState: "invalid-endpoint",
+        });
+      }),
+    ),
+  );
 });

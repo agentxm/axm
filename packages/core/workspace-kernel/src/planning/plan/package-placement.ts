@@ -26,6 +26,10 @@ export const preflightPackagePlacement = (
     const selected: PackageAddressClaim[] = [];
     const paths: string[] = [];
     const snapshots = new Map<string, string>();
+    // A source listed by several refs (its acquisition and each exposure) is one
+    // filesystem identity; its first resolution in this call already placed both
+    // of its paths, so a repeat could only push what the result keeps once.
+    const resolvedSources = new Set<string>();
     // Closures may read accepted bytes before another closure advances that
     // package. Those exposures still need address/ownership checks, but only
     // selected acquisitions must agree on the snapshot that will be written.
@@ -46,17 +50,20 @@ export const preflightPackagePlacement = (
               }),
           ),
         );
-        const physical = yield* resolveNativeEntry(source).pipe(
-          Effect.mapError(
-            (cause) =>
-              new StepFailure({
-                category: "validation",
-                detail: "Cannot establish the local source's filesystem identity.",
-                cause,
-              }),
-          ),
-        );
-        paths.push(source, physical.referentPath ?? physical.entryPath);
+        if (!resolvedSources.has(source)) {
+          const physical = yield* resolveNativeEntry(source).pipe(
+            Effect.mapError(
+              (cause) =>
+                new StepFailure({
+                  category: "validation",
+                  detail: "Cannot establish the local source's filesystem identity.",
+                  cause,
+                }),
+            ),
+          );
+          paths.push(source, physical.referentPath ?? physical.entryPath);
+          resolvedSources.add(source);
+        }
       }
       const claim = packageAddressClaimForRef(ref);
       if (Result.isFailure(claim))
@@ -91,7 +98,14 @@ export const preflightPackagePlacement = (
     const path = yield* Path.Path;
     const acceptedKeys = new Set(accepted.success.map((claim) => claim.packageKey));
     const physicalClaims: Array<{ readonly packageKey: string; readonly address: string }> = [];
+    // An accepted binding and a selected component of one package, or several
+    // components of it, claim the same destination. Its first resolution in this
+    // call is the check; a repeat could only report what that one already did.
+    const examined = new Set<string>();
     for (const claim of [...accepted.success, ...selected]) {
+      const identity = JSON.stringify([claim.packageKey, claim.address]);
+      if (examined.has(identity)) continue;
+      examined.add(identity);
       const destination = path.join(layout.acquiredRoot, ...claim.address.split("/"));
       if (selected.some((item) => item.packageKey === claim.packageKey)) paths.push(destination);
       const observed = yield* resolveNativeEntry(destination).pipe(

@@ -47,6 +47,8 @@ import {
   desiredPackageKey,
   desiredReachability,
   acceptedCanonicalObservation,
+  withFreshWorkspaceObservationReadView,
+  withWorkspaceReadView,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import { observeSatisfiedInstall } from "./satisfied-install.js";
@@ -55,7 +57,7 @@ import * as Option from "effect/Option";
 
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
 import {
-  applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   type InstructionMaintenanceFailure,
   captureAgentOutputAuthority,
 } from "../../projection/index.js";
@@ -292,9 +294,9 @@ const applyManagerProjectionPlans = <F, R>(
   | LockfileReader
   | AcceptedResolutionWriter
 > =>
-  manager.projectionPlans === undefined
+  manager.observedProjectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
-    : manager.projectionPlans(options).pipe(Effect.flatMap(applyInstructionSurfacePlans));
+    : manager.observedProjectionPlans(options, applyObservedInstructionSurfacePlans);
 
 // -----------------------------------------------------------------------------
 // Install change classification
@@ -475,36 +477,48 @@ const runInstallOperation = Effect.fnUntraced(
     args: InstallOperationArgs<TRef, TMaterialization, F, R>,
   ): Effect.fn.Return<JobStepResult, CallerStepFailure<F> | StepFailure, R | RecipeRequirements> {
     const target = targetFromRef(args.ref);
-    // The desired-state graph is the one authority for what the workspace
-    // already holds for this target.
-    const priorGraph = yield* (yield* DesiredStateReader).graph();
-    const configured = priorGraph.nodes.find(
-      (node) => node.type === target.type && node.name === target.name,
+    // The write-free preflight shares one document view; it ends before the
+    // transaction, whose readers and writers observe the workspace afresh.
+    const { priorGraph, satisfied, priorAuthority } = yield* withWorkspaceReadView(
+      Effect.gen(function* () {
+        // The desired-state graph is the one authority for what the workspace
+        // already holds for this target.
+        const priorGraph = yield* (yield* DesiredStateReader).graph();
+        const configured = priorGraph.nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
+        const authority = evaluateSourceAuthority({
+          target: {
+            ...target,
+            identity:
+              configured === undefined ? toStepKey(target) : desiredPackageKey(configured.identity),
+          },
+          relationship: { kind: "root" },
+          requested: desiredIdentityOfRef(args.ref),
+          ...(configured === undefined ? {} : { configured: { identity: configured.identity } }),
+          allowWorkspaceReplacement:
+            args.sourceReplacements?.some(
+              (replacement) => replacement.type === target.type && replacement.name === target.name,
+            ) === true,
+        });
+        if (authority.kind === "blocked") {
+          return yield* new SourceAuthorityBlocked({
+            detail: authority.fact.detail,
+            recovery: authority.fact.recovery,
+          });
+        }
+        const satisfied =
+          args.sourceReplacements?.length || args.hookConfiguration !== undefined
+            ? Option.none()
+            : yield* observeSatisfiedInstall(args);
+        const priorAuthority =
+          Option.isNone(satisfied) &&
+          (target.type === "hook" || target.type === "rule" || target.type === "knowledge")
+            ? yield* captureAgentOutputAuthority()
+            : undefined;
+        return { priorGraph, satisfied, priorAuthority };
+      }),
     );
-    const authority = evaluateSourceAuthority({
-      target: {
-        ...target,
-        identity:
-          configured === undefined ? toStepKey(target) : desiredPackageKey(configured.identity),
-      },
-      relationship: { kind: "root" },
-      requested: desiredIdentityOfRef(args.ref),
-      ...(configured === undefined ? {} : { configured: { identity: configured.identity } }),
-      allowWorkspaceReplacement:
-        args.sourceReplacements?.some(
-          (replacement) => replacement.type === target.type && replacement.name === target.name,
-        ) === true,
-    });
-    if (authority.kind === "blocked") {
-      return yield* new SourceAuthorityBlocked({
-        detail: authority.fact.detail,
-        recovery: authority.fact.recovery,
-      });
-    }
-    const satisfied =
-      args.sourceReplacements?.length || args.hookConfiguration !== undefined
-        ? Option.none()
-        : yield* observeSatisfiedInstall(args);
     if (Option.isSome(satisfied)) {
       const presentation =
         args.buildArtifact === undefined
@@ -536,10 +550,6 @@ const runInstallOperation = Effect.fnUntraced(
             }),
       } satisfies JobStepResult;
     }
-    const priorAuthority =
-      target.type === "hook" || target.type === "rule" || target.type === "knowledge"
-        ? yield* captureAgentOutputAuthority()
-        : undefined;
     const installedBefore = yield* manager.isInstalled({ target });
     const { value: transaction, footprint } = yield* observeFootprint(
       runWorkspaceTransaction({
@@ -745,6 +755,10 @@ export const buildInstallOperation = <
       } satisfies PlannedJobStep<R | RecipeRequirements>);
 };
 
+/** The package content hash a workspace ref's own resolution computed, with its root. */
+const listedSourceHash = (ref: ExtensionRef) =>
+  ref.refType === "workspace" ? { root: ref.location, hash: ref.sourceHash } : undefined;
+
 /**
  * Build a PlannedJobStep for `new` commands.
  *
@@ -769,13 +783,20 @@ export const buildAuthoredExtensionStep = <
     readiness: "ready",
     ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
     run: Effect.gen(function* () {
-      if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
-      const installedBefore = yield* manager.isInstalled({ target });
-      const priorGraph = yield* (yield* DesiredStateReader).graph();
-      const priorAuthority =
-        target.type === "hook" || target.type === "rule" || target.type === "knowledge"
-          ? yield* captureAgentOutputAuthority()
-          : undefined;
+      // The read-only preflight shares one document view; it ends before the
+      // transaction, whose readers and writers observe the workspace afresh.
+      const { installedBefore, priorGraph, priorAuthority } = yield* withWorkspaceReadView(
+        Effect.gen(function* () {
+          if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
+          const installedBefore = yield* manager.isInstalled({ target });
+          const priorGraph = yield* (yield* DesiredStateReader).graph();
+          const priorAuthority =
+            target.type === "hook" || target.type === "rule" || target.type === "knowledge"
+              ? yield* captureAgentOutputAuthority()
+              : undefined;
+          return { installedBefore, priorGraph, priorAuthority };
+        }),
+      );
       const { value: transaction, footprint } = yield* observeFootprint(
         runWorkspaceTransaction({
           targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),
@@ -795,6 +816,10 @@ export const buildAuthoredExtensionStep = <
             }
             let materialization = Option.none<TMaterialization>();
             if (args.enabled !== false || args.materializeWhenDisabled === true) {
+              // This listing hashed a workspace ref's package after the
+              // scaffold and authored marking wrote it; nothing writes that
+              // tree before the install records the hash.
+              const preparedSourceHash = listedSourceHash(ref);
               materialization =
                 args.materializeInstall === undefined
                   ? Option.some(
@@ -803,6 +828,7 @@ export const buildAuthoredExtensionStep = <
                         nativeInsertionEligible:
                           args.nativeInsertionEligible === true &&
                           desiredReachability(priorGraph, target).decision === "not-reached",
+                        ...(preparedSourceHash === undefined ? {} : { preparedSourceHash }),
                       }),
                     )
                   : yield* args.materializeInstall(ref, {
@@ -980,8 +1006,9 @@ const runMaterializeOperation = Effect.fnUntraced(
         yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
         return observed;
       }),
+      // The presence check observes the result in one fresh read phase.
       validate: () =>
-        manager.isInstalled({ target }).pipe(
+        withFreshWorkspaceObservationReadView(manager.isInstalled({ target })).pipe(
           Effect.flatMap((installed) =>
             installed
               ? Effect.void
@@ -1166,7 +1193,12 @@ const runUninstallOperation = Effect.fnUntraced(
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
-    const configured = yield* isConfigured(manager, args.target);
+    // Without a configured query of its own, a target is configured exactly
+    // when the source just read is present; nothing writes in between.
+    const configured =
+      manager.isConfigured === undefined
+        ? Option.isSome(configuredSource)
+        : yield* manager.isConfigured({ target: args.target });
     const sharedCanonical = Option.exists(
       yield* acceptedCanonicalObservation(args.target).pipe(
         Effect.mapError(
@@ -1183,7 +1215,7 @@ const runUninstallOperation = Effect.fnUntraced(
     const transition = Effect.gen(function* () {
       if (
         priorAuthority !== undefined &&
-        manager.projectionPlans !== undefined &&
+        manager.observedProjectionPlans !== undefined &&
         args.enclosingClosure?.projections.includes(args.target.type) !== true
       ) {
         const desired = yield* DesiredStateReader;
@@ -1192,7 +1224,11 @@ const runUninstallOperation = Effect.fnUntraced(
           base,
           settingsEntries[args.target.type].remove(base.inputs.settings, args.target.name),
         );
-        yield* manager.projectionPlans({ priorAuthority, desiredGraph: proposed.graph });
+        // The manager's eager observation is the refusal; nothing consumes it.
+        yield* manager.observedProjectionPlans(
+          { priorAuthority, desiredGraph: proposed.graph },
+          () => Effect.void,
+        );
       }
       const applyProjections = () =>
         args.enclosingClosure?.projections.includes(args.target.type) !== true

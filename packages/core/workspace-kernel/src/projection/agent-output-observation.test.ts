@@ -9,15 +9,15 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 
-import { captureCopiedDirectory } from "../locations/index.js";
+import * as Result from "effect/Result";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import { captureCopiedDirectory, captureNativeLocationSet } from "../locations/index.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, SettingsSchema } from "../workspace-state/index.js";
 import { codingAgentFromDescriptor } from "../agent-adapters/index.js";
 
-import {
-  observeAgentOutputs,
-  observeWorkspaceOwnershipIssues,
-} from "./agent-output-observation.js";
+import { observeAgentOutputs, workspaceOwnershipIssues } from "./agent-output-observation.js";
+import { workObservations } from "../locations/testing.js";
 import { classifyNativeOutputHealth } from "./native-output-conflicts.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import { makeCodingAgentRepository } from "./testing.js";
@@ -284,11 +284,7 @@ describe("authored skill exclusion", () => {
         );
         const inventory = yield* observeAgentOutputs(args);
         expect(inventory.outputs).toEqual([]);
-        const issues = yield* observeWorkspaceOwnershipIssues({
-          ...args,
-          configuredAgentIds: new Set<string>(),
-        });
-        expect(issues).toEqual([]);
+        expect(workspaceOwnershipIssues(inventory)).toEqual([]);
       }),
     ),
   );
@@ -351,16 +347,93 @@ describe("Subagent output ownership", () => {
             { entryName: "personal", ownership: "unowned", proof: undefined },
           ]),
         );
-        const issues = yield* observeWorkspaceOwnershipIssues({
-          ...observed,
-          configuredAgentIds: new Set<string>(),
-        });
+        const issues = workspaceOwnershipIssues(inventory);
         expect(issues).toContainEqual({
           kind: "managed-file-unowned",
           path: `${root}/.claude/agents/personal.md`,
           detail: "Agent subagent file is not a declared Subagent at this path.",
         });
         expect(issues.map((issue) => issue.path)).not.toContain(`${root}/.claude/agents/review.md`);
+      }),
+    ),
+  );
+});
+
+describe("workspace ownership issues", () => {
+  it.effect("are the same whatever agents and names the inventory expects", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root, write } = yield* fixture();
+        // An authored package, an owned projection link, foreign artifacts,
+        // a declared Subagent and an unreadable container. The authored
+        // package and the owned link are not issues; everything else is.
+        yield* write("skills/other/src/SKILL.md", "Other\n");
+        yield* fs.makeDirectory(path.join(root, ".claude/skills"), { recursive: true });
+        yield* fs.symlink("../../skills/other/src", path.join(root, ".claude/skills/other"));
+        yield* write(".claude/skills/stray/SKILL.md", "Stray\n");
+        yield* write(".claude/agents/review.md", "Review\n");
+        yield* write(".claude/agents/personal.md", "Mine\n");
+        const denied = path.join(root, ".agents/skills");
+        yield* fs.makeDirectory(denied, { recursive: true });
+        const deniedFileSystem: FileSystem.FileSystem = {
+          ...fs,
+          readDirectory: (target, options) =>
+            target === denied
+              ? Effect.fail(
+                  PlatformError.systemError({
+                    _tag: "PermissionDenied",
+                    module: "FileSystem",
+                    method: "readDirectory",
+                    pathOrDescriptor: target,
+                  }),
+                )
+              : fs.readDirectory(target, options),
+        };
+        const observed = { ...args, expectedSubagentNames: new Set(["review"]) };
+        const inventory = (expectations: {
+          readonly desiredAgentIds: ReadonlySet<string>;
+          readonly expectedNames: typeof expectedNames;
+        }) =>
+          observeAgentOutputs({ ...observed, ...expectations }).pipe(
+            Effect.provideService(FileSystem.FileSystem, deniedFileSystem),
+          );
+        const withoutExpectations = workspaceOwnershipIssues(
+          yield* inventory({ desiredAgentIds: new Set<string>(), expectedNames }),
+        );
+        const withExpectations = workspaceOwnershipIssues(
+          yield* inventory({
+            desiredAgentIds: new Set(["claude-code", "gemini-cli"]),
+            expectedNames: {
+              ...expectedNames,
+              skill: new Set(["review", "other", "stray"]),
+              subagent: new Set(["review", "personal"]),
+            },
+          }),
+        );
+        expect(withExpectations).toEqual(withoutExpectations);
+        expect(withoutExpectations).toEqual([
+          {
+            kind: "managed-file-unowned",
+            path: denied,
+            detail: "Agent skill artifact has no AXM ownership proof.",
+          },
+          {
+            kind: "managed-file-unowned",
+            path: `${root}/.claude/skills/stray`,
+            detail: "Agent skill artifact has no AXM ownership proof.",
+          },
+          {
+            kind: "managed-file-unowned",
+            path: `${root}/skills/other`,
+            detail: "Agent skill artifact has no AXM ownership proof.",
+          },
+          {
+            kind: "managed-file-unowned",
+            path: `${root}/.claude/agents/personal.md`,
+            detail: "Agent subagent file is not a declared Subagent at this path.",
+          },
+        ]);
+        expect(Object.isFrozen(withoutExpectations)).toBe(true);
       }),
     ),
   );
@@ -471,6 +544,271 @@ describe("incomplete Hook observations", () => {
           inventory.diagnostics.filter((diagnostic) => diagnostic.extensionType === "hook"),
         ).toEqual([]);
         expect(inventory.outputs.filter((output) => output.extensionType === "hook")).toEqual([]);
+      }),
+    ),
+  );
+});
+
+describe("Hook settings parses within one inventory", () => {
+  /** One inventory over a fixture whose only Hook file is `.claude/settings.json`. */
+  const observeHookFile = (content: (hookRoot: string) => string, declare = false) =>
+    Effect.gen(function* () {
+      const { args, path, root, write } = yield* fixture();
+      const hookRoot = path.join(root, "agent_extensions/@acme/hooks/guard");
+      yield* write(".claude/settings.json", content(hookRoot));
+      const work = workObservations(false);
+      const inventory = yield* observeAgentOutputs({
+        ...args,
+        expectedHooks: declare
+          ? [{ name: "guard", ref: "@acme/hooks/guard", scope: "project", root: hookRoot }]
+          : [],
+      }).pipe(work.provide);
+      return {
+        settings: path.join(root, ".claude/settings.json"),
+        parses: work.facts.filter(
+          (fact) => fact.kind === "axm.parse.native" && fact.attributes?.["axm.format"] === "jsonc",
+        ).length,
+        hooks: inventory.outputs.filter((output) => output.extensionType === "hook"),
+        diagnostics: inventory.diagnostics.filter(
+          (diagnostic) => diagnostic.extensionType === "hook",
+        ),
+      };
+    });
+
+  it.effect("parses a file holding only foreign registrations once", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() =>
+          JSON.stringify({ hooks: { BeforeAgent: [{ command: "echo foreign" }] } }),
+        );
+        expect(observed.parses).toBe(1);
+        expect(observed.diagnostics).toEqual([]);
+        expect(observed.hooks).toEqual([
+          {
+            extensionType: "hook",
+            containerPath: observed.settings,
+            path: `${observed.settings}#hooks`,
+            entryName: "hooks",
+            nativeAddress: { kind: "key-path", path: observed.settings, keys: ["hooks"] },
+            claimantAgentIds: ["claude-code"],
+            ownership: "unowned",
+            desired: false,
+          },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("parses an empty settings object once and reports nothing", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() => "{}");
+        expect(observed.parses).toBe(1);
+        expect(observed.hooks).toEqual([]);
+        expect(observed.diagnostics).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("parses a blank settings file not at all", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(() => "  \n");
+        expect(observed.parses).toBe(0);
+        expect(observed.hooks).toEqual([]);
+        expect(observed.diagnostics).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("parses a file holding a declared registration once", () =>
+    provide(
+      Effect.gen(function* () {
+        const observed = yield* observeHookFile(
+          (hookRoot) =>
+            JSON.stringify({
+              hooks: {
+                BeforeAgent: [{ hooks: [{ type: "command", command: `bash ${hookRoot}/run.sh` }] }],
+              },
+            }),
+          true,
+        );
+        expect(observed.parses).toBe(1);
+        expect(observed.hooks).toEqual([
+          expect.objectContaining({
+            path: `${observed.settings}#guard`,
+            ownership: "declared",
+            proof: "effective-native-declaration",
+          }),
+        ]);
+      }),
+    ),
+  );
+});
+
+describe("skill locations retained for the caller's classification", () => {
+  it.effect("answer exactly as a fresh capture would, without resolving again", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const source = path.join(root, "skills/review/src");
+        const linked = path.join(root, ".claude/skills/review");
+        const dangling = path.join(root, ".claude/skills/leftover");
+        yield* fs.makeDirectory(path.dirname(linked), { recursive: true });
+        yield* fs.symlink(source, linked);
+        yield* fs.symlink(path.join(root, "missing"), dangling);
+        // The shared directory links to itself, so its referent fails.
+        const shared = path.join(root, ".agents/skills");
+        yield* fs.makeDirectory(path.dirname(shared), { recursive: true });
+        yield* fs.symlink(shared, shared);
+        const agents = yield* (yield* CodingAgentRepository).all;
+        const readers = (yield* Effect.forEach(agents, (agent) =>
+          agent.resolveNativeReadLocations({
+            workspaceRoot: root,
+            scope: "project",
+            kind: "skill",
+          }),
+        )).flatMap((locations) => locations.map((location) => location.path));
+        const { fileSystem, recording } = makeRecordingFileSystem(fs);
+        const inventory = yield* observeAgentOutputs({
+          ...args,
+          expectedSkillSources: { review: [source] },
+          retainSkillLocations: true,
+        }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+        expect(inventory.outputs.find((output) => output.path === linked)).toMatchObject({
+          ownership: "owned",
+          proof: "canonical-source-link",
+        });
+        const locations = inventory.skillLocations;
+        if (locations === undefined) return expect.unreachable("skill locations were requested");
+        const entries = [linked, dangling];
+        const referents = [shared, ...readers, source];
+        const fresh = yield* captureNativeLocationSet({ entries, referents });
+
+        recording.reset();
+        for (const entry of entries)
+          expect(yield* locations.entry(entry).pipe(Effect.result)).toEqual(
+            yield* fresh.entry(entry).pipe(Effect.result),
+          );
+        for (const referent of referents)
+          expect(yield* locations.referent(referent).pipe(Effect.result)).toEqual(
+            yield* fresh.referent(referent).pipe(Effect.result),
+          );
+        expect(recording.calls()).toEqual([]);
+        expect(Result.isFailure(yield* locations.referent(shared).pipe(Effect.result))).toBe(true);
+        expect(yield* locations.entry(dangling)).toMatchObject({
+          kind: "symlink",
+          referentPath: undefined,
+        });
+      }),
+    ),
+  );
+
+  it.effect("resolve a path the inventory did not observe live", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const elsewhere = path.join(root, "elsewhere");
+        yield* fs.makeDirectory(elsewhere);
+        const { fileSystem, recording } = makeRecordingFileSystem(fs);
+        const inventory = yield* observeAgentOutputs({ ...args, retainSkillLocations: true }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+        );
+        const locations = inventory.skillLocations;
+        if (locations === undefined) return expect.unreachable("skill locations were requested");
+        const fresh = yield* captureNativeLocationSet({
+          entries: [elsewhere],
+          referents: [elsewhere],
+        });
+
+        recording.reset();
+        expect(yield* locations.entry(elsewhere)).toEqual(yield* fresh.entry(elsewhere));
+        expect(yield* locations.referent(elsewhere)).toEqual(yield* fresh.referent(elsewhere));
+        expect(recording.counts(elsewhere)).toEqual({ readLink: 1, stat: 1, realPath: 2 });
+      }),
+    ),
+  );
+
+  it.effect("are absent unless requested", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args } = yield* fixture();
+        expect(yield* observeAgentOutputs(args)).not.toHaveProperty("skillLocations");
+      }),
+    ),
+  );
+});
+
+describe("Subagent entry classification", () => {
+  const observeSubagents = (
+    args: Parameters<typeof observeAgentOutputs>[0],
+    fs: FileSystem.FileSystem,
+  ) =>
+    Effect.gen(function* () {
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      const inventory = yield* observeAgentOutputs({
+        ...args,
+        expectedSubagentNames: new Set(["review"]),
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
+      return {
+        recording,
+        subagents: inventory.outputs
+          .filter((output) => output.extensionType === "subagent")
+          .map(({ path, entryName }) => ({ path, entryName })),
+      };
+    });
+
+  it.effect("admits a regular Subagent file from the stat its entry resolution made", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const physicalRoot = yield* fs.realPath(root);
+        const file = path.join(physicalRoot, ".claude/agents/review.md");
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+        yield* fs.writeFileString(file, "Review\n");
+        const { recording, subagents } = yield* observeSubagents(
+          { ...args, workspaceRoot: physicalRoot },
+          fs,
+        );
+        expect(subagents).toEqual([{ path: file, entryName: "review" }]);
+        expect(recording.counts(file)).toEqual({ readLink: 1, stat: 1, realPath: 1 });
+      }),
+    ),
+  );
+
+  it.effect("still stats a linked Subagent entry's referent and skips a linked directory", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const physicalRoot = yield* fs.realPath(root);
+        const agents = path.join(physicalRoot, ".claude/agents");
+        const source = path.join(physicalRoot, "elsewhere/review.md");
+        const directory = path.join(physicalRoot, "elsewhere/folder.md");
+        yield* fs.makeDirectory(agents, { recursive: true });
+        yield* fs.makeDirectory(directory, { recursive: true });
+        yield* fs.writeFileString(source, "Review\n");
+        const linked = path.join(agents, "review.md");
+        const linkedDirectory = path.join(agents, "folder.md");
+        const dangling = path.join(agents, "gone.md");
+        yield* fs.symlink(source, linked);
+        yield* fs.symlink(directory, linkedDirectory);
+        yield* fs.symlink(path.join(physicalRoot, "missing.md"), dangling);
+        const { recording, subagents } = yield* observeSubagents(
+          { ...args, workspaceRoot: physicalRoot },
+          fs,
+        );
+        expect(subagents).toEqual(
+          expect.arrayContaining([
+            { path: source, entryName: "review" },
+            { path: dangling, entryName: "gone" },
+          ]),
+        );
+        expect(subagents).toHaveLength(2);
+        // The link's own resolution stats it once; admission stats it once more for its target type.
+        expect(recording.counts(linked).stat).toBe(2);
+        expect(recording.counts(linkedDirectory).stat).toBe(2);
+        // A dangling link has no referent to admit.
+        expect(recording.counts(dangling).stat).toBe(1);
       }),
     ),
   );

@@ -3,8 +3,9 @@
  *
  * A pack's membership is a manifest an author owns, so both directions share
  * one use case: find the pack the selector names, confirm the workspace
- * authors it, read the manifest under a plan-time hash, decide which members
- * the selector resolves to, and reduce that to a delta. An empty delta is a
+ * authors it, read and decode the manifest whose text the step compares under
+ * the lock, decide which members the selector resolves to, and reduce that to
+ * a delta. An empty delta is a
  * settled outcome, not a failure.
  *
  * @experimental This API is unstable and may change without notice.
@@ -62,7 +63,6 @@ import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settle
 import { settingsRelativePath } from "../create/authoring-owner.js";
 import { addToPack } from "./add-to-pack.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
-import { hashContent } from "./hash-content.js";
 import {
   isGlobPattern,
   matchesPattern,
@@ -232,7 +232,6 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
         (cause) => new PackManifestUnavailable({ path: manifestPath, reason: "unreadable", cause }),
       ),
     );
-  const manifestHash = hashContent(manifestContent);
   const json = yield* Effect.try({
     try: (): unknown => JSON.parse(manifestContent),
     catch: (cause) =>
@@ -270,6 +269,9 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
       })
       .sort((a, b) => (a.member < b.member ? -1 : a.member > b.member ? 1 : 0)),
   };
+  // The step takes the prepared text and decode; nothing here reads the
+  // manifest after this point, and the step derives its update from a copy.
+  const prepared = { text: manifestContent, manifest };
   const run =
     request.change === "add"
       ? addToPack({
@@ -282,7 +284,7 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
                 member.after === null ? [] : [[member.member, member.after]],
               ),
             ),
-            manifestHash,
+            prepared,
           },
         })
       : removeFromPack({
@@ -291,7 +293,7 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
             packName: pack,
             packOwner,
             removals: packMembership.members.map((member) => member.member),
-            manifestHash,
+            prepared,
           },
         });
   const step: PlannedJobStep<PackMembershipRequirements> = {

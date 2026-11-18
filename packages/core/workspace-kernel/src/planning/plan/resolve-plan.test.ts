@@ -13,6 +13,7 @@ import {
 import { WorkspaceTransactionScopeLive } from "../../settlement/live.js";
 import { describe, expect, it } from "@effect/vitest";
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
+import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
@@ -73,9 +74,13 @@ import {
   ConfiguredAgentOutcomesUnavailable,
   configuredAgentLifecycleOutcomes,
   DesiredStateReader,
+  ExtensionPaths,
+  LockfileReader,
   SettingsIoError,
+  SettingsReader,
   UNCONSTRAINED_DESIRED_NODE,
   type DesiredStateGraph,
+  WorkspaceReadViews,
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
@@ -2656,5 +2661,248 @@ describe("previewOrApply", () => {
       expect(result.blocking?.detail).toContain("waited 60s");
       expect(result.units.every((unit) => unit.state === "ready")).toBe(true);
     }).pipe(Effect.provide(NativePlatformTest)),
+  );
+});
+
+/**
+ * A read-view factory that records each capture and the lifetime of each
+ * observation it opens. A captured view serves the services already in scope
+ * (and no extension paths), so the cases observe ordering, not caching; a
+ * failing capture refuses with a settings read failure.
+ */
+const recordingReadViews = (events: string[], capture: "succeeds" | "fails") =>
+  Layer.effect(
+    WorkspaceReadViews,
+    Effect.gen(function* () {
+      const ambient = Context.add(
+        yield* Effect.context<
+          | SettingsReader
+          | LockfileReader
+          | DesiredStateReader
+          | WorkspaceRecords
+          | FileSystem.FileSystem
+        >(),
+        ExtensionPaths,
+        { skillDir: () => Effect.die("No extension paths in a recorded validation view") },
+      );
+      return {
+        withRegistryReadPhase: (effect) =>
+          Effect.sync(() => events.push("phase-open")).pipe(
+            Effect.andThen(effect),
+            Effect.ensuring(Effect.sync(() => events.push("phase-close"))),
+          ),
+        liveObservations: Context.make(
+          FileSystem.FileSystem,
+          Context.get(ambient, FileSystem.FileSystem),
+        ),
+        capture: () =>
+          Effect.sync(() => events.push("capture")).pipe(
+            Effect.andThen(
+              capture === "succeeds"
+                ? Effect.succeed(ambient)
+                : Effect.fail(new SettingsIoError({ path: "axm.json", cause: "unavailable" })),
+            ),
+          ),
+      };
+    }),
+  );
+
+describe("shared validation observation", () => {
+  const materialPlan = (material: string, applied: { count: number }): Plan => ({
+    _tag: "Plan",
+    name: "Update material",
+    description: Option.none(),
+    materialPaths: [material],
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            readiness: "ready",
+            label: "material",
+            run: Effect.sync(() => {
+              applied.count += 1;
+              return { result: "success" as const, message: "updated" };
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+  const edit = (material: string, contents: string) =>
+    Effect.flatMap(FileSystem.FileSystem, (fs) => fs.writeFileString(material, contents));
+
+  /**
+   * Prepare one candidate over a single material file without a read-view
+   * factory, then resolve it under the recording factory with an additional
+   * check that records each run.
+   */
+  const resolveRecorded = (input: {
+    readonly capture: "succeeds" | "fails";
+    readonly shared: boolean;
+    readonly additional?: boolean;
+    readonly editAfterPrepare?: boolean;
+    readonly gateEdits?: boolean;
+  }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-shared-validation-" });
+      const material = `${directory}/manifest.json`;
+      yield* fs.writeFileString(material, "prepared");
+      const applied = { count: 0 };
+      const events: string[] = [];
+      const context = makeTestContext(undefined, undefined, { baseDir: directory });
+      const candidate = yield* prepareExecutionCandidate(materialPlan(material, applied)).pipe(
+        Effect.provide(context.layer),
+      );
+      if (input.editAfterPrepare === true) yield* edit(material, "changed-after-prepare");
+      const result = yield* resolveExecutionCandidate(candidate, preapprovedPlanExecution, {
+        additionalFreshness: () =>
+          Effect.sync(() => {
+            events.push("additional");
+            return input.additional ?? true;
+          }),
+        ...(input.shared ? { additionalFreshnessMaterialPaths: [material] } : {}),
+        ...(input.gateEdits === true
+          ? {
+              beforeApply: () =>
+                Effect.sync(() => events.push("gate")).pipe(
+                  Effect.andThen(edit(material, "changed-by-gate")),
+                  Effect.mapError(
+                    (cause) =>
+                      new StepFailure({ category: "internal", detail: "gate failed", cause }),
+                  ),
+                ),
+            }
+          : {}),
+      }).pipe(
+        Effect.provide(
+          recordingReadViews(events, input.capture).pipe(Layer.provideMerge(context.layer)),
+        ),
+      );
+      return { result, events, applied: applied.count };
+    }).pipe(Effect.scoped);
+
+  it.effect("an additional check without shared paths opens no validation observation", () =>
+    Effect.gen(function* () {
+      const fresh = yield* resolveRecorded({ capture: "fails", shared: false });
+      expect(deriveOperationOutcome(fresh.result)).toBe("applied");
+      expect(fresh.events).toEqual(["additional"]);
+      expect(fresh.applied).toBe(1);
+      const stale = yield* resolveRecorded({ capture: "fails", shared: false, additional: false });
+      expect(stale.result.blocking?.class).toBe("stale-candidate");
+      expect(stale.events).toEqual(["additional"]);
+      expect(stale.applied).toBe(0);
+    }).pipe(Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("both checks share one observation that ends before applying", () =>
+    Effect.gen(function* () {
+      const fresh = yield* resolveRecorded({ capture: "succeeds", shared: true });
+      expect(deriveOperationOutcome(fresh.result)).toBe("applied");
+      expect(fresh.events).toEqual(["capture", "phase-open", "additional", "phase-close"]);
+      expect(fresh.applied).toBe(1);
+    }).pipe(Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("a pre-apply gate runs between two separate validation observations", () =>
+    Effect.gen(function* () {
+      const gated = yield* resolveRecorded({ capture: "succeeds", shared: true, gateEdits: true });
+      expect(deriveOperationOutcome(gated.result)).toBe("blocked");
+      expect(gated.result.blocking?.class).toBe("stale-candidate");
+      expect(gated.events).toEqual([
+        "capture",
+        "phase-open",
+        "additional",
+        "phase-close",
+        "gate",
+        "capture",
+        "phase-open",
+        "phase-close",
+      ]);
+      expect(gated.applied).toBe(0);
+    }).pipe(Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("a stale candidate refuses before the additional check runs", () =>
+    Effect.gen(function* () {
+      const stale = yield* resolveRecorded({
+        capture: "succeeds",
+        shared: true,
+        editAfterPrepare: true,
+      });
+      expect(deriveOperationOutcome(stale.result)).toBe("blocked");
+      expect(stale.result.blocking?.class).toBe("stale-candidate");
+      expect(stale.events).toEqual(["capture", "phase-open", "phase-close"]);
+      expect(stale.applied).toBe(0);
+    }).pipe(Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("without a validation observation both checks run unshared", () =>
+    Effect.gen(function* () {
+      const fresh = yield* resolveRecorded({ capture: "fails", shared: true });
+      expect(deriveOperationOutcome(fresh.result)).toBe("applied");
+      expect(fresh.events).toEqual(["capture", "additional"]);
+      expect(fresh.applied).toBe(1);
+      const stale = yield* resolveRecorded({
+        capture: "fails",
+        shared: true,
+        editAfterPrepare: true,
+      });
+      expect(stale.result.blocking?.class).toBe("stale-candidate");
+      expect(stale.events).toEqual(["capture"]);
+      expect(stale.applied).toBe(0);
+    }).pipe(Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("routed fingerprints distinguish absent from empty and read unshared paths aside", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-routed-materials-" });
+      const settingsPath = path.join(directory, "axm.json");
+      const lockPath = path.join(directory, "axm.lock");
+      const packageDirectory = path.join(directory, "vendor");
+      yield* fs.makeDirectory(packageDirectory);
+      yield* fs.writeFileString(path.join(packageDirectory, "skill.json"), "{}");
+      yield* fs.writeFileString(settingsPath, "{}");
+      const unsharedReads: string[] = [];
+      const unshared = FileSystem.make({
+        ...fs,
+        readLink: (target) => {
+          unsharedReads.push(target);
+          return fs.readLink(target);
+        },
+      });
+      const routing = { sharedPaths: new Set([settingsPath, lockPath]), unshared };
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Routed materials",
+        description: Option.none(),
+        materialPaths: [packageDirectory],
+        jobs: [],
+      };
+      const absent = yield* makeExecutionCandidate(plan, {
+        settingsPath,
+        lockPath,
+        baseDir: directory,
+      });
+      expect(yield* isExecutionCandidateFresh(absent, routing)).toBe(true);
+      // A directory material is read through its top-level file system throughout.
+      expect(unsharedReads).toEqual([packageDirectory, path.join(packageDirectory, "skill.json")]);
+      yield* fs.writeFileString(lockPath, "");
+      expect(yield* isExecutionCandidateFresh(absent, routing)).toBe(false);
+      const empty = yield* makeExecutionCandidate(plan, {
+        settingsPath,
+        lockPath,
+        baseDir: directory,
+      });
+      expect(yield* isExecutionCandidateFresh(empty, routing)).toBe(true);
+      expect(empty.materialFingerprint).not.toBe(absent.materialFingerprint);
+      yield* fs.remove(lockPath);
+      expect(yield* isExecutionCandidateFresh(empty, routing)).toBe(false);
+      expect(yield* isExecutionCandidateFresh(absent, routing)).toBe(true);
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

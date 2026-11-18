@@ -45,11 +45,13 @@ import {
   expectedProjectionNames,
   observeAgentOutputs,
   observeConfiguredSkillLocations,
-  observeWorkspaceOwnershipIssues,
+  workspaceOwnershipIssues,
   deriveAgentOutputAuthority,
+  freezeProjectionFacts,
   instructionProjectionEffects,
   instructionReconciliationReadiness,
   withMcpInspectionReadView,
+  type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
 import {
   LockfileReader,
@@ -57,8 +59,11 @@ import {
   SettingsReader,
   WorkspaceLocation,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
+  freshStateLoadersFor,
   observeInstallRoot,
   withWorkspaceObservationReadView,
+  workspaceReadPhaseFor,
   type CanonicalObservation,
   type DesiredExtensionNode,
   type AcceptedResolutionWriter,
@@ -69,6 +74,7 @@ import {
   selectOfficialAxmSkill,
 } from "@agentxm/workspace-kernel/resolution";
 import { buildLintWorkspace } from "../catalog/index.js";
+import type { BuildLintWorkspaceArgs } from "../catalog/workspace-read-model/lint-workspace.js";
 import { nodesDeferringToObservation } from "../catalog/workspace/canonical-observation-findings.js";
 import type { WorkspaceHealthFailure } from "../workspace-context.js";
 import type { LintView } from "../catalog-contexts.js";
@@ -84,7 +90,7 @@ import {
   type RenderedFinding,
 } from "../runner.js";
 import type { LintInput, LintJsonDocument } from "../json-schema.js";
-import { observeAuthoredPackages } from "./authored-packages.js";
+import { observeAuthoredPackages, type AuthoredPackageResolution } from "./authored-packages.js";
 import {
   observeProjectAgentContent,
   observeUserScope,
@@ -242,6 +248,65 @@ export type LintWorkspaceFailure =
   | Effect.Error<ReturnType<typeof acceptedCanonicalObservation>>
   | Effect.Error<ReturnType<typeof applyDeterminedRepairs>>;
 
+type LintStateLoaders = NonNullable<BuildLintWorkspaceArgs["stateLoaders"]>;
+
+/**
+ * The document cells lint's read model decides against while its own
+ * observation phase is active. Each document is bound to one source at its
+ * first demand, so its raw and decoded cells always come from one read: the
+ * phase's cells while the phase is active, lint's own fresh loaders once the
+ * phase has ended. An ended phase is never consulted again.
+ */
+const phaseSharedStateLoaders = (args: {
+  readonly isActive: () => boolean;
+  readonly phaseLoaders: LintStateLoaders;
+  readonly ownLoaders: LintStateLoaders;
+}) =>
+  Effect.gen(function* () {
+    const choose = Effect.sync(() => (args.isActive() ? args.phaseLoaders : args.ownLoaders));
+    const settings = yield* Effect.cached(choose);
+    const lockfile = yield* Effect.cached(choose);
+    return {
+      settings: Effect.flatMap(settings, (loaders) => loaders.settings),
+      settingsRaw: Effect.flatMap(settings, (loaders) => loaders.settingsRaw),
+      lockfile: Effect.flatMap(lockfile, (loaders) => loaders.lockfile),
+      lockfileRaw: Effect.flatMap(lockfile, (loaders) => loaders.lockfileRaw),
+    } satisfies LintStateLoaders;
+  });
+
+/**
+ * The projection facts every rule of one lint run reads. A demand made while
+ * the run's read phase is still active reuses the facts an earlier demand
+ * evaluated entirely inside that same phase; every other demand evaluates
+ * afresh, as an unshared accessor would. Demands never wait on one another,
+ * so an interrupted demand leaves nothing for another to inherit.
+ */
+const phaseSharedProjectionFacts = (args: {
+  readonly location: Parameters<typeof workspaceReadPhaseFor>[0];
+  readonly evaluate: Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
+}) =>
+  Effect.gen(function* () {
+    const phase = yield* workspaceReadPhaseFor(args.location);
+    if (phase === undefined) return args.evaluate;
+    const settled = yield* Ref.make(Option.none<ReadonlyArray<ProjectionInvariantFact>>());
+    const withinPhase = Effect.map(
+      workspaceReadPhaseFor(args.location),
+      (current) => current === phase,
+    );
+    return Effect.gen(function* () {
+      if (!(yield* withinPhase)) return yield* args.evaluate;
+      const reused = yield* Ref.get(settled);
+      if (Option.isSome(reused)) return reused.value;
+      const facts = freezeProjectionFacts(yield* args.evaluate);
+      if (yield* withinPhase) {
+        yield* Ref.update(settled, (current) =>
+          Option.isSome(current) ? current : Option.some(facts),
+        );
+      }
+      return facts;
+    });
+  });
+
 const runLint = (selection: LintSelection, options: { readonly strict: boolean }) =>
   withWorkspaceObservationReadView(
     withMcpInspectionReadView(
@@ -258,30 +323,30 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         const invariantFacts = yield* WorkspaceInvariantFacts;
         const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
         // Every rule that reports a canonical observation reads this one
-        // observation of each desired node for the run.
-        const canonicalObservations: Effect.Effect<
-          ReadonlyArray<{
-            readonly desired: DesiredExtensionNode;
-            readonly observation: CanonicalObservation;
-          }>,
-          WorkspaceHealthFailure
-        > = yield* Effect.cached(
+        // observation of each desired node for the run. The accepted row and
+        // the manifest each observation read stay with this run.
+        const canonicalCaptures = yield* Effect.cached(
           Effect.gen(function* () {
             const graph = yield* desiredState.graph();
             return yield* Effect.forEach(
               graph.nodes,
               (node) =>
-                acceptedCanonicalObservation({
+                acceptedCanonicalObservationCapturing({
                   type: node.type,
                   name: node.name,
                 }).pipe(
-                  Effect.flatMap((accepted) =>
-                    Option.isNone(accepted)
+                  Effect.flatMap(({ observed, manifest }) =>
+                    Option.isNone(observed)
                       ? new LintStagingFailed({
                           category: "internal",
                           detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
                         })
-                      : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+                      : Effect.succeed({
+                          desired: node,
+                          observation: observed.value.observation,
+                          accepted: observed.value.accepted,
+                          manifest,
+                        }),
                   ),
                 ),
               { concurrency: 16 },
@@ -294,13 +359,22 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             Effect.provideService(DesiredStateReader, desiredState),
           ),
         );
+        const canonicalObservations: Effect.Effect<
+          ReadonlyArray<{
+            readonly desired: DesiredExtensionNode;
+            readonly observation: CanonicalObservation;
+          }>,
+          WorkspaceHealthFailure
+        > = Effect.map(canonicalCaptures, (captures) =>
+          captures.map(({ desired, observation }) => ({ desired, observation })),
+        );
         // A node whose canonical tree is absent has nothing for its own artifact
         // and content rules to inspect, so they defer to the one finding the
         // observation router names. Unavailable observations defer nothing.
-        const observed = yield* Effect.result(canonicalObservations);
-        const deferred = Result.isFailure(observed)
+        const captured = yield* Effect.result(canonicalCaptures);
+        const deferred = Result.isFailure(captured)
           ? new Set<string>()
-          : nodesDeferringToObservation(observed.success);
+          : nodesDeferringToObservation(captured.success);
 
         // The official AXM skill is the desired node its identity selects, judged
         // from that node's canonical observation; no other copy on disk counts.
@@ -318,7 +392,71 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         );
 
         const desiredGraph = yield* desiredState.graph();
+        // The read model shares this run's observation phase's document cells
+        // only when the phase observes exactly the roots, scope and port lint
+        // reads; equal roots name equal documents. Any other run reads its own.
+        const phase = yield* workspaceReadPhaseFor(location);
+        const stateLoaders =
+          phase !== undefined &&
+          phase.observations &&
+          phase.fileSystem === fileSystem &&
+          selection.workspaceRoot === location.projectRoot &&
+          userHome === location.userHome &&
+          selection.scope === location.scope &&
+          !(selection.input.view === "git-index" && selection.scope === "user")
+            ? yield* phaseSharedStateLoaders({
+                isActive: phase.isActive,
+                phaseLoaders: yield* phase.stateLoaders(selection.scope),
+                ownLoaders: yield* freshStateLoadersFor(location, selection.scope).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fileSystem),
+                  Effect.provideService(Path.Path, path),
+                ),
+              })
+            : undefined;
+        // Aggregate contributor selection inside the projection facts takes this
+        // run's own observation of the identical desired node, only while this
+        // observation phase is active and read through the port lint observed
+        // through; every other selection observes for itself.
+        // The authored packages this run resolves below, once they settle; a
+        // facts demand before then resolves each package for itself.
+        let authoredResolutions: ReadonlyArray<AuthoredPackageResolution> = [];
+        const handOverObservations =
+          phase !== undefined &&
+          phase.observations &&
+          phase.fileSystem === fileSystem &&
+          Result.isSuccess(captured) &&
+          invariantFacts.withCanonicalObservations !== undefined
+            ? invariantFacts.withCanonicalObservations({
+                phase,
+                fileSystem,
+                authoredPackage: (asked) =>
+                  Option.map(
+                    Option.fromUndefinedOr(
+                      authoredResolutions.find(
+                        (resolution) =>
+                          resolution.type === asked.type &&
+                          resolution.name === asked.name &&
+                          resolution.layout === asked.layout,
+                      ),
+                    ),
+                    ({ root, manifest, hash }) => ({ root, manifest, hash }),
+                  ),
+                observed: (desired) =>
+                  Option.map(
+                    Option.fromUndefinedOr(
+                      captured.success.find((capture) => capture.desired === desired),
+                    ),
+                    ({ accepted, observation, manifest }) => ({
+                      accepted,
+                      layout,
+                      observation,
+                      manifest,
+                    }),
+                  ),
+              })
+            : undefined;
         const { rule: workspaceContext, view } = yield* buildLintWorkspace({
+          ...(stateLoaders === undefined ? {} : { stateLoaders }),
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           platform: { fs: fileSystem, path },
           workspaceRoot: selection.workspaceRoot,
@@ -328,7 +466,15 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           gitIndexView: selection.input.view === "git-index",
           officialAxmSkill,
           owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
-          projections: { facts: invariantFacts.projectionFacts },
+          projections: {
+            facts: yield* phaseSharedProjectionFacts({
+              location,
+              evaluate:
+                handOverObservations === undefined
+                  ? invariantFacts.projectionFacts
+                  : invariantFacts.projectionFacts.pipe(handOverObservations),
+            }),
+          },
           defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
         });
         // The settings document lint decides against is the one strict read the
@@ -391,14 +537,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           layout,
           entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
         };
-        const ownership = yield* observeWorkspaceOwnershipIssues({
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          workspaceRoot: location.baseDir,
-          scope: location.scope,
-          configuredAgentIds: new Set(configuredAgents),
-          ...outputAuthority,
-          authoredSkills,
-        });
         const materializationAgentIds = new Set(
           (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
         );
@@ -411,6 +549,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           ...outputAuthority,
           authoredSkills,
         });
+        // Ownership depends only on proof, never on the desired agents or the
+        // expected names, so the agent-output inventory answers it as well.
+        const ownership = workspaceOwnershipIssues(agentOutputs);
         // Cross-scope agent facts. The agents that read this workspace also read
         // the user scope; a project folder that is the user home has no separate
         // user scope, and a Git-index snapshot has no live agent folders.
@@ -440,9 +581,11 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           graph: desiredGraph,
           locks: lockfile,
         }).pipe(Effect.option);
-        const authoredPackages = Option.isSome(settings)
+        const authored = Option.isSome(settings)
           ? yield* observeAuthoredPackages({ layout, settings: settings.value })
-          : [];
+          : undefined;
+        const authoredPackages = authored?.packages ?? [];
+        authoredResolutions = authored?.resolutions ?? [];
         const evaluations = yield* evaluateAllCatalogs({
           view: selection.input.view,
           contexts: {

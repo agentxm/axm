@@ -165,9 +165,25 @@ const resolvePathMarker = (
     ? resolveProjectPath(marker.path, rootDir)
     : resolveUserDetectionPath(marker.path);
 
-const resolveMarker = (marker: AgentDetectionMarker, rootDir: string, scope: "project" | "user") =>
+type PathMarker = Extract<AgentDetectionMarker, { readonly kind: "dir" | "file" }>;
+
+const probePathMarker = (marker: PathMarker, rootDir: string, scope: "project" | "user") =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const resolvedPath = yield* resolvePathMarker(marker, rootDir, scope);
+    return yield* fs.exists(resolvedPath);
+  });
+
+/** Probes one path marker; a detection pass may share probes among agents. */
+type PathMarkerProbe = typeof probePathMarker;
+
+const resolveMarker = (
+  marker: AgentDetectionMarker,
+  rootDir: string,
+  scope: "project" | "user",
+  probePath: PathMarkerProbe,
+) =>
+  Effect.gen(function* () {
     if (marker.kind === "executable") {
       const resolverOption = yield* Effect.serviceOption(AgentExecutableResolver);
       if (Option.isSome(resolverOption)) {
@@ -177,8 +193,7 @@ const resolveMarker = (marker: AgentDetectionMarker, rootDir: string, scope: "pr
       return yield* resolver.exists(marker.name);
     }
 
-    const resolvedPath = yield* resolvePathMarker(marker, rootDir, scope);
-    return yield* fs.exists(resolvedPath);
+    return yield* probePath(marker, rootDir, scope);
   });
 
 const isScopeDetected = (
@@ -202,12 +217,13 @@ const detectScopeRaw = (
   detection: AgentScopeDetectionDescriptor,
   rootDir: string,
   scope: "project" | "user",
+  probePath: PathMarkerProbe = probePathMarker,
 ) =>
   Effect.gen(function* () {
     const results = yield* Effect.forEach(
       detection.markers,
       (marker) =>
-        resolveMarker(marker, rootDir, scope).pipe(
+        resolveMarker(marker, rootDir, scope, probePath).pipe(
           Effect.map((resolved) => ({
             marker,
             resolved,
@@ -237,17 +253,74 @@ export interface AgentScopeDetection {
   readonly user: boolean;
 }
 
-/** Detect project and user evidence independently for one agent. */
-export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
+const detectAgentScopesWith = (
+  agent: AgentDescriptor,
+  projectDir: string,
+  probePath: PathMarkerProbe,
+) =>
   Effect.gen(function* () {
     const home = yield* detectionHome;
     const [project, user] = yield* Effect.all(
-      [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
+      [
+        detectScopeRaw(agent.detection.project, projectDir, "project", probePath),
+        detectScopeRaw(agent.detection.user, home, "user", probePath),
+      ],
       // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of project and user scopes
       { concurrency: "unbounded" },
     );
     return { agent, project, user } satisfies AgentScopeDetection;
   }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)));
+
+/** Detect project and user evidence independently for one agent. */
+export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
+  detectAgentScopesWith(agent, projectDir, probePathMarker);
+
+/**
+ * Share, within one detection pass, the probe of each path marker that
+ * several agents declare. A path marker resolves from its scope and declared
+ * path alone (project markers against the pass's project directory, user
+ * markers against the detection roots), so equal declarations name the same
+ * path. The first agent to need such a marker resolves and probes it, and
+ * every declaring agent receives that outcome; other markers are probed
+ * directly. The probes live only as long as the returned function.
+ */
+const makeSharedPathMarkerProbe = (agents: ReadonlyArray<AgentDescriptor>, projectDir: string) =>
+  Effect.gen(function* () {
+    const markerId = (marker: PathMarker, scope: "project" | "user") => `${scope}:${marker.path}`;
+    const declared = new Map<string, number>();
+    for (const agent of agents) {
+      for (const scope of ["project", "user"] as const) {
+        for (const marker of agent.detection[scope].markers) {
+          if (marker.kind === "executable") continue;
+          const id = markerId(marker, scope);
+          declared.set(id, (declared.get(id) ?? 0) + 1);
+        }
+      }
+    }
+
+    const shared = new Map<string, ReturnType<PathMarkerProbe>>();
+    for (const agent of agents) {
+      for (const scope of ["project", "user"] as const) {
+        for (const marker of agent.detection[scope].markers) {
+          if (marker.kind === "executable") continue;
+          const id = markerId(marker, scope);
+          if ((declared.get(id) ?? 0) < 2 || shared.has(id)) continue;
+          shared.set(id, yield* Effect.cached(probePathMarker(marker, projectDir, scope)));
+        }
+      }
+    }
+
+    const probe: PathMarkerProbe = (marker, rootDir, scope) => {
+      // Project markers resolve against the root they are probed in; only
+      // probes of the pass's own project directory are shared.
+      const cell =
+        scope === "project" && rootDir !== projectDir
+          ? undefined
+          : shared.get(markerId(marker, scope));
+      return cell ?? probePathMarker(marker, rootDir, scope);
+    };
+    return probe;
+  });
 
 /**
  * Check if a specific agent is installed by checking project-level and
@@ -295,14 +368,19 @@ export const detectAgents = (projectDir: string) =>
 
 /** Detect all agents while retaining the scope that supplied each signal. */
 export const detectAgentScopeResults = (projectDir: string) =>
-  Effect.forEach(
-    Object.values(AGENT_DESCRIPTORS),
-    (agent) => detectAgentScopes(agent, projectDir),
-    {
-      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
-      concurrency: "unbounded",
-    },
-  ).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
+  Effect.gen(function* () {
+    const agents = Object.values(AGENT_DESCRIPTORS);
+    const probePath = yield* makeSharedPathMarkerProbe(agents, projectDir);
+    const detections = yield* Effect.forEach(
+      agents,
+      (agent) => detectAgentScopesWith(agent, projectDir, probePath),
+      {
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
+        concurrency: "unbounded",
+      },
+    );
+    return detections.filter(({ project, user }) => project || user);
+  });
 
 /** Detect agents whose structured evidence satisfies one selected scope. */
 export const detectAgentsForScope = (projectDir: string, scope: "project" | "user") =>

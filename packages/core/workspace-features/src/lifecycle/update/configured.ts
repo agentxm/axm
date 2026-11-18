@@ -107,7 +107,10 @@ import {
 import {
   SourceHostProviders,
   WorkspaceCatalog,
+  GitRemoteRefListings,
   listRemoteRefs,
+  withSharedGitDiscoveryCheckouts,
+  withSharedGitRemoteRefListings,
 } from "@agentxm/workspace-kernel/sources";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -559,7 +562,11 @@ const prepareUpdateIntent = <TIntent, R>(
       const gitSource = declaredSource;
       const selector = Option.getOrUndefined(gitSource.ref);
       if (selector !== undefined) {
-        const remote = yield* listRemoteRefs(gitSource.url.href);
+        const listings = yield* Effect.serviceOption(GitRemoteRefListings);
+        const listing = listRemoteRefs(gitSource.url.href);
+        const remote = yield* Option.isSome(listings)
+          ? listings.value.list(gitSource.url.href, listing)
+          : listing;
         const assessment = assessGitSelector(selector, remote);
         if (assessment.kind === "tag" || assessment.kind === "commit") {
           const accepted = yield* acceptedResolutionRef({ type: args.type, name: args.name });
@@ -1297,18 +1304,7 @@ export interface WorkspaceUpdatePlanRequest {
   readonly nonInteractive: boolean;
 }
 
-/**
- * Sweep every selected configured entry and fold the surviving steps into one
- * best-effort plan, or report that the selection had nothing configured to
- * advance.
- */
-export const buildWorkspaceUpdatePlan: (
-  request: WorkspaceUpdatePlanRequest,
-) => Effect.Effect<
-  WorkspaceUpdatePlanResult,
-  ConfiguredUpdateFailure,
-  WorkspaceUpdateCollectorContext | ReleaseAgePosture
-> = Effect.fnUntraced(function* (args) {
+const sweepConfiguredEntries = Effect.fnUntraced(function* (args: WorkspaceUpdatePlanRequest) {
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
   const accepted = retainedPackageBindings(yield* (yield* LockfileReader).lockfile);
   const priorGraph = yield* (yield* DesiredStateReader).graph();
@@ -1506,3 +1502,19 @@ export const buildWorkspaceUpdatePlan: (
     ),
   } satisfies WorkspaceUpdatePlanResult;
 });
+
+/**
+ * Sweep every selected configured entry and fold the surviving steps into one
+ * best-effort plan, or report that the selection had nothing configured to
+ * advance. Every entry the sweep resolves from one Git URL and revision is
+ * discovered in one shared checkout, and every Git selector the sweep assesses
+ * against one URL reads one shared listing of that URL's remote refs.
+ */
+export const buildWorkspaceUpdatePlan = (
+  request: WorkspaceUpdatePlanRequest,
+): Effect.Effect<
+  WorkspaceUpdatePlanResult,
+  ConfiguredUpdateFailure,
+  WorkspaceUpdateCollectorContext | ReleaseAgePosture
+> =>
+  withSharedGitDiscoveryCheckouts(withSharedGitRemoteRefListings(sweepConfiguredEntries(request)));

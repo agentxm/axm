@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -24,7 +24,7 @@ const detectInTempDir = (files?: { readonly mixExs?: string; readonly gleamToml?
     if (files?.gleamToml !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "gleam.toml"), files.gleamToml);
     }
-    return yield* hexDetector.detect(tmpDir);
+    return yield* detectIn(hexDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("hexDetector", () => {

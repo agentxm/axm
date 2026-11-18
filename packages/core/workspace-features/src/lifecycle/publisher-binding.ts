@@ -15,6 +15,8 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+
 import {
   classifyPublisherBindingTransition,
   describePublisherBindingTransition,
@@ -25,11 +27,49 @@ import {
 import type { Plan, PlanRiskCondition, PlannedJobStep } from "@agentxm/workspace-kernel/operations";
 import {
   acceptedResolutionRef,
+  type AcceptedCanonicalRefError,
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
   type WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
+
+/**
+ * An accepted ref the planning call reconstructed from its read phase's
+ * accepted row for a desired Registry, Git, HTTP, or path node of exactly
+ * this type and name. It is deep-frozen and lives only for that call.
+ */
+export interface ReconstructedAcceptedRef {
+  readonly type: string;
+  readonly name: string;
+  readonly ref: ExtensionRef;
+}
+
+/**
+ * The accepted ref `acceptedResolutionRef` reconstructs for `target`: the
+ * planning call's own reconstruction of exactly that target when it made one,
+ * otherwise reconstructed here.
+ */
+export const acceptedRefFor = (
+  reconstructed: ReadonlyArray<ReconstructedAcceptedRef>,
+  target: Parameters<typeof acceptedResolutionRef>[0],
+): Effect.Effect<
+  Option.Option<ExtensionRef>,
+  AcceptedCanonicalRefError,
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
+> => {
+  const record = reconstructed.find(
+    (candidate) => candidate.type === target.type && candidate.name === target.name,
+  );
+  return record === undefined
+    ? acceptedResolutionRef(target)
+    : Effect.succeed(Option.some(record.ref));
+};
 
 const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
 
@@ -89,6 +129,7 @@ const stepWithTransitionWarning = <R, O>(
  */
 export const withPublisherTrust = <R, O>(
   plan: Plan<R, O>,
+  reconstructed: ReadonlyArray<ReconstructedAcceptedRef>,
 ): Effect.Effect<
   Plan<R, O>,
   never,
@@ -118,7 +159,7 @@ export const withPublisherTrust = <R, O>(
     const unreadable: Array<string> = [];
     const transitionsByKey = new Map<string, PublisherBindingTransition>();
     for (const proposed of proposals) {
-      const accepted = yield* acceptedResolutionRef({
+      const accepted = yield* acceptedRefFor(reconstructed, {
         type: proposed.extensionType,
         name: proposed.target,
       }).pipe(Effect.option);

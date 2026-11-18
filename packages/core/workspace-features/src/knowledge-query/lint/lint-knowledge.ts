@@ -11,17 +11,23 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
   inspectKnowledgePackage,
+  inspectKnowledgePackageWithManifest,
   type KnowledgeDiagnostic,
 } from "@agentxm/extension-content/knowledge";
 import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
 } from "@agentxm/workspace-kernel/projection";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  capturedManifestFor,
+  WorkspaceLocation,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import type { KnowledgeLintQueryResult } from "../documents.js";
 import { KnowledgeCorpusUnavailable, KnowledgeRequestInvalid } from "../errors.js";
@@ -63,9 +69,13 @@ const inspectAuthored = Effect.fnUntraced(function* (packagePath: string) {
 });
 
 const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
-  const selected = yield* selectInstalledKnowledgeBundles(
-    bundle === undefined ? undefined : { name: bundle },
-  ).pipe(
+  const path = yield* Path.Path;
+  // The desired graph and the accepted resolutions read one document phase;
+  // bundle content is inspected after it ends.
+  const selected = yield* selectInstalledKnowledgeBundles({
+    ...(bundle === undefined ? {} : { name: bundle }),
+    captureManifests: true,
+  }).pipe(
     Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
       Effect.fail(
         new KnowledgeCorpusUnavailable({
@@ -75,11 +85,17 @@ const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
         }),
       ),
     ),
+    withWorkspaceReadView,
   );
   return yield* Effect.forEach(
     selected,
     (entry) =>
-      inspectKnowledgePackage(entry.packageRoot).pipe(
+      // The decode the selection's observation made of this package's
+      // manifest; otherwise the inspection reads it.
+      Option.match(capturedManifestFor(path, entry.manifest, entry.packageRoot, "knowledge"), {
+        onSome: (manifest) => inspectKnowledgePackageWithManifest(entry.packageRoot, manifest),
+        onNone: () => inspectKnowledgePackage(entry.packageRoot),
+      }).pipe(
         Effect.map((inspected) => ({ ...inspected, name: entry.name })),
         Effect.mapError(
           (cause) =>

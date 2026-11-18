@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 
 import {
   GitDirectoryComparison,
+  type GitDirectoryComparisonService,
   type GitDirectoryDifference,
   type GitOperationFailed,
 } from "@agentxm/workspace-kernel/sources";
@@ -43,6 +44,23 @@ const publicDifferences = (
 ): ReadonlyArray<PublishSourceDifference> =>
   differences.slice(0, PUBLIC_DIFFERENCE_LIMIT).map(({ path, change }) => ({ path, change }));
 
+type RepositoryHead = NonNullable<
+  NonNullable<Parameters<GitDirectoryComparisonService["compare"]>[0]["repository"]>["head"]
+>;
+
+/**
+ * The repository HEAD facts one sequential pass of source assessments has
+ * observed, by repository root. The pass that makes it owns it and drops it
+ * when its last assessment settles; a comparison that fails records nothing.
+ */
+export const makeRepositoryHeads = () => {
+  const heads = new Map<string, RepositoryHead>();
+  return {
+    get: (root: string) => heads.get(root),
+    record: (root: string, head: RepositoryHead) => void heads.set(root, head),
+  };
+};
+
 /** Assess only source differences that can change the filtered Registry archive. */
 export const assessPublishSourceState = (args: {
   readonly directory: string;
@@ -50,6 +68,17 @@ export const assessPublishSourceState = (args: {
   readonly selection: ResolvedFileSelection;
   /** A generated envelope prefixes payload paths but is not upstream source. */
   readonly payloadPrefix?: string;
+  /** The Git root the same preparation's walk from `directory` found. */
+  readonly repositoryRoot?: Option.Option<string>;
+  /** HEAD facts earlier assessments of the same pass observed. */
+  readonly repositoryHeads?: ReturnType<typeof makeRepositoryHeads>;
+  /**
+   * Takes, at most once, what the same preparation's archive walk observed of
+   * one payload path, keyed as `currentPaths` names it.
+   */
+  readonly takeObservation?: Parameters<
+    GitDirectoryComparisonService["compare"]
+  >[0]["takeObservation"];
 }): Effect.Effect<PublishSourceAssessment, GitOperationFailed, GitDirectoryComparison> =>
   Effect.gen(function* () {
     const git = yield* GitDirectoryComparison;
@@ -62,7 +91,19 @@ export const assessPublishSourceState = (args: {
             : [],
       )
       .sort((left, right) => left.localeCompare(right));
-    const comparison = yield* git.compare({ directory: args.directory, currentPaths });
+    const root = args.repositoryRoot;
+    const head =
+      root === undefined || Option.isNone(root) ? undefined : args.repositoryHeads?.get(root.value);
+    const comparison = yield* git.compare({
+      directory: args.directory,
+      currentPaths,
+      ...(root === undefined
+        ? {}
+        : { repository: { root, ...(head === undefined ? {} : { head }) } }),
+      ...(args.takeObservation === undefined ? {} : { takeObservation: args.takeObservation }),
+    });
+    if (Option.isSome(comparison) && comparison.value.head !== undefined)
+      args.repositoryHeads?.record(comparison.value.repositoryRoot, comparison.value.head);
     if (Option.isNone(comparison)) {
       return { fingerprint: sourceFingerprint({ status: "outside-git" }) };
     }

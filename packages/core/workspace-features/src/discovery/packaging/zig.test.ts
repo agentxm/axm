@@ -1,4 +1,4 @@
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -21,7 +21,7 @@ const detectInTempDir = (buildZigZon?: string) =>
     if (buildZigZon !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "build.zig.zon"), buildZigZon);
     }
-    return yield* zigDetector.detect(tmpDir);
+    return yield* detectIn(zigDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("zigDetector", () => {

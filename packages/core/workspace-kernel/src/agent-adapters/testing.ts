@@ -91,7 +91,9 @@ const permissiveInsertions = {
   recordInsertion: () => Effect.void,
   resolveInsertion: () => Effect.succeedNone,
   resolveInsertions: () => Effect.succeedNone,
+  withdrawInsertions: () => Effect.succeed({ resolution: Option.none(), retired: false }),
   forgetInsertion: () => Effect.void,
+  forgetInsertions: () => Effect.void,
   retireInsertion: () => Effect.succeed(false),
 } satisfies Pick<
   NativeWriteAuthorityService,
@@ -103,7 +105,9 @@ const permissiveInsertions = {
   | "recordInsertion"
   | "resolveInsertion"
   | "resolveInsertions"
+  | "withdrawInsertions"
   | "forgetInsertion"
+  | "forgetInsertions"
   | "retireInsertion"
 >;
 

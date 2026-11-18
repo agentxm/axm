@@ -11,6 +11,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { desiredStateSettled, type DesiredStateGraph } from "../workspace-state/index.js";
 import { requireCompleteContributors } from "./contributors.js";
 import { formatProjectionExclusions, type ProjectionContributorExclusion } from "./exclusions.js";
@@ -212,6 +213,97 @@ export const observeProjectionPlans = <E, R>(
   Effect.forEach(plans, (plan) => plan[ProjectionPlanTypeId].observe, {
     concurrency: PROJECTION_IO_CONCURRENCY,
   });
+
+/**
+ * Plans together with the observation their producer already made of them.
+ * The observation is available to the first consumer only, and only while the
+ * producing owner call runs; every other observation of the plans is fresh.
+ */
+export interface ObservedProjectionPlans<E, R> {
+  readonly plans: ReadonlyArray<ProjectionPlan<void, E, R>>;
+  /** The producer's observations in plan order, at most once; otherwise none. */
+  readonly take: Effect.Effect<Option.Option<ReadonlyArray<ProjectionUnitObservation>>, E, R>;
+}
+
+/**
+ * Run `use` with a handle that hands `observations` to the first consumer.
+ * They are the producer's own observations of exactly these plans, in plan
+ * order, made in the running owner call with nothing written since. The
+ * handle closes when `use` ends, however it ends, so a later take observes
+ * fresh.
+ */
+export const withHandedProjectionObservations = <E, R, A, E2, R2>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  observations: ReadonlyArray<ProjectionUnitObservation>,
+  use: (observed: ObservedProjectionPlans<E, R>) => Effect.Effect<A, E2, R2>,
+): Effect.Effect<A, E2, R2> =>
+  Effect.suspend(() => {
+    let held: ReadonlyArray<ProjectionUnitObservation> | undefined = observations;
+    const take = Effect.sync(() => {
+      const taken = held;
+      held = undefined;
+      return taken === undefined ? Option.none() : Option.some([...taken]);
+    });
+    return Effect.suspend(() => use({ plans, take })).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          held = undefined;
+        }),
+      ),
+    );
+  });
+
+/**
+ * Observe `plans` as the producer's pre-write refusal, then run `use` with a
+ * handle that hands those observations to the first consumer. The handle
+ * closes when `use` ends, however it ends, so a later take observes fresh.
+ */
+export const withObservedProjectionPlans = <E, R, A, E2, R2>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  use: (observed: ObservedProjectionPlans<E, R>) => Effect.Effect<A, E2, R2>,
+): Effect.Effect<A, E | E2, R | R2> =>
+  Effect.flatMap(observeProjectionPlans(plans), (observations) =>
+    withHandedProjectionObservations(plans, observations, use),
+  );
+
+/** Plans a caller retained from an earlier owner call: every observation is fresh. */
+export const unobservedProjectionPlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+): ObservedProjectionPlans<E, R> => ({ plans, take: Effect.succeedNone });
+
+/** The producer's observations when still available, otherwise a fresh observation. */
+export const observeObservedPlans = <E, R>(
+  observed: ObservedProjectionPlans<E, R>,
+): Effect.Effect<ReadonlyArray<ProjectionUnitObservation>, E, R> =>
+  Effect.flatMap(
+    observed.take,
+    Option.match({
+      onNone: () => observeProjectionPlans(observed.plans),
+      onSome: Effect.succeed,
+    }),
+  );
+
+/**
+ * Several owners' plans as one, in the given order. A take yields each part's
+ * own observations, observing fresh only a part whose handle yields none, and
+ * yields none when no part has observations to hand over.
+ */
+export const combineObservedProjectionPlans = <E, R>(
+  parts: ReadonlyArray<ObservedProjectionPlans<E, R>>,
+): ObservedProjectionPlans<E, R> => ({
+  plans: parts.flatMap((part) => part.plans),
+  take: Effect.gen(function* () {
+    const taken = yield* Effect.forEach(parts, (part) => part.take);
+    if (taken.every(Option.isNone)) return Option.none();
+    const observations = yield* Effect.forEach(parts, (part, index) => {
+      const own = taken[index];
+      return own !== undefined && Option.isSome(own)
+        ? Effect.succeed(own.value)
+        : observeProjectionPlans(part.plans);
+    });
+    return Option.some(observations.flat());
+  }),
+});
 
 /**
  * Apply plans concurrently across target files and sequentially within each

@@ -106,12 +106,40 @@ export interface LockfileReaderService {
   readonly acceptedEntry: <T extends InstallableExtensionType>(
     type: T,
     name: string,
+    options?: AcceptedEntryOptions,
   ) => Effect.Effect<Option.Option<LockEntryByType[T]>, WorkspaceStateReadFailure>;
+}
+
+/** What one accepted-row lookup may take from, and hand back to, the caller's own call. */
+export interface AcceptedEntryOptions {
+  /**
+   * The graph `reader.graph()`, called without options, returned earlier in
+   * the caller's same call, with nothing written since. Only the live reader
+   * bound to that very `reader` keys an MCP connection by it instead of
+   * evaluating the graph again; every other reader evaluates its own.
+   */
+  readonly current?: {
+    readonly reader: DesiredStateReaderService;
+    readonly graph: DesiredStateGraph;
+  };
+  /**
+   * Receives the lockfile the lookup read, for the caller's same call only;
+   * it is not called when the lookup read none.
+   */
+  readonly receiveLockfile?: (lockfile: Lockfile) => void;
 }
 
 /** Explicit immutable document inputs for evaluating a proposal. */
 interface DesiredStateCandidateInputs {
   readonly settings?: Settings;
+  /**
+   * The other scope's current settings document, exactly as the caller read it
+   * through the same workspace documents earlier in its call, in place of
+   * reading it again. It is never a proposal. A read phase's reader does not
+   * take it: it reads that scope from the phase's own document, which is what
+   * such a read returns while the phase is active.
+   */
+  readonly inheritedSettings?: Settings;
   readonly acceptedResolutions?: Lockfile;
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }
@@ -159,6 +187,12 @@ export interface WorkspaceRecordsService {
   ) => RecordsRead<ExtensionInventory>;
   /** Lifecycle records without configured-agent outcomes. */
   readonly rows: (type: InstallableExtensionType) => RecordsRead<ReadonlyArray<WorkspaceRecordRow>>;
+  /**
+   * The deep-frozen JSON value this read phase's canonical scan parsed from
+   * an acquired Knowledge manifest at exactly `manifestPath`, when its text
+   * was exactly `text`. Never starts a scan; none once the phase has ended.
+   */
+  readonly knowledgeManifestParse?: (manifestPath: string, text: string) => Option.Option<unknown>;
 }
 
 /** The scopes and source view that identify a workspace's document cells. */

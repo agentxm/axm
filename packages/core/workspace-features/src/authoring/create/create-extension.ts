@@ -83,11 +83,14 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import {
   CodingAgentRepository,
+  captureNativeArtifactLocations,
   nativeArtifactLocationOutcomes,
 } from "@agentxm/workspace-kernel/projection";
 import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
+  resolveNativeEntry,
+  type NativeEntryAddress,
 } from "@agentxm/workspace-kernel/locations";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryContext } from "@agentxm/registry-client";
@@ -563,53 +566,100 @@ const prepareCreateExtension: (
   );
   const agentConfigTargets: ReadonlyArray<JobStepArtifactTarget> =
     request.type === "mcp-server" ? yield* mcpAgentConfigTargets() : [];
-  const inspectSkillDestinations = Effect.gen(function* () {
-    if (request.type !== "skill") return [];
-    const current = yield* skillTargetLocations();
-    for (const target of current.locations) {
-      const targetPath = path.join(target.targetDir, name);
-      const { address } = yield* assertNativeMutationWithinRoots(
-        nativeAuthorityRoots(
-          path,
-          { workspaceRoot: locationService.baseDir, scope: locationService.scope },
-          locationService.nativeDirectoryInputs,
-        ),
-        targetPath,
-        "entry",
-        locationService.baseDir,
-      );
-      if (address.kind !== "absent")
-        return yield* authoringRefused({
+  // Preparation hands its own resolution in; the lock and the final artifact
+  // resolve the destinations fresh.
+  const inspectSkillDestinations = (
+    precomputed?: Effect.Success<ReturnType<typeof skillTargetLocations>>,
+  ) =>
+    Effect.gen(function* () {
+      if (request.type !== "skill") return [];
+      const current = precomputed ?? (yield* skillTargetLocations());
+      // While preparing, the classification below takes the entries these
+      // checks resolved; nothing is written in between. Each check still
+      // resolves the native roots itself, and under the lock every check and
+      // the classification resolve afresh.
+      const asserted: Array<{ readonly path: string; readonly address: NativeEntryAddress }> = [];
+      for (const target of current.locations) {
+        const targetPath = path.join(target.targetDir, name);
+        const { address } = yield* assertNativeMutationWithinRoots(
+          nativeAuthorityRoots(
+            path,
+            { workspaceRoot: locationService.baseDir, scope: locationService.scope },
+            locationService.nativeDirectoryInputs,
+          ),
+          targetPath,
+          "entry",
+          locationService.baseDir,
+        );
+        if (address.kind !== "absent")
+          return yield* authoringRefused({
+            category: "validation",
+            detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
+          });
+        asserted.push(Object.freeze({ path: path.resolve(targetPath), address }));
+      }
+      const agents = yield* (yield* CodingAgentRepository).all;
+      const configuredAgentIds = new Set(yield* settings.configuredAgents);
+      const prepared =
+        precomputed === undefined || asserted.length === 0
+          ? undefined
+          : {
+              asserted: Object.freeze(asserted),
+              readerLocations: yield* captureNativeArtifactLocations({
+                workspaceRoot: locationService.baseDir,
+                scope: locationService.scope,
+                agents,
+                kinds: ["skill"],
+                sharedSkillPolicy: true,
+                entries: [],
+              }),
+              live: yield* Effect.context<FileSystem.FileSystem | Path.Path>(),
+            };
+      return yield* nativeArtifactLocationOutcomes({
+        workspaceRoot: locationService.baseDir,
+        scope: locationService.scope,
+        agents,
+        configuredAgentIds,
+        sharedSkillPolicy: true,
+        ...(prepared === undefined
+          ? {}
+          : {
+              readers: prepared.readerLocations.readers,
+              locationSet: {
+                entry: (target: string) => {
+                  const key = path.resolve(target);
+                  const found = prepared.asserted.find((entry) => entry.path === key);
+                  return found === undefined
+                    ? resolveNativeEntry(key).pipe(Effect.provideContext(prepared.live))
+                    : Effect.succeed(found.address);
+                },
+                referent: prepared.readerLocations.locationSet.referent,
+              },
+            }),
+        targets: current.locations.map((target) => ({
+          path: path.join(target.targetDir, name),
+          kind: "skill" as const,
+          state: "created" as const,
+        })),
+      });
+    }).pipe(
+      Effect.mapError((cause) =>
+        authoringRefused({
           category: "validation",
-          detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
-        });
-    }
-    return yield* nativeArtifactLocationOutcomes({
-      workspaceRoot: locationService.baseDir,
-      scope: locationService.scope,
-      agents: yield* (yield* CodingAgentRepository).all,
-      configuredAgentIds: new Set(yield* settings.configuredAgents),
-      sharedSkillPolicy: true,
-      targets: current.locations.map((target) => ({
-        path: path.join(target.targetDir, name),
-        kind: "skill" as const,
-        state: "created" as const,
-      })),
-    });
-  }).pipe(
-    Effect.mapError((cause) =>
-      authoringRefused({
-        category: "validation",
-        detail:
-          cause instanceof OperationRefused
-            ? cause.detail
-            : "Cannot establish native Skill creation destinations",
-        cause,
-      }),
-    ),
-  );
-  const plannedNativeLocations = yield* inspectSkillDestinations;
+          detail:
+            cause instanceof OperationRefused
+              ? cause.detail
+              : "Cannot establish native Skill creation destinations",
+          cause,
+        }),
+      ),
+    );
+  const plannedNativeLocations = yield* inspectSkillDestinations(projected);
 
+  // The scaffold's source hash is settled once and handed to both native
+  // preflights, which would otherwise hash the staging they just wrote only
+  // to fill a ref field no preflight consumer reads.
+  const scaffoldSourceHash = yield* computeSourceHash("scaffold");
   const nativePreflight = Effect.scoped(
     Effect.gen(function* () {
       if (!["rule", "hook", "knowledge", "subagent"].includes(request.type))
@@ -631,6 +681,7 @@ const prepareCreateExtension: (
         identity: { type: request.type, owner, name },
         packageRoot: stagedPackage,
         enabled: request.type !== "hook",
+        sourceHash: Effect.succeed(scaffoldSourceHash),
       });
     }),
   );
@@ -661,7 +712,7 @@ const prepareCreateExtension: (
     nativeInsertionEligible: true,
     preflight: Effect.gen(function* () {
       yield* nativePreflight;
-      yield* inspectSkillDestinations;
+      yield* inspectSkillDestinations();
       yield* recoverCanonicalDirectory({
         baseDir: locationService.baseDir,
         canonicalPath: location,
@@ -685,7 +736,7 @@ const prepareCreateExtension: (
     owner,
     name,
     version: scaffold.version,
-    sourceHash: yield* computeSourceHash("scaffold"),
+    sourceHash: scaffoldSourceHash,
     location,
   } as const;
 

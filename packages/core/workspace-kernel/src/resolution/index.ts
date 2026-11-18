@@ -82,6 +82,7 @@ export { requireAcceptedRegistryContent } from "./accepted-registry-content.js";
 
 // Official-skill byte inspection remains a workspace integration.
 export { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
+export { validateAxmSkillCandidateReadingSkillMd } from "./axm-skill-candidate.js";
 export {
   assessOfficialAxmSkill,
   selectOfficialAxmSkill,

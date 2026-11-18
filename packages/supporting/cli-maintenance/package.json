@@ -90,6 +90,7 @@
   },
   "devDependencies": {
     "@agentxm/test-reporting": "workspace:*",
+    "@agentxm/test-support": "workspace:^",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

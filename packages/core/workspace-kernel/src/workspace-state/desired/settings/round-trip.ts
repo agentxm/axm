@@ -9,6 +9,16 @@ import { SETTINGS_ENTRY_KEYS } from "./schema.js";
 
 export type SettingsRoundTripContext = DocumentRoundTripContext;
 
+/** The object view of one parsed settings image; `undefined` when the image holds no object. */
+export interface ParsedSettingsImage {
+  readonly document: Record<string, unknown> | undefined;
+}
+
+/** Derive the round-trip view of an image the caller already parsed (and froze). */
+export const settingsImage = (value: unknown): ParsedSettingsImage => ({
+  document: Predicate.isObject(value) ? value : undefined,
+});
+
 const entryMaps: ReadonlyArray<string> = Object.values(SETTINGS_ENTRY_KEYS);
 const parse = (raw: string): Record<string, unknown> | undefined => {
   try {
@@ -38,24 +48,35 @@ const agents = (document: Record<string, unknown>): ReadonlyArray<string> => {
     : [];
 };
 
-/** Called inside the settings mutation boundary, with exact pre/post images. */
+const parsePhase = (raw: string, phase: "before" | "after") =>
+  Effect.sync(() => parse(raw)).pipe((effect) =>
+    withWork("axm.parse.settings-round-trip", effect, {
+      attributes: { "axm.work.count": 1, "axm.parse.phase": phase },
+    }),
+  );
+
+/**
+ * Called inside the settings mutation boundary, with exact pre/post images.
+ * A supplied image view must be the caller's frozen parse of exactly that
+ * string; an omitted view is parsed here.
+ */
 export const prepareSettingsRoundTrip = (args: {
   readonly context: SettingsRoundTripContext;
   readonly settingsPath: string;
   readonly before: string;
   readonly after: string;
+  readonly beforeImage?: ParsedSettingsImage | undefined;
+  readonly afterImage?: ParsedSettingsImage | undefined;
 }) =>
   Effect.gen(function* () {
-    const before = yield* Effect.sync(() => parse(args.before)).pipe((effect) =>
-      withWork("axm.parse.settings-round-trip", effect, {
-        attributes: { "axm.work.count": 1, "axm.parse.phase": "before" },
-      }),
-    );
-    const after = yield* Effect.sync(() => parse(args.after)).pipe((effect) =>
-      withWork("axm.parse.settings-round-trip", effect, {
-        attributes: { "axm.work.count": 1, "axm.parse.phase": "after" },
-      }),
-    );
+    const before =
+      args.beforeImage === undefined
+        ? yield* parsePhase(args.before, "before")
+        : args.beforeImage.document;
+    const after =
+      args.afterImage === undefined
+        ? yield* parsePhase(args.after, "after")
+        : args.afterImage.document;
     const added: Array<{ readonly unit: string; readonly declaration: unknown }> = [];
     const removed = new Set<string>();
     if (before !== undefined && after !== undefined)

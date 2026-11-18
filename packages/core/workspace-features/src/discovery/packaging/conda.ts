@@ -13,7 +13,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { envOption } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  parseJsonOptional,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+  sharedPerKey,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -312,78 +319,91 @@ const AboutJsonSchema = Schema.Struct({
 });
 const decodeAboutJson = Schema.decodeUnknownResult(AboutJsonSchema);
 
+/** A conda package cache's entries, or `none` when it is unreadable. */
+const listPackageCache = (pkgsDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(pkgsDir).pipe(Effect.option);
+    return Option.map(entries, sharedListing);
+  });
+
 /**
  * Conda package reader.
  *
  * Reads `$CONDA_PREFIX/share/agent-extensions/<package>/agent-extensions.json` as primary source,
  * falling back to package cache `info/about.json` with `extra.agentExtensions`.
+ * Packages of one read share the package cache listing.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const condaReader: PackageReader = {
-  type: condaType,
-  read: Effect.fn("read.conda")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
+export const condaReader: PackageReader = preparedReader(
+  condaType,
+  Effect.map(sharedPerKey(listPackageCache), (packageCache) =>
+    Effect.fn("read.conda")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
 
-      const condaPrefix = yield* envOption("CONDA_PREFIX");
-      if (Option.isNone(condaPrefix)) return Option.none();
+        const condaPrefix = yield* envOption("CONDA_PREFIX");
+        if (Option.isNone(condaPrefix)) return Option.none();
 
-      const pkgName = pkg.purl.name;
+        const pkgName = pkg.purl.name;
 
-      const metadataPath = path.join(
-        condaPrefix.value,
-        "share",
-        "agent-extensions",
-        pkgName,
-        "agent-extensions.json",
-      );
-      const primaryContent = yield* readFileOptional(metadataPath);
-
-      if (Option.isSome(primaryContent)) {
-        const parsed = yield* parseJsonOptional(
-          primaryContent.value,
-          `conda share/agent-extensions/${pkgName}/agent-extensions.json`,
+        const metadataPath = path.join(
+          condaPrefix.value,
+          "share",
+          "agent-extensions",
+          pkgName,
+          "agent-extensions.json",
         );
-        if (Option.isSome(parsed)) {
-          return yield* readAgentExtensions(parsed.value, `conda ${pkgName}`);
+        const primaryContent = yield* readFileOptional(metadataPath);
+
+        if (Option.isSome(primaryContent)) {
+          const parsed = yield* parseJsonOptional(
+            primaryContent.value,
+            `conda share/agent-extensions/${pkgName}/agent-extensions.json`,
+          );
+          if (Option.isSome(parsed)) {
+            return yield* readAgentExtensions(parsed.value, `conda ${pkgName}`);
+          }
         }
-      }
 
-      // Fallback: $CONDA_PREFIX/pkgs/<package>*/info/about.json
-      const fs = yield* FileSystem.FileSystem;
-      const pkgsDir = path.join(condaPrefix.value, "pkgs");
-      const pkgsDirEntries = yield* fs.readDirectory(pkgsDir).pipe(Effect.option);
+        // Fallback: $CONDA_PREFIX/pkgs/<package>*/info/about.json
+        const pkgsDir = path.join(condaPrefix.value, "pkgs");
+        const pkgsDirEntries = yield* packageCache(pkgsDir);
 
-      if (Option.isSome(pkgsDirEntries)) {
-        // Find the first matching package directory
-        const matchingDir = pkgsDirEntries.value.find((entry) => entry.startsWith(`${pkgName}-`));
+        if (Option.isSome(pkgsDirEntries)) {
+          // Find the first matching package directory
+          const matchingDir = pkgsDirEntries.value.find((entry) => entry.startsWith(`${pkgName}-`));
 
-        if (matchingDir !== undefined) {
-          const aboutJsonPath = path.join(pkgsDir, matchingDir, "info", "about.json");
-          const aboutContent = yield* readFileOptional(aboutJsonPath);
+          if (matchingDir !== undefined) {
+            const aboutJsonPath = path.join(pkgsDir, matchingDir, "info", "about.json");
+            const aboutContent = yield* readFileOptional(aboutJsonPath);
 
-          if (Option.isSome(aboutContent)) {
-            const parsed = yield* parseJsonOptional(
-              aboutContent.value,
-              `conda ${matchingDir}/info/about.json`,
-            );
-            if (Option.isSome(parsed)) {
-              const aboutResult = decodeAboutJson(parsed.value);
-              if (Result.isSuccess(aboutResult)) {
-                const agentExtensions = aboutResult.success.extra?.agentExtensions;
-                if (agentExtensions !== undefined) {
-                  return yield* readAgentExtensions({ agentExtensions }, `conda cache ${pkgName}`);
+            if (Option.isSome(aboutContent)) {
+              const parsed = yield* parseJsonOptional(
+                aboutContent.value,
+                `conda ${matchingDir}/info/about.json`,
+              );
+              if (Option.isSome(parsed)) {
+                const aboutResult = decodeAboutJson(parsed.value);
+                if (Result.isSuccess(aboutResult)) {
+                  const agentExtensions = aboutResult.success.extra?.agentExtensions;
+                  if (agentExtensions !== undefined) {
+                    return yield* readAgentExtensions(
+                      { agentExtensions },
+                      `conda cache ${pkgName}`,
+                    );
+                  }
                 }
               }
             }
           }
         }
-      }
 
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "conda" }),
-    Effect.withSpan("read.conda"),
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "conda" }),
+      Effect.withSpan("read.conda"),
+    ),
   ),
-};
+);

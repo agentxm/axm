@@ -21,6 +21,8 @@ export const makeLocalTraceReceiptWriter = (handle: LocalTraceReceiptHandle) => 
   let available = true;
   let pendingWrite: Promise<void> | undefined;
   let pendingClose: Promise<void> | undefined;
+  // The document this handle last wrote completely and truncated to its length.
+  let lastPersisted: string | undefined;
 
   // This native promise owns each scheduled write/truncate until it settles.
   // Retirement stops further I/O; it cannot cancel an already scheduled call.
@@ -36,13 +38,16 @@ export const makeLocalTraceReceiptWriter = (handle: LocalTraceReceiptHandle) => 
       }
       offset += bytesWritten;
     }
-    if (available) await handle.truncate(bytes.length);
+    if (!available) return;
+    await handle.truncate(bytes.length);
+    if (available) lastPersisted = data;
   };
 
   return {
     write: (data: string): Effect.Effect<void> =>
       Effect.suspend(() => {
-        if (!available || pendingWrite !== undefined) return Effect.void;
+        // The exclusively owned file already holds exactly an identical last document.
+        if (!available || pendingWrite !== undefined || data === lastPersisted) return Effect.void;
         let settled = false;
         const pending = persist(data).then(
           () => {

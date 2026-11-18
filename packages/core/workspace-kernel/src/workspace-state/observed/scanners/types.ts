@@ -56,9 +56,10 @@ export type CanonicalExtensionOriginKind = "canonical-axm" | "external-axm";
  *   primary content file (e.g., `<dir>/SKILL.md` for skills). `None` for
  *   subject types that do not use a fixed primary file (mcp-server, file,
  *   rule, pack).
- * - `subjectFileExists` — `true` if the scanner probed `subjectFile` and found
- *   it present. Always `false` when `subjectFile` is `None`. Subject modules
- *   consume this rather than hardcoding presence.
+ * - `subjectFileExists` — `true` if the scanner observed `subjectFile`
+ *   present, by probing it or by having just read it successfully. Always
+ *   `false` when `subjectFile` is `None`. Subject modules consume this rather
+ *   than hardcoding presence.
  */
 export interface CanonicalExtensionOccurrence {
   readonly _tag: "canonical-extension";

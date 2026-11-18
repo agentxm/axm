@@ -6,7 +6,7 @@ import {
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { StepFailure } from "../operations/index.js";
-import { observeProjectionPlans, type ProjectionUnitObservation } from "../projection/index.js";
+import { observeObservedPlans, type ProjectionUnitObservation } from "../projection/index.js";
 import { KnowledgeManager, RuleManager } from "../materialization/index.js";
 import {
   acceptedLockedResolutionRef,
@@ -51,9 +51,7 @@ export const projectionExposureRefs = Effect.fn("projectionExposureRefs")(functi
             );
             return prepared.length > 0
               ? Effect.succeed(prepared)
-              : manager
-                  .projectionPlans({ desiredGraph: args.graph })
-                  .pipe(Effect.flatMap(observeProjectionPlans));
+              : manager.observedProjectionPlans({ desiredGraph: args.graph }, observeObservedPlans);
           });
           return observations
             .flat()

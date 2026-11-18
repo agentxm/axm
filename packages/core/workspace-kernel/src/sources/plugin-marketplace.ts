@@ -15,6 +15,8 @@ export interface PluginMarketplaceSelection {
 
 export interface PluginMarketplaceMember {
   readonly directory: string;
+  /** The member directory's resolved path, from its own containment check. */
+  readonly physicalDirectory: string;
   readonly selection: PluginMarketplaceSelection;
   readonly marketplace: { readonly path: string; readonly name: string };
 }
@@ -37,16 +39,21 @@ const formats = [
   { format: "cursor", manifest: ".cursor-plugin/marketplace.json" },
 ] as const;
 
-/** Bounded local marketplace membership; remote entries remain external source references. */
-export const readPluginMarketplace = (directory: string, requested: ReadonlyArray<string>) =>
+/**
+ * Bounded local marketplace membership; remote entries remain external source
+ * references. `physicalRoot` is the lexical `directory`'s resolved path, the
+ * boundary each resolved manifest and member must stay within.
+ */
+export const readPluginMarketplace = (
+  directory: string,
+  options: { readonly physicalRoot: string; readonly requested: ReadonlyArray<string> },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const invalid = (detail: string, cause?: unknown) =>
       new SourceNotResolvable({ category: "validation", detail, cause });
-    const physicalRoot = yield* fs
-      .realPath(directory)
-      .pipe(Effect.mapError((cause) => invalid("Marketplace root could not be resolved", cause)));
+    const { physicalRoot, requested } = options;
     const contained = (target: string) =>
       Effect.gen(function* () {
         const physical = yield* fs
@@ -58,6 +65,7 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
           );
         if (!isLexicallyWithin(path, physicalRoot, physical))
           return yield* invalid(`Marketplace path escapes its root: ${target}`);
+        return physical;
       });
     for (const format of formats) {
       const manifest = path.join(directory, format.manifest);
@@ -151,7 +159,7 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
           !isRelativeWithin(path, selectedRelative)
         )
           return yield* invalid(`Marketplace source escapes its root: ${relative}`);
-        yield* contained(selected);
+        const physicalDirectory = yield* contained(selected);
         const info = yield* fs
           .stat(selected)
           .pipe(
@@ -161,6 +169,7 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
           return yield* invalid(`Marketplace member is not a directory: ${relative}`);
         members.push({
           directory: selected,
+          physicalDirectory,
           selection: { format: format.format, fields, atMarketplaceRoot: selectedRelative === "" },
           marketplace: { path: manifest, name },
         });

@@ -30,9 +30,10 @@ import type {
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   SettingsReader,
   WorkspaceLocation,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { declaredVisibilityIntent } from "../publish/publication.js";
@@ -82,35 +83,22 @@ const parseVisibilityTarget = (input: string) =>
   });
 
 /**
- * The visibility this repository declares for the target: its authored
- * manifest's decision, else the workspace publication default.
+ * The intent the project's documents declare, read inside one document phase:
+ * the canonical observation and the workspace default share one settings and
+ * one lockfile read, while the observation and the manifest stay live reads.
  */
-const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(function* (
-  parts: FqnParts,
-) {
-  const location = yield* WorkspaceLocation;
-  const layout = yield* Ref.get(location.layout);
+const declaredRepositoryIntent = Effect.fnUntraced(function* (parts: FqnParts) {
   const settings = yield* SettingsReader;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  if (layout.scope !== "project") {
-    return yield* Effect.fail(
-      validation("Repository visibility can be configured only for project workspaces."),
-    );
-  }
   // The authored manifest is read where the canonical observation placed the
   // declared package; an undeclared or foreign package declares no intent.
-  const authoredRoot = yield* acceptedCanonicalObservation({
+  // The observation hands over the manifest text it read, so the intent is
+  // decoded from that text rather than from a second read.
+  const capture = yield* acceptedCanonicalObservationCapturing({
     type: parts.type,
     name: parts.name,
   }).pipe(
-    Effect.map(
-      Option.flatMap(({ desired, observation }) =>
-        desired.identity.authority === "workspace" && observation.status !== "wrong-origin"
-          ? Option.fromUndefinedOr(observation.path)
-          : Option.none(),
-      ),
-    ),
     Effect.mapError((cause) =>
       publishRefused({
         category: "validation",
@@ -119,11 +107,20 @@ const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(func
       }),
     ),
   );
+  const authoredRoot = Option.flatMap(capture.observed, ({ desired, observation }) =>
+    desired.identity.authority === "workspace" && observation.status !== "wrong-origin"
+      ? Option.fromUndefinedOr(observation.path)
+      : Option.none(),
+  );
   const manifest = yield* Option.match(authoredRoot, {
     onNone: () => Effect.succeed(Option.none<typeof ManifestVisibilitySchema.Type>()),
     onSome: (root) => {
       const manifestPath = path.join(root, manifestFilenameForType(parts.type));
-      return fs.readFileString(manifestPath).pipe(
+      const captured = Option.filter(capture.manifest, (read) => read.path === manifestPath);
+      const text = Option.isSome(captured)
+        ? Effect.succeed(captured.value.text)
+        : fs.readFileString(manifestPath);
+      return text.pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema))),
         Effect.map(Option.some),
         Effect.mapError((cause) =>
@@ -152,6 +149,37 @@ const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(func
     ...(manifestVisibility === undefined ? {} : { manifestVisibility }),
     workspaceDefault,
   });
+});
+
+/**
+ * The visibility this repository declares for the target: its authored
+ * manifest's decision, else the workspace publication default.
+ */
+const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(function* (
+  parts: FqnParts,
+) {
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  if (layout.scope !== "project") {
+    return yield* Effect.fail(
+      validation("Repository visibility can be configured only for project workspaces."),
+    );
+  }
+  // The phase ends once the intent is derived, before any Registry request.
+  // Every read inside reports its own refusal; only acquiring the phase can
+  // fail beyond them, and it is reported as the observation it prevented.
+  const derived = yield* declaredRepositoryIntent(parts).pipe(
+    Effect.result,
+    withWorkspaceReadView,
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: `Unable to observe the declared package for ${formatFqn(parts)}.`,
+        cause,
+      }),
+    ),
+  );
+  return yield* Effect.fromResult(derived);
 });
 
 /** Compare the repository's declared intent with the Registry's state. */

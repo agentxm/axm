@@ -31,7 +31,12 @@ import { DesiredStateReader, DesiredStateReaderLive } from "./workspace/desired-
 import { DesiredStateWriter, DesiredStateWriterLive } from "./workspace/desired-state-writer.js";
 import { ExtensionPaths, ExtensionPathsLive } from "./workspace/extension-paths-service.js";
 import { LockfileReader, LockfileReaderLive } from "./workspace/lockfile-reader.js";
-import { WorkspaceLocation, makeWorkspaceLocation } from "./workspace/location.js";
+import {
+  WorkspaceLocation,
+  makeWorkspaceLocation,
+  makeWorkspaceLocationWithSettings,
+} from "./workspace/location.js";
+import { resolveUserWorkspaceLayout } from "./workspace/layout.js";
 import { type WorkspaceStateError, type WorkspaceStateOptions } from "./workspace/contracts.js";
 import { SettingsReader, SettingsReaderLive } from "./workspace/settings-reader.js";
 import { SettingsWriter, SettingsWriterLive } from "./workspace/settings-writer.js";
@@ -40,7 +45,7 @@ import { WorkspaceRecords, WorkspaceRecordsLive } from "./workspace/workspace-re
 
 import { WorkspaceReadViews, WorkspaceReadViewsLive } from "./workspace/read-view.js";
 import {
-  readSourceConfigurationSnapshot,
+  sourceConfigurationSnapshotFrom,
   type SourceConfigurationSnapshot,
 } from "./workspace/registry-selection.js";
 import type { WorkspaceSettingsReadFailure } from "./workspace/contracts.js";
@@ -166,7 +171,8 @@ export const layer = (
 /**
  * Read the project and user settings that select an invocation's Registry,
  * from a project root that need not be initialized. Only the documents are
- * read: no workspace services are composed.
+ * read: no workspace services are composed, and the settings are those the
+ * location construction decoded for its layout.
  */
 export const readProjectSourceConfiguration = (args: {
   readonly projectRoot: WorkspaceStateOptions["projectRoot"];
@@ -174,18 +180,21 @@ export const readProjectSourceConfiguration = (args: {
 }): Effect.Effect<
   SourceConfigurationSnapshot,
   WorkspaceStateError | WorkspaceSettingsReadFailure,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
+  FileSystem.FileSystem | Path.Path
 > =>
-  readSourceConfigurationSnapshot.pipe(
-    Effect.provide(
-      Layer.provideMerge(
-        FilesystemWorkspaceDocuments,
-        WorkspaceLocationLive({
-          scope: "project",
-          projectRoot: args.projectRoot,
-          builtInSources: args.builtInSources,
-          allowUninitialized: true,
-        }),
-      ),
-    ),
-  );
+  Effect.gen(function* () {
+    const { location, projectSettings, userSettings } = yield* makeWorkspaceLocationWithSettings({
+      scope: "project",
+      projectRoot: args.projectRoot,
+      builtInSources: args.builtInSources,
+      allowUninitialized: true,
+    });
+    const userLayout = yield* resolveUserWorkspaceLayout(location.userHome);
+    return sourceConfigurationSnapshotFrom({
+      projectPath: location.settingsPath,
+      project: projectSettings,
+      userPath: userLayout.settingsPath,
+      user: userSettings,
+      builtInSources: location.builtInSources,
+    });
+  });

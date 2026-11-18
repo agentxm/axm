@@ -94,7 +94,7 @@ import {
 import { fenceSyntaxForTarget, scanUnknownFences } from "@agentxm/workspace-kernel/agent-adapters";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { readManifestJson } from "./manifest-json.js";
+import { readManifestJson, readManifestJsonCapture } from "./manifest-json.js";
 import type {
   ExtensionTypePlural,
   ExtensionType,
@@ -126,6 +126,19 @@ interface LintWorkspaceView {
 // -----------------------------------------------------------------------------
 // buildLintWorkspace
 // -----------------------------------------------------------------------------
+
+/**
+ * Inspect one Knowledge package, decoding any manifest text and parse the
+ * caller hands over in place of reading and parsing the manifest again.
+ */
+type KnowledgePackageInspector = (
+  packageRoot: string,
+  options?: Parameters<typeof inspectKnowledgePackage>[1],
+) => Effect.Effect<
+  { readonly inspection: KnowledgeInspection },
+  unknown,
+  FileSystem.FileSystem | Path.Path
+>;
 
 /**
  * Argument shape for `buildLintWorkspace`.
@@ -167,13 +180,7 @@ export interface BuildLintWorkspaceArgs {
   /** Caller-bound read-back currency for aggregate managed output units. */
   readonly projections?: WorkspaceProjectionsAccessor;
   /** Test seam for proving one package inspection per selected bundle. */
-  readonly inspectKnowledge?: (
-    packageRoot: string,
-  ) => Effect.Effect<
-    { readonly inspection: KnowledgeInspection },
-    unknown,
-    FileSystem.FileSystem | Path.Path
-  >;
+  readonly inspectKnowledge?: KnowledgePackageInspector;
   /**
    * Whether an extension's own artifact and content rules defer, because its
    * canonical tree is absent and a workspace rule already reports that
@@ -181,6 +188,12 @@ export interface BuildLintWorkspaceArgs {
    * workspace rules still see its manifest.
    */
   readonly defersExtensionRules?: (type: ExtensionType, name: string) => boolean;
+  /**
+   * The settings and lockfile cells the read model decides against, when the
+   * caller already owns cells for exactly these roots and this scope. The
+   * read model reads its own fresh documents otherwise.
+   */
+  readonly stateLoaders?: NonNullable<Parameters<typeof makeWorkspaceReadModel>[1]>;
 }
 
 /**
@@ -231,7 +244,7 @@ export const buildLintWorkspace = (
     AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
   );
   return Effect.gen(function* () {
-    const readModel = yield* makeWorkspaceReadModel(args.scope);
+    const readModel = yield* makeWorkspaceReadModel(args.scope, args.stateLoaders);
     const axmDir =
       args.scope === "user"
         ? args.platform.path.join(
@@ -459,13 +472,7 @@ interface BuildLintWorkspaceViewArgs {
     type: Parameters<typeof packMemberBindings>[2],
   ) => ReadonlyArray<PackMemberBinding>;
   readonly scope: "project" | "user";
-  readonly inspectKnowledge: (
-    packageRoot: string,
-  ) => Effect.Effect<
-    { readonly inspection: KnowledgeInspection },
-    unknown,
-    FileSystem.FileSystem | Path.Path
-  >;
+  readonly inspectKnowledge: KnowledgePackageInspector;
   readonly defersExtensionRules: (type: ExtensionType, name: string) => boolean;
 }
 
@@ -610,7 +617,7 @@ const buildLintWorkspaceView = (
         populateMcpServerManifestJson(namedMcpServers),
         populateHookManifestJson(namedHooks),
         populateRuleManifestJson(namedRules),
-        populateKnowledgeManifestJson(namedKnowledge, args.inspectKnowledge),
+        populateKnowledgeManifestJson(namedKnowledge, args),
       ],
       { concurrency: 1 },
     );
@@ -775,15 +782,15 @@ const populateRuleManifestJson = (
     { concurrency: 16 },
   );
 
+/**
+ * Read each bundle's manifest JSON and inspect its package. When the
+ * inspection would read the very file just read, through the same filesystem,
+ * it decodes that text instead, from the canonical scan's parse of the
+ * identical text when the scan made one; otherwise it reads for itself.
+ */
 const populateKnowledgeManifestJson = (
   entries: ReadonlyArray<NamedContext<KnowledgeRuleContext>>,
-  inspectKnowledge: (
-    packageRoot: string,
-  ) => Effect.Effect<
-    { readonly inspection: KnowledgeInspection },
-    unknown,
-    FileSystem.FileSystem | Path.Path
-  >,
+  args: Pick<BuildLintWorkspaceViewArgs, "inspectKnowledge" | "platform" | "readModel">,
 ): Effect.Effect<
   ReadonlyArray<NamedContext<KnowledgeRuleContext>>,
   never,
@@ -793,14 +800,28 @@ const populateKnowledgeManifestJson = (
     entries,
     (entry) =>
       Effect.gen(function* () {
-        const knowledgeJson = yield* readManifestJson(
-          entry.context.files,
-          manifestFilenameForType("knowledge"),
-        );
+        const filename = manifestFilenameForType("knowledge");
+        const manifest = yield* readManifestJsonCapture(entry.context.files, filename);
+        const knowledgeJson = manifest.json;
+        const packageRoot = entry.context.packageRoot;
+        const ambientFileSystem = yield* FileSystem.FileSystem;
+        const readsSameFile =
+          packageRoot !== undefined &&
+          ambientFileSystem === args.platform.fs &&
+          args.platform.path.resolve(packageRoot, filename) ===
+            args.platform.path.join(packageRoot, filename);
+        const handedText = readsSameFile ? manifest.text : Option.none<string>();
         const inspection =
-          entry.context.packageRoot === undefined
+          packageRoot === undefined
             ? undefined
-            : yield* inspectKnowledge(entry.context.packageRoot).pipe(
+            : yield* Option.match(handedText, {
+                onNone: () => args.inspectKnowledge(packageRoot),
+                onSome: (text) =>
+                  args.inspectKnowledge(packageRoot, {
+                    manifestText: text,
+                    parsedManifestText: args.readModel.knowledgeManifestParse,
+                  }),
+              }).pipe(
                 Effect.map((result) => result.inspection),
                 Effect.catch(() => Effect.succeed(undefined)),
               );

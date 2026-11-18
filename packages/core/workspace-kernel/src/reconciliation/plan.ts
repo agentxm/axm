@@ -40,6 +40,7 @@ import {
   captureAgentOutputAuthority,
   applyPlannedProjections,
   applyProjectionPlans,
+  observeObservedPlans,
   observeProjectionPlans,
   makeProjectionInvariantFact,
   observeInstructionProjection,
@@ -98,7 +99,11 @@ import {
   captureRequiredNativeOutputs,
   validateNativeOutputPostconditions,
 } from "./native-output-postconditions.js";
-import type { NativeRetentionWitness } from "../projection/index.js";
+import type {
+  AgentOutputAuthority,
+  AgentOutputInventory,
+  NativeRetentionWitness,
+} from "../projection/index.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import { type WorkspaceSyncCleanupFailure, syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
@@ -550,9 +555,19 @@ export const collectKnowledgeStep: (args: {
  * unless the caller names the set itself: a membership change that removes
  * an agent reconciles against the membership the workspace holds once the
  * change settles, which is not yet what the repository reports.
+ *
+ * A caller that already derived the native output authority and inventoried
+ * the agent outputs in the same read phase, against these expected names and
+ * the materialization agents, may hand both over as `prepared`: the sweep's
+ * dry run describes that inventory, and its run keeps that authority and
+ * inventories live under the transition.
  */
 export const collectCleanupStep: (args: {
   readonly expectedNames: ExpectedProjectionNames;
+  readonly prepared?: {
+    readonly authority: AgentOutputAuthority;
+    readonly inventory: AgentOutputInventory;
+  };
   /** Passive assessment needs proposed changes, not an apply-time retention verification step. */
   readonly includeRetentionOnlyStep?: boolean;
   readonly desiredAgentIds?: ReadonlySet<string>;
@@ -578,15 +593,17 @@ export const collectCleanupStep: (args: {
   const desiredAgentIds =
     args.desiredAgentIds ??
     new Set((yield* agentRepo.getMaterializationAgents()).map(({ id }) => id));
-  const authority = yield* captureAgentOutputAuthority().pipe(
-    Effect.mapError((cause) =>
-      syncRefused({
-        category: "internal",
-        detail: "Cannot establish native output ownership",
-        cause,
-      }),
-    ),
-  );
+  const authority =
+    args.prepared?.authority ??
+    (yield* captureAgentOutputAuthority().pipe(
+      Effect.mapError((cause) =>
+        syncRefused({
+          category: "internal",
+          detail: "Cannot establish native output ownership",
+          cause,
+        }),
+      ),
+    ));
   const { discardModified } = yield* ProjectionOutputPosture;
   const preview = yield* reconcileAgentOutputs({
     authority,
@@ -595,6 +612,7 @@ export const collectCleanupStep: (args: {
     dryRun: true,
     discardModified: discardModified === true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+    ...(args.prepared === undefined ? {} : { preparedInventory: args.prepared.inventory }),
   });
   const retainedNativeLocations = Effect.gen(function* () {
     if (args.desiredAgentIds === undefined) return [];
@@ -953,21 +971,25 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   ];
   // Rows are read first, so a lockfile this CLI cannot read refuses here.
   const rows = yield* readInstructionRows;
-  const observed = yield* observeInstructionProjection({
+  const { priorRouteTargets, ...observed } = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
     nativeDirectoryInputs: location.nativeDirectoryInputs,
     scope: location.scope,
     configuredAgents,
     eligibleAgentIds,
+    ...(eligibleAgentIds.length === 0 ? {} : { priorConfiguredAgents }),
     config: resolvedConfig,
     prospectiveRoots,
     rows,
     ...overrides,
   });
-  const prior =
+  // The prior membership's routes come from the observation above when it
+  // contains that membership; otherwise that membership is observed on its own.
+  const priorTargets =
     eligibleAgentIds.length === 0
-      ? undefined
-      : yield* observeInstructionProjection({
+      ? []
+      : (priorRouteTargets ??
+        (yield* observeInstructionProjection({
           workspaceRoot: location.baseDir,
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           scope: location.scope,
@@ -975,14 +997,12 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
           config: resolvedConfig,
           symlinkSupported: observed.symlinkSupported,
           rows,
-        });
-  const priorEntries = yield* Effect.forEach(
-    prior?.plan.items.filter((item) => item.action !== "skip") ?? [],
-    (item) =>
-      resolveNativeEntry(item.targetPath).pipe(
-        Effect.map((entry) => entry.entryPath),
-        Effect.option,
-      ),
+        })).plan.items.flatMap((item) => (item.action === "skip" ? [] : [item.targetPath])));
+  const priorEntries = yield* Effect.forEach(priorTargets, (target) =>
+    resolveNativeEntry(target).pipe(
+      Effect.map((entry) => entry.entryPath),
+      Effect.option,
+    ),
   );
   const previousPaths = new Set(priorEntries.flatMap(Option.toArray));
   const priorRoutesKnown = priorEntries.every(Option.isSome);
@@ -1075,11 +1095,10 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     const ruleFacts = projectionFacts;
     const knowledgeFacts =
       args.knowledgeFacts ??
-      (yield* (yield* KnowledgeManager)
-        .projectionPlans()
-        .pipe(Effect.flatMap(observeProjectionPlans))).map((unit) =>
-        makeProjectionInvariantFact(unit, location.scope),
-      );
+      (yield* (yield* KnowledgeManager).observedProjectionPlans(
+        undefined,
+        observeObservedPlans,
+      )).map((unit) => makeProjectionInvariantFact(unit, location.scope));
     return yield* retainedProjectionExposure(
       ["rule", "knowledge"],
       [...ruleFacts, ...knowledgeFacts],

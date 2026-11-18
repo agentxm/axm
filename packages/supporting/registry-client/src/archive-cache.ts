@@ -17,9 +17,10 @@ import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
-import { computeIntegrity, resolveAxmCacheRoot, writeFileAtomic } from "@agentxm/host-primitives";
+import { resolveAxmCacheRoot, writeFileAtomic } from "@agentxm/host-primitives";
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { MAX_BUFFERED_ARCHIVE_BYTES, readBufferedArchive } from "./archive-limits.js";
+import { VerifiedArchive } from "./verified-archive.js";
 
 const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
@@ -49,16 +50,33 @@ interface ArchiveCachePruneResult {
   readonly remainingBytes: number;
 }
 
+/** Archive bytes delivered to one `load` requester. */
+interface ArchiveDelivery {
+  readonly archive: Uint8Array;
+  /**
+   * Present only for the requester whose call ran the lookup: the evidence covers
+   * exactly `archive`, which no other requester holds. A coalesced requester
+   * receives a private copy without evidence and must verify it.
+   */
+  readonly verified?: VerifiedArchive;
+}
+
 export interface ArchiveCache {
-  /** Coalesce equal byte acquisitions after the caller has admitted content access. */
+  /**
+   * Coalesce equal byte acquisitions after the caller has admitted content access.
+   *
+   * On a miss, `fetch` must yield a freshly allocated buffer that no other code
+   * retains or mutates: the cache stages that instance without a copy, and only
+   * the requester whose call ran the lookup receives it, after the write completes.
+   */
   readonly load: (
     selectionKey: string,
     integrity: string,
     fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
-  ) => Effect.Effect<Uint8Array, RegistryClientFailure>;
+  ) => Effect.Effect<ArchiveDelivery, RegistryClientFailure>;
   readonly read: (
     integrity: string,
-  ) => Effect.Effect<Option.Option<Uint8Array>, RegistryClientFailure>;
+  ) => Effect.Effect<Option.Option<VerifiedArchive>, RegistryClientFailure>;
   readonly write: (
     integrity: string,
     archive: Uint8Array,
@@ -123,16 +141,6 @@ const integrityFromFileName = (fileName: string): string | undefined => {
   const padding = remainder === 0 ? "" : "=".repeat(4 - remainder);
   return `sha512-${base64Url.replaceAll("-", "+").replaceAll("_", "/")}${padding}`;
 };
-
-const verifyArchiveIntegrity = (archive: Uint8Array) =>
-  computeIntegrity(archive).pipe((effect) =>
-    withWork("axm.archive.integrity", effect, {
-      attributes: {
-        "axm.archive.bytes": archive.byteLength,
-        "axm.work.executed": 1,
-      },
-    }),
-  );
 
 export const makeArchiveCache = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
@@ -261,7 +269,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
   const read = Effect.fnUntraced(
     function* (
       integrity: string,
-    ): Effect.fn.Return<Option.Option<Uint8Array>, RegistryClientFailure> {
+    ): Effect.fn.Return<Option.Option<VerifiedArchive>, RegistryClientFailure> {
       const entryPath = yield* pathForIntegrity(integrity);
       const exists = yield* fs.exists(entryPath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
@@ -275,8 +283,8 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
             : cacheError(`Failed to read cache entry: ${entryPath}`, cause),
         ),
       );
-      const actualIntegrity = yield* verifyArchiveIntegrity(archive);
-      if (actualIntegrity !== integrity) {
+      const verified = yield* VerifiedArchive.check(archive, integrity);
+      if (Option.isNone(verified)) {
         yield* annotateWork({ "axm.cache.outcome": "corrupt" });
         yield* removeEntry(entryPath);
         return Option.none();
@@ -287,25 +295,29 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
         "axm.cache.outcome": "hit",
         "axm.archive.bytes": archive.byteLength,
       });
-      return Option.some(archive);
+      return verified;
     },
     (effect) => withWork("axm.archive.cache-read", effect),
   );
 
-  const write = Effect.fnUntraced(
+  // Returns the evidence of its verify-before-write for the archive it stored.
+  // A transferred archive is staged without a copy; only a buffer no other code
+  // retains or mutates during the write may be transferred.
+  const writeVerified = Effect.fnUntraced(
     function* (
       integrity: string,
       archive: Uint8Array,
+      ownership: "copied" | "transferred",
       writeOptions: { readonly prune?: boolean } = {},
-    ): Effect.fn.Return<void, RegistryClientFailure> {
+    ): Effect.fn.Return<VerifiedArchive, RegistryClientFailure> {
       if (archive.byteLength > MAX_BUFFERED_ARCHIVE_BYTES) {
         return yield* new RegistryOperationFailed({
           category: "quota",
           detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
         });
       }
-      const actualIntegrity = yield* verifyArchiveIntegrity(archive);
-      if (actualIntegrity !== integrity) {
+      const verified = yield* VerifiedArchive.check(archive, integrity);
+      if (Option.isNone(verified)) {
         return yield* new RegistryOperationFailed({
           category: "validation",
           detail: "Downloaded registry archive did not match its published integrity.",
@@ -320,6 +332,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
       yield* writeFileAtomic(fs, {
         targetPath: entryPath,
         content: archive,
+        contentOwnership: ownership,
         removeTargetBeforeRename: true,
         mapError: (failure) =>
           failure.step === "rename"
@@ -333,9 +346,13 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
         });
         if (shouldPrune) yield* prune("automatic");
       }
+      return verified.value;
     },
     (effect) => withWork("axm.archive.cache-write", effect),
   );
+
+  const write: ArchiveCache["write"] = (integrity, archive, writeOptions) =>
+    Effect.asVoid(writeVerified(integrity, archive, "copied", writeOptions));
 
   const inFlight = yield* Cache.make({
     lookup: (request: ArchiveAcquisition) => {
@@ -349,8 +366,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
               return cached.value;
             }
             const archive = yield* request.fetch;
-            yield* write(request.integrity, archive);
-            return archive;
+            return yield* writeVerified(request.integrity, archive, "transferred");
           }),
         () => releaseActive(request.integrity),
       );
@@ -367,6 +383,14 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
     Effect.suspend(() => {
       const request = new ArchiveAcquisition(selectionKey, integrity, fetch);
       return Cache.get(inFlight, request).pipe(
+        // The requester that ran the lookup keeps the verified instance. A
+        // coalesced requester copies it after delivery, so no buffer is shared
+        // and its own caller verifies the copy.
+        Effect.map((verified): ArchiveDelivery =>
+          request.lookupStarted
+            ? { archive: verified.bytes, verified }
+            : { archive: verified.bytes.slice() },
+        ),
         Effect.onExit((exit) =>
           annotateWork({
             "axm.work.executed": request.lookupStarted ? 1 : 0,
@@ -413,8 +437,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
                   cacheError(`Failed to read cache entry: ${entry.path}`, cause),
                 ),
               );
-            const actualIntegrity = yield* verifyArchiveIntegrity(archive);
-            if (actualIntegrity === entry.integrity) return true;
+            if (Option.isSome(yield* VerifiedArchive.check(archive, entry.integrity))) return true;
             yield* removeEntry(entry.path);
             return false;
           }),

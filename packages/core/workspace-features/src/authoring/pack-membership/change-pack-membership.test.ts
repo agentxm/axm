@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 import { isExecutionCandidateFresh } from "@agentxm/workspace-kernel/planning";
 import { makePackWorkspace } from "../test-support/pack-membership.js";
 import {
@@ -90,6 +90,25 @@ describe("pack membership candidate identity", () => {
     }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
   });
 
+  it.effect("treats a manifest replaced by a symlink to the same text as a changed input", () => {
+    const { created, seed } = fixture();
+    return Effect.gen(function* () {
+      yield* seed;
+      const a = yield* prepare("add", "@acme/skills/member-a");
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const manifest = path.join(created.root, "packs/toolkit/pack.json");
+      const original = yield* fs.readFileString(manifest);
+      const target = path.join(created.root, "pack-copy.json");
+      yield* fs.writeFileString(target, original);
+      yield* fs.remove(manifest);
+      yield* fs.symlink(target, manifest);
+      const applied = yield* ChangePackMembership.previewOrApply(a, applyExecution);
+      expect(applied.blocking?.class).toBe("stale-candidate");
+      expect(yield* fs.readFileString(target)).toBe(original);
+    }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
+  });
+
   it.effect("binds identity to the resolved constraint", () => {
     const { created, seed } = fixture();
     return Effect.gen(function* () {
@@ -132,4 +151,35 @@ describe("pack membership candidate identity", () => {
       expect(ids[0]).toBe(ids[1]);
     }),
   );
+
+  for (const change of ["add", "remove"] as const) {
+    it.effect(`parses the prepared ${change} manifest text only while preparing`, () => {
+      const { created, seed } = fixture();
+      return Effect.gen(function* () {
+        yield* seed;
+        if (change === "remove") {
+          const addition = yield* prepare("add", "member-*");
+          yield* ChangePackMembership.previewOrApply(addition, applyExecution);
+        }
+        const original = created.read("packs/toolkit/pack.json");
+        const parse = vi.spyOn(JSON, "parse");
+        const parsesOfOriginal = () =>
+          parse.mock.calls.filter(([text]) => text === original).length;
+        const counts = yield* Effect.gen(function* () {
+          parse.mockClear();
+          const candidate = yield* prepare(change, "@acme/skills/member-a");
+          const prepared = parsesOfOriginal();
+          parse.mockClear();
+          const applied = yield* ChangePackMembership.previewOrApply(candidate, applyExecution);
+          expect(applied.units[0]?.state).toBe("committed");
+          return { prepared, applied: parsesOfOriginal() };
+        }).pipe(Effect.ensuring(Effect.sync(() => parse.mockRestore())));
+
+        // Preparing parses the text twice: once observing the desired graph's pack
+        // document and once deciding the delta. Applying compares the locked text
+        // with the prepared text and never parses it again.
+        expect(counts).toEqual({ prepared: 2, applied: 0 });
+      }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
+    });
+  }
 });

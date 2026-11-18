@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import type { WorkspaceLayout } from "./layout.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { Lockfile } from "../desired/lockfile/schema.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -35,10 +36,22 @@ import {
   type LockEntry,
   type LockEntryToRefError,
 } from "./lock-entry.js";
-import { observeCanonicalExtension, type CanonicalObservation } from "./canonical-observation.js";
+import {
+  capturedManifestFor,
+  observeCanonicalExtensionCapturing,
+  type VerifiedCanonicalTree,
+  judgeCanonicalBeforeContent,
+  type CanonicalObservation,
+  type CapturedManifest,
+  type CapturedSubagentPackage,
+  type ObservedTreeDigests,
+} from "./canonical-observation.js";
+import type { CapturedTreeWalk } from "./materialized-tree.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
-import type { DesiredExtensionNode } from "./desired-state-graph.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
+import type { AcceptedEntryOptions, DesiredStateReaderService } from "./read-contracts.js";
+import type { LockEntryByType } from "./entry-accessors.js";
 import { LockfileReader } from "./lockfile-reader.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import { lockEntries } from "./entry-accessors.js";
@@ -52,6 +65,20 @@ interface AcceptedCanonicalRefArgs {
   readonly name: string;
   /** Proposed authority when preparing a transition before publishing intent. */
   readonly desired?: DesiredExtensionNode;
+}
+
+/**
+ * A ref the caller resolved earlier in the same call for the authored package
+ * `desired` names, under the layout and scope the restoration would resolve
+ * it with; `None` resolves the package as usual.
+ */
+type PreparedWorkspaceRef = (
+  desired: DesiredExtensionNode,
+  resolution: { readonly layout: WorkspaceLayout; readonly scope: WorkspaceScope },
+) => Option.Option<ExtensionRef>;
+
+interface UsableAcceptedCanonicalArgs extends AcceptedCanonicalRefArgs {
+  readonly preparedWorkspaceRef?: PreparedWorkspaceRef;
 }
 
 /** Every failure the accepted-canonical reconstruction functions can produce. */
@@ -228,6 +255,28 @@ const lockEntryLabels: Record<InstallableExtensionType, string> = {
   pack: "Pack",
 };
 
+/** The ref the accepted row already read for `type` and `name` is restored from. */
+const refFromAcceptedEntry = <T extends InstallableExtensionType>(
+  type: T,
+  name: string,
+  entry: LockEntryByType[T],
+): Effect.Effect<
+  ExtensionRef,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const ref = yield* lockEntryToRef[type](name, entry, lockRefDeps(location, settings, path));
+    if (ref.type === "mcp-server" && (ref.refType === "local" || ref.refType === "git-hosted")) {
+      const nativeComponent = (yield* settings.entries("mcp-server"))[name]?.nativeComponent;
+      if (nativeComponent !== undefined) return { ...ref, nativeComponent };
+    }
+    return ref;
+  });
+
 const refFromAcceptedResolution = <T extends InstallableExtensionType>(
   type: T,
   name: string,
@@ -237,21 +286,32 @@ const refFromAcceptedResolution = <T extends InstallableExtensionType>(
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
     const entry = yield* (yield* LockfileReader).acceptedEntry(type, name);
     if (Option.isNone(entry)) return yield* missingAccepted(lockEntryLabels[type], name);
-    const ref = yield* lockEntryToRef[type](
-      name,
-      entry.value,
-      lockRefDeps(location, settings, path),
-    );
-    if (ref.type === "mcp-server" && (ref.refType === "local" || ref.refType === "git-hosted")) {
-      const nativeComponent = (yield* settings.entries("mcp-server"))[name]?.nativeComponent;
-      if (nativeComponent !== undefined) return { ...ref, nativeComponent };
-    }
-    return ref;
+    return yield* refFromAcceptedEntry(type, name, entry.value);
+  });
+
+/**
+ * The graph `reader.graph()` returned to the caller's same call, for the
+ * accepted-row lookup that follows it with nothing written between.
+ */
+const currentGraph = (
+  reader: DesiredStateReaderService,
+  graph: DesiredStateGraph,
+): AcceptedEntryOptions => ({ current: { reader, graph } });
+
+const lockedResolutionRef = (
+  args: AcceptedCanonicalRefArgs,
+  options?: AcceptedEntryOptions,
+): Effect.Effect<
+  Option.Option<ExtensionRef>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> =>
+  Effect.gen(function* () {
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name, options);
+    if (Option.isNone(accepted)) return Option.none();
+    return Option.some(yield* refFromAcceptedEntry(args.type, args.name, accepted.value));
   });
 
 /** Reconstruct a ref directly from accepted lock authority without desired reachability. */
@@ -261,15 +321,41 @@ export const acceptedLockedResolutionRef = (
   Option.Option<ExtensionRef>,
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
-> =>
-  Effect.gen(function* () {
-    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name);
-    if (Option.isNone(accepted)) return Option.none();
-    return Option.some(yield* refFromAcceptedResolution(args.type, args.name));
-  });
+> => lockedResolutionRef(args);
+
+/**
+ * The package root an observation in the same call found usable, with the
+ * manifest text it read there.
+ */
+interface ObservedPackage {
+  readonly root: string;
+  readonly manifest: Option.Option<CapturedManifest>;
+}
+
+/**
+ * The decode an observation in the same call made of the manifest of `type`
+ * at the root it found usable, for the resolution of that root; `None` when
+ * it made none, and the resolution reads the manifest itself.
+ */
+const preparedFromObserved = (
+  path: Path.Path,
+  observed: ObservedPackage | undefined,
+  type: DesiredExtensionNode["type"],
+) =>
+  observed === undefined
+    ? Option.none()
+    : Option.map(capturedManifestFor(path, observed.manifest, observed.root, type), (manifest) => ({
+        prepared: {
+          root: observed.root,
+          type,
+          manifest: Effect.succeed({ manifest }),
+        },
+      }));
 
 const refForDesired = (
   desired: DesiredExtensionNode,
+  preparedWorkspaceRef?: PreparedWorkspaceRef,
+  observed?: ObservedPackage,
 ): Effect.Effect<
   ExtensionRef,
   AcceptedCanonicalRefError,
@@ -283,6 +369,8 @@ const refForDesired = (
     }
     if (desired.identity.authority === "bundled") {
       const path = yield* Path.Path;
+      // The observation already decoded this root's manifest with the same
+      // grammar; the resolution uses that decode only for the root it resolves.
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: "workspace",
@@ -294,15 +382,25 @@ const refForDesired = (
           name: decodeExtensionNameSync(desired.name),
           root: bundledSkillCanonicalRoot(path.join, layout, desired.name),
         },
+        ...Option.getOrElse(preparedFromObserved(path, observed, desired.type), () => ({})),
       });
     }
     if (desired.identity.authority === "workspace") {
+      const prepared =
+        preparedWorkspaceRef === undefined
+          ? Option.none<ExtensionRef>()
+          : preparedWorkspaceRef(desired, { layout, scope: location.scope });
+      if (Option.isSome(prepared)) return prepared.value;
+      // The observation already decoded this root's manifest with the same
+      // grammar; the resolution uses that decode only for the root it resolves.
+      const path = yield* Path.Path;
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
         expectedType: desired.type,
         layout,
         scope: location.scope,
+        ...Option.getOrElse(preparedFromObserved(path, observed, desired.type), () => ({})),
       });
     }
     return yield* refFromAcceptedResolution(desired.type, desired.name);
@@ -326,36 +424,82 @@ export const acceptedResolutionRef = (
 > =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
-    const desired =
-      args.desired ??
-      (yield* desiredState.graph()).nodes.find(
-        (node) => node.type === args.type && node.name === args.name,
-      );
+    if (args.desired !== undefined) {
+      if (args.desired.identity.authority === "workspace") return Option.none();
+      return yield* lockedResolutionRef(args);
+    }
+    const graph = yield* desiredState.graph();
+    const desired = graph.nodes.find((node) => node.type === args.type && node.name === args.name);
     if (desired === undefined || desired.identity.authority === "workspace") {
       return Option.none();
     }
-    return yield* acceptedLockedResolutionRef(args);
+    return yield* lockedResolutionRef(args, currentGraph(desiredState, graph));
   });
 
-/** Observe one desired node against the accepted resolution its type and name resolve to. */
-export const observeDesiredCanonical = (
+/**
+ * The accepted row of `desired`, with the lockfile that lookup read, which
+ * the caller's same call may judge package sharing against.
+ */
+const acceptedEntryOf = (desired: DesiredExtensionNode, current?: AcceptedEntryOptions) =>
+  Effect.gen(function* () {
+    let read: Lockfile | undefined;
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name, {
+      ...current,
+      receiveLockfile: (lockfile) => {
+        read = lockfile;
+      },
+    });
+    return { accepted, lockfile: read };
+  });
+
+const observeDesiredCanonicalCapturingWith = (
   desired: DesiredExtensionNode,
-): Effect.Effect<
-  AcceptedCanonicalObservation,
-  WorkspaceStateReadFailure,
-  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
-> =>
+  current?: AcceptedEntryOptions,
+  digestAcceptedTree?: (accepted: LockEntry) => boolean,
+  retainTreeWalk?: boolean,
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const reader = yield* LockfileReader;
-    const accepted = yield* reader.acceptedEntry(desired.type, desired.name);
-    const observation = yield* observeCanonicalExtension({
-      layout,
-      desired,
-      accepted: Option.getOrUndefined(accepted),
+    const { accepted, lockfile } = yield* acceptedEntryOf(desired, current);
+    return yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, {
+      lockfile,
+      ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+      ...(retainTreeWalk === true ? { retainTreeWalk } : {}),
     });
-    return {
+  });
+
+/**
+ * Observe one desired node against the accepted row already read for it.
+ * `lockfile` is the one that row's lookup read in the same call; without it,
+ * package sharing is judged against a lockfile read here.
+ */
+const observeAcceptedCanonicalCapturing = (
+  desired: DesiredExtensionNode,
+  accepted: Option.Option<LockEntry>,
+  layout: WorkspaceLayout,
+  prepared: {
+    readonly verifiedTree?: VerifiedCanonicalTree;
+    readonly judged?: ReturnType<typeof judgeCanonicalBeforeContent>;
+    readonly lockfile?: Lockfile | undefined;
+    readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+    readonly retainTreeWalk?: boolean;
+  },
+) =>
+  Effect.gen(function* () {
+    const { verifiedTree, judged, digestAcceptedTree, retainTreeWalk } = prepared;
+    const reader = yield* LockfileReader;
+    const { observation, manifest, subagentPackage, digests, treeWalk } =
+      yield* observeCanonicalExtensionCapturing({
+        layout,
+        desired,
+        accepted: Option.getOrUndefined(accepted),
+        ...(verifiedTree === undefined ? {} : { verifiedTree }),
+        ...(judged === undefined ? {} : { judged }),
+        ...(digestAcceptedTree === undefined ? {} : { digestAcceptedTree }),
+        ...(retainTreeWalk === true ? { retainTreeWalk } : {}),
+      });
+    const observed: AcceptedCanonicalObservation = {
       desired,
       ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       observation,
@@ -364,7 +508,7 @@ export const observeDesiredCanonical = (
         hasOtherPackageBinding({
           path: yield* Path.Path,
           layout,
-          lockfile: yield* reader.lockfile,
+          lockfile: prepared.lockfile ?? (yield* reader.lockfile),
           canonicalPath: observation.path,
           excluded: {
             type: desired.type,
@@ -372,24 +516,210 @@ export const observeDesiredCanonical = (
           },
         }),
     };
+    return {
+      observed,
+      manifest,
+      subagentPackage,
+      digests,
+      treeWalk: Option.fromUndefinedOr(treeWalk),
+    };
   });
 
-export const acceptedCanonicalObservation = ({
-  type,
-  name,
-  desired: proposed,
-}: AcceptedCanonicalRefArgs): Effect.Effect<
+/**
+ * Observe like `observeDesiredCanonical`, also handing the caller the
+ * manifest text the observation read, with its own decode of it, and the
+ * Subagent package its payload check loaded. Neither is retained here.
+ */
+export const observeDesiredCanonicalCapturing = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  {
+    readonly observed: AcceptedCanonicalObservation;
+    readonly manifest: Option.Option<CapturedManifest>;
+    readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
+  },
+  WorkspaceStateReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
+> => observeDesiredCanonicalCapturingWith(desired);
+
+/** Observe one desired node against the accepted resolution its type and name resolve to. */
+export const observeDesiredCanonical = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  AcceptedCanonicalObservation,
+  WorkspaceStateReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
+> => Effect.map(observeDesiredCanonicalCapturing(desired), (capture) => capture.observed);
+
+/**
+ * Observe like `acceptedCanonicalObservation`, also handing the caller the
+ * manifest text the observation read, for that caller's own decode, and the
+ * Subagent package its payload check loaded. Neither is retained here.
+ */
+export const acceptedCanonicalObservationCapturing = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  {
+    readonly observed: Option.Option<AcceptedCanonicalObservation>;
+    readonly manifest: Option.Option<CapturedManifest>;
+    /** Present when a declared node was observed. */
+    readonly subagentPackage?: Option.Option<CapturedSubagentPackage>;
+  },
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.map(
+    acceptedCanonicalObservationDigesting(args),
+    ({ observed, manifest, subagentPackage }) =>
+      subagentPackage === undefined
+        ? { observed, manifest }
+        : { observed, manifest, subagentPackage },
+  );
+
+/**
+ * Observe like `acceptedCanonicalObservationCapturing`, also handing the
+ * caller the accepted tree's digests the observation made when
+ * `digestAcceptedTree` asks for them.
+ */
+const acceptedCanonicalObservationDigesting = (
+  { type, name, desired: proposed }: AcceptedCanonicalRefArgs,
+  digestAcceptedTree?: (accepted: LockEntry) => boolean,
+  retainTreeWalk?: boolean,
+) =>
+  Effect.gen(function* () {
+    const desiredState = yield* DesiredStateReader;
+    if (proposed !== undefined) {
+      const { observed, manifest, subagentPackage, digests, treeWalk } =
+        yield* observeDesiredCanonicalCapturingWith(
+          proposed,
+          undefined,
+          digestAcceptedTree,
+          retainTreeWalk,
+        );
+      return { observed: Option.some(observed), manifest, subagentPackage, digests, treeWalk };
+    }
+    const graph = yield* desiredState.graph();
+    const desired = graph.nodes.find((node) => node.type === type && node.name === name);
+    if (desired === undefined)
+      return {
+        observed: Option.none<AcceptedCanonicalObservation>(),
+        manifest: Option.none<CapturedManifest>(),
+        subagentPackage: undefined,
+        digests: Option.none<ObservedTreeDigests>(),
+        treeWalk: Option.none<CapturedTreeWalk>(),
+      };
+    const { observed, manifest, subagentPackage, digests, treeWalk } =
+      yield* observeDesiredCanonicalCapturingWith(
+        desired,
+        currentGraph(desiredState, graph),
+        digestAcceptedTree,
+        retainTreeWalk,
+      );
+    return { observed: Option.some(observed), manifest, subagentPackage, digests, treeWalk };
+  });
+
+/**
+ * Observe like `acceptedCanonicalObservation`, also handing the caller the
+ * strict walk the observation made of the accepted tree when it ends usable,
+ * for that caller's one further digest of the same tree in the same read
+ * phase. The walk is never retained here or on the observation.
+ */
+export const acceptedCanonicalObservationWalking = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  {
+    readonly observed: Option.Option<AcceptedCanonicalObservation>;
+    readonly treeWalk: Option.Option<CapturedTreeWalk>;
+  },
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.map(
+    acceptedCanonicalObservationDigesting(args, undefined, true),
+    ({ observed, treeWalk }) => ({ observed, treeWalk }),
+  );
+
+export const acceptedCanonicalObservation = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
   Option.Option<AcceptedCanonicalObservation>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> => Effect.map(acceptedCanonicalObservationCapturing(args), (capture) => capture.observed);
+
+/**
+ * The node `args` names, its accepted row, and the canonical root an
+ * observation of it reports, derived from that row and the layout alone: no
+ * canonical content is read.
+ */
+const acceptedCanonicalSubject = ({ type, name, desired: proposed }: AcceptedCanonicalRefArgs) =>
+  Effect.gen(function* () {
+    const desiredState = yield* DesiredStateReader;
+    const graph = proposed === undefined ? yield* desiredState.graph() : undefined;
+    const desired =
+      proposed ?? graph?.nodes.find((node) => node.type === type && node.name === name);
+    if (desired === undefined) return Option.none();
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const { accepted, lockfile } = yield* acceptedEntryOf(
+      desired,
+      graph === undefined ? undefined : currentGraph(desiredState, graph),
+    );
+    const judged = judgeCanonicalBeforeContent(
+      yield* Path.Path,
+      layout,
+      desired,
+      Option.getOrUndefined(accepted),
+    );
+    return Option.some({ desired, accepted, lockfile, layout, judged, path: judged.reportedPath });
+  });
+
+/**
+ * The canonical root `acceptedCanonicalObservation` would report for the
+ * node, without observing it: nothing about the content is judged.
+ */
+export const acceptedCanonicalObservationPath = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<
+  Option.Option<string>,
+  AcceptedCanonicalRefError,
+  Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> =>
+  Effect.map(
+    acceptedCanonicalSubject(args),
+    Option.flatMap(({ path }) => Option.fromUndefinedOr(path)),
+  );
+
+/**
+ * Observe like `acceptedCanonicalObservation`, only when the observation
+ * reports a canonical root the caller keeps: `None` when the node is
+ * undeclared, its observation reports no root, or `discarded` names that root.
+ * The root is the one the observation reports. `verifiedTree` is a digest of
+ * that root's tree the caller's read phase computed against the node's
+ * accepted row and judges again later; it stands in for hashing the tree
+ * only for that root and that row.
+ */
+export const acceptedCanonicalObservationOfKeptRoot = (
+  args: AcceptedCanonicalRefArgs,
+  discarded: (canonicalPath: string) => boolean,
+  verifiedTree?: VerifiedCanonicalTree,
+): Effect.Effect<
+  Option.Option<{ readonly path: string; readonly observed: AcceptedCanonicalObservation }>,
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > =>
   Effect.gen(function* () {
-    const desiredState = yield* DesiredStateReader;
-    const desired =
-      proposed ??
-      (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
-    if (desired === undefined) return Option.none();
-    return Option.some(yield* observeDesiredCanonical(desired));
+    const subject = yield* acceptedCanonicalSubject(args);
+    if (Option.isNone(subject)) return Option.none();
+    const { desired, accepted, lockfile, layout, judged, path } = subject.value;
+    if (path === undefined || discarded(path)) return Option.none();
+    // The judgement made deriving the root stands for the observation's own.
+    const { observed } = yield* observeAcceptedCanonicalCapturing(desired, accepted, layout, {
+      ...(verifiedTree === undefined ? {} : { verifiedTree }),
+      judged,
+      lockfile,
+    });
+    return Option.some({ path, observed });
   });
 
 const asUsable = (
@@ -410,12 +740,10 @@ export const usableAcceptedCanonicalObservation = (
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > => acceptedCanonicalObservation(args).pipe(Effect.map(Option.flatMap(asUsable)));
 
-/**
- * The usable accepted package an observation already established, with the
- * ref it is restored from. Reading the ref does not observe the package again.
- */
-export const usableAcceptedCanonicalFrom = (
+const usableFrom = (
   canonical: AcceptedCanonicalObservation,
+  preparedWorkspaceRef: PreparedWorkspaceRef | undefined,
+  manifest: Option.Option<CapturedManifest>,
 ): Effect.Effect<
   Option.Option<UsableAcceptedCanonical>,
   AcceptedCanonicalRefError,
@@ -424,7 +752,10 @@ export const usableAcceptedCanonicalFrom = (
   Effect.gen(function* () {
     const usable = asUsable(canonical);
     if (Option.isNone(usable)) return Option.none();
-    const ref = yield* refForDesired(usable.value.desired);
+    const ref = yield* refForDesired(usable.value.desired, preparedWorkspaceRef, {
+      root: usable.value.observation.path,
+      manifest,
+    });
     // A usable local acquisition is the accepted copy, even if the original
     // directory has changed or disappeared. Keep sourcePath as its identity.
     const path = yield* Path.Path;
@@ -441,8 +772,44 @@ export const usableAcceptedCanonicalFrom = (
     return Option.some({ ...usable.value, ref: retainedRef });
   });
 
+/**
+ * The usable accepted package an observation already established, with the
+ * ref it is restored from. Reading the ref does not observe the package again.
+ */
+export const usableAcceptedCanonicalFrom = (
+  canonical: AcceptedCanonicalObservation,
+  preparedWorkspaceRef?: PreparedWorkspaceRef,
+): Effect.Effect<
+  Option.Option<UsableAcceptedCanonical>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> => usableFrom(canonical, preparedWorkspaceRef, Option.none());
+
+/**
+ * Observe one desired node like `observeDesiredCanonical`, with the usable
+ * accepted package that observation establishes. The resolution of a usable
+ * package uses the manifest decode the observation made; nothing it read is
+ * retained. The caller is also handed the manifest text the observation read,
+ * with its own decode of it.
+ */
+export const observeDesiredUsableCanonical = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  {
+    readonly observed: AcceptedCanonicalObservation;
+    readonly usable: Option.Option<UsableAcceptedCanonical>;
+    readonly manifest: Option.Option<CapturedManifest>;
+  },
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
+> =>
+  Effect.gen(function* () {
+    const { observed, manifest } = yield* observeDesiredCanonicalCapturing(desired);
+    return { observed, usable: yield* usableFrom(observed, undefined, manifest), manifest };
+  });
+
 export const usableAcceptedCanonical = (
-  args: AcceptedCanonicalRefArgs,
+  args: UsableAcceptedCanonicalArgs,
 ): Effect.Effect<
   Option.Option<UsableAcceptedCanonical>,
   AcceptedCanonicalRefError,
@@ -452,18 +819,49 @@ export const usableAcceptedCanonical = (
   | SettingsReader
   | LockfileReader
   | DesiredStateReader
+> => Effect.map(usableAcceptedCanonicalCapturing(args), ({ usable }) => usable);
+
+/**
+ * Like `usableAcceptedCanonical`, also handing the caller what the one
+ * observation it makes read: the manifest text with its own decode, and,
+ * when `digestAcceptedTree` asks for them, the digests of the accepted tree
+ * it walked. Neither is retained here.
+ */
+export const usableAcceptedCanonicalCapturing = (
+  args: UsableAcceptedCanonicalArgs & {
+    readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+  },
+): Effect.Effect<
+  {
+    readonly usable: Option.Option<UsableAcceptedCanonical>;
+    readonly manifest: Option.Option<CapturedManifest>;
+    readonly digests: Option.Option<ObservedTreeDigests>;
+  },
+  AcceptedCanonicalRefError,
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
 > =>
-  acceptedCanonicalObservation(args).pipe(
-    Effect.flatMap(
-      Option.match({
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: usableAcceptedCanonicalFrom,
+  acceptedCanonicalObservationDigesting(args, args.digestAcceptedTree).pipe(
+    Effect.flatMap(({ observed, manifest, digests }) =>
+      Option.match(observed, {
+        onNone: () =>
+          Effect.succeed({ usable: Option.none<UsableAcceptedCanonical>(), manifest, digests }),
+        onSome: (canonical) =>
+          Effect.map(usableFrom(canonical, args.preparedWorkspaceRef, manifest), (usable) => ({
+            usable,
+            manifest,
+            digests,
+          })),
       }),
     ),
   );
 
 export const usableAcceptedCanonicalRef = (
-  args: AcceptedCanonicalRefArgs,
+  args: UsableAcceptedCanonicalArgs,
 ): Effect.Effect<
   Option.Option<ExtensionRef>,
   AcceptedCanonicalRefError,

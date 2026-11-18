@@ -2,8 +2,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type * as FileSystem from "effect/FileSystem";
 import { McpConfigIoFailed } from "../errors.js";
-import { findGitRoot, NativeResolutionRoot, resolveNativeReferent } from "../../locations/index.js";
+import {
+  findGitRoot,
+  NativeResolutionRoot,
+  resolveNativeReferent,
+  type NativeLocationError,
+} from "../../locations/index.js";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { readNativeMcpConfig, readNativeMcpValues, decodeJsonMcpConfig } from "./native-config.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
@@ -14,19 +20,42 @@ export interface CompetingMcpEntry {
   readonly blocks: boolean;
 }
 
-export const readCompetingMcpEntries = (args: {
-  readonly agentId: string;
-  readonly target: McpConfigTarget;
-  readonly serversPath: ReadonlyArray<string>;
-  readonly locations: ReadonlyArray<{
-    readonly path: string;
-    readonly format: McpConfigTarget["format"];
+/**
+ * How one competing-entry read observes native files: the bytes of an exact
+ * path spelling, absent as none, and the physical referent of an exact path
+ * spelling. A caller that checks several members within one resolution
+ * supplies observations it shares across them; by default each is live.
+ */
+export interface CompetingMcpObservation {
+  readonly read: (
+    configPath: string,
+  ) => Effect.Effect<Option.Option<string>, McpConfigIoFailed, FileSystem.FileSystem>;
+  readonly referent: (
+    configPath: string,
+  ) => Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>;
+}
+
+const liveObservation: CompetingMcpObservation = {
+  read: readNativeMcpConfig,
+  referent: resolveNativeReferent,
+};
+
+export const readCompetingMcpEntries = (
+  args: {
+    readonly agentId: string;
+    readonly target: McpConfigTarget;
     readonly serversPath: ReadonlyArray<string>;
-  }>;
-  readonly workspaceRoot: string;
-  readonly userHome?: string | undefined;
-  readonly claudeConfigRoot?: string | undefined;
-}) =>
+    readonly locations: ReadonlyArray<{
+      readonly path: string;
+      readonly format: McpConfigTarget["format"];
+      readonly serversPath: ReadonlyArray<string>;
+    }>;
+    readonly workspaceRoot: string;
+    readonly userHome?: string | undefined;
+    readonly claudeConfigRoot?: string | undefined;
+  },
+  observe: CompetingMcpObservation = liveObservation,
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const capturedRoot = yield* NativeResolutionRoot;
@@ -34,7 +63,7 @@ export const readCompetingMcpEntries = (args: {
       capturedRoot === undefined || isLexicallyWithin(path, capturedRoot, candidate);
     const results: Array<CompetingMcpEntry> = [];
     if (args.agentId === "github-copilot-cli" && args.target.scope === "project") {
-      const raw = yield* readNativeMcpConfig(args.target.path);
+      const raw = yield* observe.read(args.target.path);
       if (Option.isSome(raw)) {
         const decoded = yield* decodeJsonMcpConfig(
           args.target.path,
@@ -68,7 +97,7 @@ export const readCompetingMcpEntries = (args: {
       for (const ancestorDirectory of ancestors) {
         for (const relative of [".mcp.json", ".github/mcp.json"]) {
           const configPath = path.join(ancestorDirectory, relative);
-          const ancestor = yield* readNativeMcpConfig(configPath);
+          const ancestor = yield* observe.read(configPath);
           if (Option.isNone(ancestor)) continue;
           const decoded = yield* decodeJsonMcpConfig(
             configPath,
@@ -87,7 +116,7 @@ export const readCompetingMcpEntries = (args: {
     }
     for (const location of args.locations) {
       if (!observable(location.path)) continue;
-      const raw = yield* readNativeMcpConfig(location.path);
+      const raw = yield* observe.read(location.path);
       if (Option.isNone(raw)) continue;
       const values = yield* readNativeMcpValues({
         ...location,
@@ -103,21 +132,26 @@ export const readCompetingMcpEntries = (args: {
           (format) => format === "json" || format === "jsonc",
         );
       if (sameContainer && compatibleGrammar) {
-        const physical = yield* resolveNativeReferent(location.path).pipe(
-          Effect.mapError(
-            (cause) =>
-              new McpConfigIoFailed({ detail: "Cannot inspect competing MCP location", cause }),
-          ),
-        );
+        const physical = yield* observe
+          .referent(location.path)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new McpConfigIoFailed({ detail: "Cannot inspect competing MCP location", cause }),
+            ),
+          );
         if (physical === args.target.path) {
           // The same named entries under the same container are one declaration.
-          // Both grammars must accept the actual bytes, including strict JSON readers.
-          yield* readNativeMcpValues({
-            ...location,
-            configPath: location.path,
-            format: args.target.format,
-            raw: raw.value,
-          });
+          // Both grammars must accept the actual bytes, including strict JSON
+          // readers; the location's grammar has already accepted them, so only a
+          // different target grammar checks them again.
+          if (location.format !== args.target.format)
+            yield* readNativeMcpValues({
+              ...location,
+              configPath: location.path,
+              format: args.target.format,
+              raw: raw.value,
+            });
           continue;
         }
       }
@@ -144,7 +178,7 @@ export const readCompetingMcpEntries = (args: {
           ? path.join(args.userHome, ".claude.json")
           : path.resolve(args.userHome, args.claudeConfigRoot, ".claude.json");
       if (!observable(configPath)) return results;
-      const raw = yield* readNativeMcpConfig(configPath);
+      const raw = yield* observe.read(configPath);
       if (Option.isSome(raw)) {
         const values = yield* readNativeMcpValues({
           format: "json",

@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -113,5 +114,125 @@ describe("WorkspaceLayout", () => {
         expect(Result.isFailure(result)).toBe(true);
       }
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
+const realTempProject = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  return decodeAbsolutePathSync(yield* fs.realPath(yield* fs.makeTempDirectoryScoped()));
+});
+
+const recordedLayout = (
+  root: string,
+  settings: Parameters<typeof resolveProjectWorkspaceLayout>[1] = {},
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const { fileSystem, recording } = makeRecordingFileSystem(fs);
+    const result = yield* resolveProjectWorkspaceLayout(
+      decodeAbsolutePathSync(root),
+      settings,
+    ).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem), Effect.result);
+    return { result, recording };
+  });
+
+describe("WorkspaceLayout authored-root containment", () => {
+  it.effect("resolves the project root's real path once for every existing authored root", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* realTempProject;
+      const roots = ["skills", "mcps", "packs"].map((name) => path.join(root, name));
+      for (const authored of roots) yield* fs.makeDirectory(authored);
+
+      const { result, recording } = yield* recordedLayout(root);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(recording.calls({ method: "realPath", path: root })).toHaveLength(1);
+      for (const authored of roots) {
+        expect(recording.counts(authored)).toEqual({
+          access: 1,
+          lstat: 1,
+          realPath: 1,
+          readDirectory: 1,
+        });
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("resolves no real path when no authored root exists or the first one is refused", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* realTempProject;
+
+      const empty = yield* recordedLayout(root);
+      expect(Result.isSuccess(empty.result)).toBe(true);
+      expect(empty.recording.calls({ method: "realPath" })).toEqual([]);
+
+      yield* fs.writeFileString(path.join(root, "skills"), "not a directory");
+      yield* fs.makeDirectory(path.join(root, "mcps"));
+      const refused = yield* recordedLayout(root);
+      expect(Result.isFailure(refused.result) && refused.result.failure.detail).toBe(
+        `Invalid skill authored root ${path.join(root, "skills")}: expected a directory`,
+      );
+      expect(refused.recording.calls({ method: "realPath" })).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a later authored root whose real path leaves the project", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* realTempProject;
+      const outside = yield* realTempProject;
+      yield* fs.makeDirectory(path.join(root, "skills"));
+      yield* fs.makeDirectory(path.join(outside, "mcps"));
+      yield* fs.symlink(outside, path.join(root, "outer"));
+      const mcps = path.join(root, "outer", "mcps");
+
+      for (const settings of [
+        { mcpServersConfig: { dir: "outer/mcps" } },
+        { skillsConfig: { dir: "outer/mcps" }, mcpServersConfig: { dir: "absent" } },
+      ]) {
+        const failure = yield* resolveProjectWorkspaceLayout(root, settings).pipe(Effect.flip);
+        expect(failure.detail).toContain(`authored root ${mcps}: real path escapes the workspace`);
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("accepts in-project roots of a project reached through a symbolic link", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const real = yield* realTempProject;
+      const holder = yield* realTempProject;
+      const linked = decodeAbsolutePathSync(path.join(holder, "project"));
+      yield* fs.symlink(real, linked);
+      yield* fs.makeDirectory(path.join(real, "skills"));
+      yield* fs.makeDirectory(path.join(real, "packs"));
+
+      const layout = yield* resolveProjectWorkspaceLayout(linked, {});
+      expect(layout.authoredRoot("pack")).toBe(path.join(linked, "packs"));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("falls back to the resolved project path when its real path cannot be read", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* realTempProject;
+      yield* fs.makeDirectory(path.join(root, "skills"));
+      yield* fs.makeDirectory(path.join(root, "packs"));
+      const failure = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "realPath",
+        pathOrDescriptor: root,
+      });
+
+      const layout = yield* resolveProjectWorkspaceLayout(root, {}).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          realPath: (entry) => (entry === root ? Effect.fail(failure) : fs.realPath(entry)),
+        }),
+      );
+      expect(layout.authoredRoot("skill")).toBe(path.join(root, "skills"));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

@@ -1,6 +1,7 @@
 /** Bounded native command bundles. No hook body is executed during conversion. */
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { createHash } from "node:crypto";
@@ -16,7 +17,7 @@ import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agen
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { renderNativeHookGroup } from "@agentxm/workspace-kernel/agent-adapters";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
-import { isLexicallyWithin } from "@agentxm/host-primitives";
+import { isLexicallyWithin, isNotFound } from "@agentxm/host-primitives";
 import { authoringRefused } from "../errors.js";
 
 export const NATIVE_HOOK_BUNDLE_CONFIG = "hooks.json";
@@ -181,14 +182,18 @@ export interface NativeHookBundle {
   readonly files: ReadonlyArray<{ readonly path: string; readonly bytes: Uint8Array }>;
 }
 
-/** Read an explicit resource closure, refusing links that escape the bundle root. */
-export const readHookResources = Effect.fn("Hook.readBundleResources")(function* (
-  root: string,
+const RESOURCES_SPAN = "Hook.readBundleResources";
+
+/**
+ * Read an explicit resource closure under `realRoot`, which the caller has
+ * already resolved to its real path, refusing links that escape it.
+ */
+const readResourcesWithinRealRoot = Effect.fnUntraced(function* (
+  realRoot: string,
   resources: ReadonlyArray<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const realRoot = yield* fs.realPath(root);
   const files: Array<{ path: string; bytes: Uint8Array }> = [];
   let bytes = 0;
   if (resources.length > MAX_RESOURCE_FILES)
@@ -221,6 +226,38 @@ export const readHookResources = Effect.fn("Hook.readBundleResources")(function*
   return files;
 });
 
+/** Read an explicit resource closure, refusing links that escape the bundle root. */
+export const readHookResources = Effect.fn(RESOURCES_SPAN)(function* (
+  root: string,
+  resources: ReadonlyArray<string>,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* readResourcesWithinRealRoot(yield* fs.realPath(root), resources);
+});
+
+/**
+ * Read the optional native-export metadata, or `None` when it is absent.
+ *
+ * A missing entry is absence. Any other read failure is settled by an
+ * existence probe, so the failure reported is the one probing first would
+ * report: the probe's own failure for an entry it cannot reach, absence when
+ * the probe finds nothing, and the read's failure for an entry that exists
+ * but cannot be read.
+ */
+const readOptionalMetadata = (fs: FileSystem.FileSystem, metadataPath: string) =>
+  fs.readFileString(metadataPath).pipe(
+    Effect.map(Option.some),
+    Effect.catchTag("PlatformError", (readFailure) =>
+      isNotFound(readFailure)
+        ? Effect.succeedNone
+        : fs
+            .exists(metadataPath)
+            .pipe(
+              Effect.flatMap((exists) => (exists ? Effect.fail(readFailure) : Effect.succeedNone)),
+            ),
+    ),
+  );
+
 export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(function* (args: {
   readonly source: string;
   readonly target: ExtensionFqnParts;
@@ -250,10 +287,11 @@ export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(fun
   const resources = [...(args.resources ?? [])];
   const metadataPath = path.join(root, NATIVE_HOOK_BUNDLE_METADATA);
   let source: typeof BundleMetadataSchema.Type.source;
-  if (yield* fs.exists(metadataPath)) {
+  const metadataText = yield* readOptionalMetadata(fs, metadataPath);
+  if (Option.isSome(metadataText)) {
     const metadata = yield* decode(
       Schema.fromJsonString(BundleMetadataSchema),
-      yield* fs.readFileString(metadataPath),
+      metadataText.value,
       "Invalid native Hook bundle metadata.",
     );
     if (metadata.protocol !== args.protocol)
@@ -261,10 +299,11 @@ export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(fun
     resources.push(...metadata.resources);
     source = metadata.source;
   }
-  const files = yield* readHookResources(root, [
+  // `root` is already the bundle's real path, so the closure is read against it directly.
+  const files = yield* readResourcesWithinRealRoot(root, [
     ...resources,
     ...implementation.bindings.map((binding) => binding.handler.entrypoint),
-  ]);
+  ]).pipe(Effect.withSpan(RESOURCES_SPAN));
   const manifest = yield* decode(
     HookManifestSchema,
     {

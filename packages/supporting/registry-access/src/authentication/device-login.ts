@@ -136,6 +136,12 @@ export interface ResumeDeviceLoginOptions {
    * invocation opened none.
    */
   readonly sideEffects?: DeviceHandoffSideEffects;
+  /**
+   * The pending record this invocation just started or re-emitted, when
+   * nothing that waits on another process or person ran since. Without it the
+   * wait reads the pending store itself.
+   */
+  readonly prepared?: PendingDeviceLogin;
 }
 
 const DeviceLoginActionSchema = Schema.Struct({
@@ -223,9 +229,21 @@ const makePendingResult = (
   };
 };
 
-export const initiateDeviceLogin = (
+/**
+ * Start a device sign-in, or re-emit the one already pending for this
+ * Registry, and hand back the pending record alongside the result.
+ *
+ * `observed` is this invocation's own read of the pending store, taken with
+ * nothing in between that waits on another process or person; without it the
+ * store is read here. Expiry, restart, re-emission and the conflict with
+ * another Registry are decided on whichever value is used.
+ */
+export const startDeviceLogin = (
   endpoint: HttpRegistryEndpoint,
-  options: Pick<RunDeviceLoginOptions, "restart"> = {},
+  options: {
+    readonly restart?: boolean;
+    readonly observed?: Option.Option<PendingDeviceLogin>;
+  } = {},
 ) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
@@ -238,13 +256,13 @@ export const initiateDeviceLogin = (
       return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
     }
 
-    const existing = yield* pendingStore.load();
+    const existing = options.observed ?? (yield* pendingStore.load());
     if (Option.isSome(existing)) {
       const expired = yield* DateTime.isPast(existing.value.expiresAt);
       if (expired || options.restart === true) {
         yield* pendingStore.clear();
       } else if (existing.value.registryUrl === credentialKey(endpoint)) {
-        return makePendingResult(existing.value, "re-emitted");
+        return { result: makePendingResult(existing.value, "re-emitted"), pending: existing.value };
       } else {
         return yield* new RegistryAccessFailed({
           category: "conflict",
@@ -279,8 +297,13 @@ export const initiateDeviceLogin = (
       expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
     };
     yield* pendingStore.save(pending);
-    return makePendingResult(pending);
+    return { result: makePendingResult(pending), pending };
   });
+
+export const initiateDeviceLogin = (
+  endpoint: HttpRegistryEndpoint,
+  options: Pick<RunDeviceLoginOptions, "restart"> = {},
+) => startDeviceLogin(endpoint, options).pipe(Effect.map(({ result }) => result));
 
 const pendingLoginNotFound = () =>
   new RegistryAccessFailed({
@@ -309,7 +332,8 @@ export const resumeDeviceLogin = (
       return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
     }
 
-    const loaded = yield* pendingStore.load();
+    const loaded =
+      options.prepared === undefined ? yield* pendingStore.load() : Option.some(options.prepared);
     if (Option.isNone(loaded)) return yield* pendingLoginNotFound();
     const pending = loaded.value;
     if (pending.registryUrl !== credentialKey(endpoint)) {
@@ -449,20 +473,35 @@ export const resumeDeviceLogin = (
     return makeLoginResult(endpoint.href, identity);
   });
 
+/**
+ * Start a device sign-in, open its handoff and wait for approval, replacing an
+ * expired code once.
+ *
+ * `observed` is the caller's own read of the pending store, taken with nothing
+ * in between that waits on another process or person; only the first attempt
+ * uses it. An attempt that opens no browser waits on the record it started;
+ * one that opens a browser reads the store again after the handoff.
+ */
 export const runDeviceLogin = (
   endpoint: HttpRegistryEndpoint,
   options: RunDeviceLoginOptions = {},
+  observed?: Option.Option<PendingDeviceLogin>,
 ) => {
-  const attempt = (restart: boolean) =>
+  const attempt = (restart: boolean, observation?: Option.Option<PendingDeviceLogin>) =>
     Effect.gen(function* () {
-      const pending = yield* initiateDeviceLogin(endpoint, { restart });
-      const sideEffects = yield* openDeviceHandoff(pending, options);
+      const started = yield* startDeviceLogin(endpoint, {
+        restart,
+        ...(observation === undefined ? {} : { observed: observation }),
+      });
+      const sideEffects = yield* openDeviceHandoff(started.result, options);
       return yield* resumeDeviceLogin(endpoint, {
         sideEffects,
         ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
+        // A browser handoff runs another process, so the wait reads the store again.
+        ...(options.openBrowser === false ? { prepared: started.pending } : {}),
       });
     });
-  return attempt(options.restart ?? false).pipe(
+  return attempt(options.restart ?? false, observed).pipe(
     Effect.catchIf(
       (error) => error instanceof RegistryAccessFailed && error.category === "auth_expired",
       () =>

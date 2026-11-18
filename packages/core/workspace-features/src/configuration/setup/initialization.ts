@@ -23,7 +23,11 @@ import {
   resolveNativeReferent,
   isGitManaged,
 } from "@agentxm/workspace-kernel/locations";
-import { setupSkillTargets, setupSkillPlanRows } from "./skill-targets.js";
+import {
+  setupSkillTargets,
+  setupSkillPlanRows,
+  type PlannedSkillEntries,
+} from "./skill-targets.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -68,6 +72,7 @@ import {
   recordedProjectionRows,
   stageProjectionChanges,
   commitLockfileSnapshotUpdateAtPath,
+  type Projections,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -391,17 +396,33 @@ const instructionPlanAction = (mechanism: InstructionMechanism): SetupPlanAction
   }
 };
 
+/** The instruction-projection state the project lockfile records, decoded. */
+type RecordedInstructions = Projections["instructions"];
+
+const instructionRowsOf = (recorded: RecordedInstructions) =>
+  recordedProjectionRows(
+    recorded === undefined ? undefined : { instructions: recorded },
+    "instructions",
+  );
+
 /**
- * The instruction rows the project lockfile records. Reading decodes the
- * lockfile, so a version this CLI does not read refuses setup before it
- * plans or writes anything.
+ * The instruction-projection state the project lockfile records. Reading
+ * decodes the lockfile, so a version this CLI does not read refuses setup
+ * before it plans or writes anything.
  */
-const setupInstructionRows = (workspaceRoot: string) =>
+const readRecordedInstructions = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const lockfile = yield* readLockfileAtPath(path.join(workspaceRoot, LOCK_FILENAME));
-    return recordedProjectionRows(lockfile?.projections, "instructions");
+    return lockfile?.projections?.instructions;
   });
+
+/**
+ * The rows a plan read, for its own apply: an independent copy, so the apply
+ * shares no map or row with the plan's observation.
+ */
+export const transferredInstructionRows = (recorded: RecordedInstructions) =>
+  instructionRowsOf(recorded === undefined ? undefined : structuredClone(recorded));
 
 const instructionPlanRows = (args: {
   readonly workspaceRoot: string;
@@ -410,21 +431,26 @@ const instructionPlanRows = (args: {
   readonly sourceWillBeCreated: boolean;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
   readonly replaceUnrecorded: boolean;
+  /** The source's presence as this call's candidate read observed it, if nothing has asked since. */
+  readonly sourcePresence: Option.Option<boolean>;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const recordedInstructions = yield* readRecordedInstructions(args.workspaceRoot);
     const snapshot = yield* observeInstructionProjection({
       workspaceRoot: args.workspaceRoot,
       scope: "project",
       configuredAgents: args.selectedAgents.map((agent) => agent.id),
       config: { fileName: args.sourceFileName, gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE },
       prospectiveRoots: args.sourceWillBeCreated ? [args.workspaceRoot] : [],
-      rows: yield* setupInstructionRows(args.workspaceRoot),
+      rows: instructionRowsOf(recordedInstructions),
       replaceUnrecorded: args.replaceUnrecorded,
     });
     const deferred =
       !args.sourceWillBeCreated &&
-      !(yield* fileExists(path.join(args.workspaceRoot, args.sourceFileName)));
+      !(Option.isSome(args.sourcePresence)
+        ? args.sourcePresence.value
+        : yield* fileExists(path.join(args.workspaceRoot, args.sourceFileName)));
     const rows: Array<SetupPlanRow> = [
       {
         target: args.sourceFileName,
@@ -493,7 +519,7 @@ const instructionPlanRows = (args: {
         action: "remove",
         detail: { _tag: "instructionTarget", agentName: item.agentName },
       });
-    return rows;
+    return { rows, recordedInstructions };
   });
 
 const selectSetupAgents = (args: {
@@ -677,13 +703,14 @@ const resolveInstructionSetup = (args: {
     const choices = syncEnabled
       ? yield* instructionSourceChoices(args.workspaceRoot, defaultFileName)
       : [];
-    const selectedFileName =
-      syncEnabled && explicit === undefined && !unattended && Option.isSome(interaction)
-        ? yield* interaction.value.selectInstructionSource({
-            defaultFileName,
-            choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
-          })
-        : defaultFileName;
+    const asksForSource =
+      syncEnabled && explicit === undefined && !unattended && Option.isSome(interaction);
+    const selectedFileName = asksForSource
+      ? yield* interaction.value.selectInstructionSource({
+          defaultFileName,
+          choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
+        })
+      : defaultFileName;
 
     if (syncEnabled && selectedFileName !== defaultFileName)
       yield* validateInstructionSource(args.workspaceRoot, selectedFileName);
@@ -691,6 +718,16 @@ const resolveInstructionSetup = (args: {
       enabled: syncEnabled,
       fileName: selectedFileName,
       choices,
+      /**
+       * Whether the selected source exists, as the candidate read just
+       * observed it; none when a prompt has run since that read.
+       */
+      sourcePresence: asksForSource
+        ? Option.none<boolean>()
+        : Option.map(
+            Array.findFirst(choices, (choice) => choice.fileName === selectedFileName),
+            (choice) => choice.exists,
+          ),
     };
   });
 
@@ -704,6 +741,11 @@ const applyProjectSetup = (args: {
   readonly syncInstructions: boolean;
   readonly replaceUnrecorded: boolean;
   readonly dryRun: boolean;
+  /**
+   * Rows this transaction's plan read with nothing prompted or written since;
+   * none when an approval prompt separated the plan from this apply.
+   */
+  readonly preparedInstructionRows: Option.Option<ReturnType<typeof transferredInstructionRows>>;
 }) =>
   Effect.gen(function* () {
     if (args.dryRun) return;
@@ -711,9 +753,11 @@ const applyProjectSetup = (args: {
     const settingsPath = path.join(args.workspaceRoot, SETTINGS_FILENAME);
     const lockfilePath = path.join(args.workspaceRoot, LOCK_FILENAME);
     // Rows are read before any write, so a newer lockfile refuses here.
-    const rows = args.syncInstructions
-      ? yield* setupInstructionRows(args.workspaceRoot)
-      : recordedProjectionRows(undefined, "instructions");
+    const rows = !args.syncInstructions
+      ? recordedProjectionRows(undefined, "instructions")
+      : Option.isSome(args.preparedInstructionRows)
+        ? args.preparedInstructionRows.value
+        : instructionRowsOf(yield* readRecordedInstructions(args.workspaceRoot));
     yield* writeSettingsAtPath(settingsPath, args.settings);
     const lockfileExists = yield* fileExists(lockfilePath);
     if (!lockfileExists) {
@@ -924,25 +968,34 @@ const configureProjectWorkspace = (args: {
     const gitManaged = yield* isGitManaged(workspaceRoot);
     // Declining instruction sync leaves every instruction file alone, so the
     // plan has nothing to say about them.
-    const planRows = instructionSetup.enabled
-      ? yield* instructionPlanRows({
-          workspaceRoot,
-          selectedAgents,
-          sourceFileName: instructionSetup.fileName,
-          sourceWillBeCreated,
-          sourceSeed,
-          replaceUnrecorded,
-        })
-      : [];
+    const instructionPlan = instructionSetup.enabled
+      ? Option.some(
+          yield* instructionPlanRows({
+            workspaceRoot,
+            selectedAgents,
+            sourceFileName: instructionSetup.fileName,
+            sourceWillBeCreated,
+            sourceSeed,
+            replaceUnrecorded,
+            sourcePresence: instructionSetup.sourcePresence,
+          }),
+        )
+      : Option.none<Effect.Success<ReturnType<typeof instructionPlanRows>>>();
+    const planRows = Option.match(instructionPlan, {
+      onNone: () => [],
+      onSome: ({ rows }) => rows,
+    });
     const skillTargets = yield* setupSkillTargets(workspaceRoot, "project", agentIds);
-    const skillPlanRows = completing
-      ? []
+    const skillPlan = completing
+      ? undefined
       : yield* setupSkillPlanRows(workspaceRoot, "project", skillTargets);
+    const skillPlanRows = skillPlan?.rows ?? [];
     const outputConcerns = yield* observeSetupOutputConcerns(
       workspaceRoot,
       "project",
       agentIds,
       skillTargets,
+      skillPlan?.entries,
     );
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const plan: ReadonlyArray<SetupPlanRow> = [
@@ -989,11 +1042,11 @@ const configureProjectWorkspace = (args: {
     ];
     if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true))
       yield* interaction.value.presentSetupPlan(plan);
+    // Unattended approval asks nothing, so nothing can change the lockfile
+    // between this transaction's plan and its apply.
+    const unattended = args.options.yes === true || nonInteractive || Option.isNone(interaction);
     const confirmed =
-      args.options.preview === true ||
-      args.options.yes === true ||
-      nonInteractive ||
-      Option.isNone(interaction)
+      args.options.preview === true || unattended
         ? true
         : yield* interaction.value.confirmSetupPlan();
     if (!confirmed) {
@@ -1015,12 +1068,19 @@ const configureProjectWorkspace = (args: {
       syncInstructions: instructionSetup.enabled,
       replaceUnrecorded,
       dryRun: args.options.preview ?? false,
+      preparedInstructionRows:
+        unattended && args.options.preview !== true
+          ? Option.map(instructionPlan, ({ recordedInstructions }) =>
+              transferredInstructionRows(recordedInstructions),
+            )
+          : Option.none(),
     });
     return {
       settings,
       agentCandidates: selection.candidates,
       plan,
       outputConcerns,
+      plannedSkillEntries: skillPlan?.entries,
       confirmed: true,
     };
   });
@@ -1049,12 +1109,14 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
     const nativeRoot = yield* resolveNativeReferent(yield* resolveUserHome());
     const settingsRoot = yield* resolveNativeReferent(workspaceRoot);
     const skillTargets = yield* setupSkillTargets(nativeRoot, "user", agentIds);
-    const skillPlanRows = yield* setupSkillPlanRows(nativeRoot, "user", skillTargets);
+    const skillPlan = yield* setupSkillPlanRows(nativeRoot, "user", skillTargets);
+    const skillPlanRows = skillPlan.rows;
     const outputConcerns = yield* observeSetupOutputConcerns(
       nativeRoot,
       "user",
       agentIds,
       skillTargets,
+      skillPlan.entries,
     );
     const nonInteractive = options.nonInteractive === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
@@ -1106,6 +1168,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
       agentCandidates: selection.candidates,
       plan,
       outputConcerns,
+      plannedSkillEntries: skillPlan.entries,
       confirmed: true,
     };
   });
@@ -1123,6 +1186,8 @@ interface WorkspaceInitializationState {
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly plan: ReadonlyArray<SetupPlanRow>;
   readonly outputConcerns: ReadonlyArray<NativeOutputConcern>;
+  /** A preview only: the bundled-skill entries its planning resolved. */
+  readonly plannedSkillEntries?: PlannedSkillEntries;
 }
 
 const workspaceInitializationState = (
@@ -1134,6 +1199,7 @@ const workspaceInitializationState = (
   plan: ReadonlyArray<SetupPlanRow> = [],
   completed = false,
   outputConcerns: ReadonlyArray<NativeOutputConcern> = [],
+  plannedSkillEntries?: PlannedSkillEntries,
 ): WorkspaceInitializationState => ({
   settings,
   initialized,
@@ -1143,6 +1209,7 @@ const workspaceInitializationState = (
   agentCandidates,
   plan,
   outputConcerns,
+  ...(plannedSkillEntries === undefined ? {} : { plannedSkillEntries }),
 });
 
 /**
@@ -1187,6 +1254,7 @@ const ensureUserWorkspaceInitialized = (workspaceRoot: string, options: Workspac
         initialization.plan,
         false,
         initialization.outputConcerns,
+        options.preview === true ? initialization.plannedSkillEntries : undefined,
       );
     }
 
@@ -1214,24 +1282,33 @@ const completesInstructionChoice = (settings: Settings, options: WorkspaceStateO
  *
  * @param localDir - Path to local .axm directory
  * @param options - workspace-state options
+ * @param observed - Settings this setup call has just read, used in place of
+ *   a new read only when they were read from this workspace's settings path
  * @returns Effect yielding local Settings
  */
-const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceStateOptions) =>
+const ensureProjectWorkspaceInitialized = (
+  localDir: string,
+  options: WorkspaceStateOptions,
+  observed?: { readonly settingsPath: string; readonly settings: Settings },
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const userHome = yield* resolveUserHome();
-    const localSettingsResult = yield* readSettingsFromReadModel(
-      "project",
-      path.dirname(localDir),
-      userHome,
-    ).pipe(
-      Effect.map(
-        Option.match({
-          onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
-          onSome: (s) => ({ found: true as const, settings: s }),
-        }),
-      ),
-    );
+    const settingsPath = path.join(path.dirname(localDir), SETTINGS_FILENAME);
+    const localSettingsResult =
+      observed !== undefined && observed.settingsPath === settingsPath
+        ? { found: true as const, settings: observed.settings }
+        : yield* readSettingsFromReadModel(
+            "project",
+            path.dirname(localDir),
+            yield* resolveUserHome(),
+          ).pipe(
+            Effect.map(
+              Option.match({
+                onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
+                onSome: (s) => ({ found: true as const, settings: s }),
+              }),
+            ),
+          );
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
@@ -1254,6 +1331,7 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceS
         initialization.plan,
         false,
         initialization.outputConcerns,
+        options.preview === true ? initialization.plannedSkillEntries : undefined,
       );
     }
 
@@ -1279,16 +1357,34 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceS
     return workspaceInitializationState(localSettingsResult.settings, false, false);
   });
 
-/** Whether this setup request would settle an existing project's instruction choice. */
+/**
+ * Whether this setup request would settle an existing project's instruction
+ * choice, with the project settings the decision was read from. A user-scope
+ * request reads nothing.
+ */
 export const setupCompletesInstructionChoice = (options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
-    if (options.scope !== "project") return false;
+    if (options.scope !== "project") return { completes: false, settings: Option.none<Settings>() };
     const userHome = yield* resolveUserHome();
     const settings = yield* readSettingsFromReadModel("project", options.projectRoot, userHome);
-    return Option.isSome(settings) && completesInstructionChoice(settings.value, options);
+    return {
+      completes: Option.isSome(settings) && completesInstructionChoice(settings.value, options),
+      settings,
+    };
   });
 
-export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>
+/**
+ * Initialize the selected workspace, or settle what initializing it would do.
+ *
+ * `observed` carries project settings the same setup call has just read, with
+ * the path they were read from. Initialization works from them only when that
+ * path is exactly the located workspace's settings path; otherwise, and when
+ * nothing is supplied, it reads the settings for itself.
+ */
+export const bootstrapWorkspace = (
+  options: WorkspaceStateOptions,
+  observed?: { readonly settingsPath: string; readonly settings: Settings },
+) =>
   Effect.gen(function* () {
     const location: LocatedWorkspace = yield* locateWorkspace(options.scope, options.projectRoot);
     const workspaceDir = location.path;
@@ -1298,6 +1394,6 @@ export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>
       return { ...result, location };
     }
 
-    const result = yield* ensureProjectWorkspaceInitialized(workspaceDir, options);
+    const result = yield* ensureProjectWorkspaceInitialized(workspaceDir, options, observed);
     return { ...result, location };
   });

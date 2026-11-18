@@ -95,7 +95,7 @@ multi-step tasks, with capabilities extended through skills and tool connections
 These terms describe overlapping capabilities and ways of interacting with
 software; a single product can fit more than one description.
 
-### Agent Extension
+### Agent extension
 
 A package managed by an Agent Extension Manager, giving skills, knowledge
 bundles, and other extension types a consistent way to be distributed, installed,

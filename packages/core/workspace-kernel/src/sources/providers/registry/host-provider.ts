@@ -26,6 +26,7 @@ import {
   RegistryClientFactory,
   RegistryOperationFailed,
   extensionLifecycleWarnings,
+  VerifiedArchive,
   withBufferedArchiveBudget,
   type RegistryClient,
   type RegistryExtensionManifest,
@@ -46,7 +47,6 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "../../errors.js";
-import { computeIntegrity } from "@agentxm/host-primitives";
 import {
   decodeExtensionNameSync,
   ExtensionNameSchema,
@@ -209,7 +209,7 @@ const probeAxmSkillCompatibility = Effect.fnUntraced(function* (
       detail: "Registry returned an invalid official AXM skill candidate",
     });
   }
-  const { archive } = yield* client.getExtensionPackage({
+  const { archive, verified } = yield* client.getExtensionPackage({
     owner: index.owner,
     type: index.type,
     name: index.name,
@@ -221,8 +221,10 @@ const probeAxmSkillCompatibility = Effect.fnUntraced(function* (
     },
     usagePurpose: "verification",
   });
-  const actualIntegrity = yield* computeIntegrity(archive);
-  if (actualIntegrity !== version.integrity) {
+  if (
+    verified?.covers(archive, version.integrity) !== true &&
+    Option.isNone(yield* VerifiedArchive.check(archive, version.integrity))
+  ) {
     return yield* new SourceNetworkFailure({
       detail: `Integrity mismatch for skill:${index.name}@${version.version}`,
     });
@@ -656,7 +658,11 @@ const fetchRegistryExtension = Effect.fnUntraced(function* (
     }),
   });
   const admitted = yield* Effect.serviceOption(RegistryContentAccess);
-  const { archive: archiveBytes, warnings } = yield* Option.isNone(admitted)
+  const {
+    archive: archiveBytes,
+    verified,
+    warnings,
+  } = yield* Option.isNone(admitted)
     ? client.getExtensionPackage(packageArgs)
     : packageArgs.exact === undefined
       ? Effect.fail(
@@ -673,8 +679,10 @@ const fetchRegistryExtension = Effect.fnUntraced(function* (
   }
 
   if (Option.isSome(expectedIntegrity)) {
-    const actualIntegrity = yield* computeIntegrity(archiveBytes);
-    if (actualIntegrity !== expectedIntegrity.value) {
+    if (
+      verified?.covers(archiveBytes, expectedIntegrity.value) !== true &&
+      Option.isNone(yield* VerifiedArchive.check(archiveBytes, expectedIntegrity.value))
+    ) {
       return yield* new SourceNetworkFailure({
         detail: `Integrity mismatch for ${type}:${name}@${version}`,
       });

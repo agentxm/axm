@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Tracer from "effect/Tracer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { observeGitIgnoreInputs } from "../index.js";
 
 describe("publication ignore discovery", () => {
@@ -104,6 +105,35 @@ describe("publication ignore discovery", () => {
       yield* fs.symlink(packageRoot, path.join(packageRoot, "loop"));
       const snapshot = yield* observeGitIgnoreInputs({ packageRoot });
       expect(snapshot.rules).toHaveLength(1);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("probes each listed ignore input once without retaining the listing", () =>
+    Effect.gen(function* () {
+      const base = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* base.makeTempDirectoryScoped();
+      const packageRoot = path.join(root, "package");
+      yield* base.makeDirectory(path.join(packageRoot, "src", "docs"), { recursive: true });
+      yield* base.writeFileString(path.join(packageRoot, ".gitignore"), "*.log\n");
+      yield* base.writeFileString(path.join(packageRoot, "src", ".gitignore"), "!keep.log\n");
+      yield* base.writeFileString(path.join(packageRoot, "src", "docs", "a.md"), "# A\n");
+      const { fileSystem, recording } = makeRecordingFileSystem(base);
+      const snapshot = yield* observeGitIgnoreInputs({ packageRoot }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+      expect(snapshot.rules.map(({ pattern }) => pattern)).toEqual(["*.log", "!keep.log"]);
+      expect("listing" in snapshot).toBe(false);
+      for (const listed of [
+        path.join(packageRoot, ".gitignore"),
+        path.join(packageRoot, "src", ".gitignore"),
+      ]) {
+        expect(recording.counts(listed), listed).toEqual({ readLink: 1, stat: 1, readFile: 1 });
+        expect(recording.contentReads(listed), listed).toBe(1);
+      }
+      const absent = path.join(packageRoot, "src", "docs", ".gitignore");
+      expect(recording.counts(absent)).toEqual({ readLink: 1, stat: 1 });
+      expect(recording.contentReads(absent)).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

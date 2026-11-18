@@ -32,6 +32,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { readExtensionManifest } from "@agentxm/extension-content";
 
 import {
   SkillManager,
@@ -78,6 +79,7 @@ import {
   DesiredStateWriter,
   SettingsWriter,
   observeInstallRoot,
+  computePackageContentHash,
   desiredNodeReachesRow,
   desiredReachesAcceptedRow,
   retainedPackageBindings,
@@ -293,42 +295,79 @@ const prepareAdoptExtension: (
       packages.filter((entry) => entry.type === parsed.type && entry.name === name),
     ),
   );
-  const acquiredCopy = (yield* observeAcquiredCopies).find((entry) => entry.owner === parsed.owner);
+  // Prepare's one inventory settles both the copy a move adopts and the
+  // in-place installed-copy refusal below; it is searched here only, never kept.
+  const acquiredCopies = Object.freeze(yield* observeAcquiredCopies);
+  const acquiredCopy = acquiredCopies.find((entry) => entry.owner === parsed.owner);
+  const sourceDir = acquiredCopy?.path ?? targetDir;
+
+  // The package's manifest read and tree hash, at most once each per validity
+  // boundary: prepare makes one, and every in-lock preflight run makes its
+  // own. Each runs where its first consumer needs it, so that consumer still
+  // observes, and refuses, exactly what it read before they were shared.
+  const packageEvidence = Effect.gen(function* () {
+    const live = yield* Effect.context<FileSystem.FileSystem | Path.Path>();
+    return {
+      root: sourceDir,
+      type: parsed.type,
+      manifest: yield* Effect.cached(
+        readExtensionManifest(sourceDir, parsed.type).pipe(Effect.provideContext(live)),
+      ),
+      hash: yield* Effect.cached(
+        computePackageContentHash(sourceDir).pipe(Effect.provideContext(live)),
+      ),
+    };
+  });
+  type PackageEvidence = Effect.Success<typeof packageEvidence>;
+
+  // The native preflight receives this boundary's manifest decode, which it
+  // deep-freezes before its manager prepares from it.
+  const nativePreflight = (evidence: PackageEvidence) =>
+    preflightAuthoredNativeProjection({
+      identity: parsed,
+      packageRoot: sourceDir,
+      enabled,
+      decodedManifest: evidence.manifest.pipe(Effect.map(({ manifest }) => manifest)),
+      sourceHash: evidence.hash,
+    });
 
   // In-place adoption is decided from what is on disk now and repeated under
-  // the transaction lock, so preview and apply refuse the same states.
-  const inPlaceRefusals = Effect.gen(function* () {
-    const installedCopy = (yield* observeAcquiredCopies).find(
-      (entry) => entry.owner === undefined || entry.owner === parsed.owner,
-    );
-    // Two copies of one identity leave adoption no single content to author.
-    if (installedCopy !== undefined) {
-      return yield* new CreateDestinationExists({ subject: "Adopt target", path: targetDir });
-    }
-    const declared = yield* declaration.read;
-    if (declared.configured) {
-      return yield* authoringRefused({
-        category: "conflict",
-        detail: `${fqn} is already declared in ${settingsPath}`,
-      });
-    }
-    yield* resolveWorkspaceExtensionRef({
-      settingsName: name,
-      source: "workspace",
-      expectedType: parsed.type,
-      layout: layout,
-      scope: location.scope,
-      staticPackage: { owner: parsed.owner, name, root: targetDir },
-    }).pipe(
-      Effect.mapError((cause) =>
-        authoringRefused({
-          category: "validation",
-          detail: `The authored package at ${authoredPath} is not a valid ${fqn} package`,
-          cause,
-        }),
-      ),
-    );
-  });
+  // the transaction lock, so preview and apply refuse the same states. Only
+  // prepare passes its inventory; the lock observes the install root afresh.
+  const inPlaceRefusals = (evidence: PackageEvidence, observed?: typeof acquiredCopies) =>
+    Effect.gen(function* () {
+      const installedCopy = (observed ?? (yield* observeAcquiredCopies)).find(
+        (entry) => entry.owner === undefined || entry.owner === parsed.owner,
+      );
+      // Two copies of one identity leave adoption no single content to author.
+      if (installedCopy !== undefined) {
+        return yield* new CreateDestinationExists({ subject: "Adopt target", path: targetDir });
+      }
+      const declared = yield* declaration.read;
+      if (declared.configured) {
+        return yield* authoringRefused({
+          category: "conflict",
+          detail: `${fqn} is already declared in ${settingsPath}`,
+        });
+      }
+      yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source: "workspace",
+        expectedType: parsed.type,
+        layout: layout,
+        scope: location.scope,
+        staticPackage: { owner: parsed.owner, name, root: targetDir },
+        prepared: evidence,
+      }).pipe(
+        Effect.mapError((cause) =>
+          authoringRefused({
+            category: "validation",
+            detail: `The authored package at ${authoredPath} is not a valid ${fqn} package`,
+            cause,
+          }),
+        ),
+      );
+    });
 
   const authoredExists = yield* fs
     .exists(targetDir)
@@ -336,7 +375,9 @@ const prepareAdoptExtension: (
       Effect.mapError((cause) => new CreateDestinationInspectionFailed({ path: targetDir, cause })),
     );
   const mode: AdoptExtensionCandidate["mode"] = authoredExists ? "in-place" : "move";
-  yield* mode === "in-place" ? inPlaceRefusals : createOnly;
+  // A package read in prepare is shared only by prepare's own consumers.
+  const prepareEvidence = yield* packageEvidence;
+  yield* mode === "in-place" ? inPlaceRefusals(prepareEvidence, acquiredCopies) : createOnly;
   if (mode === "move" && acquiredCopy === undefined) {
     return yield* authoringRefused({
       category: "not_found",
@@ -370,19 +411,13 @@ const prepareAdoptExtension: (
           "This retained package is shared by other selected components; fork it into authorship instead of moving their content",
       });
   }
-  const sourceDir = acquiredCopy?.path ?? targetDir;
   const acquiredPath = path.relative(location.baseDir, sourceDir);
 
   // A package the workspace never declared becomes enabled: adopting content
   // that stays invisible is not what adoption was asked for.
   const enabled = mode === "in-place" ? true : Option.getOrElse(current.enabled, () => true);
 
-  const nativePreflight = preflightAuthoredNativeProjection({
-    identity: parsed,
-    packageRoot: sourceDir,
-    enabled,
-  });
-  const nativeProjection = yield* nativePreflight;
+  const nativeProjection = yield* nativePreflight(prepareEvidence);
 
   const moveArtifact: JobStepArtifact = {
     ...nativeProjection,
@@ -438,7 +473,11 @@ const prepareAdoptExtension: (
               change,
               projected: enabled,
             }),
-          preflight: nativePreflight.pipe(Effect.andThen(inPlaceRefusals)),
+          preflight: Effect.gen(function* () {
+            const evidence = yield* packageEvidence;
+            yield* nativePreflight(evidence);
+            yield* inPlaceRefusals(evidence);
+          }),
           scaffold: Effect.void,
         }
       : {
@@ -455,7 +494,8 @@ const prepareAdoptExtension: (
               projected: enabled,
             }),
           preflight: Effect.gen(function* () {
-            yield* nativePreflight;
+            const evidence = yield* packageEvidence;
+            yield* nativePreflight(evidence);
             yield* createOnly;
             // The acquired directory must already hold a resolvable package: a move
             // that lands unreadable content would leave the workspace authoring
@@ -467,6 +507,7 @@ const prepareAdoptExtension: (
               layout: layout,
               scope: location.scope,
               staticPackage: { owner: parsed.owner, name, root: sourceDir },
+              prepared: evidence,
             });
           }).pipe(Effect.asVoid),
           scaffold: Effect.gen(function* () {

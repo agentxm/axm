@@ -41,7 +41,10 @@ import {
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
-import { findLocalOrGitExtensionPackagesFromSource } from "@agentxm/workspace-kernel/sources";
+import {
+  findLocalOrGitExtensionPackagesFromSource,
+  makeSharedSourceClones,
+} from "@agentxm/workspace-kernel/sources";
 
 export interface DiscoverResultEntry {
   readonly ref: string;
@@ -318,6 +321,8 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
             };
       };
 
+      // Recommendations from one Git URL and revision walk one checkout, each with its own filter.
+      const clones = yield* makeSharedSourceClones;
       const packages = yield* Effect.forEach(declaredPackages, (pkg) =>
         Effect.gen(function* () {
           const extensions = yield* Effect.forEach(
@@ -333,11 +338,15 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
               }
               const resolutionSource = toResolutionSource(source, projectDir, path);
               return Effect.result(
-                findLocalOrGitExtensionPackagesFromSource(resolutionSource, {
-                  names: [parts.name],
-                  owner: Option.some(parts.owner),
-                  type: parts.type,
-                }),
+                findLocalOrGitExtensionPackagesFromSource(
+                  resolutionSource,
+                  {
+                    names: [parts.name],
+                    owner: Option.some(parts.owner),
+                    type: parts.type,
+                  },
+                  { clones },
+                ),
               ).pipe(
                 Effect.map((resolution) => {
                   if (Result.isFailure(resolution)) {

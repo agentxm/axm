@@ -23,7 +23,9 @@ export {
 } from "./errors.js";
 
 // Provider implementations
-export { createGitSourceHostProvider } from "./providers/git.js";
+export { createGitSourceHostProvider, withSharedGitDiscoveryCheckouts } from "./providers/git.js";
+export { GitRemoteRefListings, withSharedGitRemoteRefListings } from "./providers/git.js";
+export { withSharedAcceptedSourceAcquisitions } from "./providers/git.js";
 export { bindHttpPackageRef } from "./providers/http.js";
 export { createLocalSourceHostProvider } from "./providers/local.js";
 export { createRemoteRegistrySourceHostProvider } from "./providers/registry/host-provider.js";
@@ -67,6 +69,7 @@ export {
   acquireExternalSource,
   findExtensionPackagesFromSource,
   findLocalOrGitExtensionPackagesFromSource,
+  makeSharedSourceClones,
   type ResolvedExtensionPackage,
 } from "./package-sources.js";
 export { discoverConventionRefs, pluginMcpPackageName } from "./providers/convention-discovery.js";

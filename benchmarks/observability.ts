@@ -20,6 +20,11 @@ import {
   ObservabilityBudgetsSchema,
   assessObservabilityEvidence,
   assessScenarioTiming,
+  compareQualification,
+  observabilityRunModes,
+  observabilityScenarioSelection,
+  productTimingComparison,
+  selectObservabilityScenarios,
   observationLimitIssues,
   observationPairIssues,
   compareSummaryDetailWork,
@@ -64,6 +69,16 @@ import {
   volatileComparisonFields,
 } from "./observability-process.js";
 import { prepareObservabilityModeFixtures } from "./observability-mode-fixtures.js";
+import {
+  locateStrace,
+  physicalWorkComparisonDocument,
+  physicalWorkConfiguration,
+  physicalWorkMethod,
+  readPhysicalWorkRecording,
+  recordedProcessDeadlineMillis,
+  straceCommandPrefix,
+  type PhysicalWorkSampleRecord,
+} from "./observability-physical-work.js";
 import { harnessProvenance } from "./observability-provenance.js";
 
 const readJson = (file: string) =>
@@ -522,9 +537,25 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             "configuration",
             "AXM_OBSERVABILITY_TIMING_NOISE_POLICY must be enforced or review.",
           );
-        const runMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
-        if (runMode !== "fixtures" && runMode !== "measure")
-          return yield* fail("configuration", "AXM_OBSERVABILITY_RUN must be fixtures or measure.");
+        const requestedRunMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
+        const runMode = observabilityRunModes.find((mode) => mode === requestedRunMode);
+        if (runMode === undefined)
+          return yield* fail(
+            "configuration",
+            "AXM_OBSERVABILITY_RUN must be fixtures, measure or compare.",
+          );
+        const comparedSelection = yield* observabilityScenarioSelection(runMode, {
+          scenarios: process.env["AXM_OBSERVABILITY_SCENARIOS"],
+          scenarioFilter: process.env["AXM_OBSERVABILITY_SCENARIO_FILTER"],
+          referenceHost: process.env["AXM_OBSERVABILITY_REFERENCE_HOST"],
+        });
+        const physicalWork = yield* physicalWorkConfiguration({
+          value: process.env["AXM_OBSERVABILITY_PHYSICAL_WORK"],
+          runMode,
+          platform: process.platform,
+        });
+        const strace =
+          physicalWork === undefined ? undefined : yield* locateStrace(process.env["PATH"]);
         if (runMode === "measure" && process.env["AXM_OBSERVABILITY_REFERENCE_HOST"] !== "1")
           return yield* fail(
             "host",
@@ -589,6 +620,20 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
         let discovery = 0;
         let inTimingBlock = false;
         const artifactBytes = { raw: 0, compressed: 0 };
+        const physicalWorkSamples = new Map<string, PhysicalWorkSampleRecord>();
+        const physicalWorkScenarios: Array<{
+          readonly scenario: string;
+          readonly baseline: PhysicalWorkSampleRecord;
+          readonly candidate: PhysicalWorkSampleRecord;
+        }> = [];
+        let physicalWorkReport:
+          | {
+              readonly comparison: string;
+              readonly sha256: string;
+              readonly scenariosCaptured: number;
+              readonly scenariosWithDifferences: number;
+            }
+          | undefined;
         writeJson(path.join(output, "host-preflight.json"), hostResourceSnapshot(output));
         const harness = yield* Effect.try(() => harnessProvenance(repoRoot, "scripts/bench.ts"));
         writeJson(path.join(output, "harness-modules.json"), harness);
@@ -597,6 +642,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           runMode,
           memoryPolicy,
           timingNoisePolicy,
+          ...(comparedSelection === undefined
+            ? {}
+            : {
+                qualification: compareQualification,
+                scenarioSelection: { match: "exact-id", scenarios: comparedSelection },
+              }),
           startedAt: new Date().toISOString(),
           baseline,
           candidate,
@@ -609,6 +660,15 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             memoryBytes: os.totalmem(),
             isolationDeclared: process.env["AXM_OBSERVABILITY_REFERENCE_HOST"] === "1",
           },
+          ...(strace === undefined
+            ? {}
+            : {
+                physicalWorkCapture: {
+                  ...physicalWorkMethod,
+                  executable: strace.executable,
+                  version: strace.version,
+                },
+              }),
           budgetsSha256: digest(fs.readFileSync(budgetsPath)),
           budgets,
           harnessSha256: harness.sha256,
@@ -630,15 +690,28 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               "Compare request multiset; preserve original server timeline independently.",
           },
         };
-        const save = (complete: boolean, error?: string) =>
+        const assess = () =>
+          assessObservabilityEvidence(
+            budgets,
+            coverage,
+            scenarioIds,
+            samples,
+            fixtureChecks,
+            memoryPolicy,
+            timingNoisePolicy,
+            comparedSelection,
+          );
+        const save = (complete: boolean, error?: string) => {
+          const assessedScenarios = comparedSelection ?? scenarioIds;
+          const assessment = assess();
           writeJson(path.join(output, "report.json"), {
             ...provenance,
             complete,
             invocationCounts: {
               discovery,
               preparation,
-              scheduledPreflight: scenarioIds.length * 4,
-              scheduledInitialTiming: scenarioIds.length * 24,
+              scheduledPreflight: assessedScenarios.length * 4,
+              scheduledInitialTiming: assessedScenarios.length * 24,
               actualTiming: samples.length,
             },
             updatedAt: new Date().toISOString(),
@@ -649,7 +722,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             fixtureChecks,
             samples,
             tracePreflight: {
-              expectedTraces: scenarioIds.length * 2,
+              expectedTraces: assessedScenarios.length * 2,
               inspectedTraces: fixtureChecks.filter((check) => check.trace !== undefined).length,
               rawRetrievedBytes: fixtureChecks.reduce(
                 (total, check) => total + (check.trace?.retrievalBytes ?? 0),
@@ -662,17 +735,14 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               interpretation:
                 "Exact receiver inspection occurs only in preflight. Timing keeps active export and producer receipts but does not individually inspect delivery. Receiver growth and ingestion health require independent observations.",
             },
-            assessment: assessObservabilityEvidence(
-              budgets,
-              coverage,
-              scenarioIds,
-              samples,
-              fixtureChecks,
-              memoryPolicy,
-              timingNoisePolicy,
-            ),
+            assessment,
+            ...(physicalWorkReport === undefined ? {} : { physicalWork: physicalWorkReport }),
+            ...(comparedSelection === undefined
+              ? {}
+              : { productComparison: productTimingComparison(assessment, samples) }),
             ...(error === undefined ? {} : { error }),
           });
+        };
         save(false);
         const prepare: PrepareInvocation = Effect.fnUntraced(function* (fixture, args, options) {
           const artifacts = path.join(output, "preparation", String(preparation++));
@@ -793,11 +863,13 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             .map((value) => value.trim())
             .filter((value) => value.length > 0);
           const selected =
-            selectors === undefined
-              ? scenarios
-              : scenarios.filter((scenario) =>
-                  selectors.some((selector) => scenario.id.includes(selector)),
-                );
+            comparedSelection !== undefined
+              ? yield* selectObservabilityScenarios(scenarios, comparedSelection)
+              : selectors === undefined
+                ? scenarios
+                : scenarios.filter((scenario) =>
+                    selectors.some((selector) => scenario.id.includes(selector)),
+                  );
           if (selected.length === 0)
             return yield* fail("scenario-selection", "The fixture selection is empty.");
           const seqEnvironment = {
@@ -953,6 +1025,10 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             const receiptPath = path.join(artifacts, "receipt.json");
             if (phase === "preflight")
               writeJson(path.join(artifacts, "host-before.json"), hostResourceSnapshot(artifacts));
+            const physicalRecording =
+              strace !== undefined && phase === "preflight" && mode === "disabled"
+                ? path.join(artifacts, "physical-work.strace")
+                : undefined;
             const startedAtMillis = Date.now();
             const result = yield* runObservedProcess({
               executable: binary.binaryPath,
@@ -976,8 +1052,59 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   : { AXM_TRACE: "off" }),
               }),
               artifacts,
+              ...(physicalRecording === undefined || strace === undefined
+                ? {}
+                : {
+                    prefix: straceCommandPrefix(strace.executable, physicalRecording),
+                    // Recording every filesystem call multiplies their cost; the largest
+                    // restoration needs several times the ordinary process deadline.
+                    timeoutMillis: recordedProcessDeadlineMillis,
+                  }),
             });
             const endedAtMillis = Date.now();
+            if (physicalRecording !== undefined) {
+              const accountHome = os.userInfo().homedir;
+              const physicalRoots = [
+                { token: "<ws>", directory: fixture.workspace },
+                { token: "<home>", directory: fixture.home },
+                { token: "<fixture>", directory: root },
+                { token: "<account-home>", directory: accountHome },
+                { token: "<tmp>", directory: os.tmpdir() },
+              ].flatMap((entry) => {
+                const real = fs.realpathSync(entry.directory);
+                return real === entry.directory ? [entry] : [entry, { ...entry, directory: real }];
+              });
+              const captured = yield* readPhysicalWorkRecording(physicalRecording, {
+                workingDirectory: fixture.workspace,
+                roots: physicalRoots,
+              });
+              writeJson(path.join(artifacts, "physical-work.json"), {
+                schemaVersion: 1,
+                sample: id,
+                subject,
+                binarySha256: binary.binarySha256,
+                recording: {
+                  path: path.basename(physicalRecording) + ".gz",
+                  sha256: captured.recording.sha256,
+                  bytes: captured.recording.bytes,
+                  retention: "Lossless gzip; compression.json verifies the exact raw bytes.",
+                },
+                reductionSha256: captured.reductionSha256,
+                projection: {
+                  workingDirectory: "<ws>",
+                  roots: ["<ws>", "<home>", "<fixture>", "<account-home>", "<tmp>"],
+                  tokens: ["<proc-fd>", "/proc/<pid>", "<uuid>", ".tmp.<atomic>", "<random>"],
+                },
+                accounting: captured.reduction.accounting,
+                syscalls: captured.reduction.syscalls,
+                paths: captured.reduction.paths,
+              });
+              physicalWorkSamples.set(id, {
+                sample: path.relative(output, artifacts),
+                reductionSha256: captured.reductionSha256,
+                reduction: captured.reduction,
+              });
+            }
             const receiptAfter = yield* captureContainerReceiptEvidence({
               fixture,
               artifacts,
@@ -1393,6 +1520,28 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 false,
               );
               const comparisonIssues = [...observationPairIssues(before, result)];
+              if (strace !== undefined && mode === "disabled") {
+                const baselineWork = physicalWorkSamples.get(before.id);
+                const candidateWork = physicalWorkSamples.get(result.id);
+                if (baselineWork === undefined || candidateWork === undefined)
+                  return yield* fail(
+                    "physical-work",
+                    "A preflight physical-work reduction is missing: " + scenario.id,
+                  );
+                physicalWorkScenarios.push({
+                  scenario: scenario.id,
+                  baseline: baselineWork,
+                  candidate: candidateWork,
+                });
+                const comparison = physicalWorkComparisonDocument(physicalWorkScenarios);
+                const text = JSON.stringify(comparison, null, 2) + "\n";
+                fs.writeFileSync(path.join(output, "physical-work-comparison.json"), text);
+                physicalWorkReport = {
+                  comparison: "physical-work-comparison.json",
+                  sha256: digest(text),
+                  ...comparison.summary,
+                };
+              }
               if (mode === "summary") summaryTrace = result.trace;
               const workComparison =
                 mode === "detail"
@@ -1507,15 +1656,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             // rejects the campaign if any case fails its unchanged budget.
             save(false);
           }
-          const assessment = assessObservabilityEvidence(
-            budgets,
-            coverage,
-            scenarioIds,
-            samples,
-            fixtureChecks,
-            memoryPolicy,
-            timingNoisePolicy,
-          );
+          const assessment = assess();
           save(assessment.passed);
           if (!assessment.passed)
             return yield* fail(

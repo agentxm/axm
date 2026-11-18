@@ -7,12 +7,12 @@ import {
   packMemberRegistrySource,
   packMemberVersionRange,
 } from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionManifest } from "@agentxm/extension-content";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { versionSatisfiesRequest } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   LockfileReader,
-  observeDesiredCanonical,
-  usableAcceptedCanonicalFrom,
+  observeDesiredUsableCanonical,
   acceptedRowKey,
   desiredPackageKey,
   isSourcedDesiredExtension,
@@ -106,15 +106,30 @@ export const inspectPackMembers = Effect.fn("Inspection.packMembers")(function* 
   readonly root: string;
   readonly packFqn: string;
   readonly graph: DesiredStateGraph;
+  /**
+   * The `pack.json` text the caller's observation of this Pack read at
+   * `root`, with that observation's decode of it, when it made one; it stands
+   * in for decoding exactly that text again. The manifest is still read here.
+   */
+  readonly observedManifest?: {
+    readonly text: string;
+    readonly decoded: Effect.Effect<Option.Option<ExtensionManifest>>;
+  };
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const lockfile = yield* LockfileReader;
   const graph = args.graph;
   const packFqn = args.packFqn;
-  const manifest = yield* fs
-    .readFileString(path.join(args.root, "pack.json"))
-    .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(PackManifestSchema))));
+  const text = yield* fs.readFileString(path.join(args.root, "pack.json"));
+  const observed =
+    args.observedManifest !== undefined && args.observedManifest.text === text
+      ? Option.getOrUndefined(yield* args.observedManifest.decoded)
+      : undefined;
+  const manifest =
+    observed?.type === "pack"
+      ? observed
+      : yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PackManifestSchema))(text);
   const desiredDependencies = yield* Effect.forEach(
     Object.entries(manifest.dependencies),
     ([fqn, declaration]) =>
@@ -164,8 +179,7 @@ export const inspectPackMembers = Effect.fn("Inspection.packMembers")(function* 
         }
         // The canonical observation judges the member once; this Pack's own
         // range then says whether the judged version is excluded here.
-        const canonical = yield* observeDesiredCanonical(node);
-        const usable = yield* usableAcceptedCanonicalFrom(canonical);
+        const { observed: canonical, usable } = yield* observeDesiredUsableCanonical(node);
         const { observation } = canonical;
         const version = Option.match(usable, {
           onNone: () =>

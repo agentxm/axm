@@ -11,9 +11,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
@@ -192,9 +197,8 @@ const parseDuneProjectDepends = (
 export const opamDetector: PackageDetector = {
   type: opamType,
   detect: Effect.fn("detect.opam")(
-    function* (projectDir: string) {
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
 
       const allDeps: Array<DetectedPackage> = [];
       const seenNames = new Set<string>();
@@ -209,7 +213,7 @@ export const opamDetector: PackageDetector = {
       };
 
       // Scan for *.opam files
-      const entries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const entries = yield* projectEntries;
       if (Option.isSome(entries)) {
         const opamFiles = entries.value.filter((e) => e.endsWith(".opam"));
         for (const opamFile of opamFiles) {
@@ -255,45 +259,56 @@ const parseAgentExtensionsField = (content: string): Record<string, unknown> | u
   }
 };
 
+/** The opam switches, or `none` when the opam root is unreadable. */
+const listOpamSwitches = Effect.gen(function* () {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const home = yield* osHomeDirectory;
+
+  const opamDir = path.join(home, ".opam");
+  const switches = yield* fs.readDirectory(opamDir).pipe(Effect.option);
+  return Option.map(switches, (entries) => ({ opamDir, switches: sharedListing(entries) }));
+});
+
 /**
  * opam package reader.
  *
  * Reads `x-agent-extensions` from `.opam` files in the
- * opam switch at `~/.opam/<switch>/lib/<pkg>/opam`.
+ * opam switch at `~/.opam/<switch>/lib/<pkg>/opam`. Packages of one read
+ * share the switch listing.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const opamReader: PackageReader = {
-  type: opamType,
-  read: Effect.fn("read.opam")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+export const opamReader: PackageReader = preparedReader(
+  opamType,
+  Effect.map(Effect.cached(listOpamSwitches), (opamSwitches) =>
+    Effect.fn("read.opam")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
 
-      const pkgName = pkg.purl.name;
-      const home = yield* osHomeDirectory;
+        const pkgName = pkg.purl.name;
 
-      const opamDir = path.join(home, ".opam");
+        // List available switches
+        const listing = yield* opamSwitches;
+        if (Option.isNone(listing)) return Option.none();
+        const { opamDir, switches } = listing.value;
 
-      // List available switches
-      const switches = yield* fs.readDirectory(opamDir).pipe(Effect.option);
-      if (Option.isNone(switches)) return Option.none();
+        // Check each switch for the package
+        for (const switchName of switches) {
+          const opamFilePath = path.join(opamDir, switchName, "lib", pkgName, "opam");
+          const content = yield* readFileOptional(opamFilePath);
+          if (Option.isNone(content)) continue;
 
-      // Check each switch for the package
-      for (const switchName of switches.value) {
-        const opamFilePath = path.join(opamDir, switchName, "lib", pkgName, "opam");
-        const content = yield* readFileOptional(opamFilePath);
-        if (Option.isNone(content)) continue;
+          const metadata = parseAgentExtensionsField(content.value);
+          if (metadata === undefined) continue;
 
-        const metadata = parseAgentExtensionsField(content.value);
-        if (metadata === undefined) continue;
+          return yield* readAgentExtensions(metadata, `${pkgName}`);
+        }
 
-        return yield* readAgentExtensions(metadata, `${pkgName}`);
-      }
-
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "opam" }),
-    Effect.withSpan("read.opam"),
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "opam" }),
+      Effect.withSpan("read.opam"),
+    ),
   ),
-};
+);

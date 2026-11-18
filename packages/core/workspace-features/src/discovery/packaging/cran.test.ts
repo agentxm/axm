@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,7 @@ const detectInTempDir = (description?: string) =>
     if (description !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "DESCRIPTION"), description);
     }
-    return yield* cranDetector.detect(tmpDir);
+    return yield* detectIn(cranDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("cranDetector", () => {

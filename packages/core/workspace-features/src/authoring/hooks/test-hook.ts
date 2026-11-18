@@ -22,6 +22,7 @@ import {
   NetworkDisabled,
 } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   resolveHookConfiguration,
   type HookConfigurationValues,
@@ -74,7 +75,15 @@ export const TestHook = {
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;
     const root = yield* fs.realPath(path.resolve(location.baseDir, request.directory));
-    const { manifest } = yield* readExtensionManifest(root, "hook");
+    const manifestFile = manifestFilenameForType("hook");
+    // The manifest's bytes stay private to this run: the content hash below
+    // frames them in place of reading the manifest file a second time.
+    let manifestBytes: Uint8Array | undefined;
+    const { manifest } = yield* readExtensionManifest(root, "hook", {
+      receiveBytes: (bytes) => {
+        manifestBytes = bytes;
+      },
+    });
     const resolved = resolveHookConfiguration(manifest, request.configuration ?? {});
     if (Result.isFailure(resolved))
       return yield* failed(
@@ -114,8 +123,16 @@ export const TestHook = {
         }
         return absolute;
       });
+    // Text the content hash decoded, keyed by package-relative path; it serves
+    // only the first fixture's reads and is cleared before any hook runs.
+    const hashedText = new Map<string, string>();
     const read = (relative: string) =>
-      packageFile(relative).pipe(Effect.flatMap(fs.readFileString));
+      packageFile(relative).pipe(
+        Effect.flatMap((absolute) => {
+          const text = hashedText.get(path.relative(root, absolute));
+          return text === undefined ? fs.readFileString(absolute) : Effect.succeed(text);
+        }),
+      );
     const environmentNames = new Set<string>(["PATH", "HOME", "TMPDIR", "SystemRoot", "PATHEXT"]);
     const value = (input: HookValue): Effect.Effect<CommandLine.Word, OperationRefused> =>
       Effect.gen(function* () {
@@ -134,19 +151,46 @@ export const TestHook = {
           return yield* failed(`Environment reference ${configured.env} is not set`);
         return Redacted.make(env.value);
       });
-    const startedAt = yield* Clock.currentTimeMillis;
-    const contentHash = yield* computePackageContentHash(root);
-    const configurationHash = hookConfigurationHash(values);
-    const results: Array<typeof HookFixtureResultSchema.Type> = [];
-    for (const fixture of fixtures) {
+    const bindingOf = (fixture: (typeof fixtures)[number]) => {
       const implementation = manifest.implementations.find(
         (candidate) => candidate.id === fixture.implementation,
       );
       const binding = implementation?.bindings.find(
         (candidate) => candidate.id === fixture.binding,
       );
-      if (implementation === undefined || binding === undefined)
+      return implementation === undefined || binding === undefined
+        ? undefined
+        : { implementation, binding };
+    };
+    // Nothing executes between the content hash and the first fixture's reads,
+    // so the hash walk decodes that fixture's declared files for them. Every
+    // later fixture follows a hook process and reads its files live.
+    const first = fixtures[0];
+    const firstFiles =
+      first === undefined || bindingOf(first) === undefined
+        ? []
+        : [first.input, first.expect.stdout, first.expect.stderr].flatMap((relative) =>
+            relative === undefined ? [] : [path.relative(root, path.resolve(root, relative))],
+          );
+    const startedAt = yield* Clock.currentTimeMillis;
+    const contentHash = yield* computePackageContentHash(root, {
+      ...(manifestBytes === undefined
+        ? {}
+        : { rootFile: { name: manifestFile, bytes: manifestBytes } }),
+      decodeText: {
+        entries: firstFiles,
+        receive: (relative, text) => {
+          hashedText.set(relative, text);
+        },
+      },
+    });
+    const configurationHash = hookConfigurationHash(values);
+    const results: Array<typeof HookFixtureResultSchema.Type> = [];
+    for (const fixture of fixtures) {
+      const bound = bindingOf(fixture);
+      if (bound === undefined)
         return yield* failed(`Fixture ${fixture.id} references a missing binding`);
+      const { implementation, binding } = bound;
       const input = yield* read(fixture.input);
       // Fixtures describe native JSON requests; reject invalid JSON before launching executable code.
       yield* Effect.try({
@@ -157,6 +201,7 @@ export const TestHook = {
         fixture.expect.stdout === undefined ? undefined : yield* read(fixture.expect.stdout);
       const expectedErr =
         fixture.expect.stderr === undefined ? undefined : yield* read(fixture.expect.stderr);
+      hashedText.clear();
       const entrypoint = yield* packageFile(binding.handler.entrypoint);
       const argv = yield* Effect.forEach(binding.handler.args ?? [], value);
       const env: Record<string, CommandLine.Word> = {};

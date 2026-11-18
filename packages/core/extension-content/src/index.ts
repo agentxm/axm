@@ -99,4 +99,4 @@ export {
   validateDeclaredManifestAlignment,
   validateManifestHasNoAgentsField,
 } from "./packaging/manifest-policy.js";
-export { readExtensionManifest } from "./packaging/manifest-file.js";
+export { readExtensionManifest, readExtensionManifestCapture } from "./packaging/manifest-file.js";

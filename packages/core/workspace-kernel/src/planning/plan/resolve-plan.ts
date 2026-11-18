@@ -26,6 +26,7 @@ import {
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -94,6 +95,7 @@ import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
+  observeCompositeChildMaterials,
   type ExecutionCandidate,
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
@@ -447,12 +449,12 @@ export interface PrepareExecutionCandidateOptions {
 }
 
 /**
- * Prepare the immutable execution candidate for a plan: augment with lockfile
- * reconciliation, project configured-agent outcomes, scan readiness, assemble
- * risk conditions, and fingerprint every material preimage. Preview,
- * confirmation, and apply all refer to the candidate this returns.
+ * Augment a plan for sealing: lockfile reconciliation, configured-agent
+ * outcomes, placement preflight, execution withdrawals, the external execution
+ * review with its preimage when the plan exposes hooks or MCP servers, and
+ * every readiness and precondition blocker as a risk condition.
  */
-const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+const augmentExecutionPlan = Effect.fnUntraced(function* <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options?: PrepareExecutionCandidateOptions,
 ) {
@@ -607,15 +609,47 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
+  return { candidatePlan, operations, materialBoundary, beforeReview };
+});
+
+type AugmentedExecutionPlan<Requirements, Output> = Effect.Success<
+  ReturnType<typeof augmentExecutionPlan<Requirements, Output>>
+>;
+
+/**
+ * Seal an augmented plan: fingerprint every material preimage and derive the
+ * candidate identity, refusing a plan whose inputs changed during its review.
+ */
+const sealExecutionCandidate = Effect.fnUntraced(function* <Requirements, Output>(
+  planName: string,
+  augmented: AugmentedExecutionPlan<Requirements, Output>,
+) {
   const candidate = yield* withLiveWorkspaceObservations(
-    makeExecutionCandidate(candidatePlan, materialBoundary, operations),
+    makeExecutionCandidate(
+      augmented.candidatePlan,
+      augmented.materialBoundary,
+      augmented.operations,
+    ),
   );
   if (
-    beforeReview !== undefined &&
-    beforeReview.materialFingerprint !== candidate.materialFingerprint
+    augmented.beforeReview !== undefined &&
+    augmented.beforeReview.materialFingerprint !== candidate.materialFingerprint
   )
-    return yield* new StaleExecutionCandidate({ candidate: plan.name });
+    return yield* new StaleExecutionCandidate({ candidate: planName });
   return candidate;
+});
+
+/**
+ * Prepare the immutable execution candidate for a plan: augment with lockfile
+ * reconciliation, project configured-agent outcomes, scan readiness, assemble
+ * risk conditions, and fingerprint every material preimage. Preview,
+ * confirmation, and apply all refer to the candidate this returns.
+ */
+const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: PrepareExecutionCandidateOptions,
+) {
+  return yield* sealExecutionCandidate(plan.name, yield* augmentExecutionPlan(plan, options));
 });
 
 export const prepareExecutionCandidate = <Requirements, Output>(
@@ -627,11 +661,73 @@ export const prepareExecutionCandidate = <Requirements, Output>(
     withWorkspaceReadView(prepareExecutionCandidateInPlanning(plan, options)),
   );
 
+/**
+ * A child plan augmented for a composite operation, which seals one candidate
+ * over its children's steps. It carries no identity or fingerprint, so only
+ * the composite's own candidate can be previewed, confirmed or applied.
+ */
+interface CompositeChildPlan<Requirements = never, Output = never> {
+  readonly plan: Plan<Requirements, Output>;
+  readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
+}
+
+/** A composite child derives no identity, so no observed input enters one. */
+export type CompositeChildPlanOptions = Omit<
+  PrepareExecutionCandidateOptions,
+  "observedInputFingerprint"
+>;
+
+const prepareCompositeChildPlanInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: CompositeChildPlanOptions,
+) {
+  const augmented = yield* augmentExecutionPlan(plan, options);
+  if (augmented.beforeReview !== undefined) {
+    // The reviewed preimage stays bracketed by this child's own seal: the
+    // review's text travels into the composite's risk conditions.
+    const candidate = yield* sealExecutionCandidate(plan.name, augmented);
+    return {
+      plan: candidate.plan,
+      configuredAgentOperations: candidate.configuredAgentOperations,
+    } satisfies CompositeChildPlan<Requirements, Output>;
+  }
+  // The child's own materials stay observed here; the composite's seal
+  // fingerprints the workspace settings and lockfile and derives the identity.
+  yield* withLiveWorkspaceObservations(
+    observeCompositeChildMaterials(augmented.candidatePlan, augmented.materialBoundary),
+  );
+  return {
+    plan: augmented.candidatePlan,
+    configuredAgentOperations: augmented.operations,
+  } satisfies CompositeChildPlan<Requirements, Output>;
+});
+
+/**
+ * Augment a child plan exactly as `prepareExecutionCandidate` does, for a
+ * composite operation that keeps only the child's steps, risk conditions and
+ * configured-agent operations and seals them in its own candidate.
+ */
+export const prepareCompositeChildPlan = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: CompositeChildPlanOptions,
+) =>
+  withPhaseSpan(
+    "planning",
+    withWorkspaceReadView(prepareCompositeChildPlanInPlanning(plan, options)),
+  );
+
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
   /** Additional observations to re-read under the transition before applying. */
   readonly additionalFreshness?: (
     candidate: ExecutionCandidate<Requirements, Output>,
   ) => Effect.Effect<boolean, never, Requirements>;
+  /**
+   * The resolved material paths that `additionalFreshness` re-fingerprints.
+   * When present together with `additionalFreshness`, each candidate check and
+   * its additional check share one fresh observation of exactly these paths.
+   * Ignored without `additionalFreshness`.
+   */
+  readonly additionalFreshnessMaterialPaths?: ReadonlyArray<string>;
   /** A typed pre-apply gate that runs under the transition before revalidation. */
   readonly beforeApply?: (
     candidate: ExecutionCandidate<Requirements, Output>,
@@ -1049,31 +1145,52 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       : undefined;
   const startedUnits = yield* Ref.make(0);
   const resolvedUnits = yield* Ref.make(0);
+  const additionalFreshness = options?.additionalFreshness;
+  const sharedFreshnessPaths = options?.additionalFreshnessMaterialPaths;
+  const unsharedFreshness = Effect.gen(function* () {
+    if (!(yield* isExecutionCandidateFresh(candidate))) {
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+    }
+    if (additionalFreshness !== undefined && !(yield* additionalFreshness(candidate))) {
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+    }
+  });
+  // The candidate check and the additional check observe their overlapping
+  // documents once, inside one fresh observation that ends before any gate or
+  // write; every other candidate material is read through the port the check
+  // uses without sharing.
+  const candidateFreshness =
+    additionalFreshness === undefined || sharedFreshnessPaths === undefined
+      ? unsharedFreshness
+      : Effect.gen(function* () {
+          const unshared = yield* FileSystem.FileSystem;
+          const sharedFreshness = Effect.gen(function* () {
+            const sharedPaths = new Set(sharedFreshnessPaths);
+            if (!(yield* isExecutionCandidateFresh(candidate, { sharedPaths, unshared }))) {
+              return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+            }
+            if (!(yield* additionalFreshness(candidate))) {
+              return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+            }
+          });
+          // Only capturing the observation can fail here; without one, the
+          // checks run unshared exactly as they would without the paths.
+          const shared = yield* withFreshWorkspaceObservationReadView(
+            Effect.result(sharedFreshness),
+          ).pipe(Effect.option);
+          return Option.isSome(shared)
+            ? yield* Effect.fromResult(shared.value)
+            : yield* unsharedFreshness;
+        });
   const applyFreshCandidate = Effect.gen(function* () {
     yield* withPhaseSpan(
       "validation",
       Effect.gen(function* () {
         yield* enterPhase("validation");
-        if (!(yield* isExecutionCandidateFresh(candidate))) {
-          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-        }
-        if (
-          options?.additionalFreshness !== undefined &&
-          !(yield* options.additionalFreshness(candidate))
-        ) {
-          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-        }
+        yield* candidateFreshness;
         if (options?.beforeApply !== undefined) {
           yield* options.beforeApply(candidate);
-          if (!(yield* isExecutionCandidateFresh(candidate))) {
-            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-          }
-          if (
-            options.additionalFreshness !== undefined &&
-            !(yield* options.additionalFreshness(candidate))
-          ) {
-            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-          }
+          yield* candidateFreshness;
         }
       }),
     );

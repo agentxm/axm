@@ -38,7 +38,10 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { DiscoverPackagesRequestSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
-import type { ArchiveCache } from "./archive-cache.js";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeArchiveCache, type ArchiveCache } from "./archive-cache.js";
 import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
@@ -996,6 +999,102 @@ describe("validateExtensionAccessBatch", () => {
   );
 });
 
+describe("getExtensionPackage verification evidence", () => {
+  const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+  const exactArgs = {
+    ...makeIndexArgs(),
+    exact: {
+      version: exactVersion("1.0.0"),
+      integrity: archiveIntegrity(archiveData),
+      publisherBindingId: "hbnd_test",
+    },
+  };
+  const archiveClient = (onArchive: Effect.Effect<void> = Effect.void) => {
+    let archiveRequests = 0;
+    const httpClient = HttpClient.make((request) =>
+      new URL(request.url).pathname === "/v1/resolutions"
+        ? Effect.sync(() => HttpClientResponse.fromWeb(request, admittedContentResponse(request)))
+        : onArchive.pipe(
+            Effect.andThen(
+              Effect.sync(() => {
+                archiveRequests += 1;
+                return HttpClientResponse.fromWeb(request, new Response(archiveData.slice()));
+              }),
+            ),
+          ),
+    );
+    return { httpClient, archiveRequests: () => archiveRequests };
+  };
+  const tempCache = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-remote-evidence-" });
+    return yield* makeArchiveCache(fs, path, path.join(root, "archives"));
+  });
+
+  it.effect("carries covering evidence for an exact download without an archive cache", () =>
+    Effect.gen(function* () {
+      const client = createRemoteRegistryClient(BASE_URL, archiveClient().httpClient);
+      const result = yield* client.getExtensionPackage(exactArgs);
+      expect(Array.from(result.archive)).toEqual(Array.from(archiveData));
+      expect(result.verified?.covers(result.archive, exactArgs.exact.integrity)).toBe(true);
+    }),
+  );
+
+  it.effect("carries covering evidence for cache-backed exact misses and hits", () =>
+    Effect.gen(function* () {
+      const wire = archiveClient();
+      const client = createRemoteRegistryClient(BASE_URL, wire.httpClient, yield* tempCache);
+      const miss = yield* client.getExtensionPackage(exactArgs);
+      const hit = yield* client.getExtensionPackage(exactArgs);
+      expect(wire.archiveRequests()).toBe(1);
+      for (const result of [miss, hit]) {
+        expect(Array.from(result.archive)).toEqual(Array.from(archiveData));
+        expect(result.verified?.covers(result.archive, exactArgs.exact.integrity)).toBe(true);
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("gives only one of two coalesced exact reads evidence and never shares a buffer", () =>
+    Effect.gen(function* () {
+      const archiveStarted = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const wire = archiveClient(
+        Deferred.succeed(archiveStarted, undefined).pipe(Effect.andThen(Deferred.await(release))),
+      );
+      const cache = yield* tempCache;
+      let loads = 0;
+      const secondLoad = yield* Deferred.make<void>();
+      const observedCache: ArchiveCache = {
+        ...cache,
+        load: (selectionKey, integrity, fetch) =>
+          Effect.suspend(() => {
+            loads += 1;
+            return loads === 2 ? Deferred.succeed(secondLoad, undefined) : Effect.void;
+          }).pipe(Effect.andThen(cache.load(selectionKey, integrity, fetch))),
+      };
+      const client = createRemoteRegistryClient(BASE_URL, wire.httpClient, observedCache);
+      const first = yield* client.getExtensionPackage(exactArgs).pipe(Effect.forkChild);
+      yield* Deferred.await(archiveStarted);
+      const second = yield* client.getExtensionPackage(exactArgs).pipe(Effect.forkChild);
+      yield* Deferred.await(secondLoad);
+      yield* Effect.yieldNow;
+      yield* Deferred.succeed(release, undefined);
+      const results = [yield* Fiber.join(first), yield* Fiber.join(second)];
+
+      expect(wire.archiveRequests()).toBe(1);
+      const verified = results.filter((result) =>
+        result.verified?.covers(result.archive, exactArgs.exact.integrity),
+      );
+      const unverified = results.filter((result) => result.verified === undefined);
+      expect(verified).toHaveLength(1);
+      expect(unverified).toHaveLength(1);
+      expect(unverified[0]?.archive).not.toBe(verified[0]?.archive);
+      expect(Array.from(unverified[0]?.archive ?? [])).toEqual(Array.from(archiveData));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
 describe("getExtensionPackage", () => {
   it.effect("rejects corrupt downloaded bytes when no archive cache is configured", () =>
     Effect.gen(function* () {
@@ -1043,7 +1142,7 @@ describe("getExtensionPackage", () => {
       const cache = {
         load: (_key: string, integrity: string) => {
           expect(integrity).toBe("sha512-selected");
-          return Effect.succeed(cachedArchive);
+          return Effect.succeed({ archive: cachedArchive });
         },
         read: () => Effect.die("read was not expected"),
         write: () => Effect.die("write was not expected"),
@@ -1317,7 +1416,7 @@ describe("getExtensionPackage", () => {
         return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
       });
       const cache = {
-        load: () => Effect.succeed(cachedArchive),
+        load: () => Effect.succeed({ archive: cachedArchive }),
         read: () => Effect.die("read was not expected"),
         write: () => Effect.void,
         status: () => Effect.die("status was not expected"),

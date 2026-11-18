@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@agentxm/test-reporting": "workspace:*",
+    "@agentxm/test-support": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",

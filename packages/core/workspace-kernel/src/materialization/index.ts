@@ -49,6 +49,7 @@ export {
   SubagentManager,
   type HookManagerService,
   type PreparedHookProjection,
+  type PreparedHookWriterRoutes,
   type HookMaterializationFacts,
   type KnowledgeManagerService,
   type KnowledgeMaterializationFacts,
@@ -81,6 +82,7 @@ export {
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
   skillArtifactFromTargets,
+  skillArtifactFromLocations,
   type InstallableSkillTarget,
 } from "./skill-artifact.js";
 

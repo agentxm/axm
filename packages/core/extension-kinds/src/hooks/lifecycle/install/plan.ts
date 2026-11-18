@@ -56,7 +56,7 @@ import {
 import {
   applyInstructionSurfacePlans,
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  observeObservedPlans,
 } from "@agentxm/workspace-kernel/projection";
 
 /** Hooks packages the request selected. */
@@ -157,13 +157,37 @@ export const planHookInstall: (
   );
   // Physical routes, whole-file grammar, and shared renderings must refuse
   // before the install recipe publishes settings or accepted resolution.
-  const prepared = yield* hookManager
-    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), {
-      priorAuthority,
-      nativeInsertionEligibleNames,
-      ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
-      ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
-    })
+  // The exposure derivation consumes the preparation's eager observation; its
+  // own failure is settled after the preparation's refusal, as a conflict.
+  const { exposure, acceptedContent, writerRoutes, preparedManifests } = yield* hookManager
+    .observedPrepareProjection(
+      intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+      {
+        priorAuthority,
+        nativeInsertionEligibleNames,
+        ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
+        ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
+      },
+      ({ observed, acceptedContent, writerRoutes, preparedManifests }) =>
+        Effect.result(
+          observeObservedPlans(observed).pipe(
+            Effect.flatMap((observations) =>
+              projectionExposureRefs({
+                observations,
+                graph: intent.desiredGraph ?? priorGraph,
+                proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+              }),
+            ),
+          ),
+        ).pipe(
+          Effect.map((exposure) => ({
+            exposure,
+            acceptedContent,
+            writerRoutes,
+            preparedManifests,
+          })),
+        ),
+    )
     .pipe(
       Effect.mapError((cause) =>
         installRefused({
@@ -173,14 +197,7 @@ export const planHookInstall: (
         }),
       ),
     );
-  const exposureRefs = yield* observeProjectionPlans(prepared.plans).pipe(
-    Effect.flatMap((observations) =>
-      projectionExposureRefs({
-        observations,
-        graph: intent.desiredGraph ?? priorGraph,
-        proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
-      }),
-    ),
+  const exposureRefs = yield* Effect.fromResult(exposure).pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "conflict",
@@ -197,10 +214,19 @@ export const planHookInstall: (
         const installedBefore = yield* hookManager.isInstalled({
           target: { type: "hook", name: ref.hook.name },
         });
+        // The preparation above observed this Hook's accepted package,
+        // resolved the writer routes and decoded the manifests of Hooks read
+        // from their own directories in this call; its root choice, routes
+        // and decodes are taken instead of observing, resolving and reading
+        // again.
         const agentOutcomes =
           hookManager.configuredAgentOutcomesForRef === undefined
             ? []
-            : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
+            : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected", {
+                ...(acceptedContent === undefined ? {} : { acceptedContent }),
+                ...(writerRoutes === undefined ? {} : { writerRoutes }),
+                ...(preparedManifests === undefined ? {} : { preparedManifests }),
+              });
         const previewPath = hookRefArtifactPath(ref, location.scope);
         // The planner forecasts the change; execution replaces the forecast
         // with what the transition observed.
@@ -252,6 +278,7 @@ export const planHookInstall: (
           buildArtifact: ({ change }) =>
             Effect.gen(function* () {
               const materialization = yield* hookManager.aggregateProjectionObservation;
+              // The applied outcomes read the package as it is after the write.
               const appliedOutcomes =
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []

@@ -28,7 +28,11 @@ import * as ServiceMap from "effect/Context";
 
 import * as Config from "effect/Config";
 
-import { resolveUserAxmHomePure, resolveUserHome } from "@agentxm/host-primitives";
+import {
+  readFileStringIfPresent,
+  resolveUserAxmHomePure,
+  resolveUserHome,
+} from "@agentxm/host-primitives";
 
 const InstallMetaSchema = Schema.Struct({
   schemaVersion: Schema.Literal(2),
@@ -202,12 +206,10 @@ type InstallMetaRead =
 
 const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
   Effect.gen(function* () {
-    const exists = yield* fs.exists(metaPath).pipe(Effect.option);
-    if (Option.isNone(exists)) return { status: "unreadable" } satisfies InstallMetaRead;
-    if (!exists.value) return { status: "missing" } satisfies InstallMetaRead;
-
-    const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
-    if (Option.isNone(content)) return { status: "unreadable" } satisfies InstallMetaRead;
+    const read = yield* readFileStringIfPresent(fs, metaPath).pipe(Effect.option);
+    if (Option.isNone(read)) return { status: "unreadable" } satisfies InstallMetaRead;
+    const content = read.value;
+    if (Option.isNone(content)) return { status: "missing" } satisfies InstallMetaRead;
 
     return yield* decodeInstallMetaFromJsonString(content.value).pipe(
       Effect.map((value) => ({ status: "found", value }) satisfies InstallMetaRead),

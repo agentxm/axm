@@ -9,7 +9,7 @@ import {
   type HookConfigurationValues,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { HookManager } from "@agentxm/workspace-kernel/materialization";
-import { applyProjectionPlans, observeProjectionPlans } from "@agentxm/workspace-kernel/projection";
+import { applyProjectionPlans, observeObservedPlans } from "@agentxm/workspace-kernel/projection";
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -22,6 +22,8 @@ import {
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  acceptedCanonicalObservationCapturing,
+  capturedManifestFor,
   usableAcceptedCanonicalObservation,
   computePackageContentHash,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -45,12 +47,27 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
   const settings = yield* SettingsReader;
   const writer = yield* SettingsWriter;
   const hooks = yield* HookManager;
-  const canonical = yield* usableAcceptedCanonicalObservation({ type: "hook", name: request.name });
+  const { observed, manifest: captured } = yield* acceptedCanonicalObservationCapturing({
+    type: "hook",
+    name: request.name,
+  });
+  // Usable exactly as `usableAcceptedCanonicalObservation` judges it.
+  const canonical = Option.flatMap(observed, ({ desired, observation }) =>
+    observation.status === "usable" && observation.path !== undefined
+      ? Option.some({ desired, packageRoot: observation.path })
+      : Option.none(),
+  );
   if (Option.isNone(canonical))
     return yield* fail(`Hook extension ${request.name} has no installed package to configure`);
-  const packageRoot = canonical.value.observation.path;
+  const packageRoot = canonical.value.packageRoot;
   const root = path.relative(location.baseDir, packageRoot);
-  const { manifest } = yield* readExtensionManifest(packageRoot, "hook");
+  // The decode the observation just made of this package's hook manifest;
+  // otherwise the manifest is read here.
+  const manifest = yield* Option.match(capturedManifestFor(path, captured, packageRoot, "hook"), {
+    onSome: Effect.succeed,
+    onNone: () =>
+      Effect.map(readExtensionManifest(packageRoot, "hook"), ({ manifest }) => manifest),
+  });
   const resolved = resolveHookConfiguration(manifest, request.configuration);
   if (Result.isFailure(resolved))
     return yield* fail(
@@ -63,9 +80,19 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
     ...(previous ?? { kind: "configuration" as const }),
     configuration: request.configuration,
   };
-  const options = { hookConfigurations: new Map([[request.name, request.configuration]]) };
-  const projections = canonical.value.desired.enabled ? yield* hooks.projectionPlans(options) : [];
-  const observations = yield* observeProjectionPlans(projections);
+  const hookConfigurations = new Map([[request.name, request.configuration]]);
+  // Each projection takes the configured package's hash from its own boundary:
+  // preparation's here, and the locked recheck's in the transition.
+  const projectionOptions = (verifiedContentHash: string) => ({
+    hookConfigurations,
+    preparedContentHashes: new Map([
+      [request.name, { packageRoot, contentHash: verifiedContentHash }],
+    ]),
+  });
+  // A disabled hook has no native plans to observe.
+  const observations = canonical.value.desired.enabled
+    ? yield* hooks.observedProjectionPlans(projectionOptions(contentHash), observeObservedPlans)
+    : [];
   const exposureRefs = yield* projectionExposureRefs({
     observations,
     graph: yield* (yield* DesiredStateReader).graph(),
@@ -89,23 +116,31 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
         name: request.name,
       });
       const current = (yield* settings.entries("hook"))[request.name];
-      if (
-        Option.isNone(currentCanonical) ||
-        currentCanonical.value.observation.path !== packageRoot ||
-        JSON.stringify(current) !== JSON.stringify(previous) ||
-        (yield* computePackageContentHash(packageRoot)) !== contentHash
-      ) {
+      // The package is hashed under the lock only once the canonical
+      // observation, its path, and the settings entry are all unchanged.
+      const lockedContentHash =
+        Option.isSome(currentCanonical) &&
+        currentCanonical.value.observation.path === packageRoot &&
+        JSON.stringify(current) === JSON.stringify(previous)
+          ? yield* computePackageContentHash(packageRoot)
+          : undefined;
+      if (Option.isNone(currentCanonical) || lockedContentHash !== contentHash) {
         return yield* fail(
           "Hook extension content or configuration changed after preview; prepare the change again",
         );
       }
-      // Validate every active target before the first write. Native plans retain aggregate ownership.
-      const currentProjections = currentCanonical.value.desired.enabled
-        ? yield* hooks.projectionPlans(options)
-        : [];
-      yield* observeProjectionPlans(currentProjections);
-      yield* writer.setEntry("hook", request.name, next);
-      yield* applyProjectionPlans(currentProjections);
+      // Validate every active target before the first write: the manager's eager
+      // observation is that validation, taken before the settings write. Native
+      // plans retain aggregate ownership. A disabled hook has no native plans.
+      if (currentCanonical.value.desired.enabled)
+        yield* hooks.observedProjectionPlans(projectionOptions(lockedContentHash), (observed) =>
+          Effect.gen(function* () {
+            yield* observeObservedPlans(observed);
+            yield* writer.setEntry("hook", request.name, next);
+            yield* applyProjectionPlans(observed.plans);
+          }),
+        );
+      else yield* writer.setEntry("hook", request.name, next);
     }),
     validate: () => Effect.void,
   }).pipe(

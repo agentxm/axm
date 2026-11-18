@@ -112,10 +112,8 @@ const encodeLocalRecord = (record: TerminalFailureRecord): string => {
       truncated: causes.length !== record.causes.length,
     });
   let encoded = encode();
-  while (
-    new TextEncoder().encode(encoded).byteLength + 1 > DIAGNOSTIC_LIMITS.bytes &&
-    causes.length > 0
-  ) {
+  // JSON.stringify escapes lone surrogates, so this counts the bytes the writer will encode.
+  while (Buffer.byteLength(encoded, "utf8") + 1 > DIAGNOSTIC_LIMITS.bytes && causes.length > 0) {
     causes.pop();
     encoded = encode();
   }

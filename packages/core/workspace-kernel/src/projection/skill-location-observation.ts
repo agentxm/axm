@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import {
-  copiedDirectoryIsCurrent,
+  copiedDirectoryIsCurrentWith,
   nativeUnitReference,
   readCopiedDirectory,
   captureNativeLocationSet,
@@ -78,6 +78,19 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
       kind: "skill" as const,
       location,
     }));
+    // Readers that share a location, and links that share a source, name the
+    // same SKILL.md; nothing writes during this call, so each exact path is
+    // probed once. Only a successful probe is kept: a failure ends the call.
+    const skillFilePresence = new Map<string, boolean>();
+    const skillFilePresent = (directory: string) =>
+      Effect.gen(function* () {
+        const file = path.join(directory, "SKILL.md");
+        const known = skillFilePresence.get(file);
+        if (known !== undefined) return known;
+        const present = yield* fs.exists(file);
+        skillFilePresence.set(file, present);
+        return present;
+      });
     const results = new Map<string, ConfiguredExtensionObservation>();
     for (const row of namedRows) {
       const sources = yield* Effect.forEach(sourcesByName[row.name] ?? [], locations.referent);
@@ -91,7 +104,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
         const address = yield* locations.entry(target);
         if (
           (address.kind !== "absent" &&
-            (address.kind === "symlink" || (yield* fs.exists(path.join(target, "SKILL.md"))))) ||
+            (address.kind === "symlink" || (yield* skillFilePresent(target)))) ||
           (row.targetState !== "absent" &&
             request.agentIds.includes(reader.agentId) &&
             reader.declaration.role === "primary")
@@ -104,13 +117,13 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
           let mechanism: NativeLocationOutcome["mechanism"] =
             address.kind === "symlink" ? "symlink" : undefined;
           let owned = sources.includes(address.entryPath);
-          let current = owned && (yield* fs.exists(path.join(address.entryPath, "SKILL.md")));
+          let current = owned && (yield* skillFilePresent(address.entryPath));
           if (address.kind === "symlink" && address.linkTarget !== undefined) {
             const immediate = yield* locations.entry(
               path.resolve(path.dirname(address.entryPath), address.linkTarget),
             );
             owned = immediate.kind !== "symlink" && sources.includes(immediate.entryPath);
-            current = owned && (yield* fs.exists(path.join(immediate.entryPath, "SKILL.md")));
+            current = owned && (yield* skillFilePresent(immediate.entryPath));
           } else if (address.kind === "directory" && !owned) {
             const receipt = yield* readCopiedDirectory(address.entryPath);
             if (Option.isSome(receipt)) mechanism = "copied-directory";
@@ -118,7 +131,11 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
             current =
               owned &&
               Option.isSome(receipt) &&
-              (yield* copiedDirectoryIsCurrent(address.entryPath, receipt.value.source));
+              (yield* copiedDirectoryIsCurrentWith(
+                address.entryPath,
+                receipt.value,
+                receipt.value.source,
+              ));
           }
           return {
             path: target,

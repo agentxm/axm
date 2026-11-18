@@ -240,7 +240,8 @@ export const makeDesiredStateReader = (
   const evaluate: DesiredStateReaderService["evaluate"] = Effect.fn("DesiredStateReader.evaluate")(
     function* (options) {
       const settings = options?.settings ?? (yield* documents.settings());
-      const inheritedSettings = yield* documents.settings(inheritedScope);
+      const inheritedSettings =
+        options?.inheritedSettings ?? (yield* documents.settings(inheritedScope));
       const layout = yield* Ref.get(location.layout);
       const acceptedResolutions =
         options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);

@@ -17,6 +17,7 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   acceptedCanonicalObservation,
+  type CanonicalObservationStatus,
   type KnowledgeExtensionTarget,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -45,10 +46,25 @@ export interface KnowledgeUninstallIntent {
   readonly targets: ReadonlyArray<KnowledgeExtensionTarget>;
 }
 
+/**
+ * What the ownership check observed of a target's canonical content over the
+ * current graph: the path, status and shared-package verdict a removal
+ * artifact describes, or none when the graph holds no such bundle.
+ */
+interface KnowledgeCanonical {
+  readonly name: string;
+  readonly canonical: Option.Option<{
+    readonly path: string | undefined;
+    readonly status: CanonicalObservationStatus;
+    readonly sharedPackage: boolean;
+  }>;
+}
+
 /** A target and, when AXM may not remove it, the reason it is protected. */
 interface KnowledgeUninstallOwnership {
   readonly target: KnowledgeExtensionTarget;
   readonly blocker?: string;
+  readonly canonical: KnowledgeCanonical;
 }
 
 /** Settle whether this Knowledge bundle has anything to remove. */
@@ -159,7 +175,15 @@ const inspectOwnership: (
       (Option.isNone(instructionRelative)
         ? `Cannot uninstall Knowledge bundle "${target.name}": the managed instructions target is outside the workspace. Configure a workspace-relative instructions target and retry.`
         : undefined);
-    return { target, ...(blocker === undefined ? {} : { blocker }) };
+    const canonical: KnowledgeCanonical = {
+      name: target.name,
+      canonical: Option.map(acceptedObservation, ({ observation, sharedPackage }) => ({
+        path: observation.path,
+        status: observation.status,
+        sharedPackage: sharedPackage === true,
+      })),
+    };
+    return { target, ...(blocker === undefined ? {} : { blocker }), canonical };
   }).pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -171,11 +195,16 @@ const inspectOwnership: (
   );
 });
 
-/** The closures a settled Knowledge removal becomes. */
-export const planKnowledgeUninstall: (
-  intent: KnowledgeUninstallIntent,
-) => Effect.Effect<
-  Plan<InstallStepRequirements>,
+/**
+ * The closures a settled Knowledge removal becomes, with what its ownership
+ * check observed of each target's canonical content, for describing the same
+ * removals inside the same read phase.
+ */
+export const planKnowledgeUninstall: (intent: KnowledgeUninstallIntent) => Effect.Effect<
+  {
+    readonly plan: Plan<InstallStepRequirements>;
+    readonly canonical: ReadonlyArray<KnowledgeCanonical>;
+  },
   OperationRefused,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fnUntraced(function* (intent: KnowledgeUninstallIntent) {
@@ -200,9 +229,12 @@ export const planKnowledgeUninstall: (
   });
 
   return {
-    _tag: "Plan",
-    name: "Uninstall knowledge",
-    description: Option.some("Uninstall Open Knowledge Format bundle"),
-    jobs: [{ concurrency: 1, steps }],
-  } satisfies Plan<InstallStepRequirements>;
+    plan: {
+      _tag: "Plan",
+      name: "Uninstall knowledge",
+      description: Option.some("Uninstall Open Knowledge Format bundle"),
+      jobs: [{ concurrency: 1, steps }],
+    } satisfies Plan<InstallStepRequirements>,
+    canonical: ownership.map((entry) => entry.canonical),
+  };
 });

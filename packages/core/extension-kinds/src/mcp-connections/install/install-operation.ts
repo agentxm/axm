@@ -17,6 +17,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -38,6 +39,7 @@ import {
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  capturedManifestFor,
   computeExtensionPathsForLayout,
   McpSourceKey,
   type McpServerLockEntry,
@@ -70,6 +72,23 @@ const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): 
       (value.server.packages === undefined || value.server.packages.length === 0) &&
       (value.server.remotes === undefined || value.server.remotes.length === 0),
   });
+
+/** Freeze a decoded value and everything it holds. */
+const freezeDecoded = (value: unknown, visited: WeakSet<object>): void => {
+  if (typeof value !== "object" || value === null || visited.has(value)) return;
+  visited.add(value);
+  for (const child of Object.values(value)) freezeDecoded(child, visited);
+  Object.freeze(value);
+};
+
+/**
+ * The canonical manifest this install decoded, frozen in place: selection,
+ * binding and every name's agent projection read this one value.
+ */
+const frozenManifest = (manifest: McpServerManifest): McpServerManifest => {
+  freezeDecoded(manifest, new WeakSet());
+  return manifest;
+};
 
 interface AgentOutcome {
   readonly agentId: MaterializationTargetId;
@@ -121,6 +140,8 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
   readonly entry: McpServerEntry;
+  /** The canonical manifest this install already decoded, when it read one. */
+  readonly manifest: Option.Option<McpServerManifest>;
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -171,7 +192,11 @@ const syncConfiguredAgentsOnInstall = (args: {
             source: args.entry.source,
             nativeComponent: args.entry.nativeComponent,
           })
-        : syncManifestMcpServerToAgents(syncArgs);
+        : syncManifestMcpServerToAgents(
+            Option.isSome(args.manifest)
+              ? { ...syncArgs, manifest: args.manifest.value }
+              : syncArgs,
+          );
       outcomes = configuredAgentIds.map((agentId, index) => ({
         agentId,
         outcome: synced[index] ?? {
@@ -267,10 +292,19 @@ export const installMcpServer: (
     const resolutionKey = Option.getOrUndefined(resolution)?.key;
     const nativeComponent =
       ref.refType === "local" || ref.refType === "git-hosted" ? ref.nativeComponent : undefined;
-    const manifest =
-      nativeComponent === undefined
-        ? yield* readMcpServerManifestAt(canonicalPath)
-        : Option.none<McpServerManifest>();
+    // A kept accepted tree's manifest is the decode its observation made at
+    // this same root; any other install reads the manifest it acquired.
+    const manifest: Option.Option<McpServerManifest> =
+      nativeComponent !== undefined
+        ? Option.none()
+        : yield* Option.match(
+            capturedManifestFor(path, facts.capturedManifest, canonicalPath, "mcp-server"),
+            {
+              onSome: (kept) => Effect.succeed(Option.some(kept)),
+              onNone: () =>
+                Effect.map(readMcpServerManifestAt(canonicalPath), Option.map(frozenManifest)),
+            },
+          );
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
@@ -360,11 +394,22 @@ export const installMcpServer: (
                 resolutionKey ?? ref.server.name,
                 lockEntry,
               );
-            yield* settingsWriter.setEntry("mcp-server", localName, {
+            const nextEntry: McpServerEntry = {
               ...(currentEntry ?? { kind: "configuration" as const }),
               ...preferences,
               enabled,
-            });
+            };
+            // The caller's publication left `axm.json` at the settings writer's
+            // fixed point, so setting an entry equal to the one this install
+            // reads live would be the writer's no-op. Decided from this
+            // install's own live read of the entry.
+            if (
+              op.args.entryJustPublished === true &&
+              currentEntry !== undefined &&
+              Equal.equals(nextEntry, currentEntry)
+            )
+              return;
+            yield* settingsWriter.setEntry("mcp-server", localName, nextEntry);
           })
         : lockEntry === undefined
           ? settingsWriter.setEntry("mcp-server", localName, {
@@ -403,6 +448,7 @@ export const installMcpServer: (
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
             entry: projectionEntry,
+            manifest,
           });
         }),
       { concurrency: 1 },

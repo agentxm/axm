@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import type * as PlatformError from "effect/PlatformError";
 import { isNotFound, readFileStringIfPresent } from "@agentxm/host-primitives";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpInspectionError } from "./errors.js";
@@ -24,8 +25,11 @@ import { CurrentWorkspaceReadPhase, type McpServerEntry } from "../../workspace-
 import {
   withNativeConfigReadView,
   decodeMcpServerManifestAt,
+  decodeMcpServerManifestRead,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
+  resolveConfiguredMcpTargetAdmissions,
+  mcpTargetAdmissionKey,
   observeNativeMcpTargets,
   readNativeMcpValues,
   McpDefinitionInvalid,
@@ -40,8 +44,10 @@ import {
   type McpServerDeclaration,
   type NativeConfigObservationDiagnostic,
   type McpTargetGroup,
+  type ObservedMcpWithdrawal,
 } from "../../agent-adapters/index.js";
 import {
+  NativeResolutionRoot,
   combineNativeLocationOutcomes,
   type NativeDirectoryInputs,
   type NativeLocationOutcome,
@@ -183,6 +189,8 @@ const mcpInspectionsCurrent = (inspections: ReadonlyArray<AgentMcpServerInspecti
 const inspectActual = (args: {
   readonly target: McpConfigTarget;
   readonly configPath: string;
+  /** The native file at `configPath`, absent as none. */
+  readonly read: Effect.Effect<Option.Option<string>, McpInspectionError, FileSystem.FileSystem>;
   readonly serversPath: ReadonlyArray<string>;
   readonly serverName: string;
   readonly expected: McpInspectionExpectation;
@@ -196,7 +204,7 @@ const inspectActual = (args: {
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
-    const raw = yield* readNativeMcpConfig(args.configPath);
+    const raw = yield* args.read;
     if (Option.isNone(raw)) return { status: "absent", fields: [] };
 
     const actual = yield* readNativeMcpEntry({
@@ -234,20 +242,49 @@ const terminalInspection = (args: {
   ...(args.expected === undefined ? {} : { expected: args.expected }),
 });
 
+/**
+ * Resolves the configured targets one inspection plans against, with the
+ * admission key of every writer target its own resolution admitted live.
+ * Targets that another resolution admitted carry no keys.
+ */
+type InspectionTargetResolver = (
+  args: InspectDesiredMcpServerArgs,
+) => ReturnType<typeof resolveConfiguredMcpTargetAdmissions>;
+
+const resolveInspectionTargets: InspectionTargetResolver = (args) =>
+  resolveConfiguredMcpTargetAdmissions(args);
+
+/**
+ * Re-admitting a physical target its resolution just admitted under the same
+ * scope and native root yields that same path, so only a target without such
+ * an admission in this inspection is admitted again.
+ */
 const absolutePathFor = (
   workspaceRoot: string,
   target: McpConfigTarget | undefined,
-): Effect.Effect<string, McpInspectionError, FileSystem.FileSystem | Path.Path> =>
-  target === undefined
-    ? Effect.succeed("")
+  admitted: ReadonlyArray<string>,
+): Effect.Effect<string, McpInspectionError, FileSystem.FileSystem | Path.Path> => {
+  if (target === undefined) return Effect.succeed("");
+  const key = mcpTargetAdmissionKey(target);
+  return key !== undefined && admitted.includes(key)
+    ? Effect.succeed(target.path)
     : resolveAgentMcpConfigTargetPath(workspaceRoot, target);
+};
+
+/** One lazy read per projected native file, shared by the agents of one inspection. */
+type InspectionReads = ReadonlyArray<{
+  readonly path: string;
+  readonly read: Effect.Effect<Option.Option<string>, McpInspectionError, FileSystem.FileSystem>;
+}>;
 
 const inspectPlannedAgent = (
   args: InspectDesiredMcpServerArgs,
   agent: McpAgentTargetPlan,
+  admitted: ReadonlyArray<string>,
+  reads: InspectionReads,
 ): Effect.Effect<AgentMcpServerInspection, McpInspectionError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const absolutePath = yield* absolutePathFor(args.workspaceRoot, agent.target);
+    const absolutePath = yield* absolutePathFor(args.workspaceRoot, agent.target, admitted);
     switch (agent._tag) {
       case "unsupported":
       case "nothing-runnable":
@@ -292,6 +329,9 @@ const inspectPlannedAgent = (
         const actual = yield* inspectActual({
           target: agent.target,
           configPath: absolutePath,
+          read:
+            reads.find((shared) => shared.path === absolutePath)?.read ??
+            readNativeMcpConfig(absolutePath),
           serversPath: agent.config.serversPath,
           serverName: args.node.name,
           expected: { _tag: "projected", entry: agent.entry, warnings: agent.warnings },
@@ -311,9 +351,13 @@ const inspectPlannedAgent = (
   });
 
 /** Without a source manifest, native presence cannot prove projected currency. */
-const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs, probeFailed: boolean) =>
-  resolveConfiguredMcpTargets(args).pipe(
-    Effect.map((groups) =>
+const inspectUnavailableSource = (
+  args: InspectDesiredMcpServerArgs,
+  probeFailed: boolean,
+  resolveTargets: InspectionTargetResolver,
+) =>
+  resolveTargets(args).pipe(
+    Effect.map(({ groups }) =>
       args.agentIds.flatMap((agentId) => {
         const unresolved = unresolvedMcpAgentTargets(agentId, args.scope, groups);
         return [
@@ -339,11 +383,23 @@ const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs, probeFailed
     ),
   );
 
+/**
+ * The first canonical root holding an MCP manifest. When the caller decodes
+ * that manifest, the read that finds it also supplies its text: absence moves
+ * on, and only a read failing for another reason is followed by the existence
+ * probe, which decides between moving on and carrying that failure to the
+ * decode. Otherwise the probe alone selects the root.
+ */
 const findManifestRoot = Effect.fnUntraced(function* (
   workspaceRoot: string,
   canonicalPaths: ReadonlyArray<string>,
+  readManifest: boolean,
 ): Effect.fn.Return<
-  { readonly root: Option.Option<string>; readonly diagnostics: ReadonlyArray<McpConfigIoFailed> },
+  {
+    readonly root: Option.Option<string>;
+    readonly manifest: Option.Option<Result.Result<string, PlatformError.PlatformError>>;
+    readonly diagnostics: ReadonlyArray<McpConfigIoFailed>;
+  },
   never,
   FileSystem.FileSystem | Path.Path
 > {
@@ -353,6 +409,17 @@ const findManifestRoot = Effect.fnUntraced(function* (
   for (const candidate of canonicalPaths) {
     const resolved = path.resolve(workspaceRoot, candidate);
     const manifestPath = path.join(resolved, manifestFilenameForType("mcp-server"));
+    const read = readManifest
+      ? yield* readFileStringIfPresent(fs, manifestPath).pipe(Effect.result)
+      : undefined;
+    if (read !== undefined && Result.isSuccess(read)) {
+      if (Option.isNone(read.success)) continue;
+      return {
+        root: Option.some(resolved),
+        manifest: Option.some(Result.succeed(read.success.value)),
+        diagnostics,
+      };
+    }
     const exists = yield* fs.exists(manifestPath).pipe(Effect.result);
     if (Result.isFailure(exists)) {
       if (!isNotFound(exists.failure))
@@ -364,9 +431,14 @@ const findManifestRoot = Effect.fnUntraced(function* (
         );
       continue;
     }
-    if (exists.success) return { root: Option.some(resolved), diagnostics };
+    if (exists.success)
+      return {
+        root: Option.some(resolved),
+        manifest: read === undefined ? Option.none() : Option.some(Result.fail(read.failure)),
+        diagnostics,
+      };
   }
-  return { root: Option.none(), diagnostics };
+  return { root: Option.none(), manifest: Option.none(), diagnostics };
 });
 
 /** The declaration an inspection renders: the entry as it would be projected when enabled. */
@@ -378,10 +450,18 @@ const inspectedDeclaration = (
   return node.authority === "inline" ? undefined : { kind: "configuration", enabled: true };
 };
 
-/** Disabled declarations select withdrawal without depending on runnable source content. */
-const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
+/**
+ * Disabled declarations select withdrawal without depending on runnable
+ * source content. The inspection also yields what it observed of each
+ * target's native file, for the withdrawal it selects.
+ */
+const inspectDisabledMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
+) =>
   Effect.gen(function* () {
-    const groups = yield* resolveConfiguredMcpTargets(args);
+    const { groups } = yield* resolveTargets(args);
+    const targets: Array<ObservedMcpWithdrawal["targets"][number]> = [];
     const inspections: AgentMcpServerInspection[] = [];
     const nativeLocations: NativeLocationOutcome[] = [];
     for (const agentId of args.agentIds) {
@@ -393,6 +473,7 @@ const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
     }
     for (const group of groups) {
       const raw = yield* readNativeMcpConfig(group.path);
+      targets.push({ group, raw });
       for (const member of group.members.filter((member) => member.configured)) {
         const actual = Option.isNone(raw)
           ? Option.none<Readonly<Record<string, unknown>>>()
@@ -447,7 +528,7 @@ const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
         });
       }
     }
-    return {
+    const inspection: DesiredMcpServerInspection = {
       inspections,
       nativeLocations: combineNativeLocationOutcomes(nativeLocations),
       outcomes: inspections.map((inspection) =>
@@ -456,7 +537,22 @@ const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
       current: mcpInspectionsCurrent(inspections),
       conflict: Option.none<string>(),
     };
+    const withdrawal: ObservedMcpWithdrawal = {
+      workspaceRoot: args.workspaceRoot,
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
+      scope: args.scope,
+      agentIds: args.agentIds,
+      serverName: args.node.name,
+      targets: Object.freeze(targets),
+    };
+    return { inspection, withdrawal };
   });
+
+/** One inspection and, for a disabled connection, what its withdrawal may plan from. */
+interface ObservedDesiredMcpServer {
+  readonly inspection: DesiredMcpServerInspection;
+  readonly withdrawal: ObservedMcpWithdrawal | undefined;
+}
 
 /**
  * Inspect one desired MCP connection on every configured agent.
@@ -465,15 +561,30 @@ const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
  * from, so a currency judgment and a write never disagree about what an
  * agent should hold.
  */
-const inspectDesiredMcpServerUncached = (
+const observeDesiredMcpServer = (
   args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
+): Effect.Effect<
+  ObservedDesiredMcpServer,
+  McpInspectionError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  args.node.enabled === false
+    ? inspectDisabledMcpServer(args, resolveTargets)
+    : Effect.map(inspectEnabledMcpServer(args, resolveTargets), (inspection) => ({
+        inspection,
+        withdrawal: undefined,
+      }));
+
+const inspectEnabledMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+  resolveTargets: InspectionTargetResolver,
 ): Effect.Effect<
   DesiredMcpServerInspection,
   McpInspectionError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    if (args.node.enabled === false) return yield* inspectDisabledMcpServer(args);
     const state = args.state ?? "current";
     const declaration = inspectedDeclaration(args.node, args.entry);
     if (declaration === undefined) {
@@ -482,20 +593,27 @@ const inspectDesiredMcpServerUncached = (
       });
     }
     const inline = declaration.connection !== undefined;
+    const nativeComponent = args.entry?.kind === "sourced" ? args.entry.nativeComponent : undefined;
     const source = inline
-      ? { root: Option.none<string>(), diagnostics: [] }
-      : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
+      ? { root: Option.none<string>(), manifest: Option.none(), diagnostics: [] }
+      : yield* findManifestRoot(
+          args.workspaceRoot,
+          args.canonicalPaths,
+          nativeComponent === undefined,
+        );
     const manifestRoot = source.root;
     const observed = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot))
         return {
-          inspections: yield* inspectUnavailableSource(args, source.diagnostics.length > 0),
+          inspections: yield* inspectUnavailableSource(
+            args,
+            source.diagnostics.length > 0,
+            resolveTargets,
+          ),
           nativeLocations: [],
           conflict: Option.none<string>(),
         };
       const path = yield* Path.Path;
-      const nativeComponent =
-        args.entry?.kind === "sourced" ? args.entry.nativeComponent : undefined;
       const nativeDefinition =
         nativeComponent === undefined || Option.isNone(manifestRoot)
           ? undefined
@@ -503,10 +621,18 @@ const inspectDesiredMcpServerUncached = (
       const manifest =
         Option.isNone(manifestRoot) || nativeComponent !== undefined
           ? undefined
-          : yield* decodeMcpServerManifestAt(
-              path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
-            );
-      const groups = yield* resolveConfiguredMcpTargets(args);
+          : yield* Option.match(source.manifest, {
+              onNone: () =>
+                decodeMcpServerManifestAt(
+                  path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
+                ),
+              onSome: (read) =>
+                decodeMcpServerManifestRead(
+                  path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
+                  Effect.fromResult(read),
+                ),
+            });
+      const { groups, admitted } = yield* resolveTargets(args);
       const plan = planMcpServerTargets({
         groups,
         agentIds: args.agentIds,
@@ -534,9 +660,28 @@ const inspectDesiredMcpServerUncached = (
       const conflict = Option.fromUndefinedOr(
         plan.agents.flatMap((agent) => (agent._tag === "blocked" ? [agent.reason] : []))[0],
       );
+      // Agents that share a native file judge it from one read, each in its own order.
+      const reads: InspectionReads =
+        state === "projected"
+          ? []
+          : Object.freeze(
+              yield* Effect.forEach(
+                [
+                  ...new Set(
+                    plan.agents.flatMap((agent) =>
+                      agent._tag === "projected" ? [agent.target.path] : [],
+                    ),
+                  ),
+                ],
+                (path) =>
+                  Effect.map(Effect.cached(readNativeMcpConfig(path)), (read) =>
+                    Object.freeze({ path, read }),
+                  ),
+              ),
+            );
       const inspections = yield* Effect.forEach(
         plan.agents,
-        (agent) => inspectPlannedAgent(args, agent),
+        (agent) => inspectPlannedAgent(args, agent, admitted, reads),
         {
           concurrency: 16,
         },
@@ -718,10 +863,24 @@ export const collectNativeAgentMcpServers = (
     };
   });
 
+type InspectDesiredMcpServer = (
+  args: InspectDesiredMcpServerArgs,
+) => Effect.Effect<
+  DesiredMcpServerInspection,
+  McpInspectionError,
+  FileSystem.FileSystem | Path.Path
+>;
+
 class McpInspectionReadView extends Context.Service<
   McpInspectionReadView,
   {
-    readonly inspect: typeof inspectDesiredMcpServerUncached;
+    readonly observe: (
+      args: InspectDesiredMcpServerArgs,
+    ) => Effect.Effect<
+      ObservedDesiredMcpServer,
+      McpInspectionError,
+      FileSystem.FileSystem | Path.Path
+    >;
     readonly phase: Effect.Success<typeof CurrentWorkspaceReadPhase>;
     readonly isActive: () => boolean;
     readonly close: () => void;
@@ -740,6 +899,17 @@ const copyMcpInspection = (value: DesiredMcpServerInspection): DesiredMcpServerI
     : { sourceDiagnostics: [...value.sourceDiagnostics] }),
 });
 
+/** Each withdrawal owns its targets; the native bytes are immutable strings. */
+const copyMcpWithdrawal = (value: ObservedMcpWithdrawal): ObservedMcpWithdrawal => ({
+  ...value,
+  nativeDirectoryInputs: structuredClone(value.nativeDirectoryInputs),
+  agentIds: [...value.agentIds],
+  targets: value.targets.map(({ group, raw }) => ({
+    group: structuredClone(group),
+    raw: Option.map(raw, (text) => text),
+  })),
+});
+
 /** Share detailed MCP observations only for the duration of one read phase. */
 export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
@@ -749,17 +919,55 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
       if (inherited.value.isActive() && inherited.value.phase === phase) return yield* effect;
       inherited.value.close();
     }
-    const cells = new Map<string, ReturnType<typeof inspectDesiredMcpServerUncached>>();
+    const cells = new Map<string, ReturnType<typeof observeDesiredMcpServer>>();
+    const targetCells = new Map<
+      string,
+      {
+        readonly fs: FileSystem.FileSystem;
+        readonly path: Path.Path;
+        readonly groups: ReturnType<typeof resolveConfiguredMcpTargets>;
+      }
+    >();
     let active = true;
     const isActive = () => active && (phase === undefined || phase.isActive());
     const close = () => {
       active = false;
       cells.clear();
+      targetCells.clear();
     };
-    const inspect: typeof inspectDesiredMcpServerUncached = (args) =>
+    // Configured targets do not depend on the connection, so every inspection
+    // in the phase plans against one resolution, each with its own copy.
+    // Admissions made by another inspection's resolution are not this
+    // inspection's own, so they carry no admission keys.
+    const resolveTargets: InspectionTargetResolver = (args) =>
       Effect.gen(function* () {
         if (!isActive() || (yield* CurrentWorkspaceReadPhase) !== phase)
-          return yield* inspectDesiredMcpServerUncached(args);
+          return yield* resolveConfiguredMcpTargetAdmissions(args);
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const targetArgs = {
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          agentIds: args.agentIds,
+          nativeDirectoryInputs: args.nativeDirectoryInputs,
+        };
+        const key = JSON.stringify({
+          ...targetArgs,
+          nativeResolutionRoot: (yield* NativeResolutionRoot) ?? null,
+        });
+        const previous = targetCells.get(key);
+        // A consumer observing through another file system resolves live.
+        if (previous !== undefined && (previous.fs !== fs || previous.path !== path))
+          return yield* resolveConfiguredMcpTargetAdmissions(args);
+        const groups =
+          previous?.groups ?? (yield* Effect.cached(resolveConfiguredMcpTargets(targetArgs)));
+        if (previous === undefined && isActive()) targetCells.set(key, { fs, path, groups });
+        return { groups: structuredClone(yield* groups), admitted: Object.freeze([]) };
+      });
+    const observe = (args: InspectDesiredMcpServerArgs) =>
+      Effect.gen(function* () {
+        if (!isActive() || (yield* CurrentWorkspaceReadPhase) !== phase)
+          return yield* observeDesiredMcpServer(args, resolveInspectionTargets);
         const key = JSON.stringify({
           nativeDirectoryInputs: args.nativeDirectoryInputs,
           workspaceRoot: args.workspaceRoot,
@@ -772,23 +980,51 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
         });
         const previous = cells.get(key);
         if (previous !== undefined) return yield* previous;
-        const cell = yield* Effect.cached(inspectDesiredMcpServerUncached(args));
+        const cell = yield* Effect.cached(observeDesiredMcpServer(args, resolveTargets));
         const selected = cells.get(key) ?? cell;
         if (isActive()) cells.set(key, selected);
         return yield* selected;
-      }).pipe(Effect.map(copyMcpInspection));
+      });
     return yield* withNativeConfigReadView(
       effect.pipe(
-        Effect.provideService(McpInspectionReadView, { inspect, phase, isActive, close }),
+        Effect.provideService(McpInspectionReadView, { observe, phase, isActive, close }),
       ),
     ).pipe(Effect.ensuring(Effect.sync(close)));
   });
 
 /** Use the phase's detailed observation when one is explicitly in scope. */
-export const inspectDesiredMcpServer: typeof inspectDesiredMcpServerUncached = (args) =>
+export const inspectDesiredMcpServer: InspectDesiredMcpServer = (args) =>
   Effect.gen(function* () {
     const view = yield* Effect.serviceOption(McpInspectionReadView);
-    return yield* Option.isSome(view)
-      ? view.value.inspect(args)
-      : inspectDesiredMcpServerUncached(args);
+    return Option.isSome(view)
+      ? copyMcpInspection((yield* view.value.observe(args)).inspection)
+      : (yield* observeDesiredMcpServer(args, resolveInspectionTargets)).inspection;
+  });
+
+/**
+ * Inspect a disabled connection as `inspectDesiredMcpServer` does, with what
+ * the inspection observed of each configured target's native file. The
+ * withdrawal copy is made only when it is requested, so a current inspection
+ * copies nothing.
+ */
+export const inspectDisabledMcpServerForWithdrawal = (
+  args: InspectDesiredMcpServerArgs & {
+    readonly node: DesiredMcpServerSubject & { readonly enabled: false };
+  },
+) =>
+  Effect.gen(function* () {
+    const view = yield* Effect.serviceOption(McpInspectionReadView);
+    const observed = Option.isSome(view)
+      ? yield* view.value.observe(args)
+      : yield* observeDesiredMcpServer(args, resolveInspectionTargets);
+    const withdrawal = observed.withdrawal;
+    // The observation of a disabled connection is always its disabled inspection.
+    if (withdrawal === undefined)
+      return yield* Effect.die(`MCP connection ${args.node.name} was not inspected as disabled`);
+    return {
+      inspection: Option.isSome(view)
+        ? copyMcpInspection(observed.inspection)
+        : observed.inspection,
+      withdrawal: Effect.sync(() => copyMcpWithdrawal(withdrawal)),
+    };
   });

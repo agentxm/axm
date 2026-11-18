@@ -1,6 +1,7 @@
-import type * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../locations/index.js";
-import { NativePlatformTest, withDetailedWork } from "../../locations/testing.js";
+import { NativePlatformTest, withDetailedWork, workObservations } from "../../locations/testing.js";
 import { CanonicalNativePathLive } from "../../locations/live.js";
 import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
@@ -8,14 +9,21 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
-import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
+import { NativeWriteAuthority } from "../../agent-adapters/index.js";
+import { readContainerReceipts } from "../../locations/index.js";
+import { WorkspaceFileWriteLocks } from "../../settlement/index.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
+import { NativeWriteAuthorityLive } from "../live.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as EffectFileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
 import { afterEach, beforeEach } from "vitest";
 import {
+  applyInstructionProjection,
+  assertInstructionsGitignoreSafe,
   assertInstructionTargetsSafe,
   instructionProjectionEffects,
   recordIdenticalInstructionCopies,
@@ -28,9 +36,16 @@ import {
   removeInstructionsGitignore,
   resolveInstructionMechanism,
   syncInstructions,
+  withInstructionRowChanges,
+  type InstructionProjectionRows,
+  type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
-import { observeInstructionSurfacePlans, reconcileInstructions } from "./reconciliation.js";
+import {
+  instructionReconciliationReadiness,
+  observeInstructionSurfacePlans,
+  reconcileInstructions,
+} from "./reconciliation.js";
 import { planAggregateProjection } from "../planning.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
 import { ProjectionRowsTest } from "../../workspace-state/testing.js";
@@ -1604,6 +1619,171 @@ describe("agent instructions", () => {
     ),
   );
 
+  describe("prior-membership route targets", () => {
+    /**
+     * One observation asked for the prior membership's routes, beside an
+     * observation of that membership alone: the routes an agent addition
+     * compares against.
+     */
+    const priorRoutes = (args: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly priorConfiguredAgents: ReadonlyArray<string>;
+      readonly prospectiveRoots?: ReadonlyArray<string>;
+    }) =>
+      Effect.gen(function* () {
+        const recorded = yield* rows;
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: args.configuredAgents,
+          priorConfiguredAgents: args.priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: recorded,
+          ...(args.prospectiveRoots === undefined
+            ? {}
+            : { prospectiveRoots: args.prospectiveRoots }),
+        });
+        const prior = yield* observeInstructionProjection({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: args.priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: recorded,
+        });
+        return {
+          snapshot,
+          derived: snapshot.priorRouteTargets,
+          observed: prior.plan.items.flatMap((item) =>
+            item.action === "skip" ? [] : [item.targetPath],
+          ),
+        };
+      });
+
+    it.effect("keeps a shared native route and every root's routes", () =>
+      run(
+        Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, "docs"));
+          fs.mkdirSync(path.join(tempDir, "notes"));
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          fs.writeFileSync(path.join(tempDir, "docs", "AGENTS.md"), "# Docs\n");
+          fs.writeFileSync(path.join(tempDir, "notes", "AGENTS.md"), "");
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["codex", "claude-code", "opencode"],
+            priorConfiguredAgents: ["codex", "claude-code"],
+          });
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([
+            path.join(tempDir, "AGENTS.md"),
+            path.join(tempDir, "CLAUDE.md"),
+            path.join(tempDir, "docs", "AGENTS.md"),
+            path.join(tempDir, "docs", "CLAUDE.md"),
+            path.join(tempDir, "notes", "AGENTS.md"),
+          ]);
+        }),
+      ),
+    );
+
+    it.effect("drops an empty source's alias even at a prospective root", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "");
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+            prospectiveRoots: [tempDir],
+          });
+          expect(snapshot.status.items.map((item) => item.agentId)).toEqual([
+            "claude-code",
+            "gemini-cli",
+          ]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("ignores a root only an added agent's alias evidences", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Gemini\n");
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("keeps a prior agent's recorded route without a source", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+          fs.rmSync(path.join(tempDir, "AGENTS.md"));
+          fs.rmSync(path.join(tempDir, "CLAUDE.md"));
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([path.join(tempDir, "CLAUDE.md")]);
+        }),
+      ),
+    );
+
+    it.effect("ignores a root only an added agent's recorded route adds", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          yield* sync({ configuredAgents: ["gemini-cli"], symlinkSupported: false });
+          fs.rmSync(path.join(tempDir, "AGENTS.md"));
+          fs.rmSync(path.join(tempDir, "GEMINI.md"));
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("ignores a prospective root without a source", () =>
+      run(
+        Effect.gen(function* () {
+          const { snapshot, derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code", "gemini-cli"],
+            priorConfiguredAgents: ["claude-code"],
+            prospectiveRoots: [tempDir],
+          });
+          expect(snapshot.plan.roots).toEqual([tempDir]);
+          expect(derived).toEqual(observed);
+          expect(derived).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("derives nothing for a prior agent that is no longer configured", () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+          const { derived, observed } = yield* priorRoutes({
+            configuredAgents: ["claude-code"],
+            priorConfiguredAgents: ["gemini-cli"],
+          });
+          expect(derived).toBeUndefined();
+          expect(observed).toEqual([path.join(tempDir, "GEMINI.md")]);
+        }),
+      ),
+    );
+  });
+
   it.effect("removes stale aliases without a managed gitignore region to consult", () =>
     run(
       Effect.gen(function* () {
@@ -2308,6 +2488,1235 @@ describe("agent instructions", () => {
           expect(failure.detail).toContain("malformed AXM region fences");
         }
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(malformed);
+      }),
+    ),
+  );
+});
+
+/**
+ * The live insertion authority over a recording filesystem, counting store
+ * lock acquisitions beneath it and the authority operations callers make.
+ */
+const countedAuthority = (root: string) => {
+  const acquisitions: Array<string> = [];
+  const operations: Array<string> = [];
+  const locks = Layer.effect(
+    WorkspaceFileWriteLocks,
+    Effect.map(WorkspaceFileWriteLocks, (inner) =>
+      WorkspaceFileWriteLocks.of({
+        withLock: (target, effect) =>
+          Effect.suspend(() => {
+            acquisitions.push(target);
+            return inner.withLock(target, effect);
+          }),
+      }),
+    ),
+  ).pipe(Layer.provide(WorkspaceFileWriteLocksLive));
+  const counted =
+    <Args extends ReadonlyArray<unknown>, A, E, R>(
+      name: string,
+      operation: (...args: Args) => Effect.Effect<A, E, R>,
+    ) =>
+    (...args: Args) =>
+      Effect.suspend(() => {
+        operations.push(name);
+        return operation(...args);
+      });
+  const authority = Layer.effect(
+    NativeWriteAuthority,
+    Effect.map(NativeWriteAuthority, (inner) =>
+      NativeWriteAuthority.of({
+        ...inner,
+        captureInsertion: counted("captureInsertion", inner.captureInsertion),
+        resolveInsertions: counted("resolveInsertions", inner.resolveInsertions),
+        withdrawInsertions: counted("withdrawInsertions", inner.withdrawInsertions),
+        retireInsertion: counted("retireInsertion", inner.retireInsertion),
+        forgetInsertion: counted("forgetInsertion", inner.forgetInsertion),
+        forgetInsertions: counted("forgetInsertions", inner.forgetInsertions),
+      }),
+    ),
+  ).pipe(
+    Layer.provide(NativeWriteAuthorityLive),
+    Layer.provide(Layer.merge(WorkspaceReadTest({ baseDir: root }), locks)),
+  );
+  return {
+    layer: authority.pipe(Layer.provideMerge(layerRecordingFileSystem(NodeServices.layer))),
+    locks: (target: string) => acquisitions.filter((acquired) => acquired === target).length,
+    operations: () => [...operations],
+    reset: () => {
+      acquisitions.length = 0;
+      operations.length = 0;
+    },
+  };
+};
+
+describe("instruction ignore-pattern withdrawal through the live authority", () => {
+  const NO_ROWS = new Map();
+  /** A git workspace whose ignore file routes three agents' instruction aliases. */
+  const routedWorkspace = (baseline: string | undefined) =>
+    Effect.gen(function* () {
+      const files = yield* EffectFileSystem.FileSystem;
+      const root = yield* files.realPath(yield* files.makeTempDirectoryScoped());
+      yield* files.makeDirectory(path.join(root, ".git"));
+      yield* files.writeFileString(path.join(root, "AGENTS.md"), "source\n");
+      if (baseline !== undefined)
+        yield* files.writeFileString(path.join(root, ".gitignore"), baseline);
+      const configuredAgents = ["claude-code", "gemini-cli", "junie"];
+      const args = {
+        workspaceRoot: root,
+        scope: "project" as const,
+        config: IGNORED,
+        symlinkSupported: true,
+        rows: NO_ROWS,
+      };
+      return {
+        root,
+        args,
+        configuredAgents,
+        gitignore: path.join(root, ".gitignore"),
+        store: path.join(root, ".axm", "projection-containers.json"),
+      };
+    });
+
+  it.effect("forgets every removed pattern in one store update", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace("dist/\n");
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: workspace.configuredAgents,
+          eligibleAgentIds: workspace.configuredAgents,
+          dryRun: false,
+        });
+        const routed = yield* files.readFileString(workspace.gitignore);
+        expect(routed.match(/^\/.+$/gmu)).toHaveLength(3);
+        recording.reset();
+        counted.reset();
+        yield* removeInstructionsGitignore({
+          workspaceRoot: workspace.root,
+          rows: NO_ROWS,
+          dryRun: false,
+        });
+        expect(yield* files.readFileString(workspace.gitignore)).toBe("dist/\n");
+        expect({
+          operations: counted.operations(),
+          // One update for the restoring record and one for all three forgets.
+          storeLocks: counted.locks(workspace.store),
+          storeReads: recording.calls({ path: workspace.store, method: "readFile" }).length,
+          storeTempWrites: recording
+            .calls({ method: "writeFile" })
+            .filter(({ path: written }) => written.startsWith(`${workspace.store}.tmp.`)).length,
+          gitignoreLeaf: recording.calls({ path: workspace.gitignore, method: "readLink" }).length,
+        }).toEqual({
+          operations: ["withdrawInsertions", "captureInsertion", "forgetInsertions"],
+          storeLocks: 2,
+          // The withdrawal gate, the capture, and one locked read per update.
+          storeReads: 4,
+          storeTempWrites: 2,
+          // One entry-mode forget admission among the withdrawal and publication work.
+          gitignoreLeaf: 19,
+        });
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("forgets a replaced pattern in the call that renders its replacement", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace("dist/\n");
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const sync = (configuredAgents: ReadonlyArray<string>) =>
+          syncInstructions({
+            ...workspace.args,
+            configuredAgents,
+            eligibleAgentIds: configuredAgents,
+            dryRun: false,
+          });
+        const ignoreUnits = Effect.map(
+          readContainerReceipts(path.join(workspace.root, ".axm")),
+          ({ entries }) =>
+            entries
+              .filter(({ identity }) => identity.physicalPath === workspace.gitignore)
+              .map(({ kind, unit }) => `${kind}:${unit}`),
+        );
+        yield* sync(["claude-code", "junie"]);
+        expect(yield* ignoreUnits).toEqual([
+          'inserted-key:["instruction-ignore-pattern","/.junie/AGENTS.md"]',
+          'inserted-key:["instruction-ignore-pattern","/CLAUDE.md"]',
+        ]);
+        counted.reset();
+        yield* sync(["claude-code", "gemini-cli"]);
+        const ignored = yield* files.readFileString(workspace.gitignore);
+        expect(ignored).toContain("/GEMINI.md");
+        expect(ignored).not.toContain("/.junie/AGENTS.md");
+        // The in-place replacement publishes, then forgets the removed pattern.
+        expect(counted.operations()).toEqual(["captureInsertion", "forgetInsertions"]);
+        expect(yield* ignoreUnits).toEqual([
+          'inserted-key:["instruction-ignore-pattern","/CLAUDE.md"]',
+        ]);
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("resolves only and changes nothing when a dry run removes patterns", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace(undefined);
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: workspace.configuredAgents,
+          eligibleAgentIds: workspace.configuredAgents,
+          dryRun: false,
+        });
+        const before = {
+          gitignore: yield* files.readFileString(workspace.gitignore),
+          store: yield* files.readFileString(workspace.store),
+        };
+        recording.reset();
+        counted.reset();
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: ["claude-code"],
+          dryRun: true,
+        });
+        expect({
+          operations: counted.operations(),
+          storeWrites: recording
+            .calls({ method: "writeFile" })
+            .filter(({ path: written }) => written.startsWith(workspace.store)).length,
+          gitignoreWrites: recording.writes(workspace.gitignore),
+        }).toEqual({ operations: ["resolveInsertions"], storeWrites: 0, gitignoreWrites: 0 });
+        expect({
+          gitignore: yield* files.readFileString(workspace.gitignore),
+          store: yield* files.readFileString(workspace.store),
+        }).toEqual(before);
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+/**
+ * Work one instruction call repeats on the same admitted file. Counts are exact
+ * for these fixtures: a real temporary workspace observed through a recording
+ * filesystem, reset after setup.
+ */
+describe("instruction projection reads each prepared input once", () => {
+  const NO_ROWS = new Map();
+  const WITNESS_HASH = "axm.hash.instruction-witness";
+
+  /** A real workspace whose canonical source is `AGENTS.md`, observed through a recording filesystem. */
+  const workspace = (files: {
+    readonly git?: boolean;
+    readonly links?: Readonly<Record<string, string>>;
+    readonly copies?: ReadonlyArray<string>;
+  }) =>
+    Effect.gen(function* () {
+      const host = yield* EffectFileSystem.FileSystem;
+      const root = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+      if (files.git === true) yield* host.makeDirectory(path.join(root, ".git"));
+      yield* host.writeFileString(path.join(root, "AGENTS.md"), "# Workspace\n");
+      for (const [link, target] of Object.entries(files.links ?? {}))
+        yield* host.symlink(target, path.join(root, link));
+      for (const copy of files.copies ?? [])
+        yield* host.writeFileString(path.join(root, copy), "# Workspace\n");
+      return {
+        root,
+        source: path.join(root, "AGENTS.md"),
+        gitignore: path.join(root, ".gitignore"),
+        git: path.join(root, ".git"),
+      };
+    });
+
+  const observeAt = (
+    root: string,
+    args: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly config?: ResolvedInstructionsConfig;
+      readonly symlinkSupported: boolean;
+    },
+  ) =>
+    observeInstructionProjection({
+      workspaceRoot: root,
+      scope: "project",
+      configuredAgents: args.configuredAgents,
+      config: args.config ?? TRACKED,
+      symlinkSupported: args.symlinkSupported,
+      rows: NO_ROWS,
+    });
+
+  const recorded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provide(layerRecordingFileSystem(NodeServices.layer)),
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(NativeWriteAuthorityPermissive, NativePlatformTest, CanonicalNativePathLive),
+      ),
+    );
+
+  const witnessHashes = (facts: ReadonlyArray<{ readonly kind: string }>) =>
+    facts.filter((fact) => fact.kind === WITNESS_HASH).length;
+
+  it.effect("reads each admitted referent once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "CLAUDE.md": "AGENTS.md" }, copies: ["GEMINI.md"] });
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "owned-unrecorded-identical", "copy"],
+        ]);
+        expect({
+          source: recording.contentReads(ws.source),
+          copy: recording.contentReads(path.join(ws.root, "GEMINI.md")),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({ source: 1, copy: 1, witnessHashes: 4 });
+      }),
+    ),
+  );
+
+  it.effect("derives the prior membership's route targets from one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "CLAUDE.md": "AGENTS.md" } });
+        const priorConfiguredAgents = ["claude-code"];
+        // What a step planning an agent addition needs: the prior membership's
+        // route targets, from the observation itself when it can derive them,
+        // otherwise from a second observation of the prior membership.
+        const priorTargets = (snapshot: InstructionProjectionSnapshot) =>
+          snapshot.priorRouteTargets === undefined
+            ? observeAt(ws.root, {
+                configuredAgents: priorConfiguredAgents,
+                symlinkSupported: true,
+              }).pipe(
+                Effect.map((prior) =>
+                  prior.plan.items.flatMap((item) =>
+                    item.action === "skip" ? [] : [item.targetPath],
+                  ),
+                ),
+              )
+            : Effect.succeed(snapshot.priorRouteTargets);
+        recording.reset();
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          priorConfiguredAgents,
+          config: TRACKED,
+          symlinkSupported: true,
+          rows: NO_ROWS,
+        });
+        const targets = yield* priorTargets(snapshot);
+        const counted = {
+          rootListings: recording.counts(ws.root).readDirectory ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        };
+        recording.reset();
+        // The same observation without a prior membership does the same work.
+        const unasked = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        const unaskedCounts = {
+          rootListings: recording.counts(ws.root).readDirectory ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        };
+        const independent = yield* observeAt(ws.root, {
+          configuredAgents: priorConfiguredAgents,
+          symlinkSupported: true,
+        });
+        expect(targets).toEqual([path.join(ws.root, "CLAUDE.md")]);
+        expect(targets).toEqual(
+          independent.plan.items.flatMap((item) =>
+            item.action === "skip" ? [] : [item.targetPath],
+          ),
+        );
+        expect("priorRouteTargets" in unasked).toBe(false);
+        expect({ counted, unaskedCounts }).toEqual({
+          // One observation lists the workspace root five times, during its
+          // discovery walk and its route checks, and reads the source once.
+          counted: { rootListings: 5, sourceReads: 1 },
+          unaskedCounts: { rootListings: 5, sourceReads: 1 },
+        });
+      }),
+    ),
+  );
+
+  it.effect("admits a source shared by planned items once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.health, item.ownership]),
+        ).toEqual([
+          ["claude-code", "missing-target", "absent"],
+          ["gemini-cli", "missing-target", "absent"],
+        ]);
+        expect(snapshot.status.missingSources).toEqual([]);
+        expect({
+          // One admission shared by both planned items and the missing-source
+          // check, then the source witness's own entry and content admissions.
+          source: recording.counts(ws.source),
+          contentReads: recording.contentReads(ws.source),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({
+          source: { readFile: 1, readLink: 6, realPath: 5, stat: 6 },
+          contentReads: 1,
+          witnessHashes: 4,
+        });
+      }),
+    ),
+  );
+
+  for (const [name, arrange] of [
+    [
+      "an escaping link",
+      (source: string, outside: string) => {
+        fs.rmSync(source);
+        fs.writeFileSync(path.join(outside, "AGENTS.md"), "# Foreign\n");
+        fs.symlinkSync(path.join(outside, "AGENTS.md"), source);
+      },
+    ],
+    [
+      "a hard link",
+      (source: string, outside: string) => fs.linkSync(source, path.join(outside, "AGENTS.md")),
+    ],
+  ] as const)
+    it.effect(`reports a source with ${name} missing for every planned item`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const host = yield* EffectFileSystem.FileSystem;
+          const recording = yield* FileSystemRecorder;
+          const ws = yield* workspace({});
+          const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+          arrange(ws.source, outside);
+          recording.reset();
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code", "gemini-cli"],
+            symlinkSupported: true,
+          });
+          expect(snapshot.status.items.map((item) => [item.agentId, item.health])).toEqual([
+            ["claude-code", "missing-source"],
+            ["gemini-cli", "missing-source"],
+          ]);
+          expect(snapshot.status.missingSources).toEqual([ws.source]);
+          expect(recording.contentReads(ws.source)).toBe(0);
+        }),
+      ),
+    );
+
+  it.effect("admits a user-scope source separately for the missing-source check", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const home = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const configRoot = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const external = path.join(configRoot, "AGENTS.md");
+        yield* host.writeFileString(external, "# User\n");
+        yield* host.symlink(external, path.join(home, "AGENTS.md"));
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: home,
+          scope: "user",
+          nativeDirectoryInputs: {
+            skillsDirectoryOverrides: {},
+            userConfigRootOverrides: { "claude-code": configRoot },
+          },
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+        });
+        // The planned item reads the source through the declared config root;
+        // the workspace-only missing-source admission refuses the same link.
+        expect(snapshot.status.items.map((item) => item.health)).toEqual(["missing-target"]);
+        expect(snapshot.status.missingSources).toEqual([path.join(home, "AGENTS.md")]);
+      }),
+    ),
+  );
+
+  for (const mechanism of ["symlink", "copy"] as const)
+    it.effect(`publishes the bytes its own witness verified for a ${mechanism} target`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const recording = yield* FileSystemRecorder;
+          const ws = yield* workspace({});
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code"],
+            symlinkSupported: mechanism === "symlink",
+          });
+          const observations = workObservations(false);
+          recording.reset();
+          const applied = yield* applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }).pipe(observations.provide);
+          const target = path.join(ws.root, "CLAUDE.md");
+          expect(applied.written).toEqual([target]);
+          expect(fs.lstatSync(target).isSymbolicLink()).toBe(mechanism === "symlink");
+          expect(fs.readFileSync(target, "utf-8")).toBe("# Workspace\n");
+          expect({
+            // Prepare's re-observation, the whole-snapshot witness, and the
+            // per-target witness whose bytes are published.
+            source: recording.contentReads(ws.source),
+            witnessHashes: witnessHashes(observations.facts),
+          }).toEqual({ source: 3, witnessHashes: 5 });
+        }),
+      ),
+    );
+
+  it.effect("records an identical copy from the bytes its own witness verified", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ copies: ["CLAUDE.md"] });
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        const records = yield* recordIdenticalInstructionCopies(snapshot);
+        expect(records.map((change) => change.path)).toEqual(["CLAUDE.md"]);
+        // Prepare's re-observation and the record's own witness.
+        expect(recording.contentReads(ws.source)).toBe(2);
+      }),
+    ),
+  );
+
+  it.effect("reads a source shared by alias items once while preparing", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: TRACKED,
+          snapshot,
+          dryRun: false,
+        });
+        // One prepare read, the whole-snapshot witness, one witness per target.
+        expect(recording.contentReads(ws.source)).toBe(4);
+      }),
+    ),
+  );
+
+  it.effect("refuses a source edited after observation before publishing anything", () =>
+    recorded(
+      Effect.gen(function* () {
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        fs.writeFileSync(ws.source, "# Edited\n");
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            category: "conflict",
+            detail: `Instruction input changed after observation: ${ws.source}`,
+          });
+        expect(fs.existsSync(path.join(ws.root, "CLAUDE.md"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("never publishes verified bytes of a source outside the workspace root", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const home = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const configRoot = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const external = path.join(configRoot, "AGENTS.md");
+        yield* host.writeFileString(external, "# User\n");
+        yield* host.symlink(external, path.join(home, "AGENTS.md"));
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: home,
+          scope: "user",
+          nativeDirectoryInputs: {
+            skillsDirectoryOverrides: {},
+            userConfigRootOverrides: { "claude-code": configRoot },
+          },
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+        });
+        const target = path.join(configRoot, "CLAUDE.md");
+        expect(snapshot.status.items.map((item) => [item.targetFile, item.health])).toEqual([
+          [target, "missing-target"],
+        ]);
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: home,
+            config: TRACKED,
+            snapshot,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            category: "internal",
+            detail: `Instruction source disappeared before projection: ${external}`,
+          });
+        expect(fs.existsSync(target)).toBe(false);
+      }),
+    ),
+  );
+
+  /** A .gitignore the live fence check refuses, arranged in `root`. */
+  const unsafeGitignores = [
+    [
+      "an escaping link",
+      (root: string, outside: string) => {
+        fs.writeFileSync(path.join(outside, "ignore"), "dist/\n");
+        fs.symlinkSync(path.join(outside, "ignore"), path.join(root, ".gitignore"));
+      },
+    ],
+    [
+      "a dangling link",
+      (root: string, outside: string) =>
+        fs.symlinkSync(path.join(outside, "missing"), path.join(root, ".gitignore")),
+    ],
+    [
+      "a hard link",
+      (root: string, outside: string) => {
+        fs.writeFileSync(path.join(root, ".gitignore"), "dist/\n");
+        fs.linkSync(path.join(root, ".gitignore"), path.join(outside, "ignore"));
+      },
+    ],
+    [
+      "malformed region fences",
+      (root: string) =>
+        fs.writeFileSync(
+          path.join(root, ".gitignore"),
+          "dist/\n# axm:instruction-aliases\n**/CLAUDE.md\n",
+        ),
+    ],
+  ] as const;
+
+  for (const [name, arrange] of unsafeGitignores)
+    it.effect(`refuses readiness for a .gitignore with ${name} exactly as the live check`, () =>
+      recorded(
+        Effect.gen(function* () {
+          const host = yield* EffectFileSystem.FileSystem;
+          const ws = yield* workspace({ git: true });
+          const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+          arrange(ws.root, outside);
+          const snapshot = yield* observeAt(ws.root, {
+            configuredAgents: ["claude-code"],
+            config: IGNORED,
+            symlinkSupported: true,
+          });
+          const live = yield* Effect.flip(assertInstructionsGitignoreSafe(ws.root));
+          const readiness = yield* instructionReconciliationReadiness({
+            snapshot,
+            workspaceRoot: ws.root,
+          });
+          if (Option.isNone(readiness)) throw new Error("Expected readiness to refuse");
+          const refusal = expectMaintenanceFailed(readiness.value);
+          expect(refusal).toEqual(live);
+          expect({ category: refusal.category, detail: refusal.detail }).toEqual({
+            category: live.category,
+            detail: live.detail,
+          });
+        }),
+      ),
+    );
+
+  for (const [name, arrange] of unsafeGitignores)
+    for (const dryRun of [true, false])
+      it.effect(
+        `refuses ${dryRun ? "previewing" : "applying"} aliases over a .gitignore with ${name} exactly as the live check`,
+        () =>
+          recorded(
+            Effect.gen(function* () {
+              const host = yield* EffectFileSystem.FileSystem;
+              const ws = yield* workspace({ git: true });
+              const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+              arrange(ws.root, outside);
+              const snapshot = yield* observeAt(ws.root, {
+                configuredAgents: ["claude-code"],
+                config: IGNORED,
+                symlinkSupported: true,
+              });
+              const live = yield* Effect.flip(assertInstructionsGitignoreSafe(ws.root));
+              const refusal = yield* Effect.flip(
+                applyInstructionProjection({
+                  workspaceRoot: ws.root,
+                  config: IGNORED,
+                  snapshot,
+                  dryRun,
+                }),
+              );
+              expect(refusal).toEqual(live);
+              expect(yield* host.exists(path.join(ws.root, "CLAUDE.md"))).toBe(false);
+            }),
+          ),
+      );
+
+  it.effect("checks .gitignore readiness live when the observation cannot decide it", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ git: true });
+        fs.writeFileSync(ws.gitignore, "dist/\n");
+        const observeView = (gitIndexView: boolean) =>
+          observeInstructionProjection({
+            workspaceRoot: ws.root,
+            scope: "project",
+            configuredAgents: ["claude-code"],
+            config: IGNORED,
+            symlinkSupported: true,
+            gitIndexView,
+            rows: NO_ROWS,
+          });
+        const liveChecks = (snapshot: InstructionProjectionSnapshot, workspaceRoot = ws.root) =>
+          Effect.gen(function* () {
+            recording.reset();
+            expect(
+              Option.isNone(yield* instructionReconciliationReadiness({ snapshot, workspaceRoot })),
+            ).toBe(true);
+            return recording.contentReads(ws.gitignore);
+          });
+        const working = yield* observeView(false);
+        const admission = working.gitignoreAdmission;
+        expect(admission?.earlyReferent).toEqual(Option.some(ws.gitignore));
+        expect(yield* liveChecks(working)).toBe(0);
+        // A Git-index view, a referent the early read did not admit, a hand-built
+        // snapshot, and another workspace spelling each read the file live.
+        expect(yield* liveChecks(yield* observeView(true))).toBe(1);
+        if (admission === undefined) throw new Error("Expected a recorded admission");
+        expect(
+          yield* liveChecks({
+            ...working,
+            gitignoreAdmission: { ...admission, earlyReferent: Option.some(ws.source) },
+          }),
+        ).toBe(1);
+        const { gitignoreAdmission: _recorded, ...handBuilt } = working;
+        expect(yield* liveChecks(handBuilt)).toBe(1);
+        expect(yield* liveChecks(working, `${ws.root}${path.sep}`)).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("decides readiness from the observation's own .gitignore admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ git: true });
+        const first = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
+        const applied = yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: IGNORED,
+          snapshot: first,
+          dryRun: false,
+        });
+        expect(applied.written).toContain(ws.gitignore);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
+        expect(snapshot.gitignore.managed).toBe(true);
+        const observed = {
+          git: recording.calls({ path: ws.git }).length,
+          gitignore: recording.counts(ws.gitignore),
+        };
+        recording.reset();
+        const readiness = yield* instructionReconciliationReadiness({
+          snapshot,
+          workspaceRoot: ws.root,
+        });
+        expect(Option.isNone(readiness)).toBe(true);
+        expect({
+          observed,
+          readiness: {
+            git: recording.calls({ path: ws.git }).length,
+            gitignore: recording.counts(ws.gitignore),
+          },
+        }).toEqual({
+          // The early read and the region's witness share one content read.
+          observed: { git: 1, gitignore: { readFile: 1, readLink: 6, realPath: 5, stat: 6 } },
+          readiness: { git: 0, gitignore: {} },
+        });
+      }),
+    ),
+  );
+
+  /** Calls naming `target` for the methods that resolve a native entry; `exists` probes are stats. */
+  const resolutions = (
+    recording: { readonly counts: (path: string) => Readonly<Record<string, number | undefined>> },
+    target: string,
+  ) => {
+    const counts = recording.counts(target);
+    return {
+      readLink: counts["readLink"] ?? 0,
+      stat: counts["stat"] ?? 0,
+      realPath: counts["realPath"] ?? 0,
+    };
+  };
+
+  it.effect("resolves a source shared by link aliases once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({
+          links: { "CLAUDE.md": "AGENTS.md", "GEMINI.md": "AGENTS.md" },
+        });
+        const observations = workObservations(false);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        }).pipe(observations.provide);
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "owned-current", "symlink"],
+        ]);
+        expect({
+          source: resolutions(recording, ws.source),
+          // The links themselves are classified and witnessed as before.
+          claude: resolutions(recording, path.join(ws.root, "CLAUDE.md")),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+          contentReads: recording.contentReads(ws.source),
+          witnessHashes: witnessHashes(observations.facts),
+        }).toEqual({
+          // Both links name the source: its entry is resolved once for both, not twice each.
+          source: { readLink: 7, stat: 7, realPath: 6 },
+          claude: { readLink: 9, stat: 4, realPath: 4 },
+          gemini: { readLink: 9, stat: 4, realPath: 4 },
+          contentReads: 1,
+          witnessHashes: 4,
+        });
+      }),
+    ),
+  );
+
+  it.effect("classifies each link alias by its own referent and a new link before writing", () =>
+    recorded(
+      Effect.gen(function* () {
+        const ws = yield* workspace({
+          links: { "CLAUDE.md": "AGENTS.md", "GEMINI.md": "other.md" },
+        });
+        fs.writeFileSync(path.join(ws.root, "other.md"), "# Workspace\n");
+        const mixed = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(
+          mixed.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([
+          ["claude-code", "owned-current", "symlink"],
+          ["gemini-cli", "unowned", "symlink"],
+        ]);
+        // A link created after observation is classified live before anything is written.
+        const gemini = path.join(ws.root, "GEMINI.md");
+        fs.rmSync(gemini);
+        const planned = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(planned.status.items.map((item) => item.ownership)).toEqual([
+          "owned-current",
+          "absent",
+        ]);
+        fs.symlinkSync("other.md", gemini);
+        const result = yield* Effect.result(
+          applyInstructionProjection({
+            workspaceRoot: ws.root,
+            config: TRACKED,
+            snapshot: planned,
+            dryRun: false,
+          }),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(expectMaintenanceFailed(result.failure)).toMatchObject({
+            detail: `Instruction reconciliation would overwrite files with unknown ownership: ${gemini}`,
+          });
+        expect(fs.readlinkSync(gemini)).toBe("other.md");
+      }),
+    ),
+  );
+
+  it.effect("resolves a stale link's referent and its source once when they coincide", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ links: { "GEMINI.md": "AGENTS.md" } });
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(
+          snapshot.status.staleTargets.map((item) => [
+            item.targetFile,
+            item.ownership,
+            item.observedForm,
+          ]),
+        ).toEqual([[path.join(ws.root, "GEMINI.md"), "owned-current", "symlink"]]);
+        expect({
+          source: resolutions(recording, ws.source),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+          contentReads: recording.contentReads(ws.source),
+        }).toEqual({
+          // The link's referent is the source itself: one resolution serves both.
+          source: { readLink: 7, stat: 7, realPath: 6 },
+          gemini: { readLink: 9, stat: 4, realPath: 4 },
+          contentReads: 1,
+        });
+      }),
+    ),
+  );
+
+  it.effect("keys each observed copy once in one observation", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const synced = yield* syncInstructions({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows: NO_ROWS,
+          dryRun: false,
+        });
+        const rows = withInstructionRowChanges(NO_ROWS, synced.rowChanges);
+        expect([...rows.keys()].sort()).toEqual(["CLAUDE.md", "GEMINI.md"]);
+        const claude = path.join(ws.root, "CLAUDE.md");
+        const gemini = path.join(ws.root, "GEMINI.md");
+        recording.reset();
+        const snapshot = yield* observeInstructionProjection({
+          workspaceRoot: ws.root,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: false,
+          rows,
+        });
+        expect(
+          [...snapshot.status.items, ...snapshot.status.staleTargets].map((item) => [
+            item.targetFile,
+            item.health,
+            item.ownership,
+            item.observedForm,
+          ]),
+        ).toEqual([
+          [claude, "ok", "owned-current", "copy"],
+          [gemini, "stale", "owned-current", "copy"],
+        ]);
+        expect(snapshot.orphanRows).toEqual([]);
+        expect({
+          claude: resolutions(recording, claude),
+          gemini: resolutions(recording, gemini),
+          root: recording.counts(ws.root)["realPath"] ?? 0,
+        }).toEqual({
+          // Classification keys each copy; the row check reuses that key.
+          claude: { readLink: 8, stat: 7, realPath: 6 },
+          gemini: { readLink: 8, stat: 7, realPath: 6 },
+          root: 28,
+        });
+      }),
+    ),
+  );
+
+  it.effect("keys absent alias targets as before", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(snapshot.status.items.map((item) => item.ownership)).toEqual(["absent", "absent"]);
+        expect({
+          claude: resolutions(recording, path.join(ws.root, "CLAUDE.md")),
+          gemini: resolutions(recording, path.join(ws.root, "GEMINI.md")),
+        }).toEqual({
+          claude: { readLink: 8, stat: 4, realPath: 0 },
+          gemini: { readLink: 8, stat: 4, realPath: 0 },
+        });
+      }),
+    ),
+  );
+
+  /** Every recorded call naming `target`, by method. */
+  const allCalls = (
+    recording: { readonly counts: (path: string) => Readonly<Record<string, number | undefined>> },
+    target: string,
+  ) => ({ ...recording.counts(target) });
+
+  it.effect("classifies an absent or directory target from its own content admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const absent = yield* workspace({ copies: ["GEMINI.md"] });
+        const occupied = yield* workspace({ copies: ["GEMINI.md"] });
+        yield* (yield* EffectFileSystem.FileSystem).makeDirectory(
+          path.join(occupied.root, "CLAUDE.md"),
+        );
+        const observeBoth = (root: string) =>
+          observeAt(root, {
+            configuredAgents: ["claude-code", "gemini-cli"],
+            symlinkSupported: true,
+          });
+        recording.reset();
+        const absentSnapshot = yield* observeBoth(absent.root);
+        const absentCounts = {
+          claude: allCalls(recording, path.join(absent.root, "CLAUDE.md")),
+          gemini: allCalls(recording, path.join(absent.root, "GEMINI.md")),
+        };
+        recording.reset();
+        const occupiedSnapshot = yield* observeBoth(occupied.root);
+        const occupiedCounts = {
+          claude: allCalls(recording, path.join(occupied.root, "CLAUDE.md")),
+          gemini: allCalls(recording, path.join(occupied.root, "GEMINI.md")),
+        };
+        const classified = (snapshot: InstructionProjectionSnapshot) =>
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]);
+        expect({
+          absent: classified(absentSnapshot),
+          occupied: classified(occupiedSnapshot),
+        }).toEqual({
+          absent: [
+            ["claude-code", "absent", "none"],
+            ["gemini-cli", "owned-unrecorded-identical", "copy"],
+          ],
+          occupied: [
+            ["claude-code", "unowned", "directory"],
+            ["gemini-cli", "owned-unrecorded-identical", "copy"],
+          ],
+        });
+        expect({ absentCounts, occupiedCounts }).toEqual({
+          // The admission that found the target absent or a directory decides
+          // its classification; the copy beside it is classified as before.
+          // An existing entry's capture takes its stat from its resolution.
+          absentCounts: {
+            claude: { readLink: 8, stat: 4 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 7 },
+          },
+          occupiedCounts: {
+            claude: { readDirectory: 1, readLink: 7, realPath: 5, stat: 6 },
+            gemini: { readFile: 1, readLink: 8, realPath: 6, stat: 7 },
+          },
+        });
+      }),
+    ),
+  );
+
+  it.effect("probes an existing target its content admission refuses before classifying it", () =>
+    recorded(
+      Effect.gen(function* () {
+        const host = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const outside = yield* host.realPath(yield* host.makeTempDirectoryScoped());
+        const target = path.join(ws.root, "CLAUDE.md");
+        yield* host.writeFileString(path.join(outside, "CLAUDE.md"), "# Foreign\n");
+        // A hard link is an ordinary file whose content admission is refused.
+        fs.linkSync(path.join(outside, "CLAUDE.md"), target);
+        recording.reset();
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(
+          snapshot.status.items.map((item) => [item.agentId, item.ownership, item.observedForm]),
+        ).toEqual([["claude-code", "unowned", "file"]]);
+        // The refused admission reads nothing, so the path's existence probe decides.
+        expect({
+          access: recording.counts(target)["access"] ?? 0,
+          contentReads: recording.contentReads(target),
+        }).toEqual({ access: 1, contentReads: 0 });
+        expect(fs.readFileSync(target, "utf8")).toBe("# Foreign\n");
+      }),
+    ),
+  );
+
+  it.effect("prepares an absent target without probing it again after its admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({});
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: false,
+        });
+        recording.reset();
+        const applied = yield* applyInstructionProjection({
+          workspaceRoot: ws.root,
+          config: TRACKED,
+          snapshot,
+          dryRun: true,
+        });
+        expect(applied.written).toEqual([path.join(ws.root, "GEMINI.md")]);
+        // Prepare's entry and content admissions and its classification's
+        // link check; no probe follows them.
+        expect(allCalls(recording, path.join(ws.root, "GEMINI.md"))).toEqual({
+          readLink: 5,
+          stat: 2,
+        });
+      }),
+    ),
+  );
+
+  it.effect("keys each prepared copy from its own entry admission", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const ws = yield* workspace({ copies: ["GEMINI.md"] });
+        const snapshot = yield* observeAt(ws.root, {
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: true,
+        });
+        expect(snapshot.status.items.map((item) => [item.ownership, item.observedForm])).toEqual([
+          ["owned-unrecorded-identical", "copy"],
+        ]);
+        recording.reset();
+        const records = yield* recordIdenticalInstructionCopies(snapshot);
+        expect(records.map((change) => change.path)).toEqual(["GEMINI.md"]);
+        expect({
+          target: allCalls(recording, path.join(ws.root, "GEMINI.md")),
+          rootRealPaths: recording.counts(ws.root)["realPath"] ?? 0,
+          sourceReads: recording.contentReads(ws.source),
+        }).toEqual({
+          // Prepare's entry admission, its classification and the record's
+          // witness; the row key reuses the admitted entry and still resolves
+          // the workspace root live. The entry's capture takes its stat from
+          // its resolution.
+          target: { readFile: 2, readLink: 7, realPath: 6, stat: 6 },
+          rootRealPaths: 17,
+          sourceReads: 2,
+        });
+      }),
+    ),
+  );
+
+  it.effect("checks the .gitignore fences once before an alias write", () =>
+    recorded(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const host = yield* EffectFileSystem.FileSystem;
+        const counted = (ws: { readonly git: string; readonly gitignore: string }) => ({
+          git: recording.calls({ path: ws.git }).length,
+          gitignore: allCalls(recording, ws.gitignore),
+          gitignoreReads: recording.contentReads(ws.gitignore),
+        });
+        const applyAt = (
+          root: string,
+          dryRun: boolean,
+          rows: InstructionProjectionRows = NO_ROWS,
+        ) =>
+          Effect.gen(function* () {
+            const snapshot = yield* observeInstructionProjection({
+              workspaceRoot: root,
+              scope: "project",
+              configuredAgents: ["claude-code"],
+              config: IGNORED,
+              symlinkSupported: true,
+              rows,
+            });
+            recording.reset();
+            return yield* applyInstructionProjection({
+              workspaceRoot: root,
+              config: IGNORED,
+              snapshot,
+              dryRun,
+            });
+          });
+        const preview = yield* workspace({ git: true });
+        yield* host.writeFileString(preview.gitignore, "dist/\n");
+        const previewed = yield* applyAt(preview.root, true);
+        const previewCounts = counted(preview);
+        const applied = yield* workspace({ git: true });
+        yield* host.writeFileString(applied.gitignore, "dist/\n");
+        const written = yield* applyAt(applied.root, false);
+        const appliedCounts = counted(applied);
+        // The region is current and recorded now: apply has no .gitignore change to check.
+        const current = yield* applyAt(
+          applied.root,
+          false,
+          withInstructionRowChanges(NO_ROWS, written.rowChanges),
+        );
+        const currentCounts = counted(applied);
+        expect(current.written).toEqual([]);
+        expect(previewed.written).toContain(preview.gitignore);
+        expect(written.written).toContain(applied.gitignore);
+        expect(yield* host.readFileString(applied.gitignore)).toContain("CLAUDE.md");
+        expect(yield* host.readFileString(preview.gitignore)).toBe("dist/\n");
+        expect({ previewCounts, appliedCounts, currentCounts }).toEqual({
+          // The region dry run walks to the Git root, admits and reads the
+          // .gitignore once before any write.
+          previewCounts: {
+            git: 1,
+            gitignore: { readFile: 1, readLink: 2, realPath: 2, stat: 2 },
+            gitignoreReads: 1,
+          },
+          // Apply then re-takes the region's witness and rewrites it under its lock.
+          appliedCounts: {
+            git: 2,
+            gitignore: {
+              access: 1,
+              readFile: 4,
+              readLink: 10,
+              realPath: 10,
+              // Two captures take the entry's stat from its resolution.
+              stat: 11,
+              writeFile: 1,
+            },
+            gitignoreReads: 4,
+          },
+          currentCounts: { git: 0, gitignore: {}, gitignoreReads: 0 },
+        });
       }),
     ),
   );

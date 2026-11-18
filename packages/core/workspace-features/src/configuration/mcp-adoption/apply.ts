@@ -33,7 +33,9 @@ import {
   validateAgentMcpConfigWrite,
   preflightNativeConfigReaders,
   validateInlineMcpServerTargets,
+  validateInlineMcpServerTargetsInOrder,
   syncInlineMcpServerToAgents,
+  withNativeConfigObservationView,
   NativeWriteAuthority,
   type CodingAgentFailure,
 } from "@agentxm/workspace-kernel/agent-adapters";
@@ -81,9 +83,21 @@ const readFailureToConfigurationFailed = (failure: {
     cause: failure,
   });
 
+/** One native MCP document as discovery read it, by the exact physical path it read. */
+interface McpDiscoveredText {
+  readonly path: string;
+  readonly raw: string;
+}
+
 /**
  * Discover the native MCP config sources the configured agents contribute for
- * this workspace scope, with unsupported-format findings.
+ * this workspace scope, with unsupported-format findings and the text of every
+ * source document read, for target validation in the same read phase.
+ *
+ * Agents that declare the same native file share, for this one discovery, its
+ * route check, its read and its fingerprint, and parse each exact text once
+ * per grammar; every source still decodes its own servers value. A failure is
+ * never shared: it ends discovery where it first occurs.
  */
 export const collectMcpNativeSources = (
   location: WorkspaceLocationService,
@@ -94,6 +108,34 @@ export const collectMcpNativeSources = (
     const sources: Array<McpNativeSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
+    const texts: Array<McpDiscoveredText> = [];
+    const routes = new Map<string, string>();
+    const reads = new Map<string, Option.Option<string>>();
+    const fingerprints = new Map<string, string>();
+    const resolveRoute = (target: McpNativeSource["target"]) => {
+      const routeKey = JSON.stringify([target.scope, target.path, target.nativeRoot ?? null]);
+      const known = routes.get(routeKey);
+      if (known !== undefined) return Effect.succeed(known);
+      return resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
+        Effect.tap((configPath) => Effect.sync(() => routes.set(routeKey, configPath))),
+        Effect.mapError(readFailureToConfigurationFailed),
+      );
+    };
+    const readSourceText = (filePath: string) => {
+      const known = reads.get(filePath);
+      if (known !== undefined) return Effect.succeed(known);
+      return readNativeMcpConfig(filePath).pipe(
+        Effect.tap((raw) => Effect.sync(() => reads.set(filePath, raw))),
+        Effect.mapError(readFailureToConfigurationFailed),
+      );
+    };
+    const fingerprintOf = (filePath: string, raw: string): string => {
+      const known = fingerprints.get(filePath);
+      if (known !== undefined) return known;
+      const computed = createHash("sha256").update(raw).digest("hex");
+      fingerprints.set(filePath, computed);
+      return computed;
+    };
     const addSource = (
       filePath: string,
       serversPath: McpNativeSource["serversPath"],
@@ -106,10 +148,9 @@ export const collectMcpNativeSources = (
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return Effect.gen(function* () {
-        const raw = yield* readNativeMcpConfig(filePath).pipe(
-          Effect.mapError(readFailureToConfigurationFailed),
-        );
+        const raw = yield* readSourceText(filePath);
         if (Option.isNone(raw)) return;
+        texts.push(Object.freeze({ path: filePath, raw: raw.value }));
         if (agentId === "github-copilot-cli" && location.scope === "project") {
           const decoded = yield* decodeJsonMcpConfig(
             filePath,
@@ -137,7 +178,7 @@ export const collectMcpNativeSources = (
           agentId,
           dialect,
           workspaceRoot: location.baseDir,
-          fingerprint: createHash("sha256").update(raw.value).digest("hex"),
+          fingerprint: fingerprintOf(filePath, raw.value),
           filePath,
           serversPath,
           target,
@@ -191,9 +232,7 @@ export const collectMcpNativeSources = (
           format: declaration.format,
           attribution: declaration.attribution ?? ("agent" as const),
         };
-        const configPath = yield* resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
-          Effect.mapError(readFailureToConfigurationFailed),
-        );
+        const configPath = yield* resolveRoute(target);
         yield* addSource(
           configPath,
           serversPath,
@@ -238,8 +277,12 @@ export const collectMcpNativeSources = (
         }
       }
     }
-    return { sources, skipped: Array.from(skipped.values()) };
-  });
+    return {
+      sources,
+      skipped: Array.from(skipped.values()),
+      texts: Object.freeze([...texts]),
+    };
+  }).pipe(withNativeConfigObservationView);
 
 const adoptNativeMcpEntry = (
   location: WorkspaceLocationService,
@@ -340,13 +383,131 @@ const settingsEntry = (candidate: McpAdoptionCandidate): McpServerEntry => ({
   ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
 });
 
-/** Every configured reader is checked before adoption publishes any desired state. */
-export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionCandidate>) =>
+const inlineTargetArgs = (location: WorkspaceLocationService) => ({
+  nativeDirectoryInputs: location.nativeDirectoryInputs,
+  workspaceRoot: location.baseDir,
+  scope: location.scope,
+});
+
+const inlineCandidate = (candidate: McpAdoptionCandidate) => ({
+  serverName: candidate.name,
+  entry: settingsEntry(candidate),
+  adoptions: candidate.adoptions,
+});
+
+/** Plan one candidate's inline entry against every configured reader of its targets. */
+const validateCandidateTargets = (
+  agentIds: ReadonlyArray<string>,
+  location: WorkspaceLocationService,
+  candidate: McpAdoptionCandidate,
+) =>
+  validateInlineMcpServerTargets(agentIds, {
+    ...inlineTargetArgs(location),
+    ...inlineCandidate(candidate),
+  }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+
+/**
+ * Plan every candidate's inline entry, in candidate order, against one
+ * resolution of the targets they share in this read phase and the documents
+ * discovery read in it.
+ */
+const validateCandidatesTargetsInOrder = (
+  agentIds: ReadonlyArray<string>,
+  location: WorkspaceLocationService,
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+  discovered: ReadonlyArray<McpDiscoveredText>,
+) =>
+  validateInlineMcpServerTargetsInOrder(
+    agentIds,
+    inlineTargetArgs(location),
+    candidates.map(inlineCandidate),
+    discovered,
+  ).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+
+/**
+ * Check, in candidate order, that every configured reader accepts each
+ * candidate's inline entry, without recomputing the adoption targets. The
+ * caller vouches that discovery read `discovered` in the same read phase.
+ */
+export const validateMcpAdoptionTargets = (
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+  discovered: ReadonlyArray<McpDiscoveredText>,
+) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const agentIds = yield* (yield* SettingsReader).configuredAgents;
+    yield* validateCandidatesTargetsInOrder(agentIds, location, candidates, discovered);
+  });
+
+/** The native locations one candidate's planned writes update. */
+const plannedWriteLocations = (
+  location: WorkspaceLocationService,
+  path: Path.Path,
+  serverName: string,
+  plan: Effect.Success<ReturnType<typeof validateCandidateTargets>>,
+): ReadonlyArray<NativeLocationOutcome> =>
+  plan.writes.map((write) => ({
+    scope: location.scope,
+    address: {
+      kind: "key-path",
+      path: write.path,
+      keys: [...write.config.serversPath, serverName],
+    },
+    aliases: [
+      ...new Set(
+        write.declaredTargets.map((target) =>
+          path.resolve(
+            location.baseDir,
+            target.scope === "user" && target.path.startsWith("~/")
+              ? target.path.slice(2)
+              : target.path,
+          ),
+        ),
+      ),
+    ].sort(),
+    configuredConsumers: write.agentIds,
+    potentialReaders: [],
+    policyReasons: [],
+    ownership: "declared",
+    proof: "effective-native-declaration",
+    state: "updated",
+    mechanism: "structured-entry",
+    availability: write.agentIds.map((agentId) => ({
+      agentId,
+      state: "unverified",
+      reason: "Native representation validated; agent configuration selection is not observable",
+    })),
+  }));
+
+/**
+ * Every configured reader is checked before adoption publishes any desired
+ * state. Each adoption's source document is read again and compared with the
+ * fingerprint discovery took, unless `sources` carries the documents discovery
+ * read: the caller then vouches that discovery read them in the same read
+ * phase, so their fingerprints already stand for what this phase reads, the
+ * candidates share one resolution of their targets, and a target that is one
+ * of those documents is validated against discovery's text.
+ */
+export const prepareMcpAdoptionTargets = (
+  candidates: ReadonlyArray<McpAdoptionCandidate>,
+  sources:
+    "verify" | { readonly discoveredInThisReadPhase: ReadonlyArray<McpDiscoveredText> } = "verify",
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
     const locations: Array<NativeLocationOutcome> = [];
+    if (sources !== "verify") {
+      for (const { serverName, plan } of yield* validateCandidatesTargetsInOrder(
+        agentIds,
+        location,
+        candidates,
+        sources.discoveredInThisReadPhase,
+      ))
+        locations.push(...plannedWriteLocations(location, path, serverName, plan));
+      return combineNativeLocationOutcomes(locations);
+    }
     for (const candidate of candidates) {
       for (const adoption of candidate.adoptions) {
         const raw = yield* readNativeMcpConfig(adoption.filePath).pipe(
@@ -361,49 +522,8 @@ export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionC
             detail: "Native MCP source document changed after discovery; discover the batch again",
           });
       }
-      const plan = yield* validateInlineMcpServerTargets(agentIds, {
-        nativeDirectoryInputs: location.nativeDirectoryInputs,
-        workspaceRoot: location.baseDir,
-        scope: location.scope,
-        serverName: candidate.name,
-
-        entry: settingsEntry(candidate),
-        adoptions: candidate.adoptions,
-      }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
-      for (const write of plan.writes)
-        locations.push({
-          scope: location.scope,
-          address: {
-            kind: "key-path",
-            path: write.path,
-            keys: [...write.config.serversPath, candidate.name],
-          },
-          aliases: [
-            ...new Set(
-              write.declaredTargets.map((target) =>
-                path.resolve(
-                  location.baseDir,
-                  target.scope === "user" && target.path.startsWith("~/")
-                    ? target.path.slice(2)
-                    : target.path,
-                ),
-              ),
-            ),
-          ].sort(),
-          configuredConsumers: write.agentIds,
-          potentialReaders: [],
-          policyReasons: [],
-          ownership: "declared",
-          proof: "effective-native-declaration",
-          state: "updated",
-          mechanism: "structured-entry",
-          availability: write.agentIds.map((agentId) => ({
-            agentId,
-            state: "unverified",
-            reason:
-              "Native representation validated; agent configuration selection is not observable",
-          })),
-        });
+      const plan = yield* validateCandidateTargets(agentIds, location, candidate);
+      locations.push(...plannedWriteLocations(location, path, candidate.name, plan));
     }
     return combineNativeLocationOutcomes(locations);
   });

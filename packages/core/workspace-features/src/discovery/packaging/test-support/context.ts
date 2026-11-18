@@ -5,6 +5,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { expect } from "vitest";
+import { listProjectEntries } from "../detect.js";
+import type { PackageDetector } from "../types.js";
 
 /**
  * Run the real parsers and readers over a fresh, byte-backed filesystem port.
@@ -30,3 +32,12 @@ export const withPackagingContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       ),
     );
   });
+
+/**
+ * Run one detector over `projectDir` with its own listing of that directory,
+ * as one detection gives it to each of its detectors.
+ */
+export const detectIn = (detector: PackageDetector, projectDir: string) =>
+  Effect.flatMap(listProjectEntries(projectDir), (projectEntries) =>
+    detector.detect(projectDir, projectEntries),
+  );

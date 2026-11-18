@@ -10,10 +10,12 @@ import * as FileSystem from "effect/FileSystem";
 import { valid } from "semver";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
+import { freezeWorkspaceValue } from "@agentxm/workspace-kernel/workspace-state";
 import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -158,6 +160,24 @@ const resolveMetadataPath = Effect.fn("discover.npm.resolveMetadataPath")(functi
   return Option.none<string>();
 });
 
+/** The members of installed metadata that the reader decodes. */
+const readerMetadataKeys = ["name", "version", "$schema", "agentExtensions"] as const;
+
+/**
+ * The installed metadata members the reader decodes, copied from the
+ * metadata resolution read and deep-frozen, so the reader decodes what
+ * detection observed without carrying the whole manifest.
+ */
+const readerMetadata = (metadata: unknown): Readonly<Record<string, unknown>> => {
+  const members: Record<string, unknown> = {};
+  if (Predicate.isObject(metadata)) {
+    for (const key of readerMetadataKeys) {
+      if (Object.hasOwn(metadata, key)) members[key] = metadata[key];
+    }
+  }
+  return freezeWorkspaceValue(members);
+};
+
 const resolveDependency = Effect.fn("discover.npm.resolveDependency")(function* (
   declaration: { readonly name: string; readonly specifier: string },
   source: string,
@@ -205,7 +225,11 @@ const resolveDependency = Effect.fn("discover.npm.resolveDependency")(function* 
     : {
         ...detected.value,
         declaration,
-        resolution: { state: "resolved" as const, metadataPath: metadataPath.value },
+        resolution: {
+          state: "resolved" as const,
+          metadataPath: metadataPath.value,
+          metadata: readerMetadata(parsed.value),
+        },
       };
 });
 
@@ -260,8 +284,8 @@ export const npmDetector: PackageDetector = {
 /**
  * npm package reader.
  *
- * Reads the resolved metadata location and extracts the portable recommendations.
- * Identity must still match the detector observation.
+ * Extracts the portable recommendations from the metadata that dependency
+ * resolution read. Identity must still match the detector observation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -270,11 +294,8 @@ export const npmReader: PackageReader = {
   read: Effect.fn("read.npm")(
     function* (pkg: DetectedPackage) {
       if (pkg.resolution?.state !== "resolved") return Option.none();
-      const content = yield* readFileOptional(pkg.resolution.metadataPath);
-      if (Option.isNone(content)) return Option.none();
-      const parsed = yield* parseJsonOptional(content.value, pkg.resolution.metadataPath);
-      if (Option.isNone(parsed)) return Option.none();
-      const identity = decodeInstalledPackage(parsed.value);
+      const metadata = pkg.resolution.metadata;
+      const identity = decodeInstalledPackage(metadata);
       const pkgName = pkg.purl.namespace ? `${pkg.purl.namespace}/${pkg.purl.name}` : pkg.purl.name;
       if (
         Result.isFailure(identity) ||
@@ -287,14 +308,14 @@ export const npmReader: PackageReader = {
         return Option.none();
       }
 
-      const containerResult = decodeAgentExtensionsContainer(parsed.value);
+      const containerResult = decodeAgentExtensionsContainer(metadata);
       if (Result.isFailure(containerResult)) {
         return Option.none();
       }
 
       if (containerResult.success.agentExtensions === undefined) return Option.none();
 
-      return yield* readAgentExtensions(parsed.value, `${pkgName}`);
+      return yield* readAgentExtensions(metadata, `${pkgName}`);
     },
     Effect.annotateLogs({ reader: "npm" }),
     Effect.withSpan("read.npm"),

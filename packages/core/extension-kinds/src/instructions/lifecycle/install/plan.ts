@@ -39,9 +39,9 @@ import {
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
-  applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   captureAgentOutputAuthority,
-  observeInstructionSurfacePlans,
+  observeObservedInstructionSurfacePlans,
   plannedInstructionContributorObservation,
 } from "@agentxm/workspace-kernel/projection";
 
@@ -103,9 +103,12 @@ export const planRuleInstall: (
     ),
   };
   const prepared = yield* ruleManager
-    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), nativeProjection)
+    .observedPrepareProjection(
+      intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+      nativeProjection,
+      observeObservedInstructionSurfacePlans,
+    )
     .pipe(
-      Effect.flatMap(observeInstructionSurfacePlans),
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
@@ -213,8 +216,7 @@ export const planRuleInstall: (
             readiness: "ready",
             exposureRefs,
             run: ruleManager
-              .projectionPlans(nativeProjection)
-              .pipe(Effect.flatMap(applyInstructionSurfacePlans))
+              .observedProjectionPlans(nativeProjection, applyObservedInstructionSurfacePlans)
               .pipe(
                 Effect.mapError(kernelFailureToStepFailure),
                 Effect.flatMap(() =>

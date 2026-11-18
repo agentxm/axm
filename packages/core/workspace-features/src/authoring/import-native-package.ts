@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { manifestSchemaForType } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
-import { importNativeSubagent } from "./import-native-subagent.js";
+import { importNativeSubagent, type NativeSourceInspection } from "./import-native-subagent.js";
 import {
   NativeImportConflict,
   NativeImportFailed,
@@ -42,10 +42,15 @@ const mapWriteError =
   (cause: unknown): NativeImportFailed =>
     new NativeImportFailed({ detail, cause });
 
+/**
+ * Refuse a source that is already a managed package, returning what the check
+ * observed about the source so the rest of the same import need not inspect
+ * it again. A file source's parent listing stays private to this check.
+ */
 const rejectManagedPackage = (
   sourcePath: string,
 ): Effect.Effect<
-  void,
+  NativeSourceInspection,
   NativeImportFailed | NativeImportInvalid,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -62,6 +67,13 @@ const rejectManagedPackage = (
         detail: `Source is already a managed AXM package (${manifest}); use fork instead of import`,
       });
     }
+    const inspection: NativeSourceInspection =
+      stat.type === "Directory"
+        ? { kind: "directory", entries: Object.freeze([...entries]) }
+        : stat.type === "File"
+          ? { kind: "file" }
+          : { kind: "other" };
+    return Object.freeze(inspection);
   });
 
 export const importNativeExtensionPackage = (
@@ -74,12 +86,14 @@ export const importNativeExtensionPackage = (
     if (args.target.type !== "skill" && args.target.type !== "subagent") {
       return yield* new NativeImportUnsupported({ type: args.target.type });
     }
-    yield* rejectManagedPackage(args.sourcePath);
+    // The inspection belongs to this call: the source is not written before
+    // the definition-file or copy choice reads it.
+    const source = yield* rejectManagedPackage(args.sourcePath);
     if (yield* fs.exists(args.targetDir).pipe(Effect.mapError(importFailed))) {
       return yield* new NativeImportConflict({ targetDir: args.targetDir });
     }
     if (args.target.type === "subagent") {
-      return yield* importNativeSubagent(args);
+      return yield* importNativeSubagent(args, source);
     }
     yield* fs
       .makeDirectory(args.targetDir, { recursive: true })
@@ -89,8 +103,7 @@ export const importNativeExtensionPackage = (
 
     switch (args.target.type) {
       case "skill": {
-        const stat = yield* fs.stat(args.sourcePath).pipe(Effect.mapError(importFailed));
-        if (stat.type === "Directory") {
+        if (source.kind === "directory") {
           yield* copyExtensionDirectory(args.sourcePath, path.join(args.targetDir, "src")).pipe(
             Effect.mapError(mapWriteError("Native skill content could not be copied")),
           );

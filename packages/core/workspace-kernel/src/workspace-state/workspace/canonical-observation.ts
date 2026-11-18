@@ -5,12 +5,27 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
+import {
+  computeMaterializedTreeDigestsMatching,
+  computeMaterializedTreeIntegrity,
+  computeMaterializedTreeIntegrityReading,
+  computeMaterializedTreeIntegrityWalking,
+  type CapturedTreeWalk,
+  type TreeIntegrity,
+  type WalkedFileText,
+} from "./materialized-tree.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { loadSubagentPackage, readExtensionManifest } from "@agentxm/extension-content";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  loadSubagentPackage,
+  readExtensionManifestCapture,
+  type DecodedSubagentPackage,
+  type ExtensionManifest,
+} from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionPathSourceFromLockEntry,
@@ -25,6 +40,7 @@ import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./ext
 import { McpSourceKey } from "./mcp-source-identity.js";
 import { desiredPackageKey, sameSourceIdentity, desiredMcpSourceKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../desired/lockfile/accepted-registry-version.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import {
   normalizeVersionRequest,
@@ -70,10 +86,56 @@ export type CanonicalObservation =
       readonly status: Exclude<CanonicalObservationStatus, "constraint-mismatch">;
     });
 
+/**
+ * The digest of the tree at `root`, computed earlier in the caller's read
+ * phase against the accepted row `accepted`, for a tree that phase judges
+ * again later. It stands in for hashing that tree only for that root and row.
+ */
+export interface VerifiedCanonicalTree {
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly integrity: TreeIntegrity;
+}
+
 interface ObserveCanonicalArgs {
   readonly layout: WorkspaceLayout;
   readonly desired: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;
+  readonly verifiedTree?: VerifiedCanonicalTree;
+  /**
+   * The judgement the caller already made of the node before reading its
+   * content. It stands in for judging again only when it was made with this
+   * path service from these exact layout, node and accepted row values.
+   */
+  readonly judged?: CanonicalPreContentJudgement;
+  /**
+   * Asks for the digests of the accepted tree the observation walks: the
+   * integrity it verified, and the package content hash of the same bytes
+   * when this returns true for the accepted row. They are handed out only
+   * from a walk whose integrity is the accepted one, by an observation that
+   * ends usable.
+   */
+  readonly digestAcceptedTree?: (accepted: LockEntry) => boolean;
+  /**
+   * Asks for the strict walk of the accepted tree as the observation made
+   * it, handed out only from a walk whose integrity is the accepted one, by
+   * an observation that ends usable. Not honoured alongside
+   * `digestAcceptedTree`, or where a verified digest stands for the walk.
+   */
+  readonly retainTreeWalk?: boolean;
+}
+
+/**
+ * The digests of the accepted tree at `root` an observation walked and found
+ * to be the accepted row's: its integrity, and its package content hash when
+ * the caller asked for one. Frozen; the bytes they were computed from are not
+ * kept.
+ */
+export interface ObservedTreeDigests {
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly treeIntegrity: TreeIntegrity;
+  readonly contentHash: Option.Option<SourceHash>;
 }
 
 export const canonicalPathForAcceptedExtension = (
@@ -102,22 +164,18 @@ export const canonicalPathForAcceptedExtension = (
   ).canonicalPath;
 };
 
+/** Whether a package of a type other than Subagent holds its required payload. */
 const hasRequiredPayload = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   root: string,
-  type: ExtensionType,
-): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> => {
+  type: Exclude<ExtensionType, "subagent">,
+): Effect.Effect<boolean> => {
   switch (type) {
     case "skill":
       return Effect.map(Effect.all([fs.exists(path.join(root, "src", "SKILL.md"))]), (exists) =>
         exists.some(Boolean),
       ).pipe(Effect.orElseSucceed(() => false));
-    case "subagent":
-      return loadSubagentPackage(root).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
-      );
     case "rule":
     case "hook":
     case "knowledge":
@@ -187,15 +245,50 @@ const constraintMismatchObservation = (args: {
   ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),
 });
 
+/**
+ * The digest an observation computed of the tree at `root` and found to
+ * differ from the accepted integrity it was judged against. It is formed
+ * only from a successful digest, never from a failed walk.
+ */
+interface ObservedTreeMismatch {
+  readonly root: string;
+  readonly acceptedIntegrity: TreeIntegrity;
+  readonly observed: TreeIntegrity;
+}
+
+/**
+ * Whether the canonical tree at `root` is byte-for-byte the accepted one,
+ * and, when its digest was computed and differs, that mismatch.
+ */
+const observeTreeAgainstAccepted = (
+  root: string,
+  accepted: Pick<LockEntry, "treeIntegrity">,
+): Effect.Effect<
+  { readonly matches: boolean; readonly mismatch?: ObservedTreeMismatch },
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.map(Effect.result(computeMaterializedTreeIntegrity(root)), (observed) =>
+    Result.isFailure(observed)
+      ? { matches: false }
+      : observed.success === accepted.treeIntegrity
+        ? { matches: true }
+        : {
+            matches: false,
+            mismatch: Object.freeze({
+              root,
+              acceptedIntegrity: accepted.treeIntegrity,
+              observed: observed.success,
+            }),
+          },
+  );
+
 /** Whether the canonical tree at `root` is byte-for-byte the accepted one. */
 const observedTreeMatchesAccepted = (
   root: string,
   accepted: Pick<LockEntry, "treeIntegrity">,
 ): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.map(
-    Effect.result(computeMaterializedTreeIntegrity(root)),
-    (observed) => Result.isSuccess(observed) && observed.success === accepted.treeIntegrity,
-  );
+  Effect.map(observeTreeAgainstAccepted(root, accepted), ({ matches }) => matches);
 
 /** The ref an acquisition is about to materialize, as far as reuse judges it. */
 export type RequestedCanonicalRef =
@@ -218,6 +311,44 @@ export type RequestedCanonicalRef =
       readonly name: string;
     };
 
+interface AcceptedCanonicalReuseArgs {
+  readonly canonicalPath: string;
+  readonly requested: RequestedCanonicalRef;
+  readonly accepted: Option.Option<LockEntry>;
+  readonly force: boolean;
+  /**
+   * A digest the caller's own observation, in the same read phase and with
+   * nothing written since, computed of `canonicalPath` against the accepted
+   * integrity and found different. It stands in for hashing that tree only
+   * to refuse reuse, and only for that exact root and accepted integrity.
+   */
+  readonly observedMismatch?: ObservedTreeMismatch;
+}
+
+/** The accepted row whose tree reuse may keep, judged before the tree is read. */
+const reuseCandidate = (args: AcceptedCanonicalReuseArgs): Option.Option<LockEntry> => {
+  if (args.force || Option.isNone(args.accepted)) return Option.none();
+  const accepted = args.accepted.value;
+  if (args.requested.refType === "registry") {
+    if (acceptedRegistryVersionForRef(args.accepted, args.requested) !== args.requested.version) {
+      return Option.none();
+    }
+  } else if (
+    isRegistryLockEntry(accepted) ||
+    accepted.identity.name !== args.requested.name ||
+    (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
+  ) {
+    return Option.none();
+  }
+  if (
+    args.requested.refType === "http" &&
+    (accepted.source.type !== "http" ||
+      JSON.stringify(accepted.resolved) !== JSON.stringify(args.requested.snapshot))
+  )
+    return Option.none();
+  return Option.some(accepted);
+};
+
 /**
  * Whether an acquisition may keep the accepted canonical tree instead of
  * materializing the requested ref again. This is the only place that
@@ -228,34 +359,53 @@ export type RequestedCanonicalRef =
  * becomes accepted authority; `force` is the one bypass and always
  * re-materializes.
  */
-export const observeAcceptedCanonicalReuse = (args: {
-  readonly canonicalPath: string;
-  readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<LockEntry>;
-  readonly force: boolean;
-}): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
+export const observeAcceptedCanonicalReuse = (
+  args: AcceptedCanonicalReuseArgs,
+): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (args.force || Option.isNone(args.accepted)) return Option.none();
-    const accepted = args.accepted.value;
-    if (args.requested.refType === "registry") {
-      if (acceptedRegistryVersionForRef(args.accepted, args.requested) !== args.requested.version) {
-        return Option.none();
-      }
-    } else if (
-      isRegistryLockEntry(accepted) ||
-      accepted.identity.name !== args.requested.name ||
-      (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
-    ) {
-      return Option.none();
-    }
+    const candidate = reuseCandidate(args);
+    if (Option.isNone(candidate)) return Option.none();
+    const accepted = candidate.value;
+    const mismatch = args.observedMismatch;
     if (
-      args.requested.refType === "http" &&
-      (accepted.source.type !== "http" ||
-        JSON.stringify(accepted.resolved) !== JSON.stringify(args.requested.snapshot))
+      mismatch !== undefined &&
+      mismatch.root === args.canonicalPath &&
+      mismatch.acceptedIntegrity === accepted.treeIntegrity &&
+      mismatch.observed !== accepted.treeIntegrity
     )
       return Option.none();
     return (yield* observedTreeMatchesAccepted(args.canonicalPath, accepted))
       ? Option.some(accepted.treeIntegrity)
+      : Option.none();
+  });
+
+/** A tree reuse kept, with the text of the files its integrity walk read. */
+interface ReusedCanonicalTree {
+  readonly treeIntegrity: TreeIntegrity;
+  readonly read: WalkedFileText;
+}
+
+/**
+ * Decide reuse exactly as `observeAcceptedCanonicalReuse` does, also keeping
+ * the text of the regular files the integrity walk read at exactly the
+ * `readPaths`. The text is handed out only with a kept tree, whose walk
+ * matched the accepted integrity.
+ */
+export const observeAcceptedCanonicalReuseReading = (
+  args: AcceptedCanonicalReuseArgs,
+  readPaths: ReadonlyArray<string>,
+): Effect.Effect<Option.Option<ReusedCanonicalTree>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const candidate = reuseCandidate(args);
+    if (Option.isNone(candidate)) return Option.none();
+    const accepted = candidate.value;
+    const walked = yield* Effect.result(
+      computeMaterializedTreeIntegrityReading(args.canonicalPath, readPaths),
+    );
+    return Result.isSuccess(walked) && walked.success.integrity === accepted.treeIntegrity
+      ? Option.some<ReusedCanonicalTree>(
+          Object.freeze({ treeIntegrity: accepted.treeIntegrity, read: walked.success.read }),
+        )
       : Option.none();
   });
 
@@ -383,36 +533,187 @@ export const observeAcceptedResolution = (
   return Option.none();
 };
 
-export const observeCanonicalExtension = ({
+/** The authored manifest text exactly as an observation read it. */
+export interface CapturedManifest {
+  readonly path: string;
+  readonly text: string;
+  /**
+   * The observation's own decode of that text with the desired type's manifest
+   * grammar, present only when the decode succeeded. Its `type` is the type it
+   * was decoded as. The decode is deep-frozen when first requested, so a
+   * caller that only needs the text does no work for it; it belongs to the
+   * caller that observed.
+   */
+  readonly decode: () => Option.Option<ExtensionManifest>;
+}
+
+const isManifestOfType = <T extends ExtensionType>(
+  manifest: ExtensionManifest,
+  type: T,
+): manifest is Extract<ExtensionManifest, { readonly type: T }> => manifest.type === type;
+
+/**
+ * The captured decode exactly when it is the manifest of `type` that
+ * `directory` holds; otherwise `None`, and the caller reads it itself.
+ */
+export const capturedManifestFor = <T extends ExtensionType>(
+  path: Path.Path,
+  captured: Option.Option<CapturedManifest> | undefined,
+  directory: string,
+  type: T,
+): Option.Option<Extract<ExtensionManifest, { readonly type: T }>> =>
+  Option.flatMap(Option.flatten(Option.fromUndefinedOr(captured)), (manifest) =>
+    manifest.path === path.join(directory, manifestFilenameForType(type))
+      ? Option.filter(manifest.decode(), (value) => isManifestOfType(value, type))
+      : Option.none(),
+  );
+
+/** The Subagent package an observation's payload check loaded at `root`. */
+export interface CapturedSubagentPackage {
+  readonly root: string;
+  /**
+   * The contained load's package, or `None` when that load failed. It is
+   * deep-frozen when first requested and belongs to the caller that observed.
+   */
+  readonly loaded: () => Option.Option<DecodedSubagentPackage>;
+}
+
+interface CanonicalObservationCapture {
+  readonly observation: CanonicalObservation;
+  /** Present whenever the observation read the authored manifest's text. */
+  readonly manifest: Option.Option<CapturedManifest>;
+  /** Present whenever the observation loaded a Subagent package to check its payload. */
+  readonly subagentPackage: Option.Option<CapturedSubagentPackage>;
+  /** Present when the caller asked for them and the observation ended usable. */
+  readonly digests: Option.Option<ObservedTreeDigests>;
+  /**
+   * Present when this observation itself hashed the accepted tree, found its
+   * digest different, and reported it a materialization mismatch.
+   */
+  readonly mismatchedTree?: ObservedTreeMismatch;
+  /** Present when the caller asked for it and the observation ended usable. */
+  readonly treeWalk?: CapturedTreeWalk;
+}
+
+const uncaptured = (observation: CanonicalObservation): CanonicalObservationCapture => ({
+  observation,
+  manifest: Option.none(),
+  subagentPackage: Option.none(),
+  digests: Option.none(),
+});
+
+/**
+ * What an observation of the desired node settles before it reads any
+ * canonical content: either a settled observation, or the canonical root the
+ * content is then read from. A pure function of the node, the accepted row
+ * and the layout.
+ */
+const judgeBeforeContent = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+):
+  | { readonly settled: CanonicalObservation }
+  | {
+      readonly settled?: undefined;
+      readonly root: string;
+      readonly desired: DesiredExtensionNode & { readonly source: string };
+    } => {
+  if (desired.source === undefined) {
+    return { settled: { type: desired.type, name: desired.name, status: "not-applicable" } };
+  }
+  const judged = observeAcceptedResolution(desired, accepted, path);
+  const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
+  if (Option.isSome(judged)) {
+    return {
+      settled:
+        judged.value.status === "constraint-mismatch" && root !== undefined
+          ? { ...judged.value, path: root }
+          : judged.value,
+    };
+  }
+  if (root === undefined) {
+    return { settled: { type: desired.type, name: desired.name, status: "wrong-origin" } };
+  }
+  return { root, desired };
+};
+
+/**
+ * What an observation of the desired node settles before it reads canonical
+ * content, with the inputs it was judged from and the `path` the observation
+ * reports: every observation that reads content reports the canonical root it
+ * read.
+ */
+export const judgeCanonicalBeforeContent = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+) => {
+  const judged = judgeBeforeContent(path, layout, desired, accepted);
+  return {
+    path,
+    layout,
+    desired,
+    accepted,
+    judged,
+    reportedPath: judged.settled === undefined ? judged.root : judged.settled.path,
+  };
+};
+
+type CanonicalPreContentJudgement = ReturnType<typeof judgeCanonicalBeforeContent>;
+
+/**
+ * The `path` an observation of the desired node reports, derived without
+ * reading canonical content.
+ */
+export const observedCanonicalPath = (
+  path: Path.Path,
+  layout: WorkspaceLayout,
+  desired: DesiredExtensionNode,
+  accepted: LockEntry | undefined,
+): string | undefined => judgeCanonicalBeforeContent(path, layout, desired, accepted).reportedPath;
+
+/**
+ * Observe like `observeCanonicalExtension`, also handing the caller the
+ * manifest text the observation read. The text is never retained here.
+ */
+export const observeCanonicalExtensionCapturing = ({
   layout,
-  desired,
+  desired: observed,
   accepted,
+  verifiedTree,
+  judged: prejudged,
+  digestAcceptedTree,
+  retainTreeWalk,
 }: ObserveCanonicalArgs): Effect.Effect<
-  CanonicalObservation,
+  CanonicalObservationCapture,
   never,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (desired.source === undefined) {
-      return { type: desired.type, name: desired.name, status: "not-applicable" };
-    }
-    const judged = observeAcceptedResolution(desired, accepted, path);
-    const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
-    if (Option.isSome(judged)) {
-      return judged.value.status === "constraint-mismatch" && root !== undefined
-        ? { ...judged.value, path: root }
-        : judged.value;
-    }
+    const treeMatchesAccepted = (root: string, entry: LockEntry) =>
+      verifiedTree !== undefined && verifiedTree.root === root && verifiedTree.accepted === entry
+        ? Effect.succeed(verifiedTree.integrity === entry.treeIntegrity)
+        : observedTreeMatchesAccepted(root, entry);
+    const judged =
+      prejudged !== undefined &&
+      prejudged.path === path &&
+      prejudged.layout === layout &&
+      prejudged.desired === observed &&
+      prejudged.accepted === accepted
+        ? prejudged.judged
+        : judgeBeforeContent(path, layout, observed, accepted);
+    if (judged.settled !== undefined) return uncaptured(judged.settled);
+    const { root, desired } = judged;
     const workspaceAuthored = desired.identity.authority === "workspace";
     const bundled = desired.identity.authority === "bundled";
-    if (root === undefined) {
-      return { type: desired.type, name: desired.name, status: "wrong-origin" };
-    }
     const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
-      return { type: desired.type, name: desired.name, status: "missing", path: root };
+      return uncaptured({ type: desired.type, name: desired.name, status: "missing", path: root });
     }
 
     if (
@@ -423,15 +724,20 @@ export const observeCanonicalExtension = ({
       accepted.source.distribution?.format === "agent-plugins"
     ) {
       if (!(yield* fs.exists(path.join(root, "mcp.json")).pipe(Effect.orElseSucceed(() => false))))
-        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
-      if (!(yield* observedTreeMatchesAccepted(root, accepted)))
-        return {
+        return uncaptured({
+          type: desired.type,
+          name: desired.name,
+          status: "incomplete",
+          path: root,
+        });
+      if (!(yield* treeMatchesAccepted(root, accepted)))
+        return uncaptured({
           type: desired.type,
           name: desired.name,
           status: "materialization-mismatch",
           path: root,
-        };
-      return { type: desired.type, name: desired.name, status: "usable", path: root };
+        });
+      return uncaptured({ type: desired.type, name: desired.name, status: "usable", path: root });
     }
 
     if (
@@ -446,42 +752,91 @@ export const observeCanonicalExtension = ({
       const skillMdPath = path.join(root, component, "SKILL.md");
       const skillMdExists = yield* fs.exists(skillMdPath).pipe(Effect.orElseSucceed(() => false));
       if (!skillMdExists) {
-        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+        return uncaptured({
+          type: desired.type,
+          name: desired.name,
+          status: "incomplete",
+          path: root,
+        });
       }
 
-      const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
-      if (Result.isFailure(raw)) {
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+      // SKILL.md must be readable text. A strict walk that matched the
+      // accepted tree and read SKILL.md at exactly this path as a regular
+      // file has shown that; anything else reads it, and an unreadable
+      // SKILL.md is corrupt before the tree is judged a mismatch.
+      const verified =
+        verifiedTree !== undefined &&
+        verifiedTree.root === root &&
+        verifiedTree.accepted === accepted;
+      const walked = verified
+        ? undefined
+        : yield* Effect.result(computeMaterializedTreeIntegrityReading(root, [skillMdPath]));
+      const walkedMatch =
+        walked !== undefined &&
+        Result.isSuccess(walked) &&
+        walked.success.integrity === accepted.treeIntegrity;
+      const readByWalk =
+        walkedMatch &&
+        Result.isSuccess(walked) &&
+        Option.isSome(walked.success.read.text(skillMdPath));
+      if (!readByWalk) {
+        const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
+        if (Result.isFailure(raw)) {
+          return uncaptured({
+            type: desired.type,
+            name: desired.name,
+            status: "corrupt",
+            path: root,
+          });
+        }
       }
-      if (!(yield* observedTreeMatchesAccepted(root, accepted))) {
-        return {
+      if (walked === undefined ? !(yield* treeMatchesAccepted(root, accepted)) : !walkedMatch) {
+        return uncaptured({
           type: desired.type,
           name: desired.name,
           status: "materialization-mismatch",
           path: root,
-        };
+        });
       }
 
       if (isConstrained(desired) && !contentVersionSatisfiesDesiredConstraint(desired, undefined)) {
-        return constraintMismatchObservation({ desired, canonicalPath: root });
+        return uncaptured(constraintMismatchObservation({ desired, canonicalPath: root }));
       }
 
-      return {
+      return uncaptured({
         type: desired.type,
         name: desired.name,
         status: "usable",
         path: root,
-      };
+      });
     }
 
-    const read = yield* readExtensionManifest(root, desired.type).pipe(Effect.result);
+    const capture = yield* readExtensionManifestCapture(root, desired.type);
+    const captured = (
+      observation: CanonicalObservation,
+      subagentPackage: Option.Option<CapturedSubagentPackage> = Option.none(),
+      digests: Option.Option<ObservedTreeDigests> = Option.none(),
+    ): CanonicalObservationCapture => ({
+      observation,
+      manifest: Option.map(capture.text, (text) => ({
+        path: path.join(root, manifestFilenameForType(desired.type)),
+        text,
+        decode: () =>
+          Option.map(Result.getSuccess(capture.result), ({ manifest }) =>
+            freezeWorkspaceValue(manifest),
+          ),
+      })),
+      subagentPackage,
+      digests,
+    });
+    const read = capture.result;
     if (Result.isFailure(read)) {
-      return {
+      return captured({
         type: desired.type,
         name: desired.name,
         status: read.failure.code === "manifest_missing" ? "incomplete" : "corrupt",
         path: root,
-      };
+      });
     }
     const parsed = read.success.raw;
     const expectedOwner = bundled
@@ -500,29 +855,110 @@ export const observeCanonicalExtension = ({
       !("type" in parsed) ||
       parsed.type !== desired.type
     ) {
-      return { type: desired.type, name: desired.name, status: "wrong-origin", path: root };
+      return captured({
+        type: desired.type,
+        name: desired.name,
+        status: "wrong-origin",
+        path: root,
+      });
     }
     const manifestVersion =
       "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
 
-    const payloadComplete = yield* hasRequiredPayload(fs, path, root, desired.type).pipe(
-      Effect.orElseSucceed(() => false),
-    );
+    // A Subagent's payload is complete exactly when its package loads through
+    // the contained loader; the caller receives that load.
+    const { payloadComplete, subagentPackage } =
+      desired.type === "subagent"
+        ? yield* Effect.map(loadSubagentPackage(root).pipe(Effect.option), (loaded) => ({
+            payloadComplete: Option.isSome(loaded),
+            subagentPackage: Option.some<CapturedSubagentPackage>({
+              root,
+              loaded: () => Option.map(loaded, (pkg) => freezeWorkspaceValue(pkg)),
+            }),
+          }))
+        : {
+            payloadComplete: yield* hasRequiredPayload(fs, path, root, desired.type).pipe(
+              Effect.orElseSucceed(() => false),
+            ),
+            subagentPackage: Option.none<CapturedSubagentPackage>(),
+          };
     if (!payloadComplete) {
-      return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+      return captured(
+        { type: desired.type, name: desired.name, status: "incomplete", path: root },
+        subagentPackage,
+      );
     }
 
-    if (
+    // A caller that asked for the accepted tree's digests receives them from
+    // this same walk, unless a digest the caller verified stands for it.
+    const digested =
       !workspaceAuthored &&
       accepted !== undefined &&
-      !(yield* observedTreeMatchesAccepted(root, accepted))
-    ) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "materialization-mismatch",
-        path: root,
-      };
+      digestAcceptedTree !== undefined &&
+      !(
+        verifiedTree !== undefined &&
+        verifiedTree.root === root &&
+        verifiedTree.accepted === accepted
+      )
+        ? yield* Effect.map(
+            Effect.result(
+              computeMaterializedTreeDigestsMatching(
+                root,
+                accepted.treeIntegrity,
+                digestAcceptedTree(accepted),
+              ),
+            ),
+            (walked) =>
+              Result.isSuccess(walked) && walked.success.treeIntegrity === accepted.treeIntegrity
+                ? Option.some<ObservedTreeDigests>(
+                    Object.freeze({ root, accepted, ...walked.success }),
+                  )
+                : Option.none<ObservedTreeDigests>(),
+          )
+        : undefined;
+    let treeWalk: CapturedTreeWalk | undefined;
+    if (!workspaceAuthored && accepted !== undefined) {
+      const judged =
+        digested !== undefined
+          ? { matches: Option.isSome(digested) }
+          : verifiedTree !== undefined &&
+              verifiedTree.root === root &&
+              verifiedTree.accepted === accepted
+            ? { matches: verifiedTree.integrity === accepted.treeIntegrity }
+            : retainTreeWalk === true
+              ? yield* Effect.map(
+                  Effect.result(computeMaterializedTreeIntegrityWalking(root)),
+                  (walked) => {
+                    if (Result.isFailure(walked)) return { matches: false };
+                    if (walked.success.integrity === accepted.treeIntegrity) {
+                      treeWalk = Option.getOrUndefined(walked.success.walk);
+                      return { matches: true };
+                    }
+                    return {
+                      matches: false,
+                      mismatch: Object.freeze({
+                        root,
+                        acceptedIntegrity: accepted.treeIntegrity,
+                        observed: walked.success.integrity,
+                      }),
+                    };
+                  },
+                )
+              : yield* observeTreeAgainstAccepted(root, accepted);
+      if (!judged.matches) {
+        const mismatched = captured(
+          {
+            type: desired.type,
+            name: desired.name,
+            status: "materialization-mismatch",
+            path: root,
+          },
+          subagentPackage,
+        );
+        return "mismatch" in judged && judged.mismatch !== undefined
+          ? { ...mismatched, mismatchedTree: judged.mismatch }
+          : mismatched;
+      }
     }
 
     // Authored and path/git content have no accepted Registry version:
@@ -532,17 +968,30 @@ export const observeCanonicalExtension = ({
       isConstrained(desired) &&
       !contentVersionSatisfiesDesiredConstraint(desired, manifestVersion)
     ) {
-      return constraintMismatchObservation({
-        desired,
-        canonicalPath: root,
-        ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
-      });
+      return captured(
+        constraintMismatchObservation({
+          desired,
+          canonicalPath: root,
+          ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
+        }),
+        subagentPackage,
+      );
     }
 
-    return {
-      type: desired.type,
-      name: desired.name,
-      status: "usable",
-      path: root,
-    };
+    const usable = captured(
+      {
+        type: desired.type,
+        name: desired.name,
+        status: "usable",
+        path: root,
+      },
+      subagentPackage,
+      digested ?? Option.none(),
+    );
+    return treeWalk === undefined ? usable : { ...usable, treeWalk };
   });
+
+export const observeCanonicalExtension = (
+  args: ObserveCanonicalArgs,
+): Effect.Effect<CanonicalObservation, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(observeCanonicalExtensionCapturing(args), (capture) => capture.observation);

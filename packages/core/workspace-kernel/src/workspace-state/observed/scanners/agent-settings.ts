@@ -31,7 +31,7 @@ import {
   makeAgentRootResolverState,
   type AgentRootResolverState,
 } from "./agent-root.js";
-import { fileExists, SCANNER_IO_CONCURRENCY } from "./fs-helpers.js";
+import { SCANNER_IO_CONCURRENCY, settleFileExists } from "./fs-helpers.js";
 import type { AgentSettingsOccurrence } from "./types.js";
 
 const SCANNER_NAME = "agent-settings";
@@ -75,32 +75,47 @@ const scanAgentSettings = Effect.fn("workspace.read-model.scanner.agent-settings
   const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
   const rootResolverState = deps.rootResolverState ?? makeAgentRootResolverState();
 
-  const occurrences = yield* Effect.forEach(
-    Object.values(registry),
-    (descriptor) =>
-      Effect.gen(function* () {
-        // Resolve the per-agent root segment. `Option.none()` means the
-        // descriptor opts out of native-config scanning — skip it.
-        const rootSegmentOpt = yield* agentRootSegment(
-          path,
-          descriptor,
-          diagnostics,
-          rootResolverState,
-        );
-        if (Option.isNone(rootSegmentOpt)) {
-          return Option.none<AgentSettingsOccurrence>();
-        }
-        const filePath = path.join(workspaceRoot, rootSegmentOpt.value, "settings.json");
-        const present = yield* fileExists(SCANNER_NAME, fs, diagnostics, filePath);
-        if (!present) return Option.none<AgentSettingsOccurrence>();
-        return Option.some<AgentSettingsOccurrence>({
-          _tag: "agent-settings",
-          scope,
-          agentId: descriptor.id,
-          contentLocation: makeAbsolutePath(path, filePath),
-        });
-      }),
+  // Resolve each descriptor's settings path. `Option.none()` means the
+  // descriptor opts out of native-config scanning — skip it.
+  const subjects = Array.getSomes(
+    yield* Effect.forEach(
+      Object.values(registry),
+      (descriptor) =>
+        Effect.map(
+          agentRootSegment(path, descriptor, diagnostics, rootResolverState),
+          Option.map((segment) => ({
+            descriptor,
+            filePath: path.join(workspaceRoot, segment, "settings.json"),
+          })),
+        ),
+      { concurrency: SCANNER_IO_CONCURRENCY },
+    ),
+  );
+
+  // Agents that share a root directory share one settings file: probe each
+  // distinct path once in this scan.
+  const distinctPaths = Array.dedupe(subjects.map((subject) => subject.filePath));
+  const probes = yield* Effect.forEach(
+    distinctPaths,
+    (filePath) => Effect.result(fs.exists(filePath)),
     { concurrency: SCANNER_IO_CONCURRENCY },
+  );
+
+  // Settle the shared outcome once per descriptor, in registry order, so each
+  // descriptor keeps its own occurrence and its own diagnostic.
+  const occurrences = yield* Effect.forEach(subjects, ({ descriptor, filePath }) =>
+    Effect.gen(function* () {
+      const probe = probes[distinctPaths.indexOf(filePath)];
+      if (probe === undefined) return Option.none<AgentSettingsOccurrence>();
+      const present = yield* settleFileExists(SCANNER_NAME, diagnostics, filePath, probe);
+      if (!present) return Option.none<AgentSettingsOccurrence>();
+      return Option.some<AgentSettingsOccurrence>({
+        _tag: "agent-settings",
+        scope,
+        agentId: descriptor.id,
+        contentLocation: makeAbsolutePath(path, filePath),
+      });
+    }),
   );
 
   return Array.getSomes(occurrences);

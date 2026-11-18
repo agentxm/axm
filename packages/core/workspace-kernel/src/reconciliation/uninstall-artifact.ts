@@ -10,6 +10,8 @@ import {
   captureAgentOutputAuthority,
   nativePackageReferences,
   nativeConfigObservationReason,
+  type AgentOutputInventory,
+  type ProjectionInvariantFact,
 } from "../projection/index.js";
 import {
   acceptedCanonicalObservation,
@@ -18,6 +20,7 @@ import {
   WorkspaceLocation,
   lockfileDisplayPath,
   settingsDisplayPath,
+  type CanonicalObservationStatus,
   type ExtensionTarget,
 } from "../workspace-state/index.js";
 import type {
@@ -33,11 +36,40 @@ import {
   sameSourceIdentity,
 } from "../workspace-state/index.js";
 
-/** Describe retirement from the same proposed authority that decides retention. */
-export const prepareUninstallArtifact = (
+/**
+ * Describe retirement from the same proposed authority that decides retention.
+ *
+ * An owner that describes several removals inside one read phase may hand
+ * each description what it has already observed there, so the description
+ * reads it instead of observing again:
+ *
+ * - `canonical`: the target's own canonical observation over the current
+ *   graph — only the path, status and shared-package verdict the artifact
+ *   describes; `none` when the current graph holds no such node.
+ * - `agentOutputs`: one inventory of agent-native outputs, observed with the
+ *   same expected names this artifact derives from `proposal`; each call
+ *   must yield values the artifact owns.
+ * - `projectionFacts`: the read phase's frozen, unfiltered projection facts.
+ *
+ * Whatever is absent is observed here, as before.
+ */
+export const prepareUninstallArtifact = <E = never, R = never>(
   target: ExtensionTarget,
   proposal?: DesiredStateProposal,
-  options?: { readonly nativeCleanup?: "selected" | "retain" },
+  options?: {
+    readonly nativeCleanup?: "selected" | "retain";
+    readonly canonical?: Option.Option<{
+      readonly path: string | undefined;
+      readonly status: CanonicalObservationStatus;
+      readonly sharedPackage: boolean;
+    }>;
+    readonly agentOutputs?: Effect.Effect<
+      Pick<AgentOutputInventory, "diagnostics" | "outputs">,
+      E,
+      R
+    >;
+    readonly projectionFacts?: Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
+  },
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -69,10 +101,16 @@ export const prepareUninstallArtifact = (
             acceptedRowReachability(state.after, { type: before.type, key }).decision !==
             "not-reached",
         ));
-    const canonical = yield* acceptedCanonicalObservation({
-      type: target.type,
-      name: target.name,
-    });
+    const canonical =
+      options?.canonical ??
+      Option.map(
+        yield* acceptedCanonicalObservation({ type: target.type, name: target.name }),
+        ({ observation, sharedPackage }) => ({
+          path: observation.path,
+          status: observation.status,
+          sharedPackage: sharedPackage === true,
+        }),
+      );
     const settingsPath = settingsDisplayPath(location.scope);
     const lockPath = lockfileDisplayPath(location.scope);
     const targets: JobStepArtifactTarget[] = [];
@@ -93,8 +131,8 @@ export const prepareUninstallArtifact = (
     );
     if (Option.isSome(locked) && after === undefined && !sourceRemainsDesired)
       targets.push({ path: lockPath, change: "updated" });
-    if (Option.isSome(canonical) && canonical.value.observation.path !== undefined) {
-      const absolute = canonical.value.observation.path;
+    if (Option.isSome(canonical) && canonical.value.path !== undefined) {
+      const absolute = canonical.value.path;
       const relative = path.relative(location.baseDir, absolute);
       const present = yield* fs.exists(absolute).pipe(
         Effect.mapError((cause) =>
@@ -113,17 +151,13 @@ export const prepareUninstallArtifact = (
         });
       else if (before?.identity.authority === "workspace")
         references.push({ path: relative, state: "retained", reason: "workspace-authored source" });
-      else if (
-        after !== undefined ||
-        sourceRemainsDesired ||
-        canonical.value.sharedPackage === true
-      )
+      else if (after !== undefined || sourceRemainsDesired || canonical.value.sharedPackage)
         references.push({
           path: relative,
           state: "retained",
           reason: "required by resulting desired state",
         });
-      else if (canonical.value.observation.status === "usable") {
+      else if (canonical.value.status === "usable") {
         if (target.type === "mcp-server" || target.type === "hook" || target.type === "pack") {
           const retained = yield* nativePackageReferences({
             workspaceRoot: location.baseDir,
@@ -161,20 +195,25 @@ export const prepareUninstallArtifact = (
           .map((node) => node.name),
       );
     const configuredAgents = yield* settings.configuredAgents;
-    const inventory = yield* observeAgentOutputs({
-      nativeDirectoryInputs: location.nativeDirectoryInputs,
-      workspaceRoot: location.baseDir,
-      scope: location.scope,
-      desiredAgentIds: new Set(yield* settings.configuredAgents),
-      expectedNames: {
-        skill: enabledNames("skill"),
-        subagent: enabledNames("subagent"),
-        "mcp-server": enabledNames("mcp-server"),
-        hook: enabledNames("hook"),
-      },
-      ...(yield* captureAgentOutputAuthority()),
-      authoredSkills: { layout, entries: yield* settings.entries("skill") },
-    });
+    // A handed-over inventory may count other agents as desired: that changes
+    // no observation, and this description reads no desired verdict.
+    const inventory =
+      options?.agentOutputs === undefined
+        ? yield* observeAgentOutputs({
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            desiredAgentIds: new Set(yield* settings.configuredAgents),
+            expectedNames: {
+              skill: enabledNames("skill"),
+              subagent: enabledNames("subagent"),
+              "mcp-server": enabledNames("mcp-server"),
+              hook: enabledNames("hook"),
+            },
+            ...(yield* captureAgentOutputAuthority()),
+            authoredSkills: { layout, entries: yield* settings.entries("skill") },
+          })
+        : yield* options.agentOutputs;
     for (const diagnostic of inventory.diagnostics) {
       if (diagnostic.extensionType !== target.type) continue;
       references.push({
@@ -234,7 +273,8 @@ export const prepareUninstallArtifact = (
             : { path: relative, change: "removed", agentIds: output.claimantAgentIds },
         );
     }
-    const facts = yield* (yield* WorkspaceInvariantFacts).projectionFacts;
+    const facts = yield* options?.projectionFacts ??
+      (yield* WorkspaceInvariantFacts).projectionFacts;
     const affected = before?.enabled !== after?.enabled;
     const projections = affected
       ? facts.filter(

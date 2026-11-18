@@ -38,12 +38,17 @@ export {
   applyPlannedProjections,
   applyProjectionPlans,
   applyProjectionPlansWithResults,
+  combineObservedProjectionPlans,
   mapProjectionPlanFailure,
+  observeObservedPlans,
   observeProjectionPlans,
   planAggregateProjection,
   planDesiredStateGraph,
   planSingletonProjection,
-  projectionPlanExclusionWarnings,
+  unobservedProjectionPlans,
+  withObservedProjectionPlans,
+  withHandedProjectionObservations,
+  type ObservedProjectionPlans,
   type ProjectionPlan,
   type ProjectionRenderInput,
   type ProjectionSelection,
@@ -57,6 +62,8 @@ export {
 } from "./participants.js";
 export {
   activeContributors,
+  CurrentCanonicalObservationHandoff,
+  handedOverCanonicalObservation,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   requireCompleteContributors,
 } from "./contributors.js";
@@ -91,6 +98,11 @@ export {
   type ProjectionInvariantFact,
 } from "./invariant-facts.js";
 export {
+  freezeProjectionFacts,
+  projectionParticipantSelectionKey,
+  type PreparedProjectionFacts,
+} from "./invariant-facts.js";
+export {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
@@ -118,18 +130,22 @@ export {
 } from "./managed-file-discovery.js";
 export {
   observeAgentOutputs,
-  observeWorkspaceOwnershipIssues,
+  workspaceOwnershipIssues,
   type AgentOutputInventory,
   type AgentOutputObservation,
   type AgentOutputOwnershipProof,
 } from "./agent-output-observation.js";
 export {
+  agentOutputAuthorityFrom,
   captureAgentOutputAuthority,
   captureSkillOutputSources,
   deriveAgentOutputAuthority,
   type AgentOutputAuthority,
 } from "./output-authority.js";
-export { observeMaterializationCurrency } from "./materialization-currency.js";
+export {
+  installedInventoryItem,
+  observeMaterializationCurrency,
+} from "./materialization-currency.js";
 export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
 export {
   observeProjectionOutput,
@@ -181,18 +197,19 @@ export {
 export {
   activeInstructionsConfig,
   applyInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
   disableInstructionManagement,
   instructionReconciliationReadiness,
   instructionReadinessDetail,
   instructionStateIsCurrent,
   observeInstructions,
   observeInstructionSurfacePlans,
+  observeObservedInstructionSurfacePlans,
   plannedInstructionContributorObservation,
   readInstructionRows,
   reconcileInstructions,
   reconcileInstructionAliases,
   recordInstructionCopiesBeforeSourceWrite,
-  removeInstructionTargetsFor,
   type InstructionOutputOverrides,
 } from "./instructions/reconciliation.js";
 
@@ -215,6 +232,7 @@ export {
 export type { McpInspectionError } from "./mcps/errors.js";
 export {
   inspectDesiredMcpServer,
+  inspectDisabledMcpServerForWithdrawal,
   withMcpInspectionReadView,
   type AgentMcpServerInspection,
   type DesiredMcpServerInspection,
@@ -236,7 +254,10 @@ export {
   nativeArtifactLocationOutcomes,
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
+export { captureNativeArtifactLocations } from "./native-artifact-locations.js";
 export { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
+export { projectionUnitPathOfEntry } from "./unit-path.js";
+export { scopeUnitPathBeneath } from "./unit-path.js";
 export {
   reconcileNativeManagedRegion,
   refreshNativeRegionReaders,

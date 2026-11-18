@@ -20,10 +20,13 @@ export { applyPlan, type OperationHandler } from "./plan/apply-plan.js";
 // workspace read model: preview, confirmation and apply share one candidate,
 // so what a person reads and what is applied are the same decision.
 export {
+  prepareCompositeChildPlan,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type CompositeChildPlanOptions,
   type PlanResolutionFailure,
 } from "./plan/resolve-plan.js";
+export { executionWithdrawalJudgedRoot } from "./plan/execution-withdrawal.js";
 
 // The plan-execution failure family.
 export { planExecutionFailures } from "./plan/step-failure-conversions.js";

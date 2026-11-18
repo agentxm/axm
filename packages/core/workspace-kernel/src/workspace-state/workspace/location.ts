@@ -46,7 +46,12 @@ import type {
   WorkspaceStateOptions,
   WorkspaceSettingsReadFailure,
 } from "./contracts.js";
-import { readLockfileCell, readSettingsCell, type StateCellPaths } from "./state-cells.js";
+import {
+  freshStateLoadersFor,
+  readLockfileCell,
+  readSettingsCell,
+  type StateCellPaths,
+} from "./state-cells.js";
 
 export interface WorkspaceLocationService extends StateCellPaths {
   /** Whether this is the user workspace or a project workspace. */
@@ -136,17 +141,25 @@ export const captureNativeDirectoryInputs = (userHome: string) =>
 
 const defaultBuiltInSources: ReadonlyArray<SourceHostConfig> = [];
 
+/** A constructed location and the project and user settings its layout was resolved from. */
+interface WorkspaceLocationWithSettings {
+  readonly location: WorkspaceLocationService;
+  /** Project settings, defaulting when absent. */
+  readonly projectSettings: Settings;
+  /** User settings, defaulting when absent. */
+  readonly userSettings: Settings;
+}
+
 /**
- * Resolve the workspace location from an existing workspace on disk.
- *
- * The workspace must already be initialized unless `allowUninitialized` is
- * set. Missing or invalid settings and invalid or unsupported lockfiles fail
- * fast with a typed `WorkspaceStateError`.
+ * Resolve the workspace location, returning the settings the construction
+ * decoded for its layout. Each document is decoded at most once per logical
+ * scope within this call; the loaders are released when it returns, so the
+ * location's later readers observe fresh documents.
  */
-export const makeWorkspaceLocation = (
+export const makeWorkspaceLocationWithSettings = (
   options: WorkspaceStateOptions,
 ): Effect.Effect<
-  WorkspaceLocationService,
+  WorkspaceLocationWithSettings,
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -194,23 +207,33 @@ export const makeWorkspaceLocation = (
       userRuntimeDir,
     };
 
+    // Construction-owned loaders, keyed by logical scope: project and user
+    // documents stay distinct even when both runtime directories coincide.
+    const projectLoaders = yield* Effect.cached(freshStateLoadersFor(cells, "project"));
+    const userLoaders = yield* Effect.cached(freshStateLoadersFor(cells, "user"));
+    const loadersFor = (scope: WorkspaceScope) =>
+      scope === "project" ? projectLoaders : userLoaders;
+
     if (options.initialSettings !== undefined) {
       // First install may supply missing settings, never replace malformed or newer state.
-      yield* readLockfileCell(cells, runtimeDir);
+      yield* readLockfileCell(cells, runtimeDir, undefined, loadersFor);
     }
     if (options.allowUninitialized !== true) {
       yield* requireInitializedWorkspace(
         settingsPath,
-        readSettingsCell(cells, runtimeDir),
-        readLockfileCell(cells, runtimeDir),
+        readSettingsCell(cells, runtimeDir, undefined, loadersFor),
+        readLockfileCell(cells, runtimeDir, undefined, loadersFor),
       );
-      yield* readLockfileCell(cells, runtimeDir);
+      yield* readLockfileCell(cells, runtimeDir, undefined, loadersFor);
     }
 
-    const projectSettings = yield* readSettingsCell(cells, projectRuntimeDir, "project").pipe(
-      Effect.map(Option.getOrElse(() => createDefaultSettings())),
-    );
-    const userSettings = yield* readSettingsCell(cells, userRuntimeDir, "user").pipe(
+    const projectSettings = yield* readSettingsCell(
+      cells,
+      projectRuntimeDir,
+      "project",
+      loadersFor,
+    ).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
+    const userSettings = yield* readSettingsCell(cells, userRuntimeDir, "user", loadersFor).pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
     const projectLayout = yield* resolveProjectWorkspaceLayout(projectRoot, projectSettings);
@@ -220,13 +243,35 @@ export const makeWorkspaceLocation = (
     );
 
     return {
-      ...cells,
-      nativeDirectoryInputs,
-      baseDir,
-      runtimeDir,
-      settingsPath,
-      lockPath,
-      layout,
-      builtInSources: options.builtInSources ?? defaultBuiltInSources,
+      location: {
+        ...cells,
+        nativeDirectoryInputs,
+        baseDir,
+        runtimeDir,
+        settingsPath,
+        lockPath,
+        layout,
+        builtInSources: options.builtInSources ?? defaultBuiltInSources,
+      },
+      projectSettings,
+      userSettings,
     };
   });
+
+/**
+ * Resolve the workspace location from an existing workspace on disk.
+ *
+ * The workspace must already be initialized unless `allowUninitialized` is
+ * set. Missing or invalid settings and invalid or unsupported lockfiles fail
+ * fast with a typed `WorkspaceStateError`.
+ */
+export const makeWorkspaceLocation = (
+  options: WorkspaceStateOptions,
+): Effect.Effect<
+  WorkspaceLocationService,
+  WorkspaceStateError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  makeWorkspaceLocationWithSettings(options).pipe(
+    Effect.map((constructed) => constructed.location),
+  );

@@ -7,6 +7,7 @@ import * as Ref from "effect/Ref";
 import {
   extensionTypes,
   toExtensionTypePlural,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   AcceptedResolutionWriter,
@@ -23,6 +24,8 @@ import {
   sameAcceptedResolution,
   type DesiredStateGraph,
   type ExtensionTarget,
+  type LockEntry,
+  type TreeIntegrity,
 } from "../workspace-state/index.js";
 import { protectWorkspacePath, runWorkspaceTransaction } from "../settlement/index.js";
 import type { PlannedJobStep } from "../operations/index.js";
@@ -31,8 +34,48 @@ import type { StepFailureConversionService } from "./step-failure-conversion.js"
 import type { SyncStepRequirements } from "./plan.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
 
+/** A canonical tree digest a retirement verified against one accepted row. */
+interface VerifiedRetirementTree {
+  readonly type: ExtensionType;
+  readonly root: string;
+  readonly accepted: LockEntry;
+  readonly integrity: TreeIntegrity;
+}
+
+/** What one planning call observed of one canonical tree, filled as its rows need it. */
+interface ObservedRetirementTree {
+  readonly exists: boolean;
+  integrity?: TreeIntegrity;
+  nativeReferences?: ReadonlyArray<string>;
+}
+
+/** The digest a retirement verified for `type`'s accepted row `entry`, when it hashed that tree. */
+export type RetiredTreeDigest = (
+  type: ExtensionType,
+  entry: LockEntry,
+) => Omit<VerifiedRetirementTree, "type"> | undefined;
+
 /** A full-graph maintenance closure; never infers intent from accepted records. */
 export const collectUnreachableRetirement = (
+  adapter: StepFailureConversionService,
+  scope?: {
+    readonly resultingGraph: DesiredStateGraph;
+    readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>;
+  },
+  observedGraph?: DesiredStateGraph,
+) =>
+  Effect.map(
+    collectUnreachableRetirementVerifying(adapter, scope, observedGraph),
+    ({ step }) => step,
+  );
+
+/**
+ * Collect the retirement like `collectUnreachableRetirement`, also handing
+ * the caller the tree digest it verified for an accepted row it judged, by
+ * type and row. The digest belongs to the caller's read phase and never
+ * enters the step.
+ */
+export const collectUnreachableRetirementVerifying = (
   adapter: StepFailureConversionService,
   scope?: {
     readonly resultingGraph: DesiredStateGraph;
@@ -83,7 +126,12 @@ export const collectUnreachableRetirement = (
     const retainedPaths = new Set(
       accepted.filter((row) => !unreached(graph, row)).map(canonicalPath),
     );
-    const retired = yield* Effect.forEach(
+    // Rows that bind one canonical tree observe it once in this planning call.
+    // The rows run one after another with nothing written between them; each
+    // row still checks its own accepted integrity, and the transition repeats
+    // every observation under the lock.
+    const observedTrees = new Map<string, ObservedRetirementTree>();
+    const judged = yield* Effect.forEach(
       accepted.filter(
         (row) =>
           unreached(graph, row) &&
@@ -100,61 +148,95 @@ export const collectUnreachableRetirement = (
         Effect.gen(function* () {
           const canonical = canonicalPath(row);
           yield* validatePathSafety(path, layout.acquiredRoot, canonical);
-          const exists = yield* fs.exists(canonical).pipe(
-            Effect.mapError((cause) =>
-              syncRefused({
-                category: "internal",
-                detail: `Cannot inspect ${canonical}`,
-                cause,
+          const observed =
+            observedTrees.get(canonical) ??
+            (yield* fs.exists(canonical).pipe(
+              Effect.mapError((cause) =>
+                syncRefused({
+                  category: "internal",
+                  detail: `Cannot inspect ${canonical}`,
+                  cause,
+                }),
+              ),
+              Effect.map((exists) => {
+                const tree: ObservedRetirementTree = { exists };
+                observedTrees.set(canonical, tree);
+                return tree;
               }),
-            ),
-          );
+            ));
+          const exists = observed.exists;
           const shared = [...retainedPaths].some(
             (retained) =>
               isLexicallyWithin(path, canonical, retained) ||
               isLexicallyWithin(path, retained, canonical),
           );
+          let verified: VerifiedRetirementTree | undefined;
           if (exists && !shared) {
-            const integrity = yield* computeMaterializedTreeIntegrity(canonical);
+            const integrity =
+              observed.integrity ?? (yield* computeMaterializedTreeIntegrity(canonical));
+            observed.integrity = integrity;
             if (integrity !== row.entry.treeIntegrity)
               return yield* syncRefused({
                 category: "conflict",
                 detail: `Cannot retire unverified acquired content at ${canonical}`,
               });
+            verified = { type: row.type, root: canonical, accepted: row.entry, integrity };
           }
-          const nativeReferences =
-            exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")
-              ? yield* nativePackageReferences({
-                  workspaceRoot: location.baseDir,
-                  nativeDirectoryInputs: location.nativeDirectoryInputs,
-                  scope: location.scope,
-                  packageRoot: canonical,
-                }).pipe(
-                  Effect.mapError((cause) =>
-                    syncRefused({
-                      category: "conflict",
-                      detail: `Cannot inspect retained native references to ${canonical}`,
-                      cause,
-                    }),
-                  ),
-                )
-              : [];
+          let nativeReferences: Array<string> = [];
+          if (exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")) {
+            const references =
+              observed.nativeReferences ??
+              (yield* nativePackageReferences({
+                workspaceRoot: location.baseDir,
+                nativeDirectoryInputs: location.nativeDirectoryInputs,
+                scope: location.scope,
+                packageRoot: canonical,
+              }).pipe(
+                Effect.mapError((cause) =>
+                  syncRefused({
+                    category: "conflict",
+                    detail: `Cannot inspect retained native references to ${canonical}`,
+                    cause,
+                  }),
+                ),
+              ));
+            observed.nativeReferences = references;
+            // Each row record holds its own copy of the references.
+            nativeReferences = [...references];
+          }
           return {
-            ...row,
-            canonical,
-            shared,
-            exists,
-            nativeReferences,
-            removeCanonical: exists && !shared && nativeReferences.length === 0,
+            row: {
+              ...row,
+              canonical,
+              shared,
+              exists,
+              nativeReferences,
+              removeCanonical: exists && !shared && nativeReferences.length === 0,
+            },
+            verified,
           };
         }),
     );
-    if (retired.length === 0)
-      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    const retired = judged.map(({ row }) => row);
+    const verifiedTrees = judged.flatMap(({ verified }) =>
+      verified === undefined ? [] : [verified],
+    );
+    const verifiedTree: RetiredTreeDigest = (type, entry) => {
+      const found = verifiedTrees.find(
+        (candidate) => candidate.type === type && candidate.accepted === entry,
+      );
+      return found === undefined
+        ? undefined
+        : { root: found.root, accepted: found.accepted, integrity: found.integrity };
+    };
+    const none = {
+      step: Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>(),
+      verifiedTree,
+    };
+    if (retired.length === 0) return none;
     const retainedNative = retired.filter((row) => row.nativeReferences.length > 0);
     const removable = retired.filter((row) => row.nativeReferences.length === 0);
-    if (removable.length === 0)
-      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    if (removable.length === 0) return none;
     const retiredPackages = [...new Map(retired.map((row) => [row.canonical, row])).values()];
     const artifact = {
       path: lockfileDisplayPath(location.scope),
@@ -179,7 +261,7 @@ export const collectUnreachableRetirement = (
           change: "removed" as const,
         })),
     };
-    return Option.some<PlannedJobStep<SyncStepRequirements | LockfileReader>>({
+    const step = Option.some<PlannedJobStep<SyncStepRequirements | LockfileReader>>({
       key: "workspace:unreachable-acquisitions",
       label: "unreachable acquired extensions",
       readiness: "ready",
@@ -282,4 +364,5 @@ export const collectUnreachableRetirement = (
         }),
       ),
     });
+    return { step, verifiedTree };
   });

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import type { KnowledgeProjectedConcept } from "./knowledge-projection.js";
 import {
   KnowledgeRevisionSchema,
@@ -20,8 +21,8 @@ export interface CapturedKnowledgeSource extends KnowledgeCorpusSource {
   readonly sourceRevision: KnowledgeRevision;
 }
 
+/** The corpus fingerprint is derived by the index snapshot that publishes it. */
 export interface CapturedKnowledgeCorpus {
-  readonly fingerprint: KnowledgeRevision;
   readonly sources: ReadonlyArray<CapturedKnowledgeSource>;
 }
 
@@ -109,10 +110,14 @@ export const computeKnowledgeProjectionRevision = (
 const equalBytes = (left: Uint8Array, right: Uint8Array): boolean =>
   left.byteLength === right.byteLength && left.every((byte, index) => right[index] === byte);
 
+interface ReadKnowledgeSource extends KnowledgeCorpusSource {
+  readonly bytes: Uint8Array;
+}
+
 const captureOnce = <E>(
   sources: ReadonlyArray<KnowledgeCorpusSource>,
   readSource: (source: KnowledgeCorpusSource) => Effect.Effect<Uint8Array, E>,
-): Effect.Effect<ReadonlyArray<CapturedKnowledgeSource>, E> =>
+): Effect.Effect<ReadonlyArray<ReadKnowledgeSource>, E> =>
   Effect.forEach(
     [...sources].sort(compareSource),
     (source) =>
@@ -121,15 +126,40 @@ const captureOnce = <E>(
           ...source,
           relativePath: normalizedRelativePath(source.relativePath),
           bytes,
-          sourceRevision: computeKnowledgeSourceRevision(bytes),
         })),
       ),
     { concurrency: 16 },
   );
 
+/** Revisions are derived once, from the capture its confirming read settled. */
+const withSourceRevisions = (
+  captured: ReadonlyArray<ReadKnowledgeSource>,
+): Effect.Effect<ReadonlyArray<CapturedKnowledgeSource>> =>
+  captured.length === 0
+    ? Effect.succeed([])
+    : withWork(
+        "axm.hash.content",
+        Effect.sync(() =>
+          captured.map((source) => ({
+            ...source,
+            sourceRevision: computeKnowledgeSourceRevision(source.bytes),
+          })),
+        ),
+        {
+          attributes: {
+            "axm.work.count": captured.length,
+            "axm.work.bytes": captured.reduce(
+              (total, source) => total + source.bytes.byteLength,
+              0,
+            ),
+          },
+        },
+      );
+
 /**
  * Capture one internally consistent corpus. Every source is read twice; a
  * changing source retries the complete capture and never yields a mixed view.
+ * Only the settled capture is hashed into source revisions.
  */
 export const captureKnowledgeCorpus = <E>(
   sources: ReadonlyArray<KnowledgeCorpusSource>,
@@ -150,10 +180,7 @@ export const captureKnowledgeCorpus = <E>(
             equalBytes(source.bytes, confirmed[index]?.bytes ?? new Uint8Array()),
         )
       ) {
-        return {
-          fingerprint: computeKnowledgeCorpusFingerprint(captured),
-          sources: captured,
-        };
+        return { sources: yield* withSourceRevisions(captured) };
       }
     }
     return yield* new KnowledgeCorpusChangingError({ attempts: maxAttempts });

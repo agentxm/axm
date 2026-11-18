@@ -14,15 +14,6 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/mcps-no-secret-literal";
 
-const parseSettings = (bytes: string): Readonly<Record<string, unknown>> | undefined => {
-  try {
-    const parsed: unknown = JSON.parse(bytes);
-    return Predicate.isObject(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const findingFor = (serverName: string, field: string, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
@@ -40,10 +31,10 @@ export const mcpServerNoSecretLiteralRule: AdvisoryRule<WorkspaceRuleContext> = 
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
-      const raw = yield* Effect.result(context.workspace.state.raw("settings"));
-      if (Result.isFailure(raw) || Option.isNone(raw.success)) return EMPTY_ADVISORY_FINDINGS;
-      const settings = parseSettings(raw.success.value.bytes);
-      if (settings === undefined) return EMPTY_ADVISORY_FINDINGS;
+      const json = yield* Effect.result(context.workspace.state.settingsJson);
+      if (Result.isFailure(json) || Option.isNone(json.success)) return EMPTY_ADVISORY_FINDINGS;
+      const settings = json.success.value;
+      if (!Predicate.isObject(settings)) return EMPTY_ADVISORY_FINDINGS;
       const mcpServers = settings["mcpServers"];
       if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([serverName, entry]) => {

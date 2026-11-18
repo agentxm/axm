@@ -1,4 +1,4 @@
-import { removeMcpServerFromAgents } from "../agent-adapters/index.js";
+import { previewMcpServerWithdrawal, removeMcpServerFromAgents } from "../agent-adapters/index.js";
 import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Desired-state materialization planning: select desired nodes, judge
@@ -69,23 +69,25 @@ import {
   lockEntryToSourceParams,
   lockEntryVersion,
   acceptedCanonicalObservation,
-  observeDesiredCanonical,
+  observeDesiredUsableCanonical,
   isSourcedDesiredExtension,
   desiredProblemSubject,
   desiredStateProblemsText,
   DesiredStateReader,
   unresolvedPackRoutes,
   desiredReachability,
-  type LockfileReader,
+  LockfileReader,
   SettingsReader,
   type SettingsReaderService,
   WorkspaceLocation,
   WorkspaceRecords,
   type WorkspaceLocationService,
   usableAcceptedCanonicalFrom,
+  type AcceptedCanonicalObservation,
   type CanonicalObservation,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type DesiredStateReaderService,
   type ExtensionInventory,
   desiredMcpSourceKey,
   McpSourceKey,
@@ -96,9 +98,11 @@ import {
   acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
-  captureAgentOutputAuthority,
+  agentOutputAuthorityFrom,
   expectedProjectionNames,
   inspectDesiredMcpServer,
+  inspectDisabledMcpServerForWithdrawal,
+  installedInventoryItem,
   observeMaterializationCurrency,
   makeExtensionConstraintInvariantFact,
   type ExpectedProjectionNames,
@@ -398,6 +402,7 @@ const buildMcpServerSyncOperation = ({
   nativeLocations,
   scope,
   adapter,
+  entryJustPublished,
 }: {
   readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
@@ -407,6 +412,8 @@ const buildMcpServerSyncOperation = ({
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly scope: WorkspaceLocationService["scope"];
   readonly adapter: StepFailureConversionService;
+  /** The caller published this connection's entry just before running the step. */
+  readonly entryJustPublished: boolean;
 }): PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements> => {
   const target = targetFromRef(ref);
   const lifecycleWarnings = extensionRefLifecycleWarnings(ref);
@@ -434,6 +441,7 @@ const buildMcpServerSyncOperation = ({
           ...Option.match(sourceKey, { onNone: () => ({}), onSome: (key) => ({ sourceKey: key }) }),
           nonInteractive: true,
           force,
+          ...(entryJustPublished ? { entryJustPublished: true } : {}),
         },
       })
       .pipe(Effect.mapError(adapter.toStepFailure)),
@@ -561,7 +569,11 @@ export interface CollectedMaterializeSteps {
   /** The names the cleanup sweep must treat as expected, from the whole graph. */
   readonly expectedNames: ExpectedProjectionNames;
   readonly releaseAge: ReleaseAgeOperationEvidence;
-  /** Physical inventories used to judge currency in this planning phase. */
+  /**
+   * Physical inventories used to judge currency in this planning phase, with
+   * their native detail, for a caller that rechecks them before it writes.
+   * Empty when the caller asked for presence-only inventories.
+   */
   readonly inventoryObservations: ReadonlyArray<{
     readonly type: DesiredExtensionNode["type"];
     readonly options: { readonly agents?: ReadonlyArray<string> };
@@ -570,16 +582,12 @@ export interface CollectedMaterializeSteps {
   readonly steps: ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>;
 }
 
-/**
- * Collect the per-extension materialize steps for one sync.
- *
- * The signature is declared rather than inferred. An inferred one publishes
- * the assembled object literal's structure and expands the sync policy failure
- * union into every package that contributes a failure to it — including
- * packages this one does not declare, whose `.d.ts` references then resolve to
- * `any` under `skipLibCheck` and collapse the whole channel.
- */
-export const collectMaterializeSteps = (args: {
+/** The current workspace's no-option desired-state evaluation. */
+type CurrentDesiredStateEvaluation = Effect.Success<
+  ReturnType<DesiredStateReaderService["evaluate"]>
+>;
+
+interface MaterializeStepCollectionArgs {
   /** Assess present local sources only; never resolve or restore unavailable content. */
   readonly localOnly?: boolean;
   readonly selection?: SyncSelection;
@@ -591,8 +599,60 @@ export const collectMaterializeSteps = (args: {
   readonly packRecovery?: ConfiguredPackRecovery;
   /** Enabled transitions require at least one compatible configured runtime. */
   readonly requireSubagentSupport?: boolean;
+  /**
+   * `presence` when the caller discards `inventoryObservations`: currency
+   * reads only each item's presence and paths, so no native detail is
+   * inspected and no inventory is returned for a later freshness check.
+   */
+  readonly inventories?: "observed" | "presence";
+  /**
+   * The selected subject's usable observation, made earlier in this read
+   * phase by a caller that judges the subject's tree again later in the
+   * phase: a Hook whose projected outcomes it then selects, or a Rule or
+   * Knowledge subject whose contributors the shared projection exposure
+   * selects again. It stands in for observing a Hook here, and a Rule or
+   * Knowledge subject only while its inventory lists it as installed, so
+   * that no prepared projection takes the subject out of that selection.
+   */
+  readonly settledSubject?: AcceptedCanonicalObservation;
+  /**
+   * The MCP connections whose settings entry the caller's settings writer
+   * publishes, under the connection's own name, as the last `axm.json` write
+   * before it runs these steps in the same closure settlement under the
+   * workspace transition lock. Their install does not set again an entry
+   * equal to the one it reads live.
+   */
+  readonly publishedMcpEntries?: ReadonlyArray<string>;
   readonly adapter: StepFailureConversionService;
-}): Effect.Effect<
+}
+
+/**
+ * Collect the per-extension materialize steps for one sync.
+ *
+ * The signature is declared rather than inferred. An inferred one publishes
+ * the assembled object literal's structure and expands the sync policy failure
+ * union into every package that contributes a failure to it — including
+ * packages this one does not declare, whose `.d.ts` references then resolve to
+ * `any` under `skipLibCheck` and collapse the whole channel.
+ */
+export const collectMaterializeSteps = (
+  args: MaterializeStepCollectionArgs &
+    (
+      | { readonly currentEvaluation?: undefined }
+      | {
+          /**
+           * The committed workspace's current no-option desired-state
+           * evaluation, made earlier in the caller's owner call. It is both
+           * the desired state planned and the prior state compared against,
+           * so it never accompanies a proposal or a recovery graph.
+           */
+          readonly currentEvaluation: CurrentDesiredStateEvaluation;
+          readonly desiredState?: undefined;
+          readonly settings?: undefined;
+          readonly packRecovery?: undefined;
+        }
+    ),
+): Effect.Effect<
   CollectedMaterializeSteps,
   SyncPolicyFailure,
   | CodingAgentRepository
@@ -641,7 +701,10 @@ export const collectMaterializeSteps = (args: {
         : settingsEntries["mcp-server"].entries(args.settings);
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
     const desiredState =
-      args.packRecovery?.graph ?? args.desiredState ?? (yield* desiredStateReader.graph());
+      args.packRecovery?.graph ??
+      args.desiredState ??
+      args.currentEvaluation?.graph ??
+      (yield* desiredStateReader.graph());
     const previousAgentIds = new Set(yield* settings.configuredAgents);
     const proposedAgentIds = new Set(configuredAgents);
     const directoryRoutes = { skill: new Set<string>(), subagent: new Set<string>() };
@@ -669,7 +732,13 @@ export const collectMaterializeSteps = (args: {
       for (const physical of proposed.subagent)
         if (!prior.subagent.has(physical)) directoryRoutes.subagent.add(physical);
     }
-    const priorMcpGraph = yield* desiredStateReader.graph();
+    // The committed workspace's current evaluation, made at most once in this
+    // call, where the comparison with it is first needed.
+    const currentEvaluation =
+      args.currentEvaluation === undefined
+        ? yield* Effect.cached(desiredStateReader.evaluate())
+        : Effect.succeed(args.currentEvaluation);
+    const priorMcpGraph = (yield* currentEvaluation).graph;
     if (unresolvedPackRoutes(priorMcpGraph).length > 0) {
       directoryRoutes.skill.clear();
       directoryRoutes.subagent.clear();
@@ -755,6 +824,7 @@ export const collectMaterializeSteps = (args: {
     const selected = selectable.filter((node) => subjectBlockers(node).length === 0);
     // Every node of a type judges currency against the same physical inventory
     // in this planning phase. Keep the shared read local to this invocation.
+    const observedInventories = args.inventories !== "presence";
     const inventoryOptions = (type: DesiredExtensionNode["type"]) =>
       configuredAgents.length > 0 &&
       (type === "skill" || type === "mcp-server" || type === "subagent")
@@ -764,12 +834,46 @@ export const collectMaterializeSteps = (args: {
       yield* Effect.forEach([...new Set(selected.map((node) => node.type))], (type) =>
         Effect.gen(function* () {
           const read = yield* Effect.cached(
-            records.getExtensionInventory(type, { ...inventoryOptions(type), details: true }),
+            records.getExtensionInventory(type, {
+              ...inventoryOptions(type),
+              details: observedInventories,
+            }),
           );
           return [type, read] as const;
         }),
       ),
     );
+    const lockfileReader = yield* LockfileReader;
+    // The handed observation of this node, when it stands in for observing it.
+    const settledObservation = (node: DesiredExtensionNode) =>
+      Effect.gen(function* () {
+        const settled = args.settledSubject;
+        if (
+          settled === undefined ||
+          (node.type !== "hook" && node.type !== "rule" && node.type !== "knowledge") ||
+          settled.observation.status !== "usable" ||
+          settled.desired.type !== node.type ||
+          settled.desired.name !== node.name
+        )
+          return Option.none<AcceptedCanonicalObservation>();
+        const accepted = yield* lockfileReader.acceptedEntry(node.type, node.name);
+        if (Option.getOrUndefined(accepted) !== settled.accepted)
+          return Option.none<AcceptedCanonicalObservation>();
+        if (node.type !== "hook") {
+          // A Rule or Knowledge subject the inventory does not list as
+          // installed rematerializes, and nothing judges its tree again. A
+          // failed inventory read is replayed where currency reads it.
+          const read = inventories.get(node.type);
+          const inventory = read === undefined ? undefined : yield* Effect.result(read);
+          if (
+            inventory === undefined ||
+            Result.isFailure(inventory) ||
+            installedInventoryItem(inventory.success, node) === undefined
+          )
+            return Option.none<AcceptedCanonicalObservation>();
+        }
+        return Option.some<AcceptedCanonicalObservation>({ ...settled, desired: node });
+      });
     const phaseReader = {
       ...desiredStateReader,
       graph: (options) =>
@@ -780,8 +884,25 @@ export const collectMaterializeSteps = (args: {
       (node) =>
         Effect.gen(function* () {
           // One observation per node judges this phase; the usable ref and
-          // the blocker below both read it rather than observing again.
-          const canonical = yield* observeDesiredCanonical(node);
+          // the blocker below both read it rather than observing again. An
+          // observation taken here also resolves its usable package from the
+          // manifest it read; one settled earlier is resolved below.
+          const { canonical, usableCanonical } = yield* settledObservation(node).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.map(observeDesiredUsableCanonical(node), ({ observed, usable }) => ({
+                    canonical: observed,
+                    usableCanonical: Effect.succeed(usable),
+                  })),
+                onSome: (settled) =>
+                  Effect.succeed({
+                    canonical: settled,
+                    usableCanonical: usableAcceptedCanonicalFrom(settled),
+                  }),
+              }),
+            ),
+          );
           const { observation, accepted } = canonical;
           if (observation.status === "constraint-mismatch") {
             // `axm update` names the extension by its accepted package, or by
@@ -822,7 +943,7 @@ export const collectMaterializeSteps = (args: {
             return yield* syncRefused({ category: "validation", detail: reason });
           }
           const resolved = yield* Effect.gen(function* () {
-            const usable = yield* usableAcceptedCanonicalFrom(canonical);
+            const usable = yield* usableCanonical;
             if (Option.isSome(usable)) {
               return { ref: usable.value.ref, versionRange: Option.none(), restoresAccepted: true };
             }
@@ -1058,7 +1179,10 @@ export const collectMaterializeSteps = (args: {
     const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
     const packRefs: Array<Reconciled<PackRef>> = [];
     const mcpServerRefs: Array<
-      Reconciled<McpServerExtensionRef> & { readonly sourceKey: Option.Option<McpSourceKey> }
+      Reconciled<McpServerExtensionRef> & {
+        readonly sourceKey: Option.Option<McpSourceKey>;
+        readonly entryJustPublished: boolean;
+      }
     > = [];
     const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
     const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
@@ -1080,6 +1204,10 @@ export const collectMaterializeSteps = (args: {
           mcpServerRefs.push({
             ref: item.ref,
             sourceKey: desiredMcpSourceKey(item.node.identity),
+            // The install sets the entry under the ref's server name.
+            entryJustPublished:
+              item.ref.server.name === item.node.name &&
+              args.publishedMcpEntries?.includes(item.node.name) === true,
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
@@ -1210,12 +1338,12 @@ export const collectMaterializeSteps = (args: {
       ),
       (node) =>
         Effect.gen(function* () {
-          const inspection = yield* inspectDesiredMcpServer({
+          const { inspection, withdrawal } = yield* inspectDisabledMcpServerForWithdrawal({
             nativeDirectoryInputs: location.nativeDirectoryInputs,
             workspaceRoot: location.baseDir,
             scope: location.scope,
             agentIds: configuredAgents,
-            node,
+            node: { ...node, enabled: false },
             entry: configuredMcpServerEntries[node.name],
             canonicalPaths: [],
           });
@@ -1227,10 +1355,9 @@ export const collectMaterializeSteps = (args: {
             serverName: node.name,
             disableOnly: true,
           };
-          const preview = yield* removeMcpServerFromAgents(configuredAgents, {
-            ...removal,
-            dryRun: true,
-          });
+          // The preview plans from what the inspection just observed in this
+          // read; the step's run resolves and reads its targets live again.
+          const preview = yield* previewMcpServerWithdrawal(yield* withdrawal);
           const failures = preview.filter((outcome) => outcome._tag === "failed");
           if (failures.length > 0)
             return [
@@ -1480,10 +1607,9 @@ export const collectMaterializeSteps = (args: {
         (ref): ref is HookExtensionRef => ref.type === "hook" && desiredActivation(ref),
       ),
     ];
-    const priorHookGraph = yield* desiredStateReader.graph();
-    const priorHookAgents = yield* settings.configuredAgents;
+    const priorHookGraph = (yield* currentEvaluation).graph;
     const addedHookRoutes = new Set(
-      configuredAgents.filter((agent) => !priorHookAgents.includes(agent)),
+      configuredAgents.filter((agent) => !previousAgentIds.has(agent)),
     );
     const preparedHookProjection =
       changedHooks.length === 0
@@ -1492,7 +1618,7 @@ export const collectMaterializeSteps = (args: {
             configuredAgents,
             desiredGraph: desiredState,
           });
-    const priorAuthority = yield* captureAgentOutputAuthority();
+    const priorAuthority = yield* agentOutputAuthorityFrom(currentEvaluation);
     const changedRules = [
       ...ruleRefs
         .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
@@ -1555,13 +1681,15 @@ export const collectMaterializeSteps = (args: {
       changedKnowledge.length === 0
         ? undefined
         : yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
-    const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
-      Effect.map(Effect.result(read), (result) =>
-        Result.isSuccess(result)
-          ? [{ type, options: inventoryOptions(type), inventory: result.success }]
-          : [],
-      ),
-    )).flat();
+    const inventoryObservations = observedInventories
+      ? (yield* Effect.forEach([...inventories], ([type, read]) =>
+          Effect.map(Effect.result(read), (result) =>
+            Result.isSuccess(result)
+              ? [{ type, options: inventoryOptions(type), inventory: result.success }]
+              : [],
+          ),
+        )).flat()
+      : [];
     return {
       ...(args.localOnly === true ? { unassessed } : {}),
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
@@ -1612,24 +1740,26 @@ export const collectMaterializeSteps = (args: {
           ...skillSteps,
           ...mcpServerRefs
             .filter(({ materialize }) => materialize)
-            .map(({ ref, sourceKey, force, transitionLabel, nativeLocations }) =>
-              desiredActivation(ref)
-                ? buildMcpServerSyncOperation({
-                    manager: mcpManager,
-                    ref,
-                    sourceKey,
-                    nativeLocations,
-                    scope: location.scope,
-                    force,
-                    transitionLabel,
-                    adapter: args.adapter,
-                  })
-                : buildMaterializeOperation(mcpManager, {
-                    ref,
-                    force,
-                    desiredActivation: false,
-                    toStepFailure: args.adapter.toStepFailure,
-                  }),
+            .map(
+              ({ ref, sourceKey, force, transitionLabel, nativeLocations, entryJustPublished }) =>
+                desiredActivation(ref)
+                  ? buildMcpServerSyncOperation({
+                      manager: mcpManager,
+                      ref,
+                      sourceKey,
+                      entryJustPublished,
+                      nativeLocations,
+                      scope: location.scope,
+                      force,
+                      transitionLabel,
+                      adapter: args.adapter,
+                    })
+                  : buildMaterializeOperation(mcpManager, {
+                      ref,
+                      force,
+                      desiredActivation: false,
+                      toStepFailure: args.adapter.toStepFailure,
+                    }),
             ),
           ...inlineMcpServerSteps,
           ...disabledMcpSteps,

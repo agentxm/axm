@@ -5,8 +5,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { fromFileLocation } from "@agentxm/host-primitives";
-import { loadSubagentPackage, selectSubagentImplementation } from "@agentxm/extension-content";
+import { fromFileLocation, isLexicallyWithin } from "@agentxm/host-primitives";
+import {
+  loadSubagentPackage,
+  selectSubagentImplementation,
+  type DecodedSubagentPackage,
+} from "@agentxm/extension-content";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -26,8 +30,9 @@ import {
   sanitizeName,
   computeMaterializedTreeIntegrity,
   computePackageContentHash,
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   removableAcceptedCanonicalPath,
+  type AcceptedCanonicalObservation,
   type ProjectionRowChange,
   type ProjectionUnitPath,
   type RecordedProjectionRow,
@@ -53,6 +58,7 @@ import {
   decideWholeFileWrite,
   extensionNameFromFilename,
   observeAgentOutputs,
+  captureNativeArtifactLocations,
   nativeArtifactLocationOutcomes,
   projectionIsCurrent,
   projectionOutputDigest,
@@ -391,10 +397,18 @@ export const SubagentManagerLive = Layer.effect(
             options?.configuredAgents ??
             (yield* (phase?.readers.settings ?? settings).configuredAgents);
           const pkg = yield* readPackageForRef(ref, state, options);
-          if (options?.validateDestinations === true) yield* preflight(ref, pkg, configuredAgents);
-          return (yield* preparedTargets(ref, pkg, configuredAgents)).map((target) =>
-            outcomeForTarget(ref, target, state),
-          );
+          const validated =
+            options?.validateDestinations === true
+              ? (yield* preflight(ref, pkg, configuredAgents)).targets
+              : undefined;
+          // The preflight's preparation is this call's own, but never outlives
+          // the read phase it observed through: once that phase ends, the call
+          // prepares again on live state.
+          const targets =
+            validated !== undefined && phase?.isActive() !== false
+              ? validated
+              : yield* preparedTargets(ref, pkg, configuredAgents);
+          return targets.map((target) => outcomeForTarget(ref, target, state));
         }),
       );
     /** Native files of these names in every Subagent container, declared or not. */
@@ -433,19 +447,28 @@ export const SubagentManagerLive = Layer.effect(
         ),
       ]);
     /**
-     * An accepted Subagent's own name and every selected native name, or
-     * `None` when its accepted package cannot be read.
+     * An accepted Subagent's own name and every selected native name, from an
+     * observation of it, or `None` when its accepted package cannot be read.
+     * The package its payload check loaded at the observed root is that root's
+     * load; any other root is loaded here.
      */
-    const acceptedNames = (name: string) =>
+    const acceptedNamesFrom = (
+      name: string,
+      canonical: Option.Option<AcceptedCanonicalObservation>,
+      observedPackage: Option.Option<{
+        readonly root: string;
+        readonly loaded: () => Option.Option<DecodedSubagentPackage>;
+      }>,
+    ) =>
       Effect.gen(function* () {
-        const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name }).pipe(
-          Effect.option,
-        );
-        const root = Option.flatMap(Option.flatten(canonical), (state) =>
+        const root = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
         if (Option.isNone(root)) return Option.none<ReadonlySet<string>>();
-        const pkg = yield* readPackage(root.value).pipe(Effect.option);
+        const captured = Option.filter(observedPackage, (loaded) => loaded.root === root.value);
+        const pkg = Option.isSome(captured)
+          ? captured.value.loaded()
+          : Option.map(yield* readPackage(root.value).pipe(Effect.option), (read) => read.package);
         if (Option.isNone(pkg)) return Option.none<ReadonlySet<string>>();
         const agents = yield* agentRepo.all;
         return Option.some<ReadonlySet<string>>(
@@ -454,12 +477,28 @@ export const SubagentManagerLive = Layer.effect(
             ...agents.flatMap((agent) => {
               // A missing resource does not release a declared native name to
               // another package's orphan cleanup.
-              const selected = selectSubagentImplementation(pkg.value.package, agent.id);
+              const selected = selectSubagentImplementation(pkg.value, agent.id);
               return selected.kind === "unsupported"
                 ? []
                 : [selected.kind === "native" ? selected.native.name : selected.name];
             }),
           ]),
+        );
+      });
+    /**
+     * `acceptedNamesFrom` over a fresh observation of the accepted Subagent,
+     * naming it from the package that observation's payload check loaded.
+     */
+    const acceptedNames = (name: string) =>
+      Effect.gen(function* () {
+        const captured = yield* acceptedCanonicalObservationCapturing({
+          type: "subagent",
+          name,
+        }).pipe(Effect.option);
+        return yield* acceptedNamesFrom(
+          name,
+          Option.flatMap(captured, (capture) => capture.observed),
+          Option.flatMap(captured, (capture) => capture.subagentPackage ?? Option.none()),
         );
       });
     /**
@@ -599,6 +638,9 @@ export const SubagentManagerLive = Layer.effect(
       );
     const stageRows = (changes: ReadonlyArray<ProjectionRowChange>) =>
       changes.length === 0 ? Effect.void : accepted.withBatch(accepted.stageProjections(changes));
+    /** The bytes a planned destination holds now, or `None` when it cannot be read. */
+    const readDestination = (destination: string) =>
+      fs.readFileString(destination).pipe(Effect.option);
     /**
      * Refuse before any write when a planned destination holds a file AXM has
      * no record of writing and whose bytes differ from the render. An
@@ -610,6 +652,7 @@ export const SubagentManagerLive = Layer.effect(
       pkg: PreparedPackage,
       configuredAgents?: ReadonlyArray<string>,
       unrecorded: "refuse" | "report" = "refuse",
+      read: (destination: string) => Effect.Effect<Option.Option<string>> = readDestination,
     ) =>
       Effect.gen(function* () {
         const posture = yield* ProjectionOutputPosture;
@@ -625,7 +668,7 @@ export const SubagentManagerLive = Layer.effect(
             planned,
             rows,
             destination,
-            bytes: yield* fs.readFileString(destination).pipe(Effect.option),
+            bytes: yield* read(destination),
             posture,
           });
           if (decision._tag === "conflict")
@@ -658,11 +701,36 @@ export const SubagentManagerLive = Layer.effect(
         const { canonicalPath } = getCanonicalPaths(ref);
         let prepared: Effect.Success<ReturnType<typeof preflight>> | undefined;
         let validations = 0;
-        const validate = (root: string) =>
+        const validateWith = (
+          root: string,
+          read: (destination: string) => Effect.Effect<Option.Option<string>>,
+        ) =>
           Effect.gen(function* () {
             const pkg = yield* readPackage(root);
-            if (project) prepared = yield* preflight(ref, pkg);
+            if (project) prepared = yield* preflight(ref, pkg, undefined, "refuse", read);
             validations++;
+          });
+        // What the source validation read at each planned destination, before
+        // acquisition. Only a validation of the canonical path itself judges
+        // from it: acquisition reaches that validation having written nothing,
+        // either keeping the accepted tree or acquiring the source in place. A
+        // staged copy is validated at its staging path, after staging writes,
+        // and reads afresh, as does a destination the source did not plan.
+        // Acquisition's reuse decision recovers the canonical path before it
+        // validates it; it is taken only for a Registry ref, which has no
+        // source validation, or for an external `reuse`, under which the
+        // canonical validation reads afresh too.
+        const external: Parameters<typeof acquireCanonicalForRef>[0]["external"] = {
+          sourcePath: (packageRoot) => packageRoot,
+          targetPath: canonicalPath,
+        };
+        const sourceReads = new Map<string, Option.Option<string>>();
+        const validate = (root: string) =>
+          validateWith(root, (destination) => {
+            const kept = sourceReads.get(destination);
+            return root === canonicalPath && external.reuse !== true && kept !== undefined
+              ? Effect.succeed(kept)
+              : readDestination(destination);
           });
         if (ref.refType === "workspace") {
           yield* verifyWorkspaceRefLocation({
@@ -678,7 +746,13 @@ export const SubagentManagerLive = Layer.effect(
           };
         }
         if (ref.refType !== "registry")
-          yield* validate(yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)));
+          yield* validateWith(
+            yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)),
+            (destination) =>
+              Effect.tap(readDestination(destination), (bytes) =>
+                Effect.sync(() => sourceReads.set(destination, bytes)),
+              ),
+          );
         const beforeAcquisition = validations;
         const materialized = yield* acquireCanonicalForRef({
           ref,
@@ -693,7 +767,7 @@ export const SubagentManagerLive = Layer.effect(
             code: "internal",
             detail: (target) => `Failed to copy subagent files to ${target}`,
           },
-          external: { sourcePath: (packageRoot) => packageRoot, targetPath: canonicalPath },
+          external,
         });
         // Acquisition validates staged bytes before promotion and validates
         // reused canonical bytes. The self-copy path performs neither; retain
@@ -703,7 +777,13 @@ export const SubagentManagerLive = Layer.effect(
       });
     const materializeInstall: SubagentManagerService["materializeInstall"] = Effect.fn(
       "SubagentManager.materializeInstall",
-    )(function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
+    )(function* ({
+      ref,
+      force,
+      nativeInsertionEligible,
+      nativeInsertionEligiblePaths,
+      preparedSourceHash,
+    }) {
       const { canonicalPath } = getCanonicalPaths(ref);
       const posture = yield* ProjectionOutputPosture;
       const authority = yield* captureAgentOutputAuthority();
@@ -804,8 +884,25 @@ export const SubagentManagerLive = Layer.effect(
             new SubagentIoFailed({ detail: "Cannot observe native Subagent locations", cause }),
         ),
       );
+      // A caller's hash of this exact workspace package root stands for the
+      // hash here when no file this install wrote or withdrew lies in that tree.
+      const touchedPackage = () =>
+        [
+          ...results.flatMap(({ destination, file }) => [
+            destination,
+            ...file.bindings.map((binding) => binding.path),
+          ]),
+          ...retired.outputs.map((output) => output.path),
+        ].some((file) => isLexicallyWithin(path, canonicalPath, file));
+      const sourceHash =
+        ref.refType === "workspace" &&
+        preparedSourceHash !== undefined &&
+        path.resolve(preparedSourceHash.root) === path.resolve(canonicalPath) &&
+        !touchedPackage()
+          ? preparedSourceHash.hash
+          : yield* computePackageContentHash(canonicalPath);
       return {
-        sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
+        sourceHash: Option.some(sourceHash),
         treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),
         observation: {
           nativeLocations: combineNativeLocationOutcomes([
@@ -824,13 +921,21 @@ export const SubagentManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): SubagentManagerService["materializeUninstall"] =>
       Effect.fn("SubagentManager.materializeRemoval")(function* ({ target }) {
-        const canonical = yield* acceptedCanonicalObservation({
-          type: "subagent",
-          name: target.name,
-        });
+        const { observed: canonical, subagentPackage } =
+          yield* acceptedCanonicalObservationCapturing({
+            type: "subagent",
+            name: target.name,
+          });
         const authority = yield* captureAgentOutputAuthority();
+        // Nothing is written before the names are derived, so the observation
+        // that decides retirement also names the outputs to withdraw.
+        const names = yield* acceptedNamesFrom(
+          target.name,
+          canonical,
+          subagentPackage ?? Option.none(),
+        );
         const retired = yield* retireOutputs({
-          names: Option.getOrElse(yield* acceptedNames(target.name), () => new Set([target.name])),
+          names: Option.getOrElse(names, () => new Set([target.name])),
           authority,
           keep: new Set(),
           rows: yield* subagentRows,
@@ -864,13 +969,47 @@ export const SubagentManagerLive = Layer.effect(
           options?.configuredAgents ??
           (yield* (phase?.readers.settings ?? settings).configuredAgents);
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
-        // Observation reports an unrecorded file as not current; only a write refuses it.
-        yield* preflight(ref, pkg, configuredAgents, "report");
-        const targets = yield* preparedTargets(ref, pkg, configuredAgents);
+        // A caller about to write refuses an unrecorded file first, from the
+        // package this call just loaded, as `configuredAgentOutcomesForRef`'s
+        // destination validation does; that preflight's preparation and plan
+        // are the ones a reporting preflight would compute from the same
+        // inputs. Otherwise observation reports an unrecorded file as not
+        // current; only a write refuses it.
+        // The bytes the refusing preflight read at each planned destination,
+        // kept for this call's write judgment; a reporting preflight reads none.
+        const preflightBytes = new Map<string, Option.Option<string>>();
+        const prepared =
+          options?.validateDestinations === true
+            ? yield* preflight(ref, pkg, configuredAgents, "refuse", (destination) =>
+                readDestination(destination).pipe(
+                  Effect.tap((bytes) => Effect.sync(() => preflightBytes.set(destination, bytes))),
+                ),
+              )
+            : yield* preflight(ref, pkg, configuredAgents, "report");
+        // The preflight's preparation and plan serve the rest of this call, but
+        // never outlive the read phase they observed through: once that phase
+        // ends, the call prepares and plans again on live state.
+        const targets =
+          phase?.isActive() !== false
+            ? prepared.targets
+            : yield* preparedTargets(ref, pkg, configuredAgents);
         const rows = yield* subagentRows;
-        const planned = yield* plannedFiles(ref, targets);
+        const plannedByPreflight = phase?.isActive() !== false;
+        const planned = plannedByPreflight ? prepared.planned : yield* plannedFiles(ref, targets);
+        // Each planned output's destination, as the plan asserted its containment.
+        const plannedDestinations = new Map<string, string>();
+        for (const [destination, file] of planned)
+          for (const binding of file.bindings)
+            plannedDestinations.set(path.resolve(binding.path), destination);
         const allAgents = yield* agentRepo.all;
+        // The readers and every planned output, located once while the read
+        // phase holds; an output reached after it ends is located live.
+        let locations:
+          Effect.Success<ReturnType<typeof captureNativeArtifactLocations>> | undefined;
         const observations = [];
+        // Whether each planned file exists, by its physical path, as this call
+        // probed it.
+        const presence = new Map<string, boolean>();
         for (const target of targets) {
           if (target.directory._tag === "misconfigured") {
             observations.push({ present: false, current: false, nativeLocations: [] });
@@ -880,13 +1019,17 @@ export const SubagentManagerLive = Layer.effect(
             continue;
           for (const output of target.compiled.outputs) {
             const file = path.resolve(target.directory.dir, output.path);
-            const { address } = yield* assertNativeMutationWithinRoots(
-              nativeRoots,
-              file,
-              "content",
-              baseDir,
-            );
-            const planFile = planned.get(address.referentPath ?? address.entryPath);
+            // The plan's containment answers while the phase it was asserted in
+            // holds, or when it was planned again after that phase ended; an
+            // output it does not answer is asserted again.
+            const destination =
+              (!plannedByPreflight || phase?.isActive() !== false
+                ? plannedDestinations.get(file)
+                : undefined) ??
+              (yield* assertNativeMutationWithinRoots(nativeRoots, file, "content", baseDir).pipe(
+                Effect.map(({ address }) => address.referentPath ?? address.entryPath),
+              ));
+            const planFile = planned.get(destination);
             const present = yield* readFs.exists(file).pipe(
               Effect.mapError(
                 (cause) =>
@@ -896,6 +1039,7 @@ export const SubagentManagerLive = Layer.effect(
                   }),
               ),
             );
+            presence.set(destination, present);
             // A declared Subagent owns its planned path; currency is the
             // recorded generation, never the file's bytes.
             const current =
@@ -905,12 +1049,31 @@ export const SubagentManagerLive = Layer.effect(
                 planFile.gen,
                 present,
               );
+            if (locations === undefined && phase?.isActive() !== false)
+              locations = yield* captureNativeArtifactLocations({
+                workspaceRoot: baseDir,
+                scope: location.scope,
+                agents: allAgents,
+                kinds: ["subagent"],
+                sharedSkillPolicy: false,
+                entries: targets.flatMap(({ directory, compiled }) => {
+                  if (directory._tag !== "supported" || compiled._tag !== "Compiled") return [];
+                  const { dir } = directory;
+                  return compiled.outputs.map((compiledOutput) =>
+                    path.resolve(dir, compiledOutput.path),
+                  );
+                }),
+              });
+            const captured = phase?.isActive() !== false ? locations : undefined;
             const nativeLocations = yield* nativeArtifactLocationOutcomes({
               workspaceRoot: baseDir,
               scope: location.scope,
               agents: allAgents,
               configuredAgentIds: new Set(targets.map(({ agent }) => agent.id)),
               sharedSkillPolicy: false,
+              ...(captured === undefined
+                ? {}
+                : { readers: captured.readers, locationSet: captured.locationSet }),
               targets: [
                 {
                   path: file,
@@ -953,27 +1116,38 @@ export const SubagentManagerLive = Layer.effect(
         const writes: Array<JobStepArtifactTarget> = [];
         for (const [destination, file] of planned) {
           const recorded = Option.fromUndefinedOr(rows.get(file.unit));
+          // The probe above answers while its read phase holds; a file it did
+          // not reach, or a phase that has ended, is probed again.
+          const probed = phase?.isActive() !== false ? presence.get(destination) : undefined;
           if (
             Option.isSome(recorded) &&
             projectionIsCurrent(
               recorded,
               file.gen,
-              yield* readFs.exists(destination).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new SubagentDefinitionInvalid({
-                      detail: `Cannot inspect planned Subagent file ${destination}`,
-                      cause,
-                    }),
-                ),
-              ),
+              probed ??
+                (yield* readFs.exists(destination).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SubagentDefinitionInvalid({
+                        detail: `Cannot inspect planned Subagent file ${destination}`,
+                        cause,
+                      }),
+                  ),
+                )),
             )
           )
             continue;
+          // The refusing preflight's bytes judge the write while its read phase
+          // holds and it read through the port this judgment reads through;
+          // otherwise the file is read again.
+          const kept =
+            phase?.isActive() !== false && readFs === fs
+              ? preflightBytes.get(destination)
+              : undefined;
           const decision = yield* decideWholeFileWrite({
             recorded,
             gen: file.gen,
-            bytes: yield* readFs.readFileString(destination).pipe(Effect.option),
+            bytes: kept ?? (yield* readFs.readFileString(destination).pipe(Effect.option)),
             rendered: file.content,
             replaceUnrecorded: replaceUnrecorded === true,
           });

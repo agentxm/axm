@@ -343,7 +343,11 @@ export const loadSubagentPackage = (
           }),
       ),
     );
-    const readFile = (source: string) =>
+    // The content each source read returned during this load, by the exact
+    // source string its declarations name: a source several declarations name
+    // is resolved, checked and read once. A failed read ends the load.
+    const readSources = new Map<string, string>();
+    const readContainedFile = (source: string) =>
       Effect.gen(function* () {
         const sourcePath = path.join(realRoot, source);
         const realSource = yield* fs.realPath(sourcePath);
@@ -380,7 +384,13 @@ export const loadSubagentPackage = (
                 cause,
               }),
         ),
+        Effect.tap((content) => Effect.sync(() => readSources.set(source, content))),
       );
+    const readFile = (source: string) =>
+      Effect.suspend(() => {
+        const read = readSources.get(source);
+        return read === undefined ? readContainedFile(source) : Effect.succeed(read);
+      });
     const manifestSource = yield* readFile(manifestFilenameForType("subagent"));
     const manifest: unknown = yield* Effect.try({
       try: (): unknown => JSON.parse(manifestSource),

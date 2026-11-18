@@ -32,6 +32,7 @@ export {
   ExecutionChangeSchema,
 } from "./plan.js";
 export type {
+  AcceptedContentObservation,
   BlockingClass,
   CompletedJobStep,
   ExecutedPlan,

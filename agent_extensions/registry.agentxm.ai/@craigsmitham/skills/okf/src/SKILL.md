@@ -24,6 +24,11 @@ asked to align this skill with newer upstream guidance, compare the canonical sp
 refresh the pin, and reconcile the instructions, templates, and validator together. The upstream
 README's reference agent and visualizer are examples, not required OKF tooling.
 
+Upstream has proposed moving OKF to a vendor-neutral repository with a v0.3 spec, which this skill
+has not yet aligned with. Until it does, treat the pinned v0.2 text as authoritative. When a bundle
+declares another `okf_version`, report that the bundled checks apply v0.2 rules only; do not
+infer v0.3 requirements.
+
 ## Invariants
 
 1. **Every non-reserved `.md` file has parseable YAML frontmatter with a non-empty `type`.** This is
@@ -179,9 +184,10 @@ clock override means midnight UTC; prefer `--now` for precise staleness checks.
 
 Index entries need headings and must be links (§8, §11); malformed structure is an error. Missing
 indexes, descriptions, and cross-link targets remain advisory. The informational
-`verification-predates-content` finding (`--info`) compares valid timestamps without changing trust
-tiers or declaring content false. See [Validation boundaries](references/validation.md) for the
-rule-to-severity mapping and checks that require a reader or renderer.
+`verification-predates-content` and `self-verification` findings (`--info`) describe recorded
+verification without changing trust tiers or declaring content false. See
+[Validation boundaries](references/validation.md) for the rule-to-severity mapping and checks that
+require a reader or renderer.
 
 The bundled validator checks OKF v0.2 and general authoring hazards; it does not enforce arbitrary
 producer application profiles. When a profile applies, run its validator when one exists and
@@ -239,6 +245,8 @@ such as `2026-10-30T12:00:00Z`. This includes `generated.at`, `verified[].at`,
 remain `YYYY-MM-DD`. When migrating date-only metadata, establish its intended
 time and offset from the source or producer policy; do not invent precision or
 verification events. See the frontmatter reference for migration guidance.
+Quote string values that YAML could read as numbers or booleans, such as
+`okf_version: "0.2"` and a source `id: "001"`.
 
 ## Type discipline
 
@@ -307,6 +315,12 @@ leading bold word is convention, not requirement.
 * **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
 * **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
 ```
+
+**Other Markdown** — OKF v0.2 has no exclusion mechanism: every non-reserved `.md` file under the
+bundle root must be a concept (§11). Keep READMEs, changelogs, agent instructions, and immutable
+records outside the root. An AXM knowledge package does this with `bundleRoot: "src"`. Otherwise,
+make the file a real concept with truthful frontmatter. Do not add frontmatter only to silence the
+validator, and never edit a hash-pinned record; move it, or cite it from a concept's `sources`.
 
 ## Attested Computation
 

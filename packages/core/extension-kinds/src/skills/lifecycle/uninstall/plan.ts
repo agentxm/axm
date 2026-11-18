@@ -36,7 +36,8 @@ import * as Path from "effect/Path";
 
 import {
   SkillManager,
-  skillArtifactFromTargets,
+  groupInstallTargetsByDirectory,
+  skillArtifactFromLocations,
   type InstallableSkillTarget,
 } from "@agentxm/workspace-kernel/materialization";
 import {
@@ -190,6 +191,11 @@ export const planSkillUninstall: (
       installableTargets.push({ agentId, targetDir: path.normalize(outcome.dir) });
     }
   }
+  // Every removal is described from one physical grouping of the same targets,
+  // resolved when the first removal needs it and failing as that removal.
+  const targetLocations = yield* Effect.cached(
+    groupInstallTargetsByDirectory(installableTargets, location.baseDir),
+  );
 
   const steps = yield* Effect.forEach(
     intent.targets,
@@ -211,7 +217,9 @@ export const planSkillUninstall: (
           lockEntry,
           sanitizedName,
         );
-        const removedArtifact = yield* skillArtifactFromTargets({
+        const locations = yield* targetLocations;
+        const removedArtifact = yield* skillArtifactFromLocations({
+          locations,
           targets: installableTargets,
           workspaceRoot: location.baseDir,
           sanitizedName,
@@ -225,7 +233,8 @@ export const planSkillUninstall: (
         });
         // A skill another desired route still reaches keeps its resolution,
         // its package, and its projections: only the direct declaration goes.
-        const retainedArtifact = yield* skillArtifactFromTargets({
+        const retainedArtifact = yield* skillArtifactFromLocations({
+          locations,
           targets: installableTargets,
           workspaceRoot: location.baseDir,
           sanitizedName,

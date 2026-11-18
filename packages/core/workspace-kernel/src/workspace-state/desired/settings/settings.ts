@@ -12,7 +12,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import { freezeWorkspaceValue } from "../freeze-value.js";
 import { SettingsWriteError } from "./errors.js";
 import { protectWorkspacePath, recordFilePublication } from "../../../settlement/index.js";
 import {
@@ -22,7 +24,12 @@ import {
   SettingsSchema,
 } from "./schema.js";
 import { applyJsonPatchToText } from "./format-preserving-json.js";
-import { prepareSettingsRoundTrip, type SettingsRoundTripContext } from "./round-trip.js";
+import {
+  prepareSettingsRoundTrip,
+  settingsImage,
+  type ParsedSettingsImage,
+  type SettingsRoundTripContext,
+} from "./round-trip.js";
 
 // -----------------------------------------------------------------------------
 // Default Settings
@@ -76,12 +83,29 @@ const isJsonArray = (value: Schema.Json): value is Schema.JsonArray => Array.isA
 const isJsonObject = (value: Schema.Json): value is Schema.JsonObject =>
   typeof value === "object" && value !== null && !isJsonArray(value);
 
-const parseJson = (text: string): Schema.Json | undefined => {
+type ParsedSettingsText = {
+  /** The JSON value the text holds, when it holds one. */
+  readonly json: Schema.Json | undefined;
+  /** The round-trip view of the same parse. */
+  readonly image: ParsedSettingsImage;
+};
+
+/**
+ * Parse one settings image once. The tree is frozen before it is shared, so
+ * rendering, patch diffing and the round-trip unit diff read one value that
+ * none of them can change.
+ */
+const parseSettingsText = (text: string): ParsedSettingsText => {
+  let value: unknown;
   try {
-    return Schema.decodeUnknownSync(Schema.Json)(JSON.parse(text));
+    value = freezeWorkspaceValue<unknown>(JSON.parse(text));
   } catch {
-    return undefined;
+    value = undefined;
   }
+  return {
+    json: Option.getOrUndefined(Schema.decodeUnknownOption(Schema.Json)(value)),
+    image: settingsImage(value),
+  };
 };
 
 const serializeCanonicalSettings = (settings: Readonly<Record<string, unknown>>): string =>
@@ -125,6 +149,8 @@ const insertionIndexFor = (
 type ExistingSettingsRenderResult = {
   readonly content: string;
   readonly fallbackReason?: "edit_failed" | "edited_content_invalid";
+  /** The parse of `content`, present only when `content` is the edited text. */
+  readonly image?: ParsedSettingsImage;
 };
 
 /** @internal */
@@ -151,21 +177,18 @@ export const renderExistingSettings = (
       return { content: canonicalContent(), fallbackReason: "edit_failed" };
     }
 
-    const parsed = yield* Effect.sync(() => parseJson(edited.text)).pipe((effect) =>
+    const parsed = yield* Effect.sync(() => parseSettingsText(edited.text)).pipe((effect) =>
       withWork("axm.parse.settings-round-trip", effect, {
         attributes: { "axm.work.count": 1, "axm.parse.phase": "rendered" },
       }),
     );
-    if (parsed === undefined || JsonPatch.get(parsed, target).length !== 0) {
+    if (parsed.json === undefined || JsonPatch.get(parsed.json, target).length !== 0) {
       return { content: canonicalContent(), fallbackReason: "edited_content_invalid" };
     }
 
-    return {
-      content:
-        isJsonObject(target) && Object.keys(target).length === 0
-          ? `{}` + (priorText.match(/\s*$/)?.[0] ?? "")
-          : edited.text,
-    };
+    return isJsonObject(target) && Object.keys(target).length === 0
+      ? { content: `{}` + (priorText.match(/\s*$/)?.[0] ?? "") }
+      : { content: edited.text, image: parsed.image };
   });
 
 // -----------------------------------------------------------------------------
@@ -213,6 +236,8 @@ export const writeSettingsAtPath = (
     const targetResult = yield* Effect.result(Schema.decodeUnknownEffect(Schema.Json)(ordered));
     let content: string | undefined;
     let priorRaw: string | undefined;
+    let priorImage: ParsedSettingsImage | undefined;
+    let contentImage: ParsedSettingsImage | undefined;
     let existed = true;
 
     if (targetResult._tag === "Failure") {
@@ -238,11 +263,14 @@ export const writeSettingsAtPath = (
           });
         } else if (readResult.success.trim() !== "") {
           priorRaw = readResult.success;
-          const prior = yield* Effect.sync(() => parseJson(readResult.success)).pipe((effect) =>
-            withWork("axm.parse.settings-round-trip", effect, {
-              attributes: { "axm.work.count": 1, "axm.parse.phase": "prior" },
-            }),
+          const parsedPrior = yield* Effect.sync(() => parseSettingsText(readResult.success)).pipe(
+            (effect) =>
+              withWork("axm.parse.settings-round-trip", effect, {
+                attributes: { "axm.work.count": 1, "axm.parse.phase": "prior" },
+              }),
           );
+          priorImage = parsedPrior.image;
+          const prior = parsedPrior.json;
           if (prior === undefined) {
             yield* Effect.logDebug("Falling back to canonical settings serialization", {
               settingsPath,
@@ -258,6 +286,7 @@ export const writeSettingsAtPath = (
               withWork("axm.render.settings", effect, { attributes: { "axm.work.count": 1 } }),
             );
             content = rendered.content;
+            contentImage = rendered.image;
             if (rendered.fallbackReason !== undefined) {
               yield* Effect.logDebug("Falling back to canonical settings serialization", {
                 settingsPath,
@@ -284,6 +313,8 @@ export const writeSettingsAtPath = (
             settingsPath,
             before: priorRaw,
             after: content,
+            beforeImage: priorImage,
+            afterImage: contentImage,
           });
     content = restoration?.content ?? content;
     if (restoration !== undefined) yield* restoration.revalidate;

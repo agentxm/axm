@@ -5,11 +5,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 import * as Predicate from "effect/Predicate";
 import {
   invalidNativeConfig,
   parseNativeConfigRoot,
   readDeclaredHookGroups,
+  withNativeConfigObservationView,
 } from "../agent-adapters/index.js";
 import {
   nativeUnitKey,
@@ -112,10 +114,31 @@ const keyContent = (
     return [...new Set(contents)].sort();
   });
 
+type ReadText = (file: string) => Effect.Effect<string, PlatformError.PlatformError>;
+
+/**
+ * Text of each retained file for one sequential retention pass. A failed read
+ * ends the pass at the unit that first needed it, under that unit's error.
+ */
+const passTextReads = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const cells = new Map<string, Effect.Effect<string, PlatformError.PlatformError>>();
+  const read: ReadText = (file) =>
+    Effect.gen(function* () {
+      const prior = cells.get(file);
+      if (prior !== undefined) return yield* prior;
+      const cell = yield* Effect.cached(fs.readFileString(file));
+      cells.set(file, cell);
+      return yield* cell;
+    });
+  return read;
+});
+
 const observeRetention = (
   unit: NativeLocationOutcome,
   context: NativeRetentionContext,
   locations: NativeLocationSet,
+  readText: ReadText,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -136,17 +159,12 @@ const observeRetention = (
     );
     let content: unknown;
     if (unit.address.kind === "key-path") {
-      content = yield* keyContent(
-        unit,
-        yield* fs.readFileString(address.referentPath),
-        path,
-        context,
-      );
+      content = yield* keyContent(unit, yield* readText(address.referentPath), path, context);
     } else if (unit.address.kind === "hook-registrations") {
       content = yield* readDeclaredHookGroups(
         unit.address.path,
         unit.address.settingsKey,
-        yield* fs.readFileString(address.referentPath),
+        yield* readText(address.referentPath),
         unit.address.scriptRoots.map((root) => ({
           name: root,
           ref: "retention",
@@ -158,7 +176,7 @@ const observeRetention = (
       content = yield* nativeManagedRegionContent({
         targetPath: unit.address.path,
         region: unit.address.region,
-        raw: yield* fs.readFileString(address.referentPath),
+        raw: yield* readText(address.referentPath),
       });
     } else if (
       unit.policyReasons.includes("instruction-propagation") &&
@@ -236,9 +254,13 @@ export const captureNativeRetentionWitnesses = (
     const observed = yield* captureNativeLocationSet({
       entries: required.flatMap((unit) => [unit.address.path, ...unit.aliases]),
     });
-    return yield* Effect.forEach(required, (location) =>
-      observeRetention(location, context, observed).pipe(
-        Effect.map((fingerprint): NativeRetentionWitness => ({ location, fingerprint })),
+    // Units sharing one file observe one read and one parse per grammar in this pass.
+    const readText = yield* passTextReads;
+    return yield* withNativeConfigObservationView(
+      Effect.forEach(required, (location) =>
+        observeRetention(location, context, observed, readText).pipe(
+          Effect.map((fingerprint): NativeRetentionWitness => ({ location, fingerprint })),
+        ),
       ),
     );
   });
@@ -252,19 +274,23 @@ export const validateNativeRetentionWitnesses = (
     const observed = yield* captureNativeLocationSet({
       entries: witnesses.flatMap(({ location }) => [location.address.path, ...location.aliases]),
     });
-    yield* Effect.forEach(
-      witnesses,
-      (witness) =>
-        Effect.gen(function* () {
-          if (
-            (yield* observeRetention(witness.location, context, observed)) !== witness.fingerprint
-          )
-            return yield* new ProjectionIoFailed({
-              path: witness.location.address.path,
-              step: "inspect",
-              cause: "retained-native-unit-changed",
-            });
-        }),
-      { discard: true },
+    const readText = yield* passTextReads;
+    yield* withNativeConfigObservationView(
+      Effect.forEach(
+        witnesses,
+        (witness) =>
+          Effect.gen(function* () {
+            if (
+              (yield* observeRetention(witness.location, context, observed, readText)) !==
+              witness.fingerprint
+            )
+              return yield* new ProjectionIoFailed({
+                path: witness.location.address.path,
+                step: "inspect",
+                cause: "retained-native-unit-changed",
+              });
+          }),
+        { discard: true },
+      ),
     );
   });

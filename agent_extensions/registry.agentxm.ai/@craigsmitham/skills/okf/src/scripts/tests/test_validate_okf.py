@@ -104,7 +104,62 @@ sources:
 
     def test_unquoted_numeric_version_is_warned(self) -> None:
         self.write("index.md", "---\nokf_version: 0.2\n---\n\n# Bundle\n")
-        self.assertIn("okf-version-type", self.codes("warn"))
+        warnings = self.codes("warn")
+        self.assertIn("okf-version-type", warnings)
+        # The written version is 0.2; only its YAML type is wrong.
+        self.assertNotIn("okf-version", warnings)
+
+    def test_unquoted_other_version_reports_type_and_version(self) -> None:
+        self.write("index.md", "---\nokf_version: 0.3\n---\n\n# Bundle\n")
+        self.assertTrue({"okf-version-type", "okf-version"} <= self.codes("warn"))
+
+    def test_digit_only_source_id_reports_yaml_conversion(self) -> None:
+        body = "# Concept\n\nClaim.[^001]\n\n[^001]: Synthetic source.\n"
+        self.write("concept.md", concept(
+            "type: Reference\nsources:\n  - { id: 001, resource: synthetic-scope }", body
+        ))
+        findings, _ = self.validate()
+        by_code = {item["code"]: item for item in findings.items}
+        self.assertEqual("warn", by_code["source-id-type"]["severity"])
+        self.assertIn("source-id-type", by_code["footnote-unmatched"]["message"])
+        self.assertNotIn("source-uncited", by_code)
+        self.assertEqual(0, findings.count("error"))
+
+        self.write("concept.md", concept(
+            "type: Reference\nsources:\n  - { id: \"001\", resource: synthetic-scope }", body
+        ))
+        self.assertFalse({"source-id-type", "footnote-unmatched", "source-uncited"} & self.codes())
+
+    def test_numeric_source_id_still_resolves_its_written_label(self) -> None:
+        self.write("concept.md", concept(
+            "type: Reference\nsources:\n  - { id: 7, resource: synthetic-scope }",
+            "# Concept\n\nClaim.[^7]\n\n[^7]: Synthetic source.\n",
+        ))
+        codes = self.codes()
+        self.assertIn("source-id-type", codes)
+        self.assertNotIn("footnote-unmatched", codes)
+
+    def test_numeric_type_error_suggests_quoting(self) -> None:
+        self.write("concept.md", concept("type: 2024"))
+        findings, _ = self.validate()
+        errors = [item for item in findings.items if item["code"] == "type-empty"]
+        self.assertEqual(1, len(errors))
+        self.assertIn("quote", errors[0]["message"])
+
+    def test_non_concept_markdown_reports_one_base_error(self) -> None:
+        self.write("index.md", "# Bundle\n\nSynthetic scope.\n\n* [Concept](concept.md)\n")
+        self.write("concept.md", concept("type: Reference"))
+        self.write("README.md", "# Repository readme\n\nNot knowledge for this bundle.\n")
+        findings, _ = self.validate()
+        readme = [item for item in findings.items if item["file"] == "README.md"]
+        self.assertEqual(["frontmatter-missing"], [item["code"] for item in readme])
+        self.assertIn("outside the bundle root", readme[0]["message"])
+
+    def test_unreachable_concept_with_frontmatter_still_warns(self) -> None:
+        self.write("index.md", "# Bundle\n\nSynthetic scope.\n\n* [Concept](concept.md)\n")
+        self.write("concept.md", concept("type: Reference"))
+        self.write("orphan.md", concept("type: Reference"))
+        self.assertIn("discovery-unreachable", self.codes("warn"))
 
     def test_index_structure_is_required_at_root_and_nested_levels(self) -> None:
         cases = {
@@ -265,6 +320,41 @@ sources:
             with self.subTest(metadata=metadata):
                 self.write("concept.md", concept("type: Reference\n" + metadata))
                 self.assertNotIn("verification-predates-content", self.codes())
+
+    def test_self_verification_is_info_without_changing_tier(self) -> None:
+        generated = "generated: { by: synthetic-agent/1, at: 2026-08-26T12:00:00Z }\n"
+        cases = {
+            "verified: { by: synthetic-agent/1, at: 2026-08-26T13:00:00Z }": True,
+            "verified:\n"
+            "  - { by: synthetic-agent/1, at: 2026-08-26T13:00:00Z }\n"
+            "  - { by: synthetic-agent/1, at: 2026-08-26T14:00:00Z }": True,
+            # An independent machine event means the tier does not rest on self-checks alone.
+            "verified:\n"
+            "  - { by: synthetic-agent/1, at: 2026-08-26T13:00:00Z }\n"
+            "  - { by: process:synthetic-check, at: 2026-08-26T14:00:00Z }": False,
+            "verified: { by: other-agent/2, at: 2026-08-26T13:00:00Z }": False,
+            # An incomplete foreign event is not an independent check.
+            "verified:\n"
+            "  - { by: synthetic-agent/1, at: 2026-08-26T13:00:00Z }\n"
+            "  - { by: other-agent/2 }": True,
+        }
+        for verified, expected in cases.items():
+            with self.subTest(verified=verified):
+                self.write("concept.md", concept("type: Reference\n" + generated + verified))
+                findings, stats = self.validate()
+                self.assertEqual({"machine-confirmed": 1}, stats["tiers"])
+                self.assertEqual(expected, "self-verification" in self.codes("info"))
+                self.assertNotIn("self-verification", self.codes("warn"))
+
+    def test_human_author_review_is_not_reported_as_self_verification(self) -> None:
+        self.write("concept.md", concept(
+            "type: Reference\n"
+            "generated: { by: human:author, at: 2026-08-26T12:00:00Z }\n"
+            "verified: { by: human:author, at: 2026-08-26T13:00:00Z }\n"
+        ))
+        findings, stats = self.validate()
+        self.assertEqual({"human-reviewed": 1}, stats["tiers"])
+        self.assertNotIn("self-verification", {item["code"] for item in findings.items})
 
     def test_verification_observation_is_info_only_even_in_strict_mode(self) -> None:
         self.write("index.md", "# Bundle\n\n* [Concept](concept.md)\n")

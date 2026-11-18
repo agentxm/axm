@@ -55,8 +55,10 @@ import {
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  projectionParticipantSelectionKey,
   WorkspaceInvariantFacts,
   withMcpInspectionReadView,
+  type PreparedProjectionFacts,
   type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
 import {
@@ -68,6 +70,7 @@ import {
   WorkspaceRecords,
   withWorkspaceObservationReadView,
   withFreshWorkspaceObservationReadView,
+  workspaceReadPhaseFor,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { FootprintRecorder } from "@agentxm/workspace-kernel/settlement";
@@ -175,17 +178,26 @@ const inventoriesStillCurrent = (observed: CollectedMaterializeSteps["inventoryO
     return true;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
-const observationsStillCurrent = (observation: {
-  readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
-  readonly graph: DesiredStateGraph;
-  readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
-  readonly projectionSubjects?: ReadonlyArray<{
-    readonly type: ExtensionType;
-    readonly name: string;
-  }>;
-  readonly inventories: CollectedMaterializeSteps["inventoryObservations"];
-}) =>
-  withFreshWorkspaceObservationReadView(
+/**
+ * Whether the observations a sync plan rests on are still current. Preparing
+ * always observes afresh; validating under the transition joins the fresh
+ * validation observation the candidate check opened, so documents both checks
+ * fingerprint are read once.
+ */
+const observationsStillCurrent = (
+  observation: {
+    readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
+    readonly graph: DesiredStateGraph;
+    readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+    readonly projectionSubjects?: ReadonlyArray<{
+      readonly type: ExtensionType;
+      readonly name: string;
+    }>;
+    readonly inventories: CollectedMaterializeSteps["inventoryObservations"];
+  },
+  mode: "prepare" | "validate",
+) =>
+  (mode === "prepare" ? withFreshWorkspaceObservationReadView : withWorkspaceObservationReadView)(
     withMcpInspectionReadView(
       Effect.gen(function* () {
         if (!(yield* isExecutionCandidateFresh(observation.preflightMaterial))) return false;
@@ -240,16 +252,26 @@ const planWorkspaceMaterialization = (args: {
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
-}): Effect.Effect<CollectedMaterializeSteps, SyncWorkspaceFailure, SyncWorkspaceRequirements> =>
+}): Effect.Effect<
+  Omit<CollectedMaterializeSteps, "inventoryObservations">,
+  SyncWorkspaceFailure,
+  SyncWorkspaceRequirements
+> =>
   Effect.gen(function* () {
     const conversion = yield* StepFailureConversion;
-    const graph = yield* (yield* DesiredStateReader).graph();
-    const materialization = yield* collectMaterializeSteps({
-      desiredState: graph,
-      ...(args.selection === undefined ? {} : { selection: args.selection }),
-      ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
-      adapter: conversion,
-    });
+    // The committed workspace's current evaluation is both what this plans and
+    // what step collection compares the plan with.
+    const evaluation = yield* (yield* DesiredStateReader).evaluate();
+    const graph = evaluation.graph;
+    const { inventoryObservations: _unobserved, ...materialization } =
+      yield* collectMaterializeSteps({
+        currentEvaluation: evaluation,
+        ...(args.selection === undefined ? {} : { selection: args.selection }),
+        ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
+        // The membership closure applies only the steps; it never rechecks inventories.
+        inventories: "presence",
+        adapter: conversion,
+      });
     if (args.newlyConfiguredAgentIds === undefined || args.newlyConfiguredAgentIds.length === 0)
       return materialization;
     const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph);
@@ -273,6 +295,28 @@ const planWorkspaceMaterialization = (args: {
   });
 
 /**
+ * Prepared facts stand in for an evaluation only when nothing that decides the
+ * facts can differ: the producing read phase is still the active one for this
+ * location, the graph is the phase's own, and the subject selection chooses
+ * the same participants. An unscoped evaluation is never served from them.
+ */
+const reusablePreparedFacts = (
+  prepared: PreparedProjectionFacts | undefined,
+  graph: DesiredStateGraph,
+  subjects: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }> | undefined,
+) =>
+  Effect.gen(function* () {
+    if (prepared === undefined || subjects === undefined) return undefined;
+    const location = yield* WorkspaceLocation;
+    return location === prepared.location &&
+      (yield* workspaceReadPhaseFor(location)) === prepared.phase &&
+      graph === prepared.graph &&
+      projectionParticipantSelectionKey(subjects) === prepared.selectionKey
+      ? prepared.facts
+      : undefined;
+  });
+
+/**
  * Settle a reconciliation request into the plan it will run.
  *
  * A workspace that already matches its declaration settles as
@@ -289,13 +333,14 @@ const collectSupplementalSyncSteps = (args: {
   readonly subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>;
   readonly collected: CollectedMaterializeSteps;
   readonly conversion: StepFailureConversionService;
+  /** Facts another owner evaluated in this read phase; only local assessment offers them. */
+  readonly prepared?: PreparedProjectionFacts;
 }) =>
   Effect.gen(function* () {
-    const { graph, planningGraph, selection, subjects, collected, conversion } = args;
-    const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(
-      graph,
-      subjects,
-    );
+    const { graph, planningGraph, selection, subjects, collected, conversion, prepared } = args;
+    const projectionFacts =
+      (yield* reusablePreparedFacts(prepared, graph, subjects)) ??
+      (yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph, subjects));
     const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
       subject.unitId.startsWith("hook:"),
     );
@@ -539,13 +584,16 @@ const prepareSyncWorkspace = (
       Option.toArray(retirementStep).length;
     const lockfileNeedsRecovery = (yield* liveLockfile.state) !== "ok";
     if (
-      !(yield* observationsStillCurrent({
-        preflightMaterial,
-        graph,
-        projectionFacts,
-        ...(projectionSubjects === undefined ? {} : { projectionSubjects }),
-        inventories: collected.inventoryObservations,
-      }))
+      !(yield* observationsStillCurrent(
+        {
+          preflightMaterial,
+          graph,
+          projectionFacts,
+          ...(projectionSubjects === undefined ? {} : { projectionSubjects }),
+          inventories: collected.inventoryObservations,
+        },
+        "prepare",
+      ))
     ) {
       return yield* syncRefused({
         category: "conflict",
@@ -625,21 +673,25 @@ const previewOrApplySyncWorkspace = (
 > =>
   resolveExecutionCandidate(candidate.execution, execution, {
     additionalFreshness: () =>
-      observationsStillCurrent({
-        preflightMaterial: candidate.preflightMaterial,
-        graph: candidate.observedGraph,
-        projectionFacts: candidate.projectionFacts,
-        ...(candidate.projectionSubjects === undefined
-          ? {}
-          : { projectionSubjects: candidate.projectionSubjects }),
-        inventories: candidate.inventoryObservations,
-      }),
+      observationsStillCurrent(
+        {
+          preflightMaterial: candidate.preflightMaterial,
+          graph: candidate.observedGraph,
+          projectionFacts: candidate.projectionFacts,
+          ...(candidate.projectionSubjects === undefined
+            ? {}
+            : { projectionSubjects: candidate.projectionSubjects }),
+          inventories: candidate.inventoryObservations,
+        },
+        "validate",
+      ),
+    additionalFreshnessMaterialPaths: candidate.preflightMaterial.materialPaths,
   }).pipe(Effect.withSpan("SyncWorkspace.previewOrApply"));
 
 /** The workspace-reconciliation use case. */
 export const SyncWorkspace = {
   /** Local materialization evidence only; this does not resolve or apply a sync candidate. */
-  assessLocalMaterialization: (selection: SyncSelection) =>
+  assessLocalMaterialization: (selection: SyncSelection, prepared?: PreparedProjectionFacts) =>
     withWorkspaceObservationReadView(
       withMcpInspectionReadView(
         Effect.gen(function* () {
@@ -659,6 +711,7 @@ export const SyncWorkspace = {
             collected,
             conversion: adapter,
             ...(selection.subjects === undefined ? {} : { subjects: selection.subjects }),
+            ...(prepared === undefined ? {} : { prepared }),
           });
           const steps: ReadonlyArray<SyncPlanStep> = [
             ...collected.steps,

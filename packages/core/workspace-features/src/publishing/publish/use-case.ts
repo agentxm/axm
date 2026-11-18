@@ -28,8 +28,7 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { sha512Integrity } from "@agentxm/host-primitives";
-import { planZipArchive } from "../archive.js";
+import { admitDistribution, rebuildDistributionDigest } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -110,13 +109,17 @@ import {
   validatePublishOwners,
 } from "../preflight.js";
 import { publishRecoverySelection } from "../recovery.js";
-import { assessPublishSourceState, publishSourceRiskCondition } from "../source-state.js";
+import {
+  assessPublishSourceState,
+  makeRepositoryHeads,
+  publishSourceRiskCondition,
+} from "../source-state.js";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type { PublishSettlement } from "../settlement.js";
 import {
   catalogEntries,
   decodeCandidate,
-  prepareCandidate,
+  prepareCandidateForAssessment,
   resolveTargetRegistry,
   selectEntries,
   type PublishCandidate,
@@ -360,7 +363,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
               Effect.gen(function* () {
                 if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
                 if (result.success === undefined) return undefined;
-                return yield* prepareCandidate(
+                return yield* prepareCandidateForAssessment(
                   result.success.candidate,
                   result.success.index,
                   request.backfill,
@@ -376,14 +379,21 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
     const selected = selection.entries;
     const decoded: ReadonlyArray<
       Result.Result<PublishCandidate | undefined, PublishFailure | PublishPreparationFailure>
-    > = prepared.decoded;
-    const decodedCandidates = decoded.flatMap((result) =>
+    > = prepared.decoded.map((result) => Result.map(result, (success) => success?.candidate));
+    const decodedPrepared = prepared.decoded.flatMap((result) =>
       Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
     );
+    const decodedCandidates = decodedPrepared.map(({ candidate }) => candidate);
+    // Root hints and walk observations stay with this pass, each released
+    // when its package's assessment settles; HEAD facts are shared only
+    // within the pass.
+    // The pass is sequential: assessing concurrently would need each root's
+    // first comparison to settle before another one may take its facts.
+    const repositoryHeads = makeRepositoryHeads();
     const decodedPreflightFailures = decoded.flatMap((result) =>
       Result.isFailure(result) ? [preparationFailureOf(result.failure)] : [],
     );
-    const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
+    const sourceAssessments = yield* Effect.forEach(decodedPrepared, ({ candidate, source }) =>
       Effect.result(
         Effect.gen(function* () {
           if (candidate.action === "skip") return candidate;
@@ -392,7 +402,18 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
             archivePlan: candidate.archivePlan,
             ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
             selection: candidate.fileSelection,
-          }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
+            ...("repositoryRoot" in source ? { repositoryRoot: source.repositoryRoot } : {}),
+            repositoryHeads,
+            ...("observations" in source ? { takeObservation: source.observations.take } : {}),
+          }).pipe(
+            Effect.mapError(sourceAssessmentFailed(candidate.fqn)),
+            // Whatever the comparison did not take is released when it settles.
+            Effect.ensuring(
+              Effect.sync(() => {
+                if ("observations" in source) source.observations.release();
+              }),
+            ),
+          );
           return { ...candidate, sourceAssessment } satisfies PublishCandidate;
         }),
       ),
@@ -780,28 +801,38 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     uploadCandidates,
     (candidate) =>
       Effect.gen(function* () {
-        // Existing-directory preparation captures bytes before the execution
-        // candidate is assembled. Compare the same envelope again so an edit
-        // between those phases cannot upload stale, previously prepared bytes.
-        const observed = yield* planZipArchive(candidate.extensionDir, {
-          ...(yield* publishArchiveOptions(candidate.type, candidate.publishOptions)),
-          ...(candidate.existingDirectoryVersion === undefined
-            ? {}
-            : {
-                skillEnvelope: new TextEncoder().encode(
-                  `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
-                ),
-              }),
-        });
-        if (
-          sha512Integrity(observed.archive.copyBytes()) !== candidate.integrity ||
-          observed.policyFingerprint !== candidate.policyFingerprint
-        ) {
-          return yield* publishRefused({
-            category: "conflict",
-            detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
+        // The rebuild's bytes live only for this comparison.
+        yield* Effect.gen(function* () {
+          // Existing-directory preparation captures bytes before the execution
+          // candidate is assembled. Compare the same envelope again so an edit
+          // between those phases cannot upload stale, previously prepared bytes.
+          const observed = yield* rebuildDistributionDigest(candidate.extensionDir, {
+            ...(yield* publishArchiveOptions(candidate.type, candidate.publishOptions)),
+            ...(candidate.existingDirectoryVersion === undefined
+              ? {}
+              : {
+                  skillEnvelope: new TextEncoder().encode(
+                    `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
+                  ),
+                }),
           });
-        }
+          if (
+            observed.integrity === candidate.integrity &&
+            observed.policyFingerprint === candidate.policyFingerprint
+          ) {
+            // The rebuild is byte-identical to the prepared archive, so the
+            // prepared admission is its admission; hold it to the default limits.
+            yield* admitDistribution(candidate.archive);
+          } else {
+            // A rebuild that differs is admitted first, so an inadmissible
+            // source is reported as such before the change itself.
+            yield* observed.admit();
+            return yield* publishRefused({
+              category: "conflict",
+              detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
+            });
+          }
+        });
         const planned = candidate.sourceAssessment;
         if (planned === undefined) {
           return yield* Effect.fail(

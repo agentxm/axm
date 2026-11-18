@@ -547,6 +547,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.3(effect@4.1.3)(redis@6.2.1(@node-rs/xxhash@1.7.8))
@@ -803,6 +806,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.3(effect@4.1.3)(vitest@5.1.0)
@@ -840,6 +846,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.3(effect@4.1.3)(redis@6.2.1(@node-rs/xxhash@1.7.8))
@@ -877,6 +886,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.3(effect@4.1.3)(redis@6.2.1(@node-rs/xxhash@1.7.8))
@@ -978,6 +990,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/openapi-generator':
         specifier: 'catalog:'
         version: 4.1.3(@effect/platform-node@4.1.3(effect@4.1.3)(redis@6.2.1(@node-rs/xxhash@1.7.8)))(effect@4.1.3)

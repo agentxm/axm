@@ -27,6 +27,8 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
+import * as Result from "effect/Result";
 import * as Semaphore from "effect/Semaphore";
 import type { Diagnostics } from "../diagnostics.js";
 
@@ -60,19 +62,32 @@ export const fileExists = (
   diagnostics: Diagnostics,
   filePath: string,
 ): Effect.Effect<boolean> =>
-  Effect.gen(function* () {
-    const exists = yield* Effect.result(fs.exists(filePath));
-    if (exists._tag === "Failure") {
-      yield* diagnostics.append({
-        source: "scanner",
-        message: `${scannerName}: cannot stat ${filePath}`,
-        path: filePath,
-        code: "scanner-io",
-      });
-      return false;
-    }
-    return exists.success;
-  });
+  Effect.flatMap(Effect.result(fs.exists(filePath)), (exists) =>
+    settleFileExists(scannerName, diagnostics, filePath, exists),
+  );
+
+/**
+ * Settle one `fs.exists` outcome the way `fileExists` does. A scanner that
+ * shares one probe among several subjects settles it once per subject, so
+ * each subject still reports its own `scanner-io` diagnostic.
+ */
+export const settleFileExists = (
+  scannerName: string,
+  diagnostics: Diagnostics,
+  filePath: string,
+  exists: Result.Result<boolean, PlatformError.PlatformError>,
+): Effect.Effect<boolean> =>
+  Result.isSuccess(exists)
+    ? Effect.succeed(exists.success)
+    : Effect.as(
+        diagnostics.append({
+          source: "scanner",
+          message: `${scannerName}: cannot stat ${filePath}`,
+          path: filePath,
+          code: "scanner-io",
+        }),
+        false,
+      );
 
 /**
  * Enumerate the immediate children of `parent` and return their absolute

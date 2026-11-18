@@ -73,7 +73,9 @@ export {
 export { computeSourceHash } from "./workspace/rendered-files.js";
 export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
+  computeMaterializedTreeDigests,
   computeMaterializedTreeIntegrity,
+  computeMaterializedTreeIntegrityWalking,
   MaterializedTreeInvalid,
   TreeIntegritySchema,
   type TreeIntegrity,
@@ -93,6 +95,7 @@ export {
   readSkillDirectoryName,
   type SkillPathSource,
 } from "./workspace/skill-paths.js";
+export { skillDirectoryNameFromRead } from "./workspace/skill-paths.js";
 export {
   acquisitionConfiguredEntries,
   enabledConfiguredEntries,
@@ -142,6 +145,9 @@ export {
 
 // Managed filesystem primitives
 export { createSymlink } from "./workspace/create-symlink.js";
+
+// Deep protection of an owned value before it is shared
+export { freezeWorkspaceValue } from "./desired/freeze-value.js";
 
 // Read-model record rows + lifecycle views
 export {
@@ -214,13 +220,17 @@ export {
 } from "./workspace/desired-state-problem-text.js";
 export {
   observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
+  capturedManifestFor,
   observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
+  observeAcceptedCanonicalReuseReading,
   type RequestedCanonicalRef,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,
   type CanonicalObservation,
   type CanonicalObservationStatus,
+  type CapturedManifest,
 } from "./workspace/canonical-observation.js";
 export {
   acceptedResolutionRef,
@@ -228,12 +238,20 @@ export {
   acceptedLockedCanonicalPath,
   prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
+  acceptedCanonicalObservationWalking,
+  acceptedCanonicalObservationOfKeptRoot,
+  acceptedCanonicalObservationPath,
   observeDesiredCanonical,
+  observeDesiredCanonicalCapturing,
+  observeDesiredUsableCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalCapturing,
   usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
+  type AcceptedCanonicalObservation,
   type AcceptedCanonicalRefError,
 } from "./workspace/accepted-canonical-ref.js";
 export { isObservedInstalled } from "./workspace/observed-installed.js";
@@ -251,6 +269,7 @@ export {
   lockEntryVersion,
   isGitLockEntry,
   isPathLockEntry,
+  isRegistryLockEntry,
   type LockEntry,
   type LockEntryToRefError,
 } from "./workspace/lock-entry.js";
@@ -262,6 +281,7 @@ export {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "./observed/service.js";
+export { freshStateLoadersFor } from "./workspace/state-cells.js";
 export { SCANNER_IO_CONCURRENCY, makeScannerFileSystem } from "./observed/scanners/fs-helpers.js";
 export { AgentRootResolverLive } from "./observed/agent-root-resolver.js";
 export {
@@ -420,7 +440,11 @@ export {
   withFreshWorkspaceObservationReadView,
   withLiveWorkspaceObservations,
 } from "./workspace/read-view.js";
-export { CurrentWorkspaceReadPhase, workspaceReadPhaseFor } from "./workspace/read-phase.js";
+export {
+  CurrentWorkspaceReadPhase,
+  inspectKnowledgePackageInPhase,
+  workspaceReadPhaseFor,
+} from "./workspace/read-phase.js";
 export { observeConfiguredTargets } from "./workspace/selected-configured-observations.js";
 
 export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";

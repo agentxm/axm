@@ -7,15 +7,19 @@ import * as Path from "effect/Path";
 import * as Predicate from "effect/Predicate";
 import {
   assertNativeMutationWithinRoots,
-  assertNoPhysicalOverlap,
   nativeAuthorityRoots,
+  noPhysicalOverlapWith,
   type NativeLocationOutcome,
   type NativeDirectoryInputs,
 } from "../../locations/index.js";
 import { HookConfigInvalid, HookIoFailed } from "../errors.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
-import { parseNativeConfigRoot } from "../native-config-syntax.js";
+import {
+  parseNativeConfigRoot,
+  withNativeConfigObservationView,
+  withNativeConfigPublicationView,
+} from "../native-config-syntax.js";
 import {
   isDeclaredHookEntry,
   readDeclaredHookUnits,
@@ -77,7 +81,13 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
     );
     const physical = address.referentPath ?? address.entryPath;
     const run = Effect.gen(function* () {
-      for (const alias of [args.path, ...args.aliases]) {
+      // Each distinct spelling is admitted once per run. A dry run has no lock
+      // between the admission above and this run, so that admission stands for
+      // its own spelling; a locked apply admits it again under the lock.
+      const spellings = [...new Set([args.path, ...args.aliases])].filter(
+        (alias) => args.dryRun !== true || alias !== args.path,
+      );
+      for (const alias of spellings) {
         const { address: resolved } = yield* assertNativeMutationWithinRoots(
           roots,
           alias,
@@ -87,6 +97,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         if ((resolved.referentPath ?? resolved.entryPath) !== physical)
           return yield* new HookConfigInvalid({ detail: "Hook alias changed after planning" });
       }
+      // The target is resolved by the first declaration's check and judged against every root.
+      const assertNoOverlapWithTarget = yield* noPhysicalOverlapWith(physical);
       for (const source of args.declarations) {
         if (!path.isAbsolute(source.root))
           return yield* new HookConfigInvalid({
@@ -96,7 +108,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
           return yield* new HookConfigInvalid({
             detail: "Hook declaration scope does not match its native target",
           });
-        yield* assertNoPhysicalOverlap(path.resolve(args.workspaceRoot, source.root), physical);
+        yield* assertNoOverlapWithTarget(path.resolve(args.workspaceRoot, source.root));
       }
       const read = () =>
         readFileStringIfPresent(fs, physical).pipe(
@@ -156,7 +168,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         (owner) => Object.keys(hooksForOwner(args.rendered, owner)).length > 0,
       );
       const observedNames: string[] = [];
-      for (const owner of expected) {
+      // Only an observation reports which owners are already current; apply callers keep its location.
+      for (const owner of args.dryRun === true ? expected : []) {
         if (
           observed.some((unit) => unit.name === owner.name) &&
           (yield* updateHooksJson(
@@ -249,5 +262,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         } satisfies NativeLocationOutcome,
       };
     });
-    return yield* args.dryRun === true ? run : authority.withExclusiveWrite(physical, run);
+    return yield* args.dryRun === true
+      ? withNativeConfigObservationView(run)
+      : authority.withExclusiveWrite(physical, withNativeConfigPublicationView(run));
   });

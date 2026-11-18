@@ -1,5 +1,4 @@
 import { RegistryRequestAttempt } from "./request-attempt.js";
-import { computeIntegrity } from "@agentxm/host-primitives";
 import type { RegistryAuthorityContext } from "./registry-transport.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are translated to typed registry failures by this registry adapter
 /**
@@ -173,6 +172,7 @@ const SETTLEMENT_READ_REQUEST_POLICY: RegistryRequestPolicy = {
   maxBackoff: "2 seconds",
 };
 import type { ArchiveCache } from "./archive-cache.js";
+import { VerifiedArchive } from "./verified-archive.js";
 import {
   PreviewPublicationSetResponseSchema,
   validatePublicationDescriptors,
@@ -1055,13 +1055,13 @@ export const createRemoteRegistryClient = (
         mapError: mapArchiveFetchError,
       },
     );
-    const archive = yield* archiveCache === undefined
+    const delivery = yield* archiveCache === undefined
       ? fetchArchive.pipe(
           Effect.flatMap((bytes) =>
-            computeIntegrity(bytes).pipe(
-              Effect.flatMap((actual) =>
-                actual === selected.integrity
-                  ? Effect.succeed(bytes)
+            VerifiedArchive.check(bytes, selected.integrity).pipe(
+              Effect.flatMap((verified) =>
+                Option.isSome(verified)
+                  ? Effect.succeed({ archive: verified.value.bytes, verified: verified.value })
                   : Effect.fail(
                       new RegistryOperationFailed({
                         category: "validation",
@@ -1089,7 +1089,7 @@ export const createRemoteRegistryClient = (
         );
 
     return {
-      archive,
+      ...delivery,
       ...(warnings.length === 0 ? {} : { warnings }),
     } satisfies GetExtensionPackageResponse;
   });

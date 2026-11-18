@@ -11,7 +11,7 @@ import {
   NativeEntryRemovalLive,
 } from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
-import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
+import { resolveExistingNativeSpelling } from "@agentxm/workspace-kernel/locations";
 import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
@@ -601,34 +601,42 @@ export const withProjectionOutputPosture =
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.provideService(program, ProjectionOutputPosture, posture);
 
+/**
+ * Resolve the selected directory to the existing, traversable directory a
+ * command runs from, spelled as the filesystem names it.
+ */
+export const resolveExecutionDirectory = (selected: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const directoryError = (cause: unknown) =>
+      makeAppError({
+        code: "usage",
+        detail: `Could not run from the selected directory '${selected}'.`,
+        cause,
+      });
+    const canonical = yield* resolveExistingNativeSpelling(selected).pipe(
+      Effect.mapError(directoryError),
+    );
+    const info = yield* fs.stat(canonical).pipe(Effect.mapError(directoryError));
+    if (info.type !== "Directory") {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `Could not run from the selected directory '${selected}'.`,
+        cause: new Error("The selected path is not a directory."),
+      });
+    }
+    yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
+    return { path: decodeAbsolutePathSync(canonical) };
+  });
+
 export const withRuntime =
   (options?: { readonly registry?: Option.Option<string> }) =>
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
       const selected = Option.getOrElse(directory, () => process.cwd());
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const directoryError = (cause: unknown) =>
-        makeAppError({
-          code: "usage",
-          detail: `Could not run from the selected directory '${selected}'.`,
-          cause,
-        });
-      const existing = yield* fs.realPath(selected).pipe(Effect.mapError(directoryError));
-      const canonical = yield* resolveNativeReferent(existing).pipe(
-        Effect.mapError(directoryError),
-      );
-      const info = yield* fs.stat(canonical).pipe(Effect.mapError(directoryError));
-      if (info.type !== "Directory") {
-        return yield* makeAppError({
-          code: "usage",
-          detail: `Could not run from the selected directory '${selected}'.`,
-          cause: new Error("The selected path is not a directory."),
-        });
-      }
-      yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
-      const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
+      const executionDirectory = yield* resolveExecutionDirectory(selected);
       const config = resolveRuntimeConfig();
       const format = yield* resolveCliFormat;
       const route = yield* CommandRoute;

@@ -167,12 +167,14 @@ const sourceForConcept = (
 export const makeKnowledgeIndexSnapshot = (
   bundles: ReadonlyArray<KnowledgeIndexBundleInput>,
 ): KnowledgeIndexSnapshot => {
-  const sources = bundles.flatMap(({ sources }) => sources);
+  const fingerprint = computeKnowledgeCorpusFingerprint(bundles.flatMap(({ sources }) => sources));
   const concepts: KnowledgeIndexedConcept[] = [];
   for (const bundle of [...bundles].sort((left, right) =>
     left.bundle.localeCompare(right.bundle),
   )) {
-    const bundleFingerprint = computeKnowledgeCorpusFingerprint(bundle.sources);
+    // A lone bundle's sources are the whole corpus's, so is its fingerprint.
+    const bundleFingerprint =
+      bundles.length === 1 ? fingerprint : computeKnowledgeCorpusFingerprint(bundle.sources);
     const projected = projectKnowledgeConcepts(bundle.bundle, bundle.inspection.concepts);
     for (const [index, source] of bundle.inspection.concepts.entries()) {
       const projection = projected[index];
@@ -194,7 +196,7 @@ export const makeKnowledgeIndexSnapshot = (
     }
   }
   return {
-    fingerprint: computeKnowledgeCorpusFingerprint(sources),
+    fingerprint,
     concepts: concepts.sort(
       (left, right) =>
         left.ref.bundle.localeCompare(right.ref.bundle) ||

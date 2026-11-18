@@ -12,15 +12,22 @@ import {
   type AgentOutputObservation,
   type NativeOutputConcern,
 } from "@agentxm/workspace-kernel/projection";
-import { setupSkillTargets } from "./skill-targets.js";
+import { setupSkillTargets, type PlannedSkillEntries } from "./skill-targets.js";
 import { configurationRefused } from "../errors.js";
 
-/** Read only the proposed native skill entries and same-name user readers. */
+/**
+ * Read only the proposed native skill entries and same-name user readers.
+ *
+ * `planned` holds the entries the caller's own planning has just resolved;
+ * a proposed path spelled exactly as planned takes its entry from there, and
+ * every other path is resolved here.
+ */
 export const observeSetupOutputConcerns = (
   root: string,
   scope: WorkspaceScope,
   agentIds: ReadonlyArray<string>,
   targets?: Effect.Success<ReturnType<typeof setupSkillTargets>>,
+  planned: PlannedSkillEntries = [],
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -43,6 +50,10 @@ export const observeSetupOutputConcerns = (
           : [],
     );
     const projectReaders = new Map<string, Array<string>>();
+    // Agents often declare the same read directory under the same spelling;
+    // this observation resolves each spelling once. Other spellings of one
+    // directory still resolve on their own.
+    const readDirectories = new Map<string, string>();
     for (const id of agentIds.filter(isConfigurableAgentId)) {
       const agent = yield* repository.get(id);
       for (const location of yield* agent.resolveNativeReadLocations({
@@ -50,8 +61,16 @@ export const observeSetupOutputConcerns = (
         scope,
         kind: "skill",
       })) {
-        const resolved = yield* resolveNativeReferent(location.path).pipe(Effect.result);
-        const directory = Result.isSuccess(resolved) ? resolved.success : location.path;
+        const known = readDirectories.get(location.path);
+        const directory =
+          known ??
+          (yield* resolveNativeReferent(location.path).pipe(
+            Effect.result,
+            Effect.map((resolved) =>
+              Result.isSuccess(resolved) ? resolved.success : location.path,
+            ),
+          ));
+        readDirectories.set(location.path, directory);
         projectReaders.set(directory, [...(projectReaders.get(directory) ?? []), id]);
       }
     }
@@ -86,13 +105,24 @@ export const observeSetupOutputConcerns = (
         }
       }
     }
-    const observed = yield* Effect.forEach([...proposed, ...user], (output) =>
-      Effect.gen(function* () {
-        return {
-          ...output,
-          nativeEntry: yield* resolveNativeEntry(output.path).pipe(Effect.result),
-        };
-      }),
+    const observed = yield* Effect.forEach(
+      [
+        ...proposed.map((output) => ({
+          output,
+          known: planned.find((entry) => entry.path === output.path)?.entry,
+        })),
+        ...user.map((output) => ({ output, known: undefined })),
+      ],
+      ({ output, known }) =>
+        Effect.gen(function* () {
+          return {
+            ...output,
+            nativeEntry:
+              known === undefined
+                ? yield* resolveNativeEntry(output.path).pipe(Effect.result)
+                : Result.succeed(known),
+          };
+        }),
     );
     const userPaths = new Set(user.map((entry) => entry.path));
     const canonical = selectedTargets.find((target) => !("agentIds" in target));

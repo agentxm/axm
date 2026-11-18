@@ -1,3 +1,5 @@
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../locations/index.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import * as fs from "node:fs";
@@ -10,9 +12,15 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
 import type * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import { afterEach, beforeEach } from "vitest";
-import { runWorkspaceTransaction } from "../../settlement/index.js";
+import {
+  FootprintRecorder,
+  makeFootprintRecorder,
+  runWorkspaceTransaction,
+} from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
 import { createSymlink } from "./create-symlink.js";
 
@@ -286,4 +294,124 @@ describe("createSymlink", () => {
       }),
     ),
   );
+
+  describe("link entry inspection", () => {
+    // The recording filesystem replaces the native one for the call under test.
+    const recordedPlatform = Layer.merge(
+      NativePlatformTest,
+      layerRecordingFileSystem(NodeServices.layer),
+    );
+    /**
+     * One call over a real directory, counting the primitives that name the
+     * link path after fixture setup. Resolving the link reads its entry once;
+     * the decision reuses that answer when the link is spelled physically.
+     */
+    const inspected = (target: string, link: string) =>
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        const footprint = yield* makeFootprintRecorder;
+        recording.reset();
+        const result = yield* createSymlink({ target, link }).pipe(
+          Effect.provideService(FootprintRecorder, footprint),
+        );
+        const counts = recording.counts(link);
+        return {
+          result,
+          readLink: counts.readLink ?? 0,
+          stat: counts.stat ?? 0,
+          footprint: yield* Ref.get(footprint.ref),
+        };
+      }).pipe(Effect.provide(recordedPlatform));
+
+    const fixture = () => {
+      const target = path.join(tmpDir, "target");
+      fs.mkdirSync(target);
+      return { target, link: path.join(tmpDir, "link") };
+    };
+
+    it.effect("creates an absent link from the resolved entry", () =>
+      Effect.gen(function* () {
+        const { target, link } = fixture();
+        expect(yield* inspected(target, link)).toEqual({
+          result: "created",
+          readLink: 2,
+          stat: 1,
+          footprint: [{ path: link, change: "created" }],
+        });
+      }),
+    );
+
+    it.effect("replaces a regular file from the resolved entry", () =>
+      Effect.gen(function* () {
+        const { target, link } = fixture();
+        fs.writeFileSync(link, "stale");
+        expect(yield* inspected(target, link)).toEqual({
+          result: "replaced",
+          readLink: 1,
+          stat: 1,
+          footprint: [{ path: link, change: "modified" }],
+        });
+      }),
+    );
+
+    it.effect("replaces a directory from the resolved entry", () =>
+      Effect.gen(function* () {
+        const { target, link } = fixture();
+        fs.mkdirSync(link);
+        expect(yield* inspected(target, link)).toEqual({
+          result: "replaced",
+          readLink: 1,
+          stat: 1,
+          footprint: [{ path: link, change: "modified" }],
+        });
+      }),
+    );
+
+    it.effect("replaces a link to another target from its resolved text", () =>
+      Effect.gen(function* () {
+        const { target, link } = fixture();
+        const other = path.join(tmpDir, "other");
+        fs.mkdirSync(other);
+        fs.symlinkSync("other", link);
+        expect(yield* inspected(target, link)).toEqual({
+          result: "replaced",
+          readLink: 2,
+          stat: 1,
+          footprint: [{ path: link, change: "modified" }],
+        });
+        expect(fs.realpathSync(link)).toBe(target);
+      }),
+    );
+
+    it.effect("keeps a correct link from its resolved text", () =>
+      Effect.gen(function* () {
+        const { target, link } = fixture();
+        fs.symlinkSync("target", link);
+        expect(yield* inspected(target, link)).toEqual({
+          result: "no-op",
+          readLink: 2,
+          stat: 1,
+          footprint: [],
+        });
+      }),
+    );
+
+    it.effect("inspects a link below an aliased parent at its supplied path", () =>
+      Effect.gen(function* () {
+        const { target } = fixture();
+        const realDir = path.join(tmpDir, "real-dir");
+        fs.mkdirSync(realDir);
+        const aliasDir = path.join(tmpDir, "alias-dir");
+        fs.symlinkSync(realDir, aliasDir);
+        const link = path.join(aliasDir, "link");
+        expect(yield* inspected(target, link)).toEqual({
+          result: "created",
+          readLink: 2,
+          stat: 1,
+          footprint: [{ path: link, change: "created" }],
+        });
+        expect(fs.realpathSync(link)).toBe(target);
+      }),
+    );
+  });
 });

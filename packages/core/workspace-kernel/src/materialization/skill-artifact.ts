@@ -43,11 +43,23 @@ export const groupInstallTargetsByDirectory = (
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const sharedDir = yield* resolveNativeReferent(path.join(workspaceRoot, UNIVERSAL_SKILLS_DIR));
+    // Within one grouping, an identical spelling resolves to the same referent;
+    // distinct spellings and aliases are still resolved, and failures are never kept.
+    const referents = new Map<string, string>();
+    const resolveOnce = (input: string) =>
+      Effect.suspend(() => {
+        const key = path.resolve(input);
+        const known = referents.get(key);
+        return known === undefined
+          ? resolveNativeReferent(input).pipe(
+              Effect.tap((referent) => Effect.sync(() => referents.set(key, referent))),
+            )
+          : Effect.succeed(known);
+      });
+    const sharedDir = yield* resolveOnce(path.join(workspaceRoot, UNIVERSAL_SKILLS_DIR));
     const keyedTargets = yield* Effect.forEach(
       targets,
-      (target) =>
-        resolveNativeReferent(target.targetDir).pipe(Effect.map((key) => ({ key, target }))),
+      (target) => resolveOnce(target.targetDir).pipe(Effect.map((key) => ({ key, target }))),
       { concurrency: 1 },
     );
     const locationsByKey = new Map<
@@ -69,7 +81,13 @@ export const groupInstallTargetsByDirectory = (
     return [...locationsByKey.values()];
   });
 
-export const skillArtifactFromTargets = (args: {
+/**
+ * The step artifact naming where a skill materializes, from install targets
+ * already grouped by physical directory. Each artifact target owns its
+ * consumer list, so several artifacts may be described from one grouping.
+ */
+export const skillArtifactFromLocations = (args: {
+  readonly locations: ReadonlyArray<InstallableSkillTargetLocation>;
   readonly targets: ReadonlyArray<InstallableSkillTarget>;
   readonly workspaceRoot: string;
   readonly sanitizedName: string;
@@ -79,11 +97,10 @@ export const skillArtifactFromTargets = (args: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const targetLocations = yield* groupInstallTargetsByDirectory(args.targets, args.workspaceRoot);
     const artifactTargets = [
       ...(args.workspaceTargets ?? []),
-      ...targetLocations.map((location) => {
-        const agentIds = artifactTargetAgentIds(location.agentIds);
+      ...args.locations.map((location) => {
+        const agentIds = [...artifactTargetAgentIds(location.agentIds)];
         return {
           path: path.relative(
             args.workspaceRoot,
@@ -104,3 +121,15 @@ export const skillArtifactFromTargets = (args: {
       ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
     } satisfies JobStepArtifact;
   });
+
+export const skillArtifactFromTargets = (args: {
+  readonly targets: ReadonlyArray<InstallableSkillTarget>;
+  readonly workspaceRoot: string;
+  readonly sanitizedName: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly change: JobStepArtifact["change"];
+  readonly workspaceTargets?: ReadonlyArray<JobStepArtifactTarget>;
+}) =>
+  groupInstallTargetsByDirectory(args.targets, args.workspaceRoot).pipe(
+    Effect.flatMap((locations) => skillArtifactFromLocations({ ...args, locations })),
+  );

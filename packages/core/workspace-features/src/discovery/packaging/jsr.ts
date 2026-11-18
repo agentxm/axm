@@ -16,7 +16,13 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  parseJsonOptional,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedPerKey,
+} from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -202,72 +208,91 @@ const resolveDenoDir = () =>
     return `${home}/.cache/deno`;
   });
 
+/** The Deno cache directory when it exists, otherwise `none`. */
+const existingDenoDir = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const denoDir = yield* resolveDenoDir();
+
+  // Check if deno cache directory exists
+  const denoDirExists = yield* fs.exists(denoDir).pipe(Effect.option);
+  if (Option.isNone(denoDirExists) || !denoDirExists.value) return Option.none<string>();
+  return Option.some(denoDir);
+});
+
+/** Whether a directory exists, with any probe failure counted as absence. */
+const directoryExists = (directory: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const exists = yield* fs.exists(directory).pipe(Effect.option);
+    return Option.isSome(exists) && exists.value;
+  });
+
 /**
  * Deno package reader.
  *
  * Reads agentExtensions metadata from cached module metadata in Deno's module cache.
  * Checks for a top-level `"agentExtensions"` array in cached `deno.json` files.
+ * Packages of one read share the probes of the cache roots.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const denoReader: PackageReader = {
-  type: jsrType,
-  read: Effect.fn("read.deno")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+export const denoReader: PackageReader = preparedReader(
+  jsrType,
+  Effect.gen(function* () {
+    const denoCache = yield* Effect.cached(existingDenoDir);
+    const registryCache = yield* sharedPerKey(directoryExists);
+    return Effect.fn("read.deno")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
+        const fs = yield* FileSystem.FileSystem;
 
-      const denoDir = yield* resolveDenoDir();
+        const denoDirOption = yield* denoCache;
+        if (Option.isNone(denoDirOption)) return Option.none();
+        const denoDir = denoDirOption.value;
 
-      // Check if deno cache directory exists
-      const denoDirExists = yield* fs.exists(denoDir).pipe(Effect.option);
-      if (Option.isNone(denoDirExists) || !denoDirExists.value) return Option.none();
+        const pkgNamespace = pkg.purl.namespace;
+        if (pkgNamespace === undefined) return Option.none();
+        const scope = pkgNamespace;
 
-      const pkgNamespace = pkg.purl.namespace;
-      if (pkgNamespace === undefined) return Option.none();
-      const scope = pkgNamespace;
+        // Look for cached module metadata
+        // Deno caches JSR packages in registry cache
+        const registryCacheDir = path.join(denoDir, "registries", "jsr.io");
+        if (!(yield* registryCache(registryCacheDir))) return Option.none();
 
-      // Look for cached module metadata
-      // Deno caches JSR packages in registry cache
-      const registryCacheDir = path.join(denoDir, "registries", "jsr.io");
-      const cacheDirExists = yield* fs.exists(registryCacheDir).pipe(Effect.option);
-      if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
+        // Scan the cached package's version directories for deno.json with
+        // agentExtensions; a package directory that cannot be listed, absent
+        // included, has none.
+        const pkgCacheDir = path.join(registryCacheDir, scope, pkg.purl.name);
+        const versionDirs = yield* fs.readDirectory(pkgCacheDir).pipe(Effect.option);
+        if (Option.isNone(versionDirs)) return Option.none();
 
-      // Check the cached package directory for deno.json with agentExtensions.
-      const pkgCacheDir = path.join(registryCacheDir, scope, pkg.purl.name);
-      const pkgDirExists = yield* fs.exists(pkgCacheDir).pipe(Effect.option);
-      if (Option.isNone(pkgDirExists) || !pkgDirExists.value) return Option.none();
+        for (const versionDir of versionDirs.value) {
+          const denoJsonPath = path.join(pkgCacheDir, versionDir, "deno.json");
+          const content = yield* readFileOptional(denoJsonPath);
+          if (Option.isNone(content)) continue;
 
-      // Scan version directories for deno.json with agentExtensions.
-      const versionDirs = yield* fs.readDirectory(pkgCacheDir).pipe(Effect.option);
-      if (Option.isNone(versionDirs)) return Option.none();
+          const parsed = yield* parseJsonOptional(
+            content.value,
+            `${scope}/${pkg.purl.name}/deno.json`,
+          );
+          if (Option.isNone(parsed)) continue;
 
-      for (const versionDir of versionDirs.value) {
-        const denoJsonPath = path.join(pkgCacheDir, versionDir, "deno.json");
-        const content = yield* readFileOptional(denoJsonPath);
-        if (Option.isNone(content)) continue;
+          const containerResult = decodeAgentExtensionsContainer(parsed.value);
+          if (Result.isFailure(containerResult)) continue;
 
-        const parsed = yield* parseJsonOptional(
-          content.value,
-          `${scope}/${pkg.purl.name}/deno.json`,
-        );
-        if (Option.isNone(parsed)) continue;
+          if (containerResult.success.agentExtensions === undefined) continue;
 
-        const containerResult = decodeAgentExtensionsContainer(parsed.value);
-        if (Result.isFailure(containerResult)) continue;
+          const recommendations = yield* readAgentExtensions(
+            parsed.value,
+            `deno cache for ${scope}/${pkg.purl.name}`,
+          );
+          if (Option.isSome(recommendations)) return recommendations;
+        }
 
-        if (containerResult.success.agentExtensions === undefined) continue;
-
-        const recommendations = yield* readAgentExtensions(
-          parsed.value,
-          `deno cache for ${scope}/${pkg.purl.name}`,
-        );
-        if (Option.isSome(recommendations)) return recommendations;
-      }
-
-      return Option.none();
-    },
-    Effect.annotateLogs({ reader: "deno" }),
-    Effect.withSpan("read.deno"),
-  ),
-};
+        return Option.none();
+      },
+      Effect.annotateLogs({ reader: "deno" }),
+      Effect.withSpan("read.deno"),
+    );
+  }),
+);

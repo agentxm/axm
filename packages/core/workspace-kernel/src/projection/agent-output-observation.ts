@@ -26,6 +26,7 @@ import {
   type NativeDirectoryInputs,
   type OwnershipUnitAddress,
   type NativeEntryAddress,
+  type NativeLocationSet,
   NativeLocationError,
 } from "../locations/index.js";
 import {
@@ -49,9 +50,7 @@ import {
 } from "./managed-file-discovery.js";
 import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
 import {
-  readDeclaredHookUnits,
-  invalidNativeConfig,
-  parseNativeConfigRoot,
+  readHookSettingsObservation,
   type HookNativeDeclaration,
   type NativeConfigObservationDiagnostic,
 } from "../agent-adapters/index.js";
@@ -83,6 +82,13 @@ export interface AgentOutputInventory {
   readonly outputs: ReadonlyArray<AgentOutputObservation>;
   readonly ownedResidue: ReadonlyArray<AgentOutputObservation>;
   readonly unownedFootprints: ReadonlyArray<AgentOutputObservation>;
+  /**
+   * Present only when requested: the skill containers, entries and expected
+   * sources this inventory resolved, failures included. It serves the caller's
+   * classification of these outputs before the caller's next write and is never
+   * write authority.
+   */
+  readonly skillLocations?: NativeLocationSet;
 }
 
 export interface ObserveAgentOutputsArgs {
@@ -104,6 +110,8 @@ export interface ObserveAgentOutputsArgs {
     readonly layout: WorkspaceLayout;
     readonly entries: Readonly<Record<string, SkillEntry>>;
   };
+  /** Return the skill pass's resolutions as `skillLocations`. */
+  readonly retainSkillLocations?: boolean;
 }
 
 interface ResolvedContainer {
@@ -118,9 +126,11 @@ const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
     const observed = yield* captureNativeLocationSet({
       referents: containers.map((container) => container.path),
     });
+    const referents: Array<readonly [string, Result.Result<string, NativeLocationError>]> = [];
     for (const container of containers) {
-      const resolved = yield* observed.referent(container.path).pipe(Effect.option);
-      const physicalPath = Option.isSome(resolved) ? resolved.value : container.path;
+      const resolved = yield* observed.referent(container.path).pipe(Effect.result);
+      referents.push([container.path, resolved]);
+      const physicalPath = Result.isSuccess(resolved) ? resolved.success : container.path;
       const group = grouped.get(physicalPath) ?? {
         claimants: new Set<string>(),
         sharedPolicy: false,
@@ -129,11 +139,55 @@ const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
       group.sharedPolicy ||= container.sharedPolicy === true;
       grouped.set(physicalPath, group);
     }
-    return [...grouped].map(([path, group]) => ({
-      path,
-      claimantAgentIds: [...group.claimants].sort(),
-      sharedPolicy: group.sharedPolicy,
-    }));
+    return {
+      referents,
+      containers: [...grouped].map(([path, group]) => ({
+        path,
+        claimantAgentIds: [...group.claimants].sort(),
+        sharedPolicy: group.sharedPolicy,
+      })),
+    };
+  });
+
+/**
+ * Answer from the resolutions this inventory just made, failures included, so a
+ * classification that follows them in the same owner call does not resolve the
+ * same paths again. A path the inventory did not resolve resolves live, exactly
+ * as a fresh capture would. Never write authority.
+ */
+const observedNativeLocationSet = (observed: {
+  readonly entries: ReadonlyArray<
+    readonly [target: string, result: Result.Result<NativeEntryAddress, NativeLocationError>]
+  >;
+  readonly referents: ReadonlyArray<
+    readonly [target: string, result: Result.Result<string, NativeLocationError>]
+  >;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const live = yield* Effect.context<FileSystem.FileSystem | Path.Path>();
+    const entries = new Map(
+      observed.entries.map(([target, result]) => [path.resolve(target), result]),
+    );
+    const referents = new Map(
+      observed.referents.map(([target, result]) => [path.resolve(target), result]),
+    );
+    return {
+      entry: (target) => {
+        const key = path.resolve(target);
+        const result = entries.get(key);
+        return result === undefined
+          ? resolveNativeEntry(key).pipe(Effect.provideContext(live))
+          : Effect.fromResult(result);
+      },
+      referent: (target) => {
+        const key = path.resolve(target);
+        const result = referents.get(key);
+        return result === undefined
+          ? resolveNativeReferent(key).pipe(Effect.provideContext(live))
+          : Effect.fromResult(result);
+      },
+    } satisfies NativeLocationSet;
   });
 
 const containerIsDesired = (
@@ -220,14 +274,19 @@ export const observeAgentOutputs = (
     const diagnostics: Array<NativeConfigObservationDiagnostic> = [];
     const expectedSkillSources: Array<{ packageName: string; source: string; nativeName: string }> =
       [];
+    const skillReferents: Array<readonly [string, Result.Result<string, NativeLocationError>]> = [];
+    const skillEntries: Array<
+      readonly [string, Result.Result<NativeEntryAddress, NativeLocationError>]
+    > = [];
     for (const [packageName, sources] of Object.entries(args.expectedSkillSources)) {
       for (const source of sources) {
-        const physical = yield* resolveNativeReferent(source).pipe(Effect.option);
+        const physical = yield* resolveNativeReferent(source).pipe(Effect.result);
+        skillReferents.push([source, physical]);
         const nativeName = yield* readSkillDirectoryName(source, packageName).pipe(Effect.option);
-        if (Option.isNone(physical) || Option.isNone(nativeName)) continue;
+        if (Result.isFailure(physical) || Option.isNone(nativeName)) continue;
         expectedSkillSources.push({
           packageName,
-          source: physical.value,
+          source: physical.success,
           nativeName: nativeName.value,
         });
       }
@@ -250,16 +309,19 @@ export const observeAgentOutputs = (
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of yield* groupContainers([
+    const skillGroups = yield* groupContainers([
       { path: path.join(args.workspaceRoot, ".agents/skills"), sharedPolicy: true },
       ...skillContainers,
-    ])) {
+    ]);
+    skillReferents.push(...skillGroups.referents);
+    for (const container of skillGroups.containers) {
       const desiredContainer =
         container.sharedPolicy ||
         containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* readNamedOutputDirectory(container, "skill", outputs)) {
         const artifactPath = path.join(container.path, entry);
         const nativeEntry = yield* resolveNativeEntry(artifactPath).pipe(Effect.result);
+        skillEntries.push([artifactPath, nativeEntry]);
         if (Result.isSuccess(nativeEntry) && nativeEntry.success.kind === "absent") continue;
         const address = Result.isSuccess(nativeEntry)
           ? Option.some(nativeEntry.success)
@@ -339,7 +401,7 @@ export const observeAgentOutputs = (
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of yield* groupContainers(subagentContainers)) {
+    for (const container of (yield* groupContainers(subagentContainers)).containers) {
       const desiredContainer = containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* readNamedOutputDirectory(container, "subagent", outputs)) {
         const artifactPath = path.join(container.path, entry);
@@ -348,7 +410,9 @@ export const observeAgentOutputs = (
           const entry = nativeEntry.success;
           if (entry.kind === "absent" || entry.kind === "directory" || entry.kind === "other")
             continue;
-          if (entry.referentPath !== undefined) {
+          // A regular file was classified by the stat its resolution just made;
+          // only a link's referent type is still unobserved.
+          if (entry.kind === "symlink" && entry.referentPath !== undefined) {
             const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
             if (Option.isSome(stat) && stat.value.type !== "File") continue;
           }
@@ -497,44 +561,31 @@ export const observeAgentOutputs = (
       }
       if (Option.isNone(content.success)) continue;
       const raw = content.success.value;
-      const units = yield* readDeclaredHookUnits(
+      // One parse of the settings text yields both its declared units and
+      // whether it holds any registration for the unowned footprint.
+      const settingsObservation = yield* readHookSettingsObservation(
         group.path,
         group.settingsKey,
         raw,
         args.expectedHooks,
       ).pipe(Effect.result);
-      if (Result.isFailure(units)) {
-        diagnostics.push({ ...diagnostic, stage: "decode", cause: units.failure });
+      if (Result.isFailure(settingsObservation)) {
+        diagnostics.push({ ...diagnostic, stage: "decode", cause: settingsObservation.failure });
         continue;
       }
-      if (units.success.length === 0) {
-        const document = yield* parseNativeConfigRoot({
-          format: "jsonc",
-          raw,
-          onFailure: invalidNativeConfig("jsonc", group.path),
-        }).pipe(Effect.result);
-        if (Result.isFailure(document)) {
-          diagnostics.push({ ...diagnostic, stage: "decode", cause: document.failure });
-          continue;
-        }
-        const registrations = document.success[group.settingsKey];
-        if (
-          typeof registrations === "object" &&
-          registrations !== null &&
-          Object.values(registrations).some((value) => Array.isArray(value) && value.length > 0)
-        )
-          outputs.push({
-            extensionType: "hook",
-            containerPath: group.path,
-            path: `${group.path}#${group.settingsKey}`,
-            entryName: group.settingsKey,
-            nativeAddress: { kind: "key-path", path: group.path, keys: [group.settingsKey] },
-            claimantAgentIds: claimants,
-            ownership: "unowned",
-            desired: false,
-          });
-      }
-      for (const unit of units.success) {
+      const { units, hasRegistrations } = settingsObservation.success;
+      if (units.length === 0 && hasRegistrations)
+        outputs.push({
+          extensionType: "hook",
+          containerPath: group.path,
+          path: `${group.path}#${group.settingsKey}`,
+          entryName: group.settingsKey,
+          nativeAddress: { kind: "key-path", path: group.path, keys: [group.settingsKey] },
+          claimantAgentIds: claimants,
+          ownership: "unowned",
+          desired: false,
+        });
+      for (const unit of units) {
         const declaration = args.expectedHooks.find(({ name }) => name === unit.name);
         if (declaration === undefined) continue;
         outputs.push({
@@ -563,64 +614,43 @@ export const observeAgentOutputs = (
       outputs,
       ownedResidue: outputs.filter((output) => output.ownership === "owned" && !output.desired),
       unownedFootprints: outputs.filter((output) => output.ownership === "unowned"),
+      ...(args.retainSkillLocations === true
+        ? {
+            skillLocations: yield* observedNativeLocationSet({
+              entries: skillEntries,
+              referents: skillReferents,
+            }),
+          }
+        : {}),
     };
   });
 
 /**
- * The ownership problems a workspace's agent-native outputs present, with no
- * expectation of what should be there.
+ * The ownership problems an agent-output inventory presents.
  *
  * Reporting ownership is a different question from reconciling it: the
  * reporter must not need a desired graph, because the workspaces most in need
- * of the answer are the ones whose desired state cannot be resolved. Every
- * expected-name set is therefore empty, and the answer is only about proof —
- * file artifacts that lack their required ownership evidence. Native MCP
- * and Hook declarations follow declaration authority instead.
+ * of the answer are the ones whose desired state cannot be resolved. The
+ * answer is therefore only about proof — file artifacts that lack their
+ * required ownership evidence — and an inventory's ownership never depends on
+ * its desired agents or expected names, so any inventory of the workspace
+ * taken with the same ownership authority answers it. Native MCP and Hook
+ * declarations follow declaration authority instead.
  */
-export const observeWorkspaceOwnershipIssues = (args: {
-  readonly workspaceRoot: string;
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly scope: WorkspaceScope;
-  readonly configuredAgentIds: ReadonlySet<string>;
-  readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
-  readonly declaredMcpNames: ReadonlySet<string>;
-  readonly expectedSkillSources: ObserveAgentOutputsArgs["expectedSkillSources"];
-  readonly expectedSubagentNames: ObserveAgentOutputsArgs["expectedSubagentNames"];
-  readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
-}): Effect.Effect<
-  ReadonlyArray<WorkspaceOwnershipIssue>,
-  Config.ConfigError,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path
-> =>
-  observeAgentOutputs({
-    workspaceRoot: args.workspaceRoot,
-    nativeDirectoryInputs: args.nativeDirectoryInputs,
-    scope: args.scope,
-    desiredAgentIds: args.configuredAgentIds,
-    expectedNames: {
-      skill: new Set<string>(),
-      subagent: new Set<string>(),
-      "mcp-server": new Set<string>(),
-      hook: new Set<string>(),
-    },
-    expectedHooks: args.expectedHooks,
-    declaredMcpNames: args.declaredMcpNames,
-    expectedSkillSources: args.expectedSkillSources,
-    expectedSubagentNames: args.expectedSubagentNames,
-    authoredSkills: args.authoredSkills,
-  }).pipe(
-    Effect.map((observed) =>
-      observed.unownedFootprints
-        .filter(
-          (output) => output.extensionType !== "mcp-server" && output.extensionType !== "hook",
-        )
-        .map((output) => ({
+export const workspaceOwnershipIssues = (
+  inventory: AgentOutputInventory,
+): ReadonlyArray<WorkspaceOwnershipIssue> =>
+  Object.freeze(
+    inventory.unownedFootprints
+      .filter((output) => output.extensionType !== "mcp-server" && output.extensionType !== "hook")
+      .map((output) =>
+        Object.freeze({
           kind: "managed-file-unowned" as const,
           path: output.path,
           detail:
             output.extensionType === "subagent"
               ? "Agent subagent file is not a declared Subagent at this path."
               : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
-        })),
-    ),
+        }),
+      ),
   );

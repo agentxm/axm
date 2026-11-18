@@ -153,13 +153,16 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
   const names = request.all ? Object.keys(original.skills).sort() : [...new Set(request.skills)];
   if (names.length === 0) return yield* failed("Select manager entries with --skill or --all");
   const configured = yield* settings.entries("skill");
+  // Many agents share one skills directory; each distinct spelling is resolved
+  // once per name, in first-seen order. Lexically distinct aliases stay separate.
   const directories = [path.join(location.baseDir, ".agents", "skills")];
   for (const agent of agents) {
     const target = yield* agent.resolveEffectiveSkillsDir({
       workspaceRoot: location.baseDir,
       scope: location.scope,
     });
-    if (target._tag === "supported") directories.push(target.dir);
+    if (target._tag === "supported" && !directories.includes(target.dir))
+      directories.push(target.dir);
   }
   const steps: Array<PlannedJobStep<InstallStepRequirements>> = [];
   for (const name of names) {
@@ -199,15 +202,34 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
     const targets: Array<string> = [];
     const materialPaths: Array<string> = [requestedLockPath, lockPath];
     const known = new Set<string>();
+    // Aliases of one physical copy resolve to the same referent; its digests are
+    // computed once for this name and every alias is still compared and refused on its own.
+    const referentDigests = new Map<
+      string,
+      { readonly integrity: string; readonly projectHash: Option.Option<string> }
+    >();
+    const expected = stringField(entry, "computedHash");
     for (const directory of directories) {
       const target = yield* resolveNativeEntry(path.join(directory, name));
       if (target.kind === "absent" || known.has(target.entryPath)) continue;
       known.add(target.entryPath);
-      const referent = yield* resolveNativeReferent(target.entryPath);
-      const integrity = yield* computeMaterializedTreeIntegrity(referent);
-      const expected = stringField(entry, "computedHash");
+      // Entry resolution already followed a present entry; a dangling link is
+      // followed live so it is refused with its own location error.
+      const referent = target.referentPath ?? (yield* resolveNativeReferent(target.entryPath));
+      const recorded = referentDigests.get(referent);
+      const integrity =
+        recorded === undefined
+          ? yield* computeMaterializedTreeIntegrity(referent)
+          : recorded.integrity;
+      const projectHash =
+        expected === undefined
+          ? Option.none<string>()
+          : recorded !== undefined && Option.isSome(recorded.projectHash)
+            ? recorded.projectHash
+            : Option.some(yield* projectContentHash(referent));
+      referentDigests.set(referent, { integrity, projectHash });
       if (
-        (expected !== undefined && (yield* projectContentHash(referent)) !== expected) ||
+        (Option.isSome(projectHash) && projectHash.value !== expected) ||
         integrity !== upstreamIntegrity
       ) {
         return yield* failed(

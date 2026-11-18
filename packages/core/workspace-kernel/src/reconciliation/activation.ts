@@ -1,4 +1,8 @@
-import { removeMcpServerFromAgents, type HookNativeDeclaration } from "../agent-adapters/index.js";
+import {
+  prepareMcpServerRemovals,
+  withNativeConfigObservationView,
+  type HookNativeDeclaration,
+} from "../agent-adapters/index.js";
 import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Realizing an activation change, for every extension type through one
@@ -25,6 +29,8 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import {
   SettingsReader,
   WorkspaceLocation,
+  settingsEntries,
+  type AcceptedCanonicalObservation,
   type AcceptedResolutionWriter,
   type DesiredExtensionNode,
   type LockfileReader,
@@ -41,12 +47,10 @@ import {
 } from "../materialization/index.js";
 import {
   captureAgentOutputAuthority,
-  observeProjectionPlans,
+  observeObservedPlans,
   observeInstructionSurfacePlans,
-  applyInstructionSurfacePlans,
-  applyProjectionPlans,
-  projectionPlanExclusionWarnings,
-  type ProjectionPlan,
+  observeObservedInstructionSurfacePlans,
+  applyObservedInstructionSurfacePlans,
 } from "../projection/index.js";
 import type { JobStepArtifact, PlannedJobStep, OperationRefused } from "../operations/index.js";
 import { syncRefused } from "./errors.js";
@@ -58,8 +62,9 @@ import {
 } from "./materialize.js";
 import type { SyncStepRequirements } from "./plan.js";
 import { publishDesiredState, type DesiredStateProposal } from "./proposed-state.js";
-import { collectUnreachableRetirement } from "./retirement.js";
+import { collectUnreachableRetirementVerifying, type RetiredTreeDigest } from "./retirement.js";
 import { projectionExposureRefs } from "./projection-exposure.js";
+import { withAggregateObservedPlans } from "./aggregate-projection-step.js";
 
 /** The types whose projection is a shared aggregate unit rendered once per change. */
 const AGGREGATE_UNIT_TYPES: ReadonlySet<ExtensionType> = new Set<ExtensionType>([
@@ -67,6 +72,13 @@ const AGGREGATE_UNIT_TYPES: ReadonlySet<ExtensionType> = new Set<ExtensionType>(
   "hook",
   "knowledge",
 ]);
+
+/**
+ * The materialize steps an activation applies. Activation reads each type's
+ * inventory for presence only, so the collection carries no inventory a
+ * freshness check could compare.
+ */
+type ActivationMaterialization = Omit<CollectedMaterializeSteps, "inventoryObservations">;
 
 /** An activation change, settled: what the graph will say, and how it is realized. */
 export interface ActivationRealization {
@@ -80,9 +92,19 @@ export interface ActivationRealization {
   readonly projectionNativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly projectionFailure?: OperationRefused;
   /** The sync steps that materialize what became active. */
-  readonly materialization: Option.Option<CollectedMaterializeSteps>;
+  readonly materialization: Option.Option<ActivationMaterialization>;
   /** The retirement of acquired content nothing reaches once the change applies. */
   readonly retirement: Option.Option<PlannedJobStep<SyncStepRequirements | LockfileReader>>;
+}
+
+/**
+ * What preparing a realization verified in its caller's read phase, for that
+ * caller alone: the caller takes it off before it keeps the realization, and
+ * it never enters a step.
+ */
+export interface RealizationVerification {
+  /** The tree digests the retirement of unreachable content verified. */
+  readonly retiredTree?: RetiredTreeDigest;
 }
 
 /**
@@ -105,7 +127,7 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
     args: Pick<ActivationRealizationInput, "proposal" | "subjects">,
     removing: boolean,
     hookWithdrawals: ReadonlyArray<HookNativeDeclaration> = [],
-    materialization?: CollectedMaterializeSteps,
+    materialization?: ActivationMaterialization,
   ) {
     if (materialization?.steps.some((step) => step.readiness === "error"))
       return { projectionExposureRefs: [], projectionNativeLocations: [] };
@@ -126,24 +148,29 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
         ? [{ manager: yield* KnowledgeManager, prepared: materialization?.preparedKnowledgePlans }]
         : []),
     ];
-    const after = yield* Effect.forEach(managers, ({ manager, prepared }) =>
-      (prepared === undefined
-        ? manager.projectionPlans({
-            desiredGraph: args.proposal.after,
-            hookWithdrawals,
-          })
-        : Effect.succeed(prepared)
-      ).pipe(Effect.flatMap(observeInstructionSurfacePlans)),
-    ).pipe(Effect.map((values) => values.flat()));
-    const before = removing
-      ? yield* Effect.forEach(managers, ({ manager }) =>
-          manager
-            .projectionPlans({ desiredGraph: args.proposal.before })
-            .pipe(
-              Effect.flatMap((plans) => observeInstructionSurfacePlans(plans, { view: "current" })),
-            ),
-        ).pipe(Effect.map((values) => values.flat()))
-      : [];
+    // Both passes observe through one syntax view: a before-pass document whose
+    // text the after pass already parsed receives a copy of that parse.
+    const { after, before } = yield* withNativeConfigObservationView(
+      Effect.gen(function* () {
+        const after = yield* Effect.forEach(managers, ({ manager, prepared }) =>
+          // Retained prepared plans come from an earlier owner call and observe fresh.
+          prepared === undefined
+            ? manager.observedProjectionPlans(
+                { desiredGraph: args.proposal.after, hookWithdrawals },
+                observeObservedInstructionSurfacePlans,
+              )
+            : observeInstructionSurfacePlans(prepared),
+        ).pipe(Effect.map((values) => values.flat()));
+        const before = removing
+          ? yield* Effect.forEach(managers, ({ manager }) =>
+              manager.observedProjectionPlans({ desiredGraph: args.proposal.before }, (observed) =>
+                observeObservedInstructionSurfacePlans(observed, { view: "current" }),
+              ),
+            ).pipe(Effect.map((values) => values.flat()))
+          : [];
+        return { after, before };
+      }),
+    );
     const onlyRemoves =
       removing &&
       after.every((unit) => {
@@ -185,19 +212,44 @@ export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectio
   ),
 );
 
+/**
+ * The MCP connections whose settings entry publishing this proposal sets, as
+ * `publishDesiredState` does, when nothing else it publishes removes an entry:
+ * realizing the change then runs the materialize steps with each of those
+ * entries as the closure's last settings writer publication.
+ */
+const publishedMcpEntries = (proposal: DesiredStateProposal): ReadonlyArray<string> =>
+  proposal.changes.every((change) => change.kind === "activation")
+    ? proposal.changes.flatMap((change) =>
+        change.kind === "activation" &&
+        change.type === "mcp-server" &&
+        Option.isSome(settingsEntries["mcp-server"].entry(proposal.settings, change.name))
+          ? [change.name]
+          : [],
+      )
+    : [];
+
 /** Enabling collects acquisition and materialization under the release-age policy. */
 export const prepareEnabledRealization = Effect.fnUntraced(function* (
   args: ActivationRealizationInput & {
     readonly selection: SyncSelection;
+    /** The subject's usable observation from settling this change, in this read phase. */
+    readonly settledSubject?: AcceptedCanonicalObservation;
   },
 ) {
-  const materialization = yield* collectMaterializeSteps({
-    desiredState: args.proposal.after,
-    settings: args.proposal.settings,
-    selection: args.selection,
-    requireSubagentSupport: true,
-    adapter: args.adapter,
-  });
+  const { inventoryObservations: _unobserved, ...materialization } = yield* collectMaterializeSteps(
+    {
+      desiredState: args.proposal.after,
+      settings: args.proposal.settings,
+      selection: args.selection,
+      requireSubagentSupport: true,
+      // Activation never rechecks the collection's inventories.
+      inventories: "presence",
+      ...(args.settledSubject === undefined ? {} : { settledSubject: args.settledSubject }),
+      publishedMcpEntries: publishedMcpEntries(args.proposal),
+      adapter: args.adapter,
+    },
+  );
   const projections = yield* prepareSharedProjectionExposure(args, false, [], materialization);
   return {
     ...projections,
@@ -229,54 +281,64 @@ export const prepareDisabledRealization = Effect.fnUntraced(function* (
   const nativeWithdrawals: NativeLocationOutcome[] = [];
   const location = yield* WorkspaceLocation;
   const agentIds = yield* (yield* SettingsReader).configuredAgents;
-  for (const node of args.subjects.filter((node) => node.type === "mcp-server")) {
-    const outcomes = yield* removeMcpServerFromAgents(agentIds, {
+  const mcpSubjects = args.subjects.filter((node) => node.type === "mcp-server");
+  if (mcpSubjects.length > 0) {
+    // Every withdrawn connection shares one preparation of the same containers;
+    // each still renders, rechecks and reads back its own entry live.
+    const mcpRemovals = yield* prepareMcpServerRemovals(agentIds, {
       workspaceRoot: location.baseDir,
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       scope: location.scope,
-      serverName: node.name,
       disableOnly: true,
-      dryRun: true,
     });
-    const failed = outcomes.filter((outcome) => outcome._tag === "failed");
-    if (failed.length > 0)
-      return yield* syncRefused({
-        category: "conflict",
-        detail: failed.map((outcome) => outcome.reason).join("; "),
-      });
-    nativeWithdrawals.push(
-      ...outcomes.flatMap((outcome) =>
-        (outcome.targets ?? []).flatMap((target) =>
-          target.nativeLocation === undefined ? [] : [target.nativeLocation],
+    for (const node of mcpSubjects) {
+      const outcomes = yield* mcpRemovals.remove(node.name, { dryRun: true });
+      const failed = outcomes.filter((outcome) => outcome._tag === "failed");
+      if (failed.length > 0)
+        return yield* syncRefused({
+          category: "conflict",
+          detail: failed.map((outcome) => outcome.reason).join("; "),
+        });
+      nativeWithdrawals.push(
+        ...outcomes.flatMap((outcome) =>
+          (outcome.targets ?? []).flatMap((target) =>
+            target.nativeLocation === undefined ? [] : [target.nativeLocation],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
   if (hookWithdrawals.length > 0) {
-    const plans = yield* (yield* HookManager).projectionPlans({
-      desiredGraph: args.proposal.after,
-      hookWithdrawals,
-    });
-    const observed = yield* observeProjectionPlans(plans);
+    const observed = yield* (yield* HookManager).observedProjectionPlans(
+      { desiredGraph: args.proposal.after, hookWithdrawals },
+      observeObservedPlans,
+    );
     nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
   }
-  const retirement = args.retireUnreachable
-    ? yield* collectUnreachableRetirement(args.adapter, {
+  const { step: retirement, verifiedTree } = args.retireUnreachable
+    ? yield* collectUnreachableRetirementVerifying(args.adapter, {
         resultingGraph: args.proposal.after,
         subjects: args.subjects,
       })
-    : Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    : {
+        step: Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>(),
+        verifiedTree: undefined,
+      };
   const projections = yield* prepareSharedProjectionExposure(args, true, hookWithdrawals);
-  return {
+  const realization = {
     ...projections,
     proposal: args.proposal,
     enabled: false,
     subjects: args.subjects,
     hookWithdrawals,
     nativeWithdrawals: combineNativeLocationOutcomes(nativeWithdrawals),
-    materialization: Option.none<CollectedMaterializeSteps>(),
+    materialization: Option.none<ActivationMaterialization>(),
     retirement,
   } satisfies ActivationRealization;
+  return verifiedTree === undefined
+    ? realization
+    : ({ ...realization, retiredTree: verifiedTree } satisfies ActivationRealization &
+        RealizationVerification);
 });
 
 /** Withdraw one leaf's own projection through the manager that owns it. */
@@ -321,14 +383,17 @@ const reconcileAggregateProjections = Effect.fnUntraced(function* (
   ExtensionManagerFailure,
   RuleManager | HookManager | KnowledgeManager | ManagerRequirements | AcceptedResolutionWriter
 > {
-  const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
-  if (types.has("rule")) plans.push(...(yield* (yield* RuleManager).projectionPlans()));
-  if (types.has("hook"))
-    plans.push(...(yield* (yield* HookManager).projectionPlans({ hookWithdrawals })));
-  if (types.has("knowledge")) plans.push(...(yield* (yield* KnowledgeManager).projectionPlans()));
-  return types.has("rule") || types.has("hook") || types.has("knowledge")
-    ? yield* applyInstructionSurfacePlans(plans)
-    : yield* applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans)));
+  if (!types.has("rule") && !types.has("hook") && !types.has("knowledge")) return [];
+  // Each owner's eager observation is handed to the aggregate render, which
+  // takes it before its first write.
+  return yield* withAggregateObservedPlans(
+    [
+      ...(types.has("rule") ? [{ manager: yield* RuleManager }] : []),
+      ...(types.has("hook") ? [{ manager: yield* HookManager, options: { hookWithdrawals } }] : []),
+      ...(types.has("knowledge") ? [{ manager: yield* KnowledgeManager }] : []),
+    ],
+    applyObservedInstructionSurfacePlans,
+  );
 });
 
 const runStep = <R>(step: PlannedJobStep<R>) =>

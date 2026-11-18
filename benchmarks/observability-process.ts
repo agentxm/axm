@@ -71,6 +71,7 @@ export const compressObservationArtifacts = (directory: string) => {
     "sample.json",
     "semantic-verification.json",
     "compression.json",
+    "physical-work.json",
   ]);
   const visit = (root: string) => {
     for (const name of fs.readdirSync(root)) {
@@ -116,6 +117,8 @@ export const runObservedProcess = Effect.fnUntraced(function* (options: {
   readonly artifacts: string;
   readonly timeoutMillis?: number;
   readonly measureRss?: boolean;
+  /** Command words run before the executable, inside the elapsed/RSS wrapper. */
+  readonly prefix?: ReadonlyArray<string>;
 }) {
   return yield* Effect.tryPromise({
     try: (signal) =>
@@ -128,11 +131,14 @@ export const runObservedProcess = Effect.fnUntraced(function* (options: {
       }>((resolve, reject) => {
         fs.mkdirSync(options.artifacts, { recursive: true });
         const rssPath = path.join(options.artifacts, "rss-kib.txt");
-        const command = options.measureRss === false ? options.executable : "/usr/bin/time";
+        const [first = options.executable, ...rest] = [
+          ...(options.prefix ?? []),
+          options.executable,
+          ...options.args,
+        ];
+        const command = options.measureRss === false ? first : "/usr/bin/time";
         const args =
-          options.measureRss === false
-            ? [...options.args]
-            : ["-f", "%M", "-o", rssPath, "--", options.executable, ...options.args];
+          options.measureRss === false ? rest : ["-f", "%M", "-o", rssPath, "--", first, ...rest];
         const started = performance.now();
         const child = spawn(command, args, {
           cwd: options.cwd,

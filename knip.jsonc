@@ -92,6 +92,9 @@
     },
     "packages/core/workspace-features": {
       "entry": ["src/**/*.type-test.ts"],
+      // Tests create a named pipe with the system tool to exercise entries
+      // that are neither files nor directories.
+      "ignoreBinaries": ["mkfifo"],
     },
     "packages/core/workspace-kernel": {
       "entry": ["src/**/*.type-test.ts"],

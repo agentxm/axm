@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import {
   McpServerManifestSchema,
@@ -13,12 +14,13 @@ import {
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
-export const decodeMcpServerManifestAt = (
+/** Decode the manifest at this path from one read of its text, mapping that read's failure. */
+export const decodeMcpServerManifestRead = <R>(
   manifestPath: string,
-): Effect.Effect<McpServerManifest, McpConfigIoFailed | McpConfigInvalid, FileSystem.FileSystem> =>
+  read: Effect.Effect<string, PlatformError.PlatformError, R>,
+): Effect.Effect<McpServerManifest, McpConfigIoFailed | McpConfigInvalid, R> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const raw = yield* fs.readFileString(manifestPath).pipe(
+    const raw = yield* read.pipe(
       Effect.mapError(
         (cause) =>
           new McpConfigIoFailed({
@@ -49,6 +51,14 @@ export const decodeMcpServerManifestAt = (
         attributes: { "axm.manifest.kind": "mcp", "axm.work.count": 1 },
       }),
     );
+  });
+
+export const decodeMcpServerManifestAt = (
+  manifestPath: string,
+): Effect.Effect<McpServerManifest, McpConfigIoFailed | McpConfigInvalid, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* decodeMcpServerManifestRead(manifestPath, fs.readFileString(manifestPath));
   });
 
 /** Absence is optional; unreadable or invalid manifests remain typed failures. */

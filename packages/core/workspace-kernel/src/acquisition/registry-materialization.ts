@@ -17,11 +17,11 @@ import * as Path from "effect/Path";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   RegistryClientFactory,
+  VerifiedArchive,
   withBufferedArchiveBudget,
   type GetExtensionPackageArgs,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import { computeIntegrity } from "@agentxm/host-primitives";
 import type {
   ExtensionName,
   ExtensionType,
@@ -38,6 +38,7 @@ import {
   recoverCanonicalDirectory,
   replaceCanonicalDirectoryWithInspection,
   type CanonicalDirectoryReplacementError,
+  type RecoverCanonicalDirectoryArgs,
   type MaterializedPackage,
 } from "./canonical-directory.js";
 import { copyExtensionDirectory } from "./copy-directory.js";
@@ -70,6 +71,8 @@ export interface MaterializeRegistryPackageArgs<E = never, R = never> {
   readonly validate?: (
     stagingPath: string,
   ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path>;
+  /** The reuse decision's recovery of `destinationPath` earlier in this acquisition. */
+  readonly recovered?: RecoverCanonicalDirectoryArgs["recovered"];
 }
 
 /**
@@ -101,6 +104,7 @@ export const materializeRegistryPackageWithTreeIntegrity = Effect.fnUntraced(fun
     yield* recoverCanonicalDirectory({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
+      ...(args.recovered === undefined ? {} : { recovered: args.recovered }),
     });
   const acquired = yield* acquiredRegistryPackageFiles({
     sourceLocation: args.sourceLocation,
@@ -120,69 +124,104 @@ export const materializeRegistryPackageWithTreeIntegrity = Effect.fnUntraced(fun
         }),
     ),
   );
-  const source = Option.isSome(acquired)
-    ? ({ kind: "prepared", directory: acquired.value.directory } as const)
-    : yield* Effect.gen(function* () {
-        const client = yield* (yield* RegistryClientFactory).forEndpoint(args.sourceLocation);
-        // Continuous download progress reaches the lifecycle broadcast throttled:
-        // tens of events per archive, attributed to the unit that is running and
-        // to the attempt the request policy is on.
-        const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
-        const packageArgs: GetExtensionPackageArgs = Option.match(args.integrity, {
-          onNone: () => ({
-            owner: args.owner,
-            type: args.type,
-            name: args.name,
-            version: Option.some(args.version),
-            onProgress: (progress) =>
-              reportProgress(progress.done, progress.total, progress.attempt),
-          }),
-          onSome: (integrity) => ({
-            owner: args.owner,
-            type: args.type,
-            name: args.name,
-            exact: {
-              version: args.version,
-              integrity,
-              publisherBindingId: args.publisherBindingId,
-              ...(args.lifecycleWarnings === undefined
-                ? {}
-                : { lifecycleWarnings: args.lifecycleWarnings }),
-            },
-            onProgress: (progress) =>
-              reportProgress(progress.done, progress.total, progress.attempt),
-          }),
-        });
-        const { archive, warnings } = yield* client.getExtensionPackage(packageArgs);
-        const distinctWarnings = [
-          ...new Set([...(args.lifecycleWarnings ?? []), ...(warnings ?? [])]),
-        ];
-        yield* Effect.forEach(distinctWarnings, (warning) => Effect.logWarning(warning), {
-          discard: true,
-        });
-        if (Option.isSome(args.integrity)) {
-          const actualIntegrity = yield* computeIntegrity(archive);
-          if (actualIntegrity !== args.integrity.value) {
-            return yield* new ArchiveIntegrityMismatch({
-              subject: args.messages.integrityMismatchDetail,
-            });
-          }
-        }
-        return { kind: "archive", archive } as const;
-      });
 
-  const result = yield* replaceCanonicalDirectoryWithInspection<
-    TreeIntegrity,
-    E | RegistryClientFailure | MaterializedTreeInvalid | PackageMaterializationFailed,
-    R | FileSystem.FileSystem | Path.Path
-  >({
-    baseDir: args.baseDir,
-    canonicalPath: args.destinationPath,
-    ...(args.transient === undefined ? {} : { transient: args.transient }),
-    ...(args.prepareParents === undefined ? {} : { prepareParents: args.prepareParents }),
-    populate: (stagingPath) =>
-      source.kind === "prepared"
-        ? copyExtensionDirectory(source.directory, stagingPath).pipe(
+  const publish = (
+    populate: (
+      stagingPath: string,
+    ) => Effect.Effect<void, PackageMaterializationFailed, FileSystem.FileSystem | Path.Path>,
+  ) =>
+    replaceCanonicalDirectoryWithInspection<
+      TreeIntegrity,
+      E | RegistryClientFailure | MaterializedTreeInvalid | PackageMaterializationFailed,
+      R | FileSystem.FileSystem | Path.Path
+    >({
+      baseDir: args.baseDir,
+      canonicalPath: args.destinationPath,
+      ...(args.transient === undefined ? {} : { transient: args.transient }),
+      ...(args.prepareParents === undefined ? {} : { prepareParents: args.prepareParents }),
+      populate,
+      ...(args.validate === undefined ? {} : { validate: args.validate }),
+      inspect: computeMaterializedTreeIntegrity,
+    }).pipe(
+      Effect.map((result): MaterializedPackage => ({
+        canonicalPath: result.canonicalPath,
+        treeIntegrity: result.inspection,
+      })),
+    );
+
+  // A tree the transition already acquired is copied: no archive is buffered.
+  if (Option.isSome(acquired)) {
+    const directory = acquired.value.directory;
+    return yield* publish((stagingPath) =>
+      copyExtensionDirectory(directory, stagingPath).pipe(
+        Effect.mapError(
+          (cause) =>
+            new PackageMaterializationFailed({
+              path: stagingPath,
+              step: "prepare-staging",
+              cause,
+            }),
+        ),
+      ),
+    );
+  }
+
+  // The buffered-archive reservation covers the fetched archive from download
+  // through extraction, inspection, and the swap.
+  return yield* withBufferedArchiveBudget(
+    Effect.gen(function* () {
+      const client = yield* (yield* RegistryClientFactory).forEndpoint(args.sourceLocation);
+      // Continuous download progress reaches the lifecycle broadcast throttled:
+      // tens of events per archive, attributed to the unit that is running and
+      // to the attempt the request policy is on.
+      const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
+      const packageArgs: GetExtensionPackageArgs = Option.match(args.integrity, {
+        onNone: () => ({
+          owner: args.owner,
+          type: args.type,
+          name: args.name,
+          version: Option.some(args.version),
+          onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+        }),
+        onSome: (integrity) => ({
+          owner: args.owner,
+          type: args.type,
+          name: args.name,
+          exact: {
+            version: args.version,
+            integrity,
+            publisherBindingId: args.publisherBindingId,
+            ...(args.lifecycleWarnings === undefined
+              ? {}
+              : { lifecycleWarnings: args.lifecycleWarnings }),
+          },
+          onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+        }),
+      });
+      const { archive, verified, warnings } = yield* client.getExtensionPackage(packageArgs);
+      const distinctWarnings = [
+        ...new Set([...(args.lifecycleWarnings ?? []), ...(warnings ?? [])]),
+      ];
+      yield* Effect.forEach(distinctWarnings, (warning) => Effect.logWarning(warning), {
+        discard: true,
+      });
+      if (Option.isSome(args.integrity)) {
+        if (
+          verified?.covers(archive, args.integrity.value) !== true &&
+          Option.isNone(yield* VerifiedArchive.check(archive, args.integrity.value))
+        ) {
+          return yield* new ArchiveIntegrityMismatch({
+            subject: args.messages.integrityMismatchDetail,
+          });
+        }
+      }
+      return yield* publish((stagingPath) =>
+        observeChildUnit(
+          {
+            id: `registry-extract:${args.owner}/${args.type}/${args.name}`,
+            label: `extracting ${args.name}`,
+          },
+          extractExternalArchive(archive, "zip", stagingPath).pipe(
             Effect.mapError(
               (cause) =>
                 new PackageMaterializationFailed({
@@ -191,31 +230,12 @@ export const materializeRegistryPackageWithTreeIntegrity = Effect.fnUntraced(fun
                   cause,
                 }),
             ),
-          )
-        : observeChildUnit(
-            {
-              id: `registry-extract:${args.owner}/${args.type}/${args.name}`,
-              label: `extracting ${args.name}`,
-            },
-            extractExternalArchive(source.archive, "zip", stagingPath).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new PackageMaterializationFailed({
-                    path: stagingPath,
-                    step: "prepare-staging",
-                    cause,
-                  }),
-              ),
-            ),
           ),
-    ...(args.validate === undefined ? {} : { validate: args.validate }),
-    inspect: computeMaterializedTreeIntegrity,
-  });
-  return {
-    canonicalPath: result.canonicalPath,
-    treeIntegrity: result.inspection,
-  };
-}, withBufferedArchiveBudget);
+        ),
+      );
+    }),
+  );
+});
 
 export const materializeRegistryPackage = <E = never, R = never>(
   args: MaterializeRegistryPackageArgs<E, R>,

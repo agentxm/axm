@@ -33,8 +33,13 @@ import type {
   MaterializationObservation,
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
-import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
 import type {
+  CodingAgentRepository,
+  ObservedProjectionPlans,
+  ProjectionPlan,
+} from "../projection/index.js";
+import type {
+  AcceptedContentObservation,
   ConfiguredAgentOutcome,
   JobStepArtifactTarget,
   JobStepResult,
@@ -44,8 +49,10 @@ import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement
 import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { ProjectionDigest, TreeIntegrity } from "../workspace-state/index.js";
+import type { CapturedManifest } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
@@ -58,6 +65,7 @@ import type {
   SynchronizeMaterialization,
   UninstallMaterialization,
   NativeProjectionOptions,
+  ObservedProjectionPlansCall,
 } from "./ports/transition-materialization.js";
 
 // -----------------------------------------------------------------------------
@@ -118,6 +126,12 @@ export interface McpServerMaterializationFacts extends AcquiredContentFacts {
     readonly resolutionKey: Option.Option<string>;
     readonly retainShared: boolean;
   }>;
+  /**
+   * The manifest text the observation that kept an accepted tree read, and its
+   * decode; present only when the install wrote nothing and that observation
+   * found the tree usable.
+   */
+  readonly capturedManifest?: Option.Option<CapturedManifest>;
 }
 
 /** What a Pack materialization observed: the acquired content identity alone. */
@@ -197,6 +211,17 @@ interface InstallMcpServerOperationArgs {
    * The transport boundary resolves flag, CI, and TTY state.
    */
   readonly nonInteractive: boolean;
+  /**
+   * Set only by a route that published this connection's settings entry,
+   * under the connection's own name, as the last `axm.json` write before
+   * this install in the same closure settlement under the workspace
+   * transition lock: an activation, or an authored import or fork. That
+   * publication leaves `axm.json` at the settings writer's fixed point, so
+   * the install does not set again an entry equal to the one it reads live.
+   * Every other route leaves it unset, so an unchanged entry still
+   * normalizes `axm.json` there.
+   */
+  readonly entryJustPublished?: boolean;
 }
 
 /**
@@ -328,7 +353,15 @@ export interface SubagentManagerService
   >;
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
-    options?: { readonly sourceRoot?: string; readonly configuredAgents?: ReadonlyArray<string> },
+    options?: {
+      readonly sourceRoot?: string;
+      readonly configuredAgents?: ReadonlyArray<string>;
+      /**
+       * Refuse, before observing, a planned file AXM has no record of
+       * writing, from the package this call loads.
+       */
+      readonly validateDestinations?: boolean;
+    },
   ) => Effect.Effect<
     {
       readonly present: boolean;
@@ -346,6 +379,22 @@ export interface SubagentManagerService
 export class SubagentManager extends ServiceMap.Service<SubagentManager, SubagentManagerService>()(
   "@agentxm/workspace-kernel/materialization/managers/SubagentManager",
 ) {}
+
+type ManagerObservedProjectionPlans = ObservedProjectionPlans<
+  ExtensionManagerFailure,
+  ManagerRequirements
+>;
+
+/**
+ * Prepare prospective contributors' plans in one owner call: the manager
+ * observes every plan as its pre-write refusal, then hands that observation to
+ * `use` with what the preparation verified.
+ */
+type ObservedPrepareProjectionCall<TRef, Prepared> = <A, E, R>(
+  refs: ReadonlyArray<TRef>,
+  options: NativeProjectionOptions | undefined,
+  use: (prepared: Prepared) => Effect.Effect<A, E, R>,
+) => Effect.Effect<A, ExtensionManagerFailure | E, ManagerRequirements | R>;
 
 export interface RuleManagerService
   extends
@@ -398,10 +447,19 @@ export interface RuleManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    RuleExtensionRef,
+    ManagerObservedProjectionPlans
+  >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -419,6 +477,25 @@ export interface PreparedHookProjection {
     readonly name: string;
     readonly treeIntegrity: TreeIntegrity;
   }>;
+}
+
+/**
+ * The Hook writer routes one preparation resolved, handed back to the manager
+ * that issued them inside its caller's own call. Opaque: only that manager
+ * reads them, and any other manager resolves the routes itself.
+ */
+export interface PreparedHookWriterRoutes {
+  readonly _tag: "PreparedHookWriterRoutes";
+}
+
+/**
+ * One deep-frozen Hook manifest decode a preparation made from a package root
+ * that is not a Registry package's, with the name and root it was read for.
+ */
+interface PreparedHookManifest {
+  readonly name: string;
+  readonly packageRoot: string;
+  readonly manifest: HookManifest;
 }
 
 export interface HookManagerService
@@ -454,15 +531,32 @@ export interface HookManagerService
     refs: ReadonlyArray<HookExtensionRef>,
     options?: NativeProjectionOptions,
   ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    HookExtensionRef,
+    Omit<PreparedHookProjection, "plans"> & {
+      readonly observed: ManagerObservedProjectionPlans;
+      /** This call's observations of the Registry Hooks' accepted packages, for this call's caller. */
+      readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+      /** The writer routes this call resolved, for this call's caller. */
+      readonly writerRoutes?: PreparedHookWriterRoutes;
+      /** This call's manifest decodes of the non-Registry Hooks it prepared, for this call's caller. */
+      readonly preparedManifests?: ReadonlyArray<PreparedHookManifest>;
+    }
+  >;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -477,6 +571,20 @@ export interface HookManagerService
   readonly configuredAgentOutcomesForRef?: (
     ref: HookExtensionRef,
     state: "projected" | "current",
+    options?: {
+      /** Observations of accepted packages the caller's preparation made in this same call. */
+      readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
+      /**
+       * Writer routes the caller's preparation resolved in this same call,
+       * taken for the same configured agents instead of resolving them again.
+       */
+      readonly writerRoutes?: PreparedHookWriterRoutes;
+      /**
+       * Manifest decodes the caller's preparation made in this same call,
+       * taken for a non-Registry ref read from the same name and root.
+       */
+      readonly preparedManifests?: ReadonlyArray<PreparedHookManifest>;
+    },
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,
     ExtensionManagerFailure,
@@ -550,10 +658,19 @@ export interface KnowledgeManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  readonly observedPrepareProjection: ObservedPrepareProjectionCall<
+    KnowledgeExtensionRef,
+    ManagerObservedProjectionPlans
+  >;
+  /** The plans of {@link observedProjectionPlans}, without handing over their observation. */
   readonly projectionPlans: (
     options?: NativeProjectionOptions,
   ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly observedProjectionPlans: ObservedProjectionPlansCall<
     ExtensionManagerFailure,
     ManagerRequirements
   >;

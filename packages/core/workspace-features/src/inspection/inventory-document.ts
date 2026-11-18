@@ -26,11 +26,13 @@ import {
   SettingsReader,
   WorkspaceLocation,
   LockfileReader,
+  WorkspaceRecords,
   ExtensionInventoryRowSchema,
   ExtensionInventorySchema,
   ExtensionInventoryLifecycleSchema,
   desiredIdentityFqn,
   formatDesiredIdentity,
+  inspectKnowledgePackageInPhase,
   lockEntryToSourceParams,
   lockEntryVersion,
   type DesiredExtensionNode,
@@ -233,6 +235,13 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
   const configuredAgents = yield* settings.configuredAgents;
+  // Inside a read phase, an acquired bundle's manifest text the canonical scan
+  // already parsed is decoded from that parse; any other text is parsed here.
+  const records = yield* Effect.serviceOption(WorkspaceRecords);
+  const parsedManifestText = Option.isSome(records)
+    ? records.value.knowledgeManifestParse
+    : undefined;
+  const manifestOptions = parsedManifestText === undefined ? undefined : { parsedManifestText };
   const nativeLocations = createNativeLocationTable();
   const items = yield* Effect.forEach(inventory.items, (row) =>
     Effect.gen(function* () {
@@ -274,11 +283,14 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
           packageRoot === undefined || row.installed !== true
             ? undefined
             : row.inspectionState === undefined
-              ? yield* readKnowledgePackageManifest(packageRoot).pipe(
+              ? yield* readKnowledgePackageManifest(packageRoot, manifestOptions).pipe(
                   Effect.map((value) => ({ ...value, inspection: undefined })),
                   Effect.result,
                 )
-              : yield* inspectKnowledgePackage(packageRoot).pipe(Effect.result);
+              : yield* inspectKnowledgePackageInPhase(
+                  packageRoot,
+                  inspectKnowledgePackage(packageRoot, manifestOptions),
+                ).pipe(Effect.result);
         const bundle = read?._tag === "Success" ? read.success : undefined;
         if (inspection.state === "complete" || inspection.state === "partial") {
           inspection =

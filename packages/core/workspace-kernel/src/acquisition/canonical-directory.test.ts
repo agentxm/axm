@@ -7,14 +7,19 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import { makeRecordingFileSystem, type FileSystemRecording } from "@agentxm/test-support";
+import type { WorkFact } from "@agentxm/host-primitives/work-observation";
 import {
   canonicalMaterializationPaths,
   createCanonicalDirectory,
   materializeExternalPackage,
+  materializeExternalPackageWithTreeIntegrity,
   replaceCanonicalDirectory,
   reusableCanonicalTree,
 } from "./canonical-directory.js";
+import { workObservations } from "../locations/testing.js";
 import * as Data from "effect/Data";
 import {
   computeMaterializedTreeIntegrity,
@@ -89,7 +94,7 @@ describe("package materialization helpers", () => {
           });
 
           const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
-          const reuse = yield* reusableCanonicalTree({
+          const { reusable: reuse } = yield* reusableCanonicalTree({
             canonicalPath: installedPath,
             requested: requestedReview,
             accepted: acceptedReview("1.0.0", accepted),
@@ -117,7 +122,7 @@ describe("package materialization helpers", () => {
         const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
         nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "edited");
 
-        const reuse = yield* reusableCanonicalTree({
+        const { reusable: reuse } = yield* reusableCanonicalTree({
           canonicalPath: installedPath,
           requested: requestedReview,
           accepted: acceptedReview("1.0.0", accepted),
@@ -144,7 +149,7 @@ describe("package materialization helpers", () => {
         nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "accepted");
         const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
 
-        const reuse = yield* reusableCanonicalTree({
+        const { reusable: reuse } = yield* reusableCanonicalTree({
           canonicalPath: installedPath,
           requested: requestedReview,
           accepted: acceptedReview("0.9.0", accepted),
@@ -171,7 +176,7 @@ describe("package materialization helpers", () => {
         nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "accepted");
         const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
 
-        const reuse = yield* reusableCanonicalTree({
+        const { reusable: reuse } = yield* reusableCanonicalTree({
           canonicalPath: installedPath,
           requested: requestedReview,
           accepted: acceptedReview("1.0.0", accepted),
@@ -355,7 +360,7 @@ describe("package materialization helpers", () => {
         nodeFs.writeFileSync(nodePath.join(paths.stagingPath, "partial.txt"), "partial");
 
         const prior = yield* computeMaterializedTreeIntegrity(paths.backupPath);
-        const reuse = yield* reusableCanonicalTree({
+        const { reusable: reuse } = yield* reusableCanonicalTree({
           canonicalPath,
           requested: requestedReview,
           accepted: acceptedReview("1.0.0", prior),
@@ -634,15 +639,234 @@ describe("package materialization helpers", () => {
         const requested = { refType: "local", name: "review" } as const;
 
         expect(
-          yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: false }),
+          (yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: false }))
+            .reusable,
         ).toEqual(Option.some(acceptedTree));
         expect(
-          yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: true }),
+          (yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: true }))
+            .reusable,
         ).toEqual(Option.none());
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "SKILL.md"), "utf8")).toBe(
           "source",
         );
       }),
     ),
+  );
+});
+
+describe("canonical publication work", () => {
+  let tempDir: string;
+  let workspaceRoot: string;
+  let canonicalPath: string;
+  let sourcePath: string;
+
+  beforeEach(() => {
+    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-canonical-publication-work-"));
+    workspaceRoot = nodePath.join(tempDir, "workspace");
+    canonicalPath = nodePath.join(workspaceRoot, ".axm", "extensions", "@acme", "hooks", "review");
+    sourcePath = nodePath.join(tempDir, "source");
+    nodeFs.mkdirSync(sourcePath, { recursive: true });
+    nodeFs.writeFileSync(nodePath.join(sourcePath, "review.md"), "next");
+  });
+
+  afterEach(() => {
+    nodeFs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const writeCanonical = (contents: string) => {
+    nodeFs.mkdirSync(canonicalPath, { recursive: true });
+    nodeFs.writeFileSync(nodePath.join(canonicalPath, "review.md"), contents);
+  };
+
+  const treeHashes = (facts: ReadonlyArray<WorkFact>) =>
+    facts.filter((fact) => fact.kind === "axm.hash.materialized-tree").length;
+
+  /** Run one owner call over a recording filesystem; fixture setup stays outside the counts. */
+  const measured = <A, E>(
+    owner: Effect.Effect<A, E, NodeServices.NodeServices>,
+  ): Effect.Effect<
+    {
+      readonly result: A;
+      readonly facts: ReadonlyArray<WorkFact>;
+      readonly recording: FileSystemRecording;
+    },
+    E
+  > =>
+    Effect.gen(function* () {
+      const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
+      const observed = workObservations(false);
+      recording.reset();
+      const result = yield* owner.pipe(
+        observed.provide,
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+      return { result, facts: observed.facts, recording };
+    }).pipe(Effect.provide(NodeServices.layer));
+
+  const publishExternal = (transient: boolean) =>
+    materializeExternalPackageWithTreeIntegrity({
+      baseDir: workspaceRoot,
+      canonicalPath,
+      transient,
+      sourceLocation: sourcePath,
+      copyFailureCode: "validation",
+      copyFailureDetail: (target) => `failed to copy to ${target}`,
+    });
+
+  /** Recoveries of a path, each one existence probe of its backup and one staging cleanup. */
+  const recoveries = (recording: FileSystemRecording, path: string) => {
+    const { stagingPath, backupPath } = canonicalMaterializationPaths(path);
+    return {
+      backupProbes: recording.calls({ path: backupPath, method: "access" }).length,
+      stagingCleanups: recording.calls({ path: stagingPath, method: "remove" }).length,
+    };
+  };
+
+  for (const scenario of [
+    { transient: false, prior: undefined, hashes: 1, canonicalReads: 0 },
+    // The footprint compares the prior and the published tree whenever a prior one exists.
+    { transient: false, prior: "prior", hashes: 3, canonicalReads: 2 },
+    { transient: false, prior: "next", hashes: 3, canonicalReads: 2 },
+    // Internal acquisition staging records no footprint, so only the staged tree is hashed.
+    { transient: true, prior: undefined, hashes: 1, canonicalReads: 0 },
+    { transient: true, prior: "stale", hashes: 1, canonicalReads: 0 },
+  ] as const)
+    it.effect(
+      `hashes ${scenario.hashes} tree(s) to publish an external package (transient=${scenario.transient}, prior=${scenario.prior ?? "none"})`,
+      () =>
+        Effect.gen(function* () {
+          if (scenario.prior !== undefined) writeCanonical(scenario.prior);
+
+          const { result, facts, recording } = yield* measured(publishExternal(scenario.transient));
+
+          expect(treeHashes(facts)).toBe(scenario.hashes);
+          expect(recording.contentReads(nodePath.join(canonicalPath, "review.md"))).toBe(
+            scenario.canonicalReads,
+          );
+          expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
+            "next",
+          );
+          expect(result.treeIntegrity).toBe(
+            yield* computeMaterializedTreeIntegrity(canonicalPath).pipe(
+              Effect.provide(NodeServices.layer),
+            ),
+          );
+        }),
+    );
+
+  for (const unsafe of [false, true])
+    it.effect(
+      unsafe
+        ? "refuses an unsafe staged tree before comparing it with the expected tree"
+        : "refuses a staged tree that differs from the expected tree before publication",
+      () =>
+        Effect.gen(function* () {
+          writeCanonical("prior");
+          const expected = yield* computeMaterializedTreeIntegrity(canonicalPath).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          if (unsafe) nodeFs.writeFileSync(nodePath.join(sourcePath, "REVIEW.md"), "colliding");
+
+          const failure = yield* materializeExternalPackageWithTreeIntegrity({
+            baseDir: workspaceRoot,
+            canonicalPath,
+            sourceLocation: sourcePath,
+            copyFailureCode: "validation",
+            copyFailureDetail: (target) => `failed to copy to ${target}`,
+            expectedTreeIntegrity: {
+              integrity: expected,
+              mismatch: () => new InjectedFailure({ detail: "prepared tree changed" }),
+            },
+          }).pipe(Effect.flip, Effect.provide(NodeServices.layer));
+
+          expect(failure._tag).toBe(unsafe ? "MaterializedTreeInvalid" : "InjectedFailure");
+          if (!unsafe) expect(failure).toMatchObject({ detail: "prepared tree changed" });
+          expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
+            "prior",
+          );
+          expect(nodeFs.existsSync(canonicalMaterializationPaths(canonicalPath).stagingPath)).toBe(
+            false,
+          );
+        }),
+    );
+
+  it.effect("publishes a staged tree equal to the expected tree", () =>
+    Effect.gen(function* () {
+      const expected = yield* computeMaterializedTreeIntegrity(sourcePath).pipe(
+        Effect.provide(NodeServices.layer),
+      );
+
+      const { result, facts } = yield* measured(
+        materializeExternalPackageWithTreeIntegrity({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          sourceLocation: sourcePath,
+          copyFailureCode: "validation",
+          copyFailureDetail: (target) => `failed to copy to ${target}`,
+          expectedTreeIntegrity: {
+            integrity: expected,
+            mismatch: () => new InjectedFailure({ detail: "prepared tree changed" }),
+          },
+        }),
+      );
+
+      expect(result.treeIntegrity).toBe(expected);
+      expect(treeHashes(facts)).toBe(1);
+    }),
+  );
+
+  it.effect("publishes a create-only package without hashing its tree", () =>
+    Effect.gen(function* () {
+      const { facts, recording } = yield* measured(
+        createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Hook",
+          requiredFiles: ["review.md"],
+          populate: (stagingPath) =>
+            Effect.sync(() => nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "new")),
+        }),
+      );
+
+      expect(treeHashes(facts)).toBe(0);
+      expect(recording.contentReads(nodePath.join(canonicalPath, "review.md"))).toBe(0);
+      expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe("new");
+    }),
+  );
+
+  it.effect("recovers a create-only destination once before publishing it", () =>
+    Effect.gen(function* () {
+      const { recording } = yield* measured(
+        createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Hook",
+          populate: (stagingPath) =>
+            Effect.sync(() => nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "new")),
+        }),
+      );
+
+      expect(recoveries(recording, canonicalPath)).toEqual({ backupProbes: 1, stagingCleanups: 1 });
+    }),
+  );
+
+  it.effect("compares a prior and a replaced tree for a void-inspect replacement", () =>
+    Effect.gen(function* () {
+      writeCanonical("prior");
+
+      const { facts, recording } = yield* measured(
+        replaceCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          populate: (stagingPath) =>
+            Effect.sync(() =>
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "replaced"),
+            ),
+        }),
+      );
+
+      expect(treeHashes(facts)).toBe(2);
+      expect(recoveries(recording, canonicalPath)).toEqual({ backupProbes: 1, stagingCleanups: 1 });
+    }),
   );
 });

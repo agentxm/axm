@@ -51,6 +51,7 @@ import {
   type DesiredStateGraph,
   type ExtensionTarget,
   type PackExtensionTarget,
+  type CanonicalObservationStatus,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -68,8 +69,10 @@ import {
   failureTag,
 } from "@agentxm/workspace-kernel/materialization";
 import {
+  WorkspaceInvariantFacts,
   expectedProjectionNames,
   captureAgentOutputAuthority,
+  freezeProjectionFacts,
 } from "@agentxm/workspace-kernel/projection";
 import {
   parseExtensionFqnParts,
@@ -178,7 +181,12 @@ const retirementKey = (retirement: PackRetirement): string =>
 const retirementSetKey = (retirements: ReadonlyArray<PackRetirement>): string =>
   [...retirements].map(retirementKey).sort().join("\u0001");
 
-/** Accepted graph authority does not authorize deleting unverifiable package bytes. */
+/**
+ * Accepted graph authority does not authorize deleting unverifiable package
+ * bytes. Alongside the retirements, each observed Pack's path, status and
+ * shared-package verdict, keyed by name, for describing its removal from the
+ * same graph.
+ */
 const observePackRetirements = (
   graph: DesiredStateGraph,
   targets: ReadonlyArray<ResolvedPackUninstallTarget>,
@@ -187,12 +195,20 @@ const observePackRetirements = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const retirements = [...declared];
+    const observed = new Map<
+      string,
+      {
+        readonly path: string | undefined;
+        readonly status: CanonicalObservationStatus;
+        readonly sharedPackage: boolean;
+      }
+    >();
     for (const target of targets) {
       const node = graph.nodes.find(
         (candidate) => candidate.type === "pack" && candidate.name === target.name,
       );
       if (node === undefined || node.identity.authority === "workspace") continue;
-      const { observation } = yield* observeDesiredCanonical(node).pipe(
+      const { observation, sharedPackage } = yield* observeDesiredCanonical(node).pipe(
         Effect.mapError((cause) =>
           installRefused({
             category: "conflict",
@@ -201,6 +217,11 @@ const observePackRetirements = (
           }),
         ),
       );
+      observed.set(target.name, {
+        path: observation.path,
+        status: observation.status,
+        sharedPackage: sharedPackage === true,
+      });
       if (observation.status === "usable" || observation.path === undefined) continue;
       retirements.push({
         pack: desiredPackageKey(node.identity),
@@ -211,7 +232,7 @@ const observePackRetirements = (
             : "invalid",
       });
     }
-    return retirements;
+    return { retirements, observed };
   });
 
 /**
@@ -410,11 +431,8 @@ export const planPackUninstall: (
     }
 
     const graph = graphReadiness.graph;
-    const plannedRetirements = yield* observePackRetirements(
-      graph,
-      intent.packsToUninstall,
-      graphReadiness.retirements,
-    );
+    const { retirements: plannedRetirements, observed: observedPacks } =
+      yield* observePackRetirements(graph, intent.packsToUninstall, graphReadiness.retirements);
     const retirementByIdentity = new Map(
       plannedRetirements.map((retirement) => [retirement.pack, retirement]),
     );
@@ -466,9 +484,23 @@ export const planPackUninstall: (
         }),
       ),
     );
-    const artifacts = yield* Effect.forEach(orderedTargets, (target) =>
-      prepareUninstallArtifact(target, proposal, { nativeCleanup: "retain" }),
-    ).pipe(
+    // Every target is described from this graph inside this call: the
+    // projection facts are evaluated once, where the first description reads
+    // them, and a Pack the retirement check observed is described from that
+    // observation. The transition observes packages and projections again
+    // under its lock.
+    const invariantFacts = yield* WorkspaceInvariantFacts;
+    const projectionFacts = yield* Effect.cached(
+      invariantFacts.projectionFacts.pipe(Effect.map(freezeProjectionFacts)),
+    );
+    const artifacts = yield* Effect.forEach(orderedTargets, (target) => {
+      const observedPack = target.type === "pack" ? observedPacks.get(target.name) : undefined;
+      return prepareUninstallArtifact(target, proposal, {
+        nativeCleanup: "retain",
+        ...(observedPack === undefined ? {} : { canonical: Option.some({ ...observedPack }) }),
+        projectionFacts,
+      });
+    }).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
@@ -672,11 +704,11 @@ export const planPackUninstall: (
           planned: plannedRetirements,
           observed:
             currentReadiness.readiness === "ready"
-              ? yield* observePackRetirements(
+              ? (yield* observePackRetirements(
                   currentGraph,
                   intent.packsToUninstall,
                   currentReadiness.retirements,
-                )
+                )).retirements
               : undefined,
         });
       }),

@@ -1,6 +1,3 @@
-import { withWork } from "@agentxm/host-primitives/work-observation";
-import { createHash } from "node:crypto";
-
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -15,18 +12,21 @@ import {
 } from "../agent-adapters/index.js";
 import {
   NativeEntryRemoval,
-  applyStructuralInverse,
+  applyDigestedStructuralInverse,
   assertNativeMutationWithinRoots,
   captureNativeAuthorityRoots,
   nativeAuthorityRoots,
   captureContainerIdentity,
   deriveStructuralInverse,
+  digestText,
   readContainerReceipts,
   updateContainerReceipts,
+  updateContainerReceiptsSequence,
   verifyContainerIdentity,
   type ContainerIdentity,
   type ContainerReceipt,
   type ContainerReceiptMutation,
+  type NativeEntryAddress,
 } from "../locations/index.js";
 import {
   createWorkspaceDirectories,
@@ -40,12 +40,11 @@ import {
 } from "../settlement/index.js";
 import { WorkspaceLocation } from "../workspace-state/index.js";
 
-const digest = (raw: string) =>
-  Effect.sync(() => createHash("sha256").update(raw).digest("hex")).pipe((effect) =>
-    withWork("axm.hash.receipt", effect, {
-      attributes: { "axm.work.count": 1, "axm.work.bytes": Buffer.byteLength(raw) },
-    }),
-  );
+type DigestedText = Effect.Success<ReturnType<typeof digestText>>;
+type NativeInsertionResolution = Option.Option.Value<
+  Effect.Success<ReturnType<NativeWriteAuthorityService["resolveInsertions"]>>
+>;
+type ReceiptChange = (entries: ReadonlyArray<ContainerReceipt>) => ReadonlyArray<ContainerReceipt>;
 const sameRoute = (before: ContainerIdentity, after: ContainerIdentity): boolean => {
   return JSON.stringify(before) === JSON.stringify(after);
 };
@@ -66,13 +65,14 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
   const ownerRoot = path.dirname(location.runtimeDir);
   const authorize = (target: string, mutation: "entry" | "content" = "entry") =>
     assertNativeMutationWithinRoots(roots, target, mutation, ownerRoot, witnesses);
+  const contextOf = (args: Omit<NativeInsertionTarget, "unit">, nativeRoot: string) => ({
+    nativeRoot,
+    ownerRoot,
+    target: args.path,
+    ...(args.aliases === undefined ? {} : { aliases: args.aliases }),
+  });
   const context = (args: Omit<NativeInsertionTarget, "unit">) =>
-    Effect.map(authorize(args.path, "content"), ({ nativeRoot }) => ({
-      nativeRoot,
-      ownerRoot,
-      target: args.path,
-      ...(args.aliases === undefined ? {} : { aliases: args.aliases }),
-    }));
+    Effect.map(authorize(args.path, "content"), ({ nativeRoot }) => contextOf(args, nativeRoot));
   const identityContext = (identity: ContainerIdentity) => ({
     nativeRoot: identity.nativeRoot,
     ownerRoot,
@@ -146,11 +146,14 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
           }),
         ),
       ),
-    write: (target, contents) =>
+    write: (target, contents, prior) =>
       finish(
         target,
         Effect.gen(function* () {
-          const existed = yield* fs.exists(target);
+          // Only bytes equal to the locked read can be a no-op; that path re-reads
+          // the store after protection so a foreign deletion or replacement heals.
+          const heldEqual = Option.contains(prior.text, contents);
+          const existed = heldEqual ? yield* fs.exists(target) : Option.isSome(prior.text);
           yield* authorize(target);
           yield* protectCreatedAncestors(fs, path, path.dirname(target));
           yield* protectWorkspacePath(target);
@@ -158,7 +161,7 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
           yield* writeFileAtomic(fs, {
             targetPath: target,
             content: contents,
-            skipIfUnchanged: "ignore-read-errors",
+            ...(heldEqual ? { skipIfUnchanged: "ignore-read-errors" as const } : {}),
             onPublished: (publication) =>
               recordFilePublication(
                 { path: target, change: existed ? "modified" : "created" },
@@ -177,26 +180,38 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
         }),
       ),
   };
-  const currentRaw = (target: string) =>
+  /** Read the content an admission just addressed. */
+  const readAdmitted = (target: string, address: NativeEntryAddress) =>
     Effect.gen(function* () {
-      const { address } = yield* authorize(target, "content");
       if (address.kind === "absent") return Option.none<string>();
       if (address.referentPath === undefined)
         return yield* new NativeWriteRefused({ path: target, cause: "unreadable-native-content" });
       return Option.some(yield* fs.readFileString(address.referentPath));
     });
+  const currentRaw = (target: string) =>
+    Effect.flatMap(authorize(target, "content"), ({ address }) => readAdmitted(target, address));
   const proofContext = (receipt: ContainerReceipt) => identityContext(receipt.identity);
-  const validReceipts = (raw: string, physicalPath: string) =>
+  /**
+   * Receipts whose digest matches the current text and whose identity is live.
+   * The digest runs only when some receipt addresses the path, and each distinct
+   * stored identity is proven live once within this one call.
+   */
+  const validReceipts = (current: Effect.Effect<DigestedText>, physicalPath: string) =>
     Effect.gen(function* () {
       const entries = (yield* readContainerReceipts(location.runtimeDir)).entries;
       const valid: Array<ContainerReceipt> = [];
+      const verdicts = new Map<string, boolean>();
       for (const receipt of entries) {
         if (
           receipt.identity.physicalPath !== physicalPath ||
-          receipt.contentSha256 !== (yield* digest(raw))
+          receipt.contentSha256 !== (yield* current).sha256
         )
           continue;
-        if (yield* currentIdentity(receipt.identity)) valid.push(receipt);
+        const key = JSON.stringify(receipt.identity);
+        const known = verdicts.get(key);
+        const verdict = known ?? (yield* currentIdentity(receipt.identity));
+        if (known === undefined) verdicts.set(key, verdict);
+        if (verdict) valid.push(receipt);
       }
       return valid;
     });
@@ -204,9 +219,9 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
     finish(
       args.path,
       Effect.gen(function* () {
-        const { address } = yield* authorize(args.path, "content");
-        const selectedContext = yield* context(args);
-        const actual = yield* currentRaw(args.path);
+        const { address, nativeRoot } = yield* authorize(args.path, "content");
+        const selectedContext = contextOf(args, nativeRoot);
+        const actual = yield* readAdmitted(args.path, address);
         if (
           !Option.makeEquivalence<string>((left, right) => left === right)(actual, args.beforeRaw)
         )
@@ -233,7 +248,7 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
           target: ancestor,
         });
         const receipts = Option.isSome(actual)
-          ? yield* validReceipts(actual.value, physicalPath)
+          ? yield* validReceipts(yield* Effect.cached(digestText(actual.value)), physicalPath)
           : [];
         return {
           target: args,
@@ -248,10 +263,31 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
         } satisfies NativeInsertionCapture;
       }),
     );
+  /** Drop `unit`'s receipts on `physicalPath`, keeping created-file and created-directory proofs. */
+  const forgetUnit =
+    (unit: string, physicalPath: string): ReceiptChange =>
+    (entries) =>
+      entries.filter(
+        (receipt) =>
+          receipt.unit !== unit ||
+          receipt.identity.physicalPath !== physicalPath ||
+          receipt.kind === "created-file" ||
+          receipt.kind === "created-directory",
+      );
+  /** The entry-mode admission a forget addresses its receipts through. */
+  const forgetPath = (target: string) =>
+    Effect.map(authorize(target), ({ address }) => address.referentPath ?? address.entryPath);
+  const forgetUnits = (units: ReadonlyArray<string>, physicalPath: string) =>
+    updateContainerReceiptsSequence(
+      location.runtimeDir,
+      units.map((unit) => forgetUnit(unit, physicalPath)),
+      mutation,
+    );
   const recordInsertion: NativeWriteAuthorityService["recordInsertion"] = ({
     capture,
     afterRaw,
     createdDirectories,
+    forgetUnits: forgotten = [],
   }) =>
     finish(
       capture.target.path,
@@ -278,31 +314,61 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
             cause: "native-route-changed-during-write",
           });
         }
-        const refreshed: Array<ContainerReceipt> = [];
+        // One post-write recapture per distinct stored prior identity in this
+        // call; an identity is remembered only after its sameRoute check passed.
+        const recaptured = new Map<string, ContainerIdentity>();
+        const priors: Array<{
+          readonly prior: ContainerReceipt;
+          readonly nextIdentity: ContainerIdentity;
+        }> = [];
         for (const prior of capture.receipts) {
-          const nextIdentity = yield* captureContainerIdentity(proofContext(prior));
-          if (!sameRoute(prior.identity, nextIdentity))
-            return yield* new NativeWriteRefused({
-              path: capture.target.path,
-              cause: "native-alias-changed-during-write",
-            });
-          refreshed.push({
-            ...prior,
-            identity: nextIdentity,
-            contentSha256: yield* digest(afterRaw),
-          });
+          const key = JSON.stringify(prior.identity);
+          let nextIdentity = recaptured.get(key);
+          if (nextIdentity === undefined) {
+            nextIdentity = yield* captureContainerIdentity(proofContext(prior));
+            if (!sameRoute(prior.identity, nextIdentity))
+              return yield* new NativeWriteRefused({
+                path: capture.target.path,
+                cause: "native-alias-changed-during-write",
+              });
+            recaptured.set(key, nextIdentity);
+          }
+          priors.push({ prior, nextIdentity: structuredClone(nextIdentity) });
         }
+        const inverse = capture.eligible
+          ? yield* deriveStructuralInverse(
+              Option.getOrElse(capture.beforeRaw, () => ""),
+              afterRaw,
+            )
+          : Option.none();
+        const created: Array<ContainerIdentity> = [];
+        if (capture.eligible && Option.isNone(capture.beforeRaw))
+          for (const directory of createdDirectories) {
+            if (
+              !capture.missingDirectories.includes(directory.physicalPath) ||
+              !(yield* currentIdentity(directory))
+            )
+              return yield* new NativeWriteRefused({
+                path: capture.target.path,
+                cause: "created-parent-changed-before-record",
+              });
+            created.push(directory);
+          }
+        // The derived inverse already hashed exactly `afterRaw`.
+        const afterDigest = yield* Effect.cached(digestText(afterRaw));
+        const contentSha256 = Option.isSome(inverse)
+          ? Effect.succeed(inverse.value.afterSha256)
+          : Effect.map(afterDigest, (text) => text.sha256);
+        const refreshed: Array<ContainerReceipt> = [];
+        for (const { prior, nextIdentity } of priors)
+          refreshed.push({ ...prior, identity: nextIdentity, contentSha256: yield* contentSha256 });
         if (capture.eligible) {
-          const inverse = yield* deriveStructuralInverse(
-            Option.getOrElse(capture.beforeRaw, () => ""),
-            afterRaw,
-          );
           if (Option.isSome(inverse))
             refreshed.push({
               unit: capture.target.unit,
               kind: "inserted-key",
               identity,
-              contentSha256: yield* digest(afterRaw),
+              contentSha256: yield* contentSha256,
               absentBefore: Option.isNone(capture.beforeRaw),
               inverse: inverse.value,
             });
@@ -311,143 +377,188 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
               unit: capture.target.unit,
               kind: "created-file",
               identity,
-              contentSha256: yield* digest(afterRaw),
+              contentSha256: yield* contentSha256,
             });
-            for (const directory of createdDirectories) {
-              if (
-                !capture.missingDirectories.includes(directory.physicalPath) ||
-                !(yield* currentIdentity(directory))
-              )
-                return yield* new NativeWriteRefused({
-                  path: capture.target.path,
-                  cause: "created-parent-changed-before-record",
-                });
+            for (const directory of created)
               refreshed.push({
                 unit: capture.target.unit,
                 kind: "created-directory",
                 identity: directory,
               });
-            }
           }
         }
-        yield* updateContainerReceipts(
-          location.runtimeDir,
-          (entries) => {
-            const changed = refreshed.map(
-              (receipt) => `${receipt.kind}:${receipt.unit}:${receipt.identity.physicalPath}`,
-            );
-            return [
-              ...entries.filter(
-                (receipt) =>
-                  !changed.includes(
-                    `${receipt.kind}:${receipt.unit}:${receipt.identity.physicalPath}`,
-                  ),
-              ),
-              ...refreshed,
-            ];
-          },
-          mutation,
-        );
+        const record: ReceiptChange = (entries) => {
+          const changed = refreshed.map(
+            (receipt) => `${receipt.kind}:${receipt.unit}:${receipt.identity.physicalPath}`,
+          );
+          return [
+            ...entries.filter(
+              (receipt) =>
+                !changed.includes(
+                  `${receipt.kind}:${receipt.unit}:${receipt.identity.physicalPath}`,
+                ),
+            ),
+            ...refreshed,
+          ];
+        };
+        if (forgotten.length === 0)
+          return yield* updateContainerReceipts(location.runtimeDir, record, mutation);
+        // The forget keeps its own entry-mode admission. Only when it addresses
+        // the verified container do the record and the forgets share one update.
+        const forgetAt = yield* Effect.result(forgetPath(capture.target.path));
+        if (forgetAt._tag === "Success" && forgetAt.success === capture.physicalPath)
+          return yield* updateContainerReceiptsSequence(
+            location.runtimeDir,
+            [record, ...forgotten.map((unit) => forgetUnit(unit, forgetAt.success))],
+            mutation,
+          );
+        yield* updateContainerReceipts(location.runtimeDir, record, mutation);
+        if (forgetAt._tag === "Failure") return yield* Effect.fail(forgetAt.failure);
+        yield* forgetUnits(forgotten, forgetAt.success);
       }),
     );
+  /**
+   * The live gate withdrawal decisions share: the current text must still be
+   * the caller's bytes (absent is not empty), then the container identity is
+   * captured and the receipts valid for that text are proven.
+   */
+  const liveInsertionState = (
+    args: Omit<NativeInsertionTarget, "unit"> & { readonly raw: string },
+  ) =>
+    Effect.gen(function* () {
+      if (!Option.contains(yield* currentRaw(args.path), args.raw)) return Option.none();
+      const identity = yield* captureContainerIdentity(yield* context(args));
+      const rawDigest = yield* Effect.cached(digestText(args.raw));
+      const receipts = yield* validReceipts(rawDigest, identity.physicalPath);
+      return Option.some({ identity, rawDigest, receipts });
+    });
+  type LiveInsertionState = Option.Option.Value<
+    Effect.Success<ReturnType<typeof liveInsertionState>>
+  >;
+  /** Undo `units` through exactly one applicable inverse per round over one gate's state. */
+  const resolveFrom = (state: LiveInsertionState, units: ReadonlyArray<string>) =>
+    Effect.gen(function* () {
+      const receipts = state.receipts.filter(
+        (receipt) =>
+          receipt.kind === "inserted-key" &&
+          receipt.inverse !== undefined &&
+          sameRoute(receipt.identity, state.identity),
+      );
+      const remaining = new Set(units);
+      if (remaining.size === 0) return Option.none<NativeInsertionResolution>();
+      // Round one reuses the current text's digest; later rounds use the
+      // restored text already bound to the digest its inverse just verified.
+      let current: Effect.Effect<DigestedText> = state.rawDigest;
+      let absent = false;
+      while (remaining.size > 0) {
+        const applicable: Array<{
+          readonly receipt: ContainerReceipt;
+          readonly text: DigestedText;
+        }> = [];
+        for (const receipt of receipts) {
+          if (!remaining.has(receipt.unit) || receipt.inverse === undefined) continue;
+          const restored = yield* applyDigestedStructuralInverse(yield* current, receipt.inverse);
+          if (Option.isSome(restored)) applicable.push({ receipt, text: restored.value });
+        }
+        const next = applicable[0];
+        if (next === undefined || applicable.length !== 1 || absent)
+          return Option.none<NativeInsertionResolution>();
+        remaining.delete(next.receipt.unit);
+        current = Effect.succeed(next.text);
+        absent = next.receipt.absentBefore === true;
+      }
+      const restored = yield* current;
+      return Option.some<NativeInsertionResolution>(
+        absent ? { kind: "remove-file" } : { kind: "restore-text", text: restored.raw },
+      );
+    });
+  /**
+   * Retire a created file proven by one gate's state. Without the format
+   * owner's emptiness proof, the single unit's own resolution must remove it.
+   */
+  const retireFrom = (
+    state: LiveInsertionState,
+    args: { readonly unit: string; readonly empty: boolean },
+  ) =>
+    Effect.gen(function* () {
+      const { identity } = state;
+      if (
+        !state.receipts.some(
+          (receipt) => receipt.kind === "created-file" && sameRoute(receipt.identity, identity),
+        )
+      )
+        return false;
+      if (
+        !args.empty &&
+        !Option.exists(
+          yield* resolveFrom(state, [args.unit]),
+          (value) => value.kind === "remove-file",
+        )
+      )
+        return false;
+      yield* retireWorkspacePath(identity.physicalPath);
+      const all = (yield* readContainerReceipts(location.runtimeDir)).entries;
+      const retired = new Set([identity.physicalPath]);
+      for (const receipt of [...all]
+        .filter(
+          (entry) =>
+            entry.kind === "created-directory" &&
+            identity.physicalPath.startsWith(`${entry.identity.physicalPath}${path.sep}`),
+        )
+        .sort(
+          (left, right) => right.identity.physicalPath.length - left.identity.physicalPath.length,
+        )) {
+        if (!(yield* currentIdentity(receipt.identity))) continue;
+        if ((yield* fs.readDirectory(receipt.identity.physicalPath)).length !== 0) continue;
+        yield* retireWorkspacePath(receipt.identity.physicalPath, { emptyOnly: true });
+        retired.add(receipt.identity.physicalPath);
+      }
+      yield* updateContainerReceipts(
+        location.runtimeDir,
+        (entries) => entries.filter((receipt) => !retired.has(receipt.identity.physicalPath)),
+        mutation,
+      );
+      return true;
+    });
   const resolveInsertions: NativeWriteAuthorityService["resolveInsertions"] = (args) =>
     finish(
       args.path,
       Effect.gen(function* () {
-        if (!Option.contains(yield* currentRaw(args.path), args.raw)) return Option.none();
-        const identity = yield* captureContainerIdentity(yield* context(args));
-        const receipts = (yield* validReceipts(args.raw, identity.physicalPath)).filter(
-          (receipt) =>
-            receipt.kind === "inserted-key" &&
-            receipt.inverse !== undefined &&
-            sameRoute(receipt.identity, identity),
-        );
-        const remaining = new Set(args.units);
-        if (remaining.size === 0) return Option.none();
-        let raw = args.raw;
-        let absent = false;
-        while (remaining.size > 0) {
-          const applicable: Array<{ readonly receipt: ContainerReceipt; readonly raw: string }> =
-            [];
-          for (const receipt of receipts) {
-            if (!remaining.has(receipt.unit) || receipt.inverse === undefined) continue;
-            const restored = yield* applyStructuralInverse(raw, receipt.inverse);
-            if (Option.isSome(restored)) applicable.push({ receipt, raw: restored.value });
-          }
-          const next = applicable[0];
-          if (next === undefined || applicable.length !== 1 || absent) return Option.none();
-          remaining.delete(next.receipt.unit);
-          raw = next.raw;
-          absent = next.receipt.absentBefore === true;
-        }
-        return Option.some(
-          absent ? { kind: "remove-file" as const } : { kind: "restore-text" as const, text: raw },
-        );
+        const state = yield* liveInsertionState(args);
+        return Option.isSome(state) ? yield* resolveFrom(state.value, args.units) : Option.none();
       }),
     );
   const resolveInsertion: NativeWriteAuthorityService["resolveInsertion"] = (args) =>
     resolveInsertions({ ...args, units: [args.unit] });
-  const forgetInsertion: NativeWriteAuthorityService["forgetInsertion"] = (args) =>
+  const withdrawInsertions: NativeWriteAuthorityService["withdrawInsertions"] = (args) =>
     finish(
       args.path,
       Effect.gen(function* () {
-        const { address } = yield* authorize(args.path);
-        const physicalPath = address.referentPath ?? address.entryPath;
-        yield* updateContainerReceipts(
-          location.runtimeDir,
-          (entries) =>
-            entries.filter(
-              (receipt) =>
-                receipt.unit !== args.unit ||
-                receipt.identity.physicalPath !== physicalPath ||
-                receipt.kind === "created-file" ||
-                receipt.kind === "created-directory",
-            ),
-          mutation,
-        );
+        const state = yield* liveInsertionState(args);
+        if (Option.isNone(state)) return { resolution: Option.none(), retired: false };
+        const resolution = yield* resolveFrom(state.value, args.units);
+        const retired =
+          (args.retire.renderedEmpty ||
+            Option.exists(resolution, (value) => value.kind === "remove-file")) &&
+          (yield* retireFrom(state.value, args.retire));
+        return { resolution, retired };
       }),
     );
+  const forgetInsertions: NativeWriteAuthorityService["forgetInsertions"] = (args) =>
+    finish(
+      args.path,
+      Effect.flatMap(forgetPath(args.path), (physicalPath) =>
+        forgetUnits(args.units, physicalPath),
+      ),
+    );
+  const forgetInsertion: NativeWriteAuthorityService["forgetInsertion"] = (args) =>
+    forgetInsertions({ ...args, units: [args.unit] });
   const retireInsertion: NativeWriteAuthorityService["retireInsertion"] = (args) =>
     finish(
       args.path,
       Effect.gen(function* () {
-        if (!Option.contains(yield* currentRaw(args.path), args.raw)) return false;
-        const identity = yield* captureContainerIdentity(yield* context(args));
-        const valid = yield* validReceipts(args.raw, identity.physicalPath);
-        if (
-          !valid.some(
-            (receipt) => receipt.kind === "created-file" && sameRoute(receipt.identity, identity),
-          )
-        )
-          return false;
-        if (
-          !args.empty &&
-          !Option.exists(yield* resolveInsertion(args), (value) => value.kind === "remove-file")
-        )
-          return false;
-        yield* retireWorkspacePath(identity.physicalPath);
-        const all = (yield* readContainerReceipts(location.runtimeDir)).entries;
-        const retired = new Set([identity.physicalPath]);
-        for (const receipt of [...all]
-          .filter(
-            (entry) =>
-              entry.kind === "created-directory" &&
-              identity.physicalPath.startsWith(`${entry.identity.physicalPath}${path.sep}`),
-          )
-          .sort(
-            (left, right) => right.identity.physicalPath.length - left.identity.physicalPath.length,
-          )) {
-          if (!(yield* currentIdentity(receipt.identity))) continue;
-          if ((yield* fs.readDirectory(receipt.identity.physicalPath)).length !== 0) continue;
-          yield* retireWorkspacePath(receipt.identity.physicalPath, { emptyOnly: true });
-          retired.add(receipt.identity.physicalPath);
-        }
-        yield* updateContainerReceipts(
-          location.runtimeDir,
-          (entries) => entries.filter((receipt) => !retired.has(receipt.identity.physicalPath)),
-          mutation,
-        );
-        return true;
+        const state = yield* liveInsertionState(args);
+        return Option.isSome(state) && (yield* retireFrom(state.value, args));
       }),
     );
   const captureCreatedDirectories: NativeWriteAuthorityService["captureCreatedDirectories"] = (
@@ -560,7 +671,9 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
     recordInsertion,
     resolveInsertion,
     resolveInsertions,
+    withdrawInsertions,
     forgetInsertion,
+    forgetInsertions,
     retireInsertion,
     captureCreatedDirectories,
     recordCreatedDirectories,

@@ -24,6 +24,36 @@ import { ProjectionTargetUnsupported } from "./errors.js";
 
 const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
 
+/** The key of a resolved entry beneath an already resolved physical scope root. */
+const keyBeneathPhysicalRoot = (
+  root: string,
+  entry: Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const entryPath = yield* entry;
+    const relative = path.relative(root, entryPath);
+    return decodeUnitPath(path.sep === "/" ? relative : relative.split(path.sep).join("/"));
+  });
+
+/** The key of a resolved entry beneath the physical scope root, resolved live. */
+const keyBeneathScopeRoot = (
+  scopeRoot: string,
+  entry: Effect.Effect<string, NativeLocationError, FileSystem.FileSystem | Path.Path>,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.flatMap(resolveNativeReferent(scopeRoot), (root) => keyBeneathPhysicalRoot(root, entry));
+
+const targetEntry = (target: string) =>
+  Effect.map(resolveNativeEntry(target), ({ entryPath }) => entryPath);
+
 /**
  * A native path as a POSIX scope-relative row key, or `None` when its physical
  * entry leaves the physical scope root. The leaf itself is never followed, so a
@@ -36,25 +66,48 @@ export const scopeUnitPath = (
   Option.Option<ProjectionUnitPath>,
   NativeLocationError,
   FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const root = yield* resolveNativeReferent(scopeRoot);
-    const { entryPath } = yield* resolveNativeEntry(target);
-    const relative = path.relative(root, entryPath);
-    return decodeUnitPath(path.sep === "/" ? relative : relative.split(path.sep).join("/"));
-  });
+> => keyBeneathScopeRoot(scopeRoot, targetEntry(target));
 
-/** A planned target's row key; refuses a target that cannot be keyed inside its scope root. */
-export const projectionUnitPath = (
-  scopeRoot: string,
+/**
+ * {@link scopeUnitPath} beneath a scope root the caller's own read-only work
+ * resolved with `resolveNativeReferent`, with nothing written since; the
+ * target's entry is still resolved live.
+ */
+export const scopeUnitPathBeneath = (
+  physicalRoot: string,
   target: string,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> => keyBeneathPhysicalRoot(physicalRoot, targetEntry(target));
+
+/**
+ * {@link scopeUnitPath} of an entry the caller has just resolved for the same
+ * target, with nothing written since; the scope root is still resolved live.
+ */
+export const scopeUnitPathOfEntry = (
+  scopeRoot: string,
+  entryPath: string,
+): Effect.Effect<
+  Option.Option<ProjectionUnitPath>,
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> => keyBeneathScopeRoot(scopeRoot, Effect.succeed(entryPath));
+
+const plannedTargetKey = (
+  target: string,
+  key: Effect.Effect<
+    Option.Option<ProjectionUnitPath>,
+    NativeLocationError,
+    FileSystem.FileSystem | Path.Path
+  >,
 ): Effect.Effect<
   ProjectionUnitPath,
   ProjectionTargetUnsupported,
   FileSystem.FileSystem | Path.Path
 > =>
-  scopeUnitPath(scopeRoot, target).pipe(
+  key.pipe(
     Effect.mapError(
       (cause) =>
         new ProjectionTargetUnsupported({
@@ -73,3 +126,44 @@ export const projectionUnitPath = (
       }),
     ),
   );
+
+/** A planned target's row key; refuses a target that cannot be keyed inside its scope root. */
+export const projectionUnitPath = (
+  scopeRoot: string,
+  target: string,
+): Effect.Effect<
+  ProjectionUnitPath,
+  ProjectionTargetUnsupported,
+  FileSystem.FileSystem | Path.Path
+> => plannedTargetKey(target, scopeUnitPath(scopeRoot, target));
+
+/**
+ * {@link projectionUnitPath} beneath a scope root the caller's own read-only
+ * work resolved with `resolveNativeReferent`, with nothing written since; the
+ * target's entry is still resolved live, and refusals name `target` alike.
+ */
+export const projectionUnitPathBeneath = (
+  physicalRoot: string,
+  target: string,
+): Effect.Effect<
+  ProjectionUnitPath,
+  ProjectionTargetUnsupported,
+  FileSystem.FileSystem | Path.Path
+> => plannedTargetKey(target, scopeUnitPathBeneath(physicalRoot, target));
+
+/**
+ * {@link projectionUnitPath} for a planned target whose entry the caller has
+ * just resolved, as its route admission does, with nothing written since: the
+ * scope root is still resolved live, and refusals name `target` alike.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const projectionUnitPathOfEntry = (
+  scopeRoot: string,
+  target: string,
+  entryPath: string,
+): Effect.Effect<
+  ProjectionUnitPath,
+  ProjectionTargetUnsupported,
+  FileSystem.FileSystem | Path.Path
+> => plannedTargetKey(target, keyBeneathScopeRoot(scopeRoot, Effect.succeed(entryPath)));

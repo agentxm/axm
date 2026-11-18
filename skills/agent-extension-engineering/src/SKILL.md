@@ -5,8 +5,9 @@ description: >-
   extensions to focused knowledge guidance: skills and SKILL.md, scoped
   instructions such as AGENTS.md and CLAUDE.md, rules, knowledge bundles,
   agent definitions, hooks, MCP connection configuration, and packs. Use for
-  extension craft and composition. Not for building agent runtimes, implementing
-  MCP servers, ordinary use of an installed extension, or package management alone.
+  extension craft, design patterns, package READMEs, and composition. Not for
+  building agent runtimes, implementing MCP servers, ordinary use of an
+  installed extension, or package management alone.
 ---
 
 # Agent extension engineering
@@ -18,20 +19,22 @@ through the active host or extension manager. With AXM, use
 
 ## Select the use case
 
-| User intent                                                 | Concept                                              |
-| ----------------------------------------------------------- | ---------------------------------------------------- |
-| Define or distinguish shared terms                          | `glossary`                                           |
-| Choose an extension type or divide responsibilities         | `choosing-extensions`                                |
-| Create or revise a skill                                    | `authoring-skills`                                   |
-| Create or improve instructions or rules                     | `authoring-instructions`                             |
-| Create or restructure a knowledge bundle                    | `authoring-knowledge`                                |
-| Define a delegated agent role                               | `authoring-agent-definitions`                        |
-| Configure a hook or MCP connection                          | `configuring-hooks-and-mcp`                          |
-| Compose extensions into a pack                              | `composing-packs`                                    |
-| Review, audit, remediate, or verify earlier findings        | `reviewing-extensions`, then the relevant type guide |
-| Check routing, behavior, portability, or improvement claims | `verification`                                       |
-| Assess execution, provenance, credentials, or side effects  | `trust-and-authority`                                |
-| Publish, replace, deprecate, or retire extensions           | `lifecycle`                                          |
+| User intent                                                 | Concept                                                           |
+| ----------------------------------------------------------- | ----------------------------------------------------------------- |
+| Define or distinguish shared terms                          | `glossary`                                                        |
+| Choose an extension type or divide responsibilities         | `guides/choosing-extensions`                                      |
+| Write or revise an extension README                         | `guides/authoring-readme`                                         |
+| Share detailed guidance across skill workflows              | `patterns/routing-skill-with-knowledge`                           |
+| Create or revise a skill                                    | `guides/authoring-skills`                                         |
+| Create or improve instructions or rules                     | `patterns/scoped-instructions`                                    |
+| Create or restructure a knowledge bundle                    | `guides/authoring-knowledge`                                      |
+| Define a delegated agent role                               | `guides/authoring-agent-definitions`                              |
+| Configure a hook or MCP connection                          | `guides/configuring-hooks-and-mcp`                                |
+| Compose extensions into a pack                              | `guides/composing-packs`                                          |
+| Review, audit, remediate, or verify earlier findings        | `guides/reviewing-extensions`, then the relevant guide or pattern |
+| Check routing, behavior, portability, or improvement claims | `guides/verification`                                             |
+| Assess execution, provenance, credentials, or side effects  | `guides/trust-and-authority`                                      |
+| Publish, replace, deprecate, or retire extensions           | `guides/lifecycle`                                                |
 
 Use `glossary` when shared terminology affects interpretation or a design decision.
 

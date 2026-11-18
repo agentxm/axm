@@ -21,9 +21,11 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-kernel/settlement";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import {
+  PackManifestSchema,
+  type PackManifest,
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { packManifestArtifact } from "./artifact.js";
-import { hashContent } from "./hash-content.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { authoringRefused } from "../errors.js";
 
@@ -41,8 +43,15 @@ interface RemoveFromPackOperationArgs {
   readonly packOwner: Handle;
   /** Precomputed manifest delta: extension names to remove. */
   readonly removals: ReadonlyArray<string>;
-  /** Manifest content hash at plan time for stale-check. */
-  readonly manifestHash: string;
+  /**
+   * The manifest as the plan read it: its exact text, compared with the text
+   * read under the workspace lock, and its decoded value, from which the
+   * updated manifest is derived without being modified.
+   */
+  readonly prepared: {
+    readonly text: string;
+    readonly manifest: PackManifest;
+  };
 }
 
 /**
@@ -60,8 +69,8 @@ export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPa
  * Remove-from-pack operation handler.
  *
  * 1. Short-circuit if removals list is empty (no-op)
- * 2. Read current manifest and compute hash
- * 3. Compare hash with args.manifestHash (stale check)
+ * 2. Read current manifest under the workspace lock
+ * 3. Compare it with the prepared text (stale check)
  * 4. Apply removals to manifest
  * 5. Write updated manifest
  */
@@ -80,7 +89,7 @@ export const removeFromPack: OperationHandler<
         detail: "Authored packs can only be edited in a project workspace",
       });
     }
-    const { packName, packOwner, removals, manifestHash } = op.args;
+    const { packName, packOwner, removals, prepared } = op.args;
     const configured = (yield* (yield* SettingsReader).entries("pack"))[packName];
     if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
       return yield* authoringRefused({
@@ -114,9 +123,8 @@ export const removeFromPack: OperationHandler<
           ),
         );
 
-        // 3. Stale-check: compare content hash
-        const currentHash = hashContent(manifestContent);
-        if (currentHash !== manifestHash) {
+        // 3. Stale-check: the locked text must be the text the plan decided on.
+        if (manifestContent !== prepared.text) {
           return yield* authoringRefused({
             category: "conflict",
             detail: `Pack manifest is stale — it was modified since the plan was created`,
@@ -124,30 +132,8 @@ export const removeFromPack: OperationHandler<
           });
         }
 
-        // 4. Parse and apply removals
-        const json = yield* Effect.try({
-          try: () => {
-            const parsed: unknown = JSON.parse(manifestContent);
-            return parsed;
-          },
-          catch: (e) =>
-            authoringRefused({
-              category: "validation",
-              detail: `Failed to parse pack manifest: ${manifestPath}`,
-              cause: e,
-            }),
-        });
-
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-          Effect.mapError((e) =>
-            authoringRefused({
-              category: "validation",
-              detail: `Invalid pack manifest: ${manifestPath}`,
-              cause: e,
-            }),
-          ),
-        );
-
+        // 4. Apply removals to a copy of the prepared manifest
+        const manifest = prepared.manifest;
         const removalSet = new Set(removals);
         const dependencies = Object.fromEntries(
           Object.entries(manifest.dependencies).filter(([name]) => !removalSet.has(name)),

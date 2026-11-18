@@ -1,13 +1,18 @@
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { afterEach, beforeEach, expect, layer } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type { UpdateCheckCache } from "../../../application/index.js";
 import { makeUpdateCheckCache } from "./index.js";
 
 layer(NodeServices.layer, { excludeTestServices: true })("validated update-cache adapter", (it) => {
@@ -77,5 +82,94 @@ layer(NodeServices.layer, { excludeTestServices: true })("validated update-cache
       expect(error._tag).toBe("UpdateCheckUnavailable");
       expect(error.operation).toBe("cache-write");
     }),
+  );
+});
+
+const RecordedServices = Layer.mergeAll(
+  layerRecordingFileSystem(NodeFileSystem.layer),
+  NodePath.layer,
+);
+
+layer(RecordedServices, { excludeTestServices: true })("update-cache reads", (it) => {
+  let tempDir: string;
+  let cachePath: string;
+  beforeEach(() => {
+    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "update-check-reads-"));
+    cachePath = nodePath.join(tempDir, "update-check.json");
+  });
+  afterEach(() => nodeFs.rmSync(tempDir, { recursive: true, force: true }));
+
+  const recordedCache = Effect.gen(function* () {
+    const store = makeUpdateCheckCache(cachePath, yield* FileSystem.FileSystem, yield* Path.Path);
+    return { store, recording: yield* FileSystemRecorder };
+  });
+  const readFailure = (store: typeof UpdateCheckCache.Service) =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(store.read());
+      expect(error._tag).toBe("UpdateCheckUnavailable");
+      expect(error.operation).toBe("cache-read");
+    });
+
+  it.effect("reads a present cache with one content read and no separate existence probe", () =>
+    Effect.gen(function* () {
+      const validatedAt = yield* DateTime.now;
+      nodeFs.writeFileSync(
+        cachePath,
+        JSON.stringify({
+          schema: "axm.update-check-cache/v3",
+          source: "distribution-latest",
+          version: "1.2.3",
+          validatedAt: DateTime.formatIso(validatedAt),
+        }),
+      );
+      const { store, recording } = yield* recordedCache;
+      recording.reset();
+
+      expect(yield* store.read()).toEqual(Option.some({ version: "1.2.3", validatedAt }));
+      expect(recording.counts(cachePath)).toEqual({ readFile: 1 });
+    }),
+  );
+
+  it.effect("reports an absent cache as no snapshot after one failed open", () =>
+    Effect.gen(function* () {
+      const { store, recording } = yield* recordedCache;
+      recording.reset();
+
+      expect(yield* store.read()).toEqual(Option.none());
+      expect(recording.counts(cachePath)).toEqual({ readFile: 1 });
+      expect(recording.calls({ path: cachePath })).toEqual([
+        { method: "readFile", path: cachePath, outcome: "failure" },
+      ]);
+    }),
+  );
+
+  it.effect("treats a dangling link or an empty file as no snapshot", () =>
+    Effect.gen(function* () {
+      const { store } = yield* recordedCache;
+      nodeFs.symlinkSync(nodePath.join(tempDir, "gone.json"), cachePath);
+      expect(yield* store.read()).toEqual(Option.none());
+      nodeFs.rmSync(cachePath);
+      nodeFs.writeFileSync(cachePath, "");
+      expect(yield* store.read()).toEqual(Option.none());
+    }),
+  );
+
+  it.effect("reports a directory at the cache path through the owner-defined error", () =>
+    Effect.gen(function* () {
+      const { store } = yield* recordedCache;
+      nodeFs.mkdirSync(cachePath);
+      yield* readFailure(store);
+    }),
+  );
+
+  it.effect.skipIf(process.getuid?.() === 0)(
+    "reports an unreadable cache through the owner-defined error",
+    () =>
+      Effect.gen(function* () {
+        const { store } = yield* recordedCache;
+        nodeFs.writeFileSync(cachePath, "{}");
+        nodeFs.chmodSync(cachePath, 0o000);
+        yield* readFailure(store);
+      }),
   );
 });

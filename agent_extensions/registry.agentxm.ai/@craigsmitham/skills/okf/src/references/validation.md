@@ -6,7 +6,8 @@ do not add base requirements.
 
 | Check | Basis | Result |
 |---|---|---|
-| Non-reserved Markdown lacks parseable frontmatter or non-empty `type` | §4, §11 conditions 1–2 | Error |
+| Non-reserved Markdown lacks parseable frontmatter or non-empty `type` | §4, §11 conditions 1–2 | Error; a `type` that YAML loads as a number or boolean also fails, with a quoting hint |
+| Non-concept Markdown such as a README sits inside the bundle root | §11 condition 1 has no exclusion mechanism | The same frontmatter error; such a file is not also reported as an unreachable concept |
 | Nested index has frontmatter, or root index adds keys beyond `okf_version` | §8, §11 condition 3 | Error |
 | An index lacks a heading, an entry precedes its heading, or a list entry is not a link | Headed link groups in §8; §11 condition 3 | Error |
 | A headed index has no entries | §8 does not prescribe a minimum count for an empty directory | Warning; inspect whether the index is useful |
@@ -14,7 +15,9 @@ do not add base requirements.
 | Missing indexes, broken cross-links, or unknown types | Explicitly tolerated by §11 | Advisory findings, never base errors |
 | Missing or mismatched index descriptions and unreachable concepts | §8 SHOULD descriptions plus this skill's discovery guidance | Warning |
 | Defects in optional metadata families, including timestamps | §11 producer SHOULD | Warning; omitted optional families remain valid |
+| YAML converted an unquoted `okf_version` or `sources[].id`, such as `0.2` or `001` | §12 quotes the version; §5.1 joins footnote labels to IDs; YAML 1.1 parsers convert these scalars | Warning; an unquoted `0.2` is still read as version 0.2 |
 | Generation timestamp is later than every valid recorded verification | Derived maintenance observation, not a new spec rule | Info with `--info`; preserve trust tier and history |
+| Every valid verification event is by the non-human `generated.by` actor | Derived observation; §5.3 tiers ignore who generated the content | Info with `--info`; the tier stays machine-confirmed |
 
 `--strict` makes warnings fail the command without making them base-conformance
 errors. Informational findings do not fail it. These focused checks are not a

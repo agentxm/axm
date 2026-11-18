@@ -26,6 +26,7 @@ export {
   MAX_ACQUIRED_TREE_ENTRIES,
   measureAcquiredTree,
 } from "./measure-acquired-tree.js";
+export { observeAcquiredTree, type AcquiredTreeObservation } from "./measure-acquired-tree.js";
 export {
   MAX_ACQUIRED_TREE_BYTES,
   MAX_OPERATION_SCRATCH_BYTES,
@@ -46,6 +47,7 @@ export {
   type CanonicalDirectoryReplacementError,
 } from "./canonical-directory.js";
 export { copyExtensionDirectory, DirectoryCopyLimitExceeded } from "./copy-directory.js";
+export { observeCopySource } from "./copy-directory.js";
 export {
   materializeRegistryPackage,
   materializeRegistryPackageWithTreeIntegrity,

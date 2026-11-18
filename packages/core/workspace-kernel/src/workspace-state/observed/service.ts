@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import type { WorkspaceLayoutError } from "../workspace/errors.js";
@@ -60,6 +61,7 @@ import {
 import { makeScopedStateApi, type ScopedStateLoaders } from "./state.js";
 import type { RawSourceBytes } from "../desired/source-bytes.js";
 import { makeScannerFileSystem } from "./scanners/fs-helpers.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import type { Scope } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -76,6 +78,12 @@ interface ScopedStateApi {
     Option.Option<RawSourceBytes>,
     SettingsIoError | LockfileIoError | LockfileVersionUnsupported
   >;
+  /**
+   * The settings text parsed as plain JSON, deep-frozen and without schema
+   * decoding; none when the file is absent or its text is not JSON. Parsed
+   * once per read model, from the same cached bytes as `raw("settings")`.
+   */
+  readonly settingsJson: Effect.Effect<Option.Option<unknown>, SettingsIoError>;
 }
 
 /** Scoped source-host views over the cached settings loader. */
@@ -117,6 +125,12 @@ export interface WorkspaceReadModel {
   readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
   /** The resolved storage layout, or none when the layout could not be resolved. */
   readonly layout: Option.Option<WorkspaceLayout>;
+  /**
+   * The deep-frozen JSON value the canonical scan parsed from an acquired
+   * Knowledge manifest at exactly `manifestPath`, when its text was exactly
+   * `text`. Never starts the scan: none until the scan has parsed it.
+   */
+  readonly knowledgeManifestParse: (manifestPath: string, text: string) => Option.Option<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +202,33 @@ interface BuildScopeDeps {
   readonly diagnosticsRef: Ref.Ref<ReadonlyArray<Warning>>;
 }
 
+/**
+ * Deep-freeze a value produced by `JSON.parse`. The walk keeps its own work
+ * stack, so nesting as deep as the parser accepts cannot exhaust the call stack.
+ */
+const freezeParsedJson = (root: unknown): unknown => {
+  const pending: Array<unknown> = [root];
+  while (pending.length > 0) {
+    const next = pending.pop();
+    if (Predicate.isObjectOrArray(next) && !Object.isFrozen(next)) {
+      Object.freeze(next);
+      for (const child of Object.values(next)) pending.push(child);
+    }
+  }
+  return root;
+};
+
+/** Parse text as plain JSON into a deep-frozen value; none when it is not JSON. */
+const parseLooseJson = (text: string): Option.Option<unknown> => {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return Option.none();
+  }
+  return Option.some(freezeParsedJson(value));
+};
+
 const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps: BuildScopeDeps) {
   const {
     scope,
@@ -238,6 +279,11 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
 
   // Scanner cells — eagerly enumerate the closed scanner key set.
   const scannerFs = yield* makeScannerFileSystem(fs);
+  // Owned by the canonical scan cell; consumers receive only frozen values.
+  const knowledgeManifestParses = new Map<
+    string,
+    { readonly text: string; readonly parsed: unknown }
+  >();
   const canonicalScanner = yield* Effect.cached(
     Result.isFailure(layoutResult)
       ? Effect.succeed<ReadonlyArray<CanonicalExtensionOccurrence>>([])
@@ -247,8 +293,20 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           workspaceRoot,
           diagnostics,
           layout: layoutResult.success,
+          receiveKnowledgeManifestParse: (manifestPath, text, parsed) => {
+            knowledgeManifestParses.set(manifestPath, { text, parsed });
+          },
         }),
   );
+  const knowledgeManifestParse: WorkspaceReadModel["knowledgeManifestParse"] = (
+    manifestPath,
+    text,
+  ) => {
+    const recorded = knowledgeManifestParses.get(manifestPath);
+    return recorded === undefined || recorded.text !== text
+      ? Option.none()
+      : Option.some(freezeWorkspaceValue(recorded.parsed));
+  };
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
       nativeDirectoryInputs: deps.nativeDirectoryInputs,
@@ -408,10 +466,15 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   const raw: ScopedStateApi["raw"] = (source) =>
     source === "settings" ? loaders.settingsRaw : loaders.lockfileRaw;
 
+  const settingsJson: ScopedStateApi["settingsJson"] = yield* Effect.cached(
+    loaders.settingsRaw.pipe(Effect.map(Option.flatMap(({ bytes }) => parseLooseJson(bytes)))),
+  );
+
   const state: ScopedStateApi = {
     settings: loaders.settings,
     lockfile: loaders.lockfile,
     raw,
+    settingsJson,
   };
 
   return {
@@ -430,6 +493,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics: diagnostics.snapshot,
     canonicalExtensions: canonicalScanner,
     layout: Result.isFailure(layoutResult) ? Option.none() : Option.some(layoutResult.success),
+    knowledgeManifestParse,
   } satisfies WorkspaceReadModel;
 });
 

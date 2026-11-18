@@ -105,6 +105,7 @@ export const workKinds = [
   "axm.update.cache",
   "axm.update.integrity",
   "axm.render.settings",
+  "axm.render.native",
   "axm.cli.output",
   "axm.cli.render",
 ] as const;

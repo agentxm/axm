@@ -15,7 +15,13 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { envOption } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
+import {
+  parseJsonOptional,
+  preparedReader,
+  readAgentExtensions,
+  readFileOptional,
+  sharedListing,
+} from "./reader-io.js";
 import { parseTomlDocument, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -400,21 +406,19 @@ const resolveSitePackages = () =>
     const virtualEnv = Option.getOrUndefined(yield* envOption("VIRTUAL_ENV"));
     if (virtualEnv) {
       // Scan for python* directories under lib/
+      // A lib that cannot be listed, absent included, has no candidates.
       const libDir = path.join(virtualEnv, "lib");
-      const libExists = yield* fs.exists(libDir).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (libExists) {
-        const entries = yield* fs.readDirectory(libDir).pipe(
-          Effect.catch(() => {
-            const empty: ReadonlyArray<string> = [];
-            return Effect.succeed(empty);
-          }),
-        );
-        for (const entry of entries) {
-          if (entry.startsWith("python")) {
-            const sp = path.join(libDir, entry, "site-packages");
-            const spExists = yield* fs.exists(sp).pipe(Effect.catch(() => Effect.succeed(false)));
-            if (spExists) return Option.some(sp);
-          }
+      const entries = yield* fs.readDirectory(libDir).pipe(
+        Effect.catch(() => {
+          const empty: ReadonlyArray<string> = [];
+          return Effect.succeed(empty);
+        }),
+      );
+      for (const entry of entries) {
+        if (entry.startsWith("python")) {
+          const sp = path.join(libDir, entry, "site-packages");
+          const spExists = yield* fs.exists(sp).pipe(Effect.catch(() => Effect.succeed(false)));
+          if (spExists) return Option.some(sp);
         }
       }
     }
@@ -424,38 +428,50 @@ const resolveSitePackages = () =>
   });
 
 /**
+ * The site-packages directory and its listing, read once for every package
+ * of one read.
+ */
+const listSitePackages = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const sitePackages = yield* resolveSitePackages();
+  if (Option.isNone(sitePackages)) return Option.none();
+
+  const entries = yield* fs.readDirectory(sitePackages.value).pipe(
+    Effect.catch(() => {
+      const empty: ReadonlyArray<string> = [];
+      return Effect.succeed(empty);
+    }),
+  );
+  return Option.some({ directory: sitePackages.value, entries: sharedListing(entries) });
+});
+
+/**
  * Find a .dist-info directory matching the given package name.
  */
-const findDistInfo = (sitePackages: string, packageName: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const normalizedTarget = normalizeDistInfoName(packageName);
+const findDistInfo = (
+  path: Path.Path,
+  sitePackages: { readonly directory: string; readonly entries: ReadonlyArray<string> },
+  packageName: string,
+) => {
+  const normalizedTarget = normalizeDistInfoName(packageName);
 
-    const entries = yield* fs.readDirectory(sitePackages).pipe(
-      Effect.catch(() => {
-        const empty: ReadonlyArray<string> = [];
-        return Effect.succeed(empty);
-      }),
-    );
+  for (const entry of sitePackages.entries) {
+    if (!entry.endsWith(".dist-info")) continue;
 
-    for (const entry of entries) {
-      if (!entry.endsWith(".dist-info")) continue;
+    // dist-info format: Name-Version.dist-info
+    // Extract the name part (everything before the last hyphen-version)
+    const withoutSuffix = entry.replace(/\.dist-info$/, "");
+    // Split on hyphen that precedes a version (digit)
+    const dashIdx = withoutSuffix.search(/-\d/);
+    const dirName = dashIdx >= 0 ? withoutSuffix.substring(0, dashIdx) : withoutSuffix;
 
-      // dist-info format: Name-Version.dist-info
-      // Extract the name part (everything before the last hyphen-version)
-      const withoutSuffix = entry.replace(/\.dist-info$/, "");
-      // Split on hyphen that precedes a version (digit)
-      const dashIdx = withoutSuffix.search(/-\d/);
-      const dirName = dashIdx >= 0 ? withoutSuffix.substring(0, dashIdx) : withoutSuffix;
-
-      if (normalizeDistInfoName(dirName) === normalizedTarget) {
-        return Option.some(path.join(sitePackages, entry));
-      }
+    if (normalizeDistInfoName(dirName) === normalizedTarget) {
+      return Option.some(path.join(sitePackages.directory, entry));
     }
+  }
 
-    return Option.none<string>();
-  });
+  return Option.none<string>();
+};
 
 // ---------------------------------------------------------------------------
 // Reader
@@ -466,52 +482,55 @@ const findDistInfo = (sitePackages: string, packageName: string) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const pypiReader: PackageReader = {
-  type: pypiType,
-  read: Effect.fn("read.pypi")(
-    function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
+export const pypiReader: PackageReader = preparedReader(
+  pypiType,
+  Effect.map(Effect.cached(listSitePackages), (sitePackagesListing) =>
+    Effect.fn("read.pypi")(
+      function* (pkg: DetectedPackage) {
+        const path = yield* Path.Path;
 
-      // 1. Resolve site-packages
-      const sitePackagesOpt = yield* resolveSitePackages();
-      if (Option.isNone(sitePackagesOpt)) return Option.none();
+        // 1. Resolve site-packages
+        const sitePackagesOpt = yield* sitePackagesListing;
+        if (Option.isNone(sitePackagesOpt)) return Option.none();
 
-      const sitePackages = sitePackagesOpt.value;
+        const sitePackages = sitePackagesOpt.value.directory;
 
-      // 2. Find .dist-info directory
-      const distInfoOpt = yield* findDistInfo(sitePackages, pkg.purl.name);
-      if (Option.isNone(distInfoOpt)) return Option.none();
+        // 2. Find .dist-info directory
+        const distInfoOpt = findDistInfo(path, sitePackagesOpt.value, pkg.purl.name);
+        if (Option.isNone(distInfoOpt)) return Option.none();
 
-      const distInfoDir = distInfoOpt.value;
+        const distInfoDir = distInfoOpt.value;
 
-      // 3. Read entry_points.txt
-      const entryPointsPath = path.join(distInfoDir, "entry_points.txt");
-      const entryPointsContent = yield* readFileOptional(entryPointsPath);
-      if (Option.isNone(entryPointsContent)) return Option.none();
+        // 3. Read entry_points.txt
+        const entryPointsPath = path.join(distInfoDir, "entry_points.txt");
+        const entryPointsContent = yield* readFileOptional(entryPointsPath);
+        if (Option.isNone(entryPointsContent)) return Option.none();
 
-      const metadataEntry = parseEntryPoints(entryPointsContent.value);
-      if (Option.isNone(metadataEntry)) return Option.none();
+        const metadataEntry = parseEntryPoints(entryPointsContent.value);
+        if (Option.isNone(metadataEntry)) return Option.none();
 
-      // 5. Locate agent-extensions.json from the entry point value
-      // Entry format: "package_module:agent-extensions.json" -> look for agent-extensions.json in the package dir
-      const entryValue = metadataEntry.value;
-      const colonIdx = entryValue.indexOf(":");
-      const modulePart = colonIdx >= 0 ? entryValue.substring(0, colonIdx) : entryValue;
-      const filePart = colonIdx >= 0 ? entryValue.substring(colonIdx + 1) : "agent-extensions.json";
+        // 5. Locate agent-extensions.json from the entry point value
+        // Entry format: "package_module:agent-extensions.json" -> look for agent-extensions.json in the package dir
+        const entryValue = metadataEntry.value;
+        const colonIdx = entryValue.indexOf(":");
+        const modulePart = colonIdx >= 0 ? entryValue.substring(0, colonIdx) : entryValue;
+        const filePart =
+          colonIdx >= 0 ? entryValue.substring(colonIdx + 1) : "agent-extensions.json";
 
-      const agentExtensionsJsonPath = path.join(sitePackages, modulePart, filePart);
-      const agentExtensionsJsonContent = yield* readFileOptional(agentExtensionsJsonPath);
-      if (Option.isNone(agentExtensionsJsonContent)) return Option.none();
+        const agentExtensionsJsonPath = path.join(sitePackages, modulePart, filePart);
+        const agentExtensionsJsonContent = yield* readFileOptional(agentExtensionsJsonPath);
+        if (Option.isNone(agentExtensionsJsonContent)) return Option.none();
 
-      // 6. Parse and validate agent-extensions.json
-      const parsed = yield* parseJsonOptional(
-        agentExtensionsJsonContent.value,
-        `${pkg.purl.name}/agent-extensions.json`,
-      );
-      if (Option.isNone(parsed)) return Option.none();
+        // 6. Parse and validate agent-extensions.json
+        const parsed = yield* parseJsonOptional(
+          agentExtensionsJsonContent.value,
+          `${pkg.purl.name}/agent-extensions.json`,
+        );
+        if (Option.isNone(parsed)) return Option.none();
 
-      return yield* readAgentExtensions(parsed.value, `${pkg.purl.name}`);
-    },
-    Effect.annotateLogs({ reader: "pypi" }),
+        return yield* readAgentExtensions(parsed.value, `${pkg.purl.name}`);
+      },
+      Effect.annotateLogs({ reader: "pypi" }),
+    ),
   ),
-};
+);

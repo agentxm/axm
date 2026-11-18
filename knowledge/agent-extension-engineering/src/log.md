@@ -1,5 +1,12 @@
 # Update log
 
+## 2026-11-18
+
+- Grouped [guides](guides/index.md) by task and [patterns](patterns/index.md) by design situation. Scoped instructions now lives in the pattern library alongside the routing skill pattern.
+- Added [Writing an extension README](guides/authoring-readme.md) for authors choosing a first-use example.
+- Reworked the eleven guides around authoring decisions, with examples of overlapping skills, scoped instructions, knowledge discovery, and consumer migration.
+- **Update**: Set the Agent extension heading in sentence case. The category term is a common noun; only the Agent Extension Manager, Registry, and Marketplace product names keep capitals.
+
 ## 2026-10-31
 
 - **Addition**: Defined Open agent through standards-based third-party extensibility and portable extension management, with scope qualifications and citations to Agent Skills, MCP, and AGENTS.md.

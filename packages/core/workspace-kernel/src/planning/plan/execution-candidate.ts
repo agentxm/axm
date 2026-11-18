@@ -90,7 +90,7 @@ const fingerprintPath = (
 const fingerprintMaterials = (
   materialPaths: ReadonlyArray<string>,
   baseDir: string,
-  fs: FileSystem.FileSystem,
+  fileSystemFor: (target: string) => FileSystem.FileSystem,
   path: Path.Path,
 ): Effect.Effect<string, CandidateFingerprintFailed> =>
   Effect.gen(function* () {
@@ -99,7 +99,12 @@ const fingerprintMaterials = (
     let partsHashed = 0;
     return yield* Effect.gen(function* () {
       for (const target of materialPaths) {
-        const parts = yield* fingerprintPath(target, path.relative(baseDir, target), fs, path);
+        const parts = yield* fingerprintPath(
+          target,
+          path.relative(baseDir, target),
+          fileSystemFor(target),
+          path,
+        );
         for (const part of parts) {
           const size = typeof part === "string" ? Buffer.byteLength(part) : part.byteLength;
           const frame = `${size}\0`;
@@ -179,7 +184,12 @@ export const makeExecutionCandidate = <Requirements, Output>(
       paths.baseDir,
       path,
     );
-    const materialFingerprint = yield* fingerprintMaterials(materialPaths, paths.baseDir, fs, path);
+    const materialFingerprint = yield* fingerprintMaterials(
+      materialPaths,
+      paths.baseDir,
+      () => fs,
+      path,
+    );
     const id = yield* Effect.gen(function* () {
       const serialized = planIdentity(plan, paths.baseDir, path);
       const observed = paths.observedInputFingerprint;
@@ -217,8 +227,49 @@ export const makeExecutionCandidate = <Requirements, Output>(
     };
   });
 
+/**
+ * Observe a composite child plan's materials for readability alone: every
+ * material the child's own seal would fingerprint except the workspace
+ * settings and lockfile, which the composite's own seal always fingerprints.
+ * No identity is derived, because the composite discards a child's identity.
+ */
+export const observeCompositeChildMaterials = (
+  plan: Plan<unknown, unknown>,
+  paths: {
+    readonly settingsPath: string;
+    readonly lockPath: string;
+    readonly baseDir: string;
+  },
+): Effect.Effect<void, CandidateFingerprintFailed, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const sealedByComposite = new Set([
+      path.resolve(paths.baseDir, paths.settingsPath),
+      path.resolve(paths.baseDir, paths.lockPath),
+    ]);
+    yield* fingerprintMaterials(
+      resolveMaterialPaths(plan, paths.settingsPath, paths.lockPath, paths.baseDir, path).filter(
+        (target) => !sealedByComposite.has(target),
+      ),
+      paths.baseDir,
+      () => fs,
+      path,
+    );
+  });
+
+/**
+ * Recompute the candidate's material fingerprint. With `routing`, each
+ * top-level material in `sharedPaths` is observed through the ambient file
+ * system and every other one through `unshared`; a directory material is read
+ * entirely through the file system of its top-level entry.
+ */
 export const isExecutionCandidateFresh = (
   candidate: ExecutionCandidate<unknown, unknown>,
+  routing?: {
+    readonly sharedPaths: ReadonlySet<string>;
+    readonly unshared: FileSystem.FileSystem;
+  },
 ): Effect.Effect<boolean, CandidateFingerprintFailed, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -226,7 +277,9 @@ export const isExecutionCandidateFresh = (
     const current = yield* fingerprintMaterials(
       candidate.materialPaths,
       candidate.baseDir,
-      fs,
+      routing === undefined
+        ? () => fs
+        : (target) => (routing.sharedPaths.has(target) ? fs : routing.unshared),
       path,
     );
     return current === candidate.materialFingerprint;

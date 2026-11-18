@@ -70,6 +70,17 @@ export interface ObservedMaterializationCurrencyArgs<E> {
   readonly path: Path.Path;
 }
 
+/**
+ * The inventory item that stands for the node's canonical presence: an
+ * installed item under the node's local name. Without one, the node needs
+ * canonical rematerialization whatever its native outputs show.
+ */
+export const installedInventoryItem = (
+  inventory: ExtensionInventory,
+  node: Pick<DesiredExtensionNode, "name">,
+): ExtensionInventory["items"][number] | undefined =>
+  inventory.items.find((item) => item.name === node.name && item.installed);
+
 export const observeMaterializationCurrency = <E>({
   location,
   records,
@@ -117,7 +128,7 @@ export const observeMaterializationCurrency = <E>({
         MaterializationCurrencyFailure<E>,
         ProjectionParticipantRequirements
       > => {
-        const observed = inventory.items.find((item) => item.name === node.name && item.installed);
+        const observed = installedInventoryItem(inventory, node);
         if (observed === undefined) {
           if (resolvedRef.type !== "subagent" || subagentSourceRoot === undefined)
             return Effect.succeed({ current: false, nativeLocations: [] });

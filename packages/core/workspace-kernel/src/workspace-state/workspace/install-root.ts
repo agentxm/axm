@@ -184,7 +184,9 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
         }
       });
 
-    if (yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false))) yield* visit(root);
+    // The listing turns an absent or unreadable root into no entries, as an
+    // existence probe in front of it would.
+    yield* visit(root);
 
     return {
       root,

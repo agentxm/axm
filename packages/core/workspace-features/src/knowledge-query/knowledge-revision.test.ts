@@ -1,3 +1,4 @@
+import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { KnowledgeProjectedConcept } from "./knowledge-projection.js";
@@ -110,7 +111,7 @@ it.effect("retries a changing corpus and returns one stable capture", () =>
 
     expect(reads).toBe(4);
     expect(new TextDecoder().decode(corpus.sources[0]?.bytes)).toBe("stable");
-    expect(corpus.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    expect(corpus.sources[0]?.sourceRevision).toBe(computeKnowledgeSourceRevision(bytes("stable")));
   }),
 );
 
@@ -124,5 +125,93 @@ it.effect("fails with a typed error rather than yielding a mixed changing corpus
     ).pipe(Effect.flip);
 
     expect(failure).toMatchObject({ _tag: "KnowledgeCorpusChangingError", attempts: 2 });
+  }),
+);
+
+const corpusSources = [
+  { bundle: "@agentxm/knowledge/platform", relativePath: "index.md" },
+  { bundle: "@agentxm/knowledge/platform", relativePath: "guides/start.md" },
+  { bundle: "@agentxm/knowledge/platform", relativePath: "guides/next.md" },
+];
+
+const hashedSources = (
+  facts: ReadonlyArray<{ kind: string; attributes: { "axm.work.count"?: number } }>,
+) =>
+  facts
+    .filter((fact) => fact.kind === "axm.hash.content")
+    .reduce((total, fact) => total + (fact.attributes["axm.work.count"] ?? 0), 0);
+
+it.effect("hashes each source of a stable capture once, after the confirming read", () =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    let reads = 0;
+    const corpus = yield* captureKnowledgeCorpus(corpusSources, (source) =>
+      Effect.sync(() => {
+        reads += 1;
+        return bytes(`content of ${source.relativePath}`);
+      }),
+    ).pipe(work.provide);
+
+    expect(reads).toBe(6);
+    expect(hashedSources(work.facts)).toBe(3);
+    expect(corpus.sources.map((source) => source.relativePath)).toEqual([
+      "guides/next.md",
+      "guides/start.md",
+      "index.md",
+    ]);
+    expect(corpus.sources.map((source) => source.sourceRevision)).toEqual(
+      corpus.sources.map((source) =>
+        computeKnowledgeSourceRevision(bytes(`content of ${source.relativePath}`)),
+      ),
+    );
+  }),
+);
+
+it.effect("hashes only the capture that settles after a changing attempt", () =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    let reads = 0;
+    const corpus = yield* captureKnowledgeCorpus(corpusSources, (source) =>
+      Effect.sync(() => {
+        reads += 1;
+        return bytes(reads <= 3 ? `first ${source.relativePath}` : `stable ${source.relativePath}`);
+      }),
+    ).pipe(work.provide);
+
+    expect(reads).toBe(12);
+    expect(hashedSources(work.facts)).toBe(3);
+    expect(corpus.sources.map((source) => source.sourceRevision)).toEqual(
+      corpus.sources.map((source) =>
+        computeKnowledgeSourceRevision(bytes(`stable ${source.relativePath}`)),
+      ),
+    );
+  }),
+);
+
+it.effect("hashes no source when the corpus never settles", () =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    let reads = 0;
+    const failure = yield* captureKnowledgeCorpus(
+      corpusSources,
+      () => Effect.sync(() => bytes(`version-${reads++}`)),
+      { maxAttempts: 2 },
+    ).pipe(work.provide, Effect.flip);
+
+    expect(failure).toMatchObject({ _tag: "KnowledgeCorpusChangingError", attempts: 2 });
+    expect(reads).toBe(12);
+    expect(hashedSources(work.facts)).toBe(0);
+  }),
+);
+
+it.effect("records no hash work for an empty corpus", () =>
+  Effect.gen(function* () {
+    const work = workObservations(false);
+    const corpus = yield* captureKnowledgeCorpus([], () => Effect.succeed(bytes("unused"))).pipe(
+      work.provide,
+    );
+
+    expect(corpus.sources).toEqual([]);
+    expect(work.facts.filter((fact) => fact.kind === "axm.hash.content")).toEqual([]);
   }),
 );

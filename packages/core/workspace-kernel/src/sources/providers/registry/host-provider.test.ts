@@ -29,6 +29,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import {
   RegistryOperationFailed,
+  VerifiedArchive,
   type RegistryClient,
   type RegistryExtensionManifest,
   type GetExtensionsByOwnerArgs,
@@ -63,6 +64,8 @@ import {
   makeTestAxmSkillGate,
 } from "../../test-helpers.js";
 import { RegistryResolutionPolicyTest } from "../../testing.js";
+import { workObservations } from "../../../locations/testing.js";
+import type { WorkFact } from "@agentxm/host-primitives/work-observation";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -1254,6 +1257,205 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         }
       }),
     );
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Registry archive verification evidence
+// -----------------------------------------------------------------------------
+
+describe("Registry archive verification evidence", () => {
+  const skillArchive = () =>
+    makeFetchArchive({
+      "skill.json": JSON.stringify({
+        owner: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+      }),
+      "src/SKILL.md": "---\nname: my-skill\ndescription: Review.\n---\n\n# Review\n",
+    });
+  const skillRef = (archive: Uint8Array): ExtensionRef => ({
+    type: "skill",
+    refType: "registry",
+    publisherBindingId: "hbnd_test",
+    skill: {
+      name: extensionName("my-skill"),
+      description: Option.none(),
+      metadata: Option.none(),
+    },
+    source: testSource,
+    owner: handle("@test"),
+    name: extensionName("my-skill"),
+    version: exactVersion("1.0.0"),
+    integrity: Option.some(sha512(archive)),
+    packages: [],
+  });
+  const integrityFacts = (facts: ReadonlyArray<WorkFact>) =>
+    facts.filter((fact) => fact.kind === "axm.archive.integrity");
+
+  it.effect("consumes the client's covering evidence instead of hashing the archive again", () => {
+    const archive = skillArchive();
+    return runEffect(
+      Effect.gen(function* () {
+        const verified = Option.getOrThrow(yield* VerifiedArchive.check(archive, sha512(archive)));
+        const provider = createLocalRegistrySourceHostProvider(
+          createMockClient({ getExtensionPackage: () => Effect.succeed({ archive, verified }) }),
+        );
+        const observed = workObservations(false);
+        const fetched = yield* provider.fetch(testSource, skillRef(archive)).pipe(observed.provide);
+        expect(integrityFacts(observed.facts)).toHaveLength(0);
+        const fs = yield* FileSystem.FileSystem;
+        expect(yield* fs.readFileString(nodePath.join(fetched.directory, "src/SKILL.md"))).toBe(
+          "---\nname: my-skill\ndescription: Review.\n---\n\n# Review\n",
+        );
+      }),
+    );
+  });
+
+  it.effect("hashes the archive when the client supplies no evidence", () => {
+    const archive = skillArchive();
+    const provider = createLocalRegistrySourceHostProvider(
+      createMockClient({ getExtensionPackage: () => Effect.succeed({ archive }) }),
+    );
+    return runEffect(
+      Effect.gen(function* () {
+        const observed = workObservations(false);
+        yield* provider.fetch(testSource, skillRef(archive)).pipe(observed.provide);
+        expect(integrityFacts(observed.facts)).toHaveLength(1);
+      }),
+    );
+  });
+
+  it.effect("hashes the archive when the evidence covers another buffer with equal bytes", () => {
+    const archive = skillArchive();
+    return runEffect(
+      Effect.gen(function* () {
+        const verified = Option.getOrThrow(
+          yield* VerifiedArchive.check(archive.slice(), sha512(archive)),
+        );
+        const provider = createLocalRegistrySourceHostProvider(
+          createMockClient({ getExtensionPackage: () => Effect.succeed({ archive, verified }) }),
+        );
+        const observed = workObservations(false);
+        yield* provider.fetch(testSource, skillRef(archive)).pipe(observed.provide);
+        expect(integrityFacts(observed.facts)).toHaveLength(1);
+      }),
+    );
+  });
+
+  it.effect("still refuses changed bytes whose evidence covers a different buffer", () => {
+    const original = skillArchive();
+    const changed = makeFetchArchive({ "src/SKILL.md": "Changed download guidance.\n" });
+    return runEffect(
+      Effect.gen(function* () {
+        const verified = Option.getOrThrow(
+          yield* VerifiedArchive.check(original, sha512(original)),
+        );
+        const provider = createLocalRegistrySourceHostProvider(
+          createMockClient({
+            getExtensionPackage: () => Effect.succeed({ archive: changed, verified }),
+          }),
+        );
+        const failure = yield* provider.fetch(testSource, skillRef(original)).pipe(Effect.flip);
+        expect(sourceResolutionFailureCategory(failure)).toBe("network");
+        expect(failure).toMatchObject({
+          detail: "Integrity mismatch for skill:my-skill@1.0.0",
+        });
+      }),
+    );
+  });
+
+  describe("official AXM skill compatibility probe", () => {
+    const probeArchive = () =>
+      makeFetchArchive({
+        "skill.json": JSON.stringify({
+          owner: "@agentxm",
+          type: "skill",
+          name: "axm",
+          version: "1.0.0",
+        }),
+        "src/SKILL.md": "---\nname: axm\ndescription: AXM.\n---\n\n# AXM\n",
+      });
+    const probeIndex = (archive: Uint8Array): ExtensionIndex => ({
+      owner: handle("@agentxm"),
+      type: "skill",
+      name: extensionName("axm"),
+      publisherBindingId: "hbnd_test",
+      archival: null,
+      deprecation: null,
+      versions: [makeVersionEntry({ version: "1.0.0", integrity: sha512(archive) })],
+    });
+    const resolveOfficial = (
+      client: RegistryClient,
+    ): Effect.Effect<
+      ReadonlyArray<WorkFact>,
+      unknown,
+      FileSystem.FileSystem | Path.Path | RegistryResolutionPolicy | Scope.Scope
+    > =>
+      Effect.gen(function* () {
+        const observed = workObservations(false);
+        const result = yield* createRemoteRegistrySourceHostProvider(client)
+          .resolveNamed(testSource, {
+            name: "axm",
+            type: "skill",
+            owner: handle("@agentxm"),
+            versionRange: Option.some("1.0.0"),
+            releaseAgeEvaluation: {
+              minimumReleaseAge: Duration.zero,
+              evaluatedAt: DateTime.makeUnsafe("2025-01-03T00:00:00Z"),
+              mode: "enforce",
+            },
+          })
+          .pipe(
+            observed.provide,
+            Effect.provide(
+              makeTestAxmSkillGate(() =>
+                Effect.succeed({
+                  status: "compatible",
+                  detail: null,
+                  recoveryCommand: null,
+                  recoveryTarget: "@agentxm/skills/axm@1.0.0",
+                }),
+              ),
+            ),
+          );
+        expect(result.kind).toBe("selected");
+        return integrityFacts(observed.facts);
+      });
+
+    it.effect("consumes covering evidence for the probed candidate", () => {
+      const archive = probeArchive();
+      return runEffect(
+        Effect.gen(function* () {
+          const verified = Option.getOrThrow(
+            yield* VerifiedArchive.check(archive, sha512(archive)),
+          );
+          const facts = yield* resolveOfficial(
+            createMockClient({
+              getExtensionIndex: () => Effect.succeed(Option.some(probeIndex(archive))),
+              getExtensionPackage: () => Effect.succeed({ archive, verified }),
+            }),
+          );
+          expect(facts).toHaveLength(0);
+        }),
+      );
+    });
+
+    it.effect("hashes the probed candidate when the client supplies no evidence", () => {
+      const archive = probeArchive();
+      return runEffect(
+        Effect.gen(function* () {
+          const facts = yield* resolveOfficial(
+            createMockClient({
+              getExtensionIndex: () => Effect.succeed(Option.some(probeIndex(archive))),
+              getExtensionPackage: () => Effect.succeed({ archive }),
+            }),
+          );
+          expect(facts).toHaveLength(1);
+        }),
+      );
+    });
   });
 });
 

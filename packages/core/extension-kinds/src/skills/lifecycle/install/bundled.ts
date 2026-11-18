@@ -127,6 +127,17 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
       blocker: "authored",
     } satisfies BundledAxmSkillReadiness;
   const agents = yield* (yield* CodingAgentRepository).getConfiguredAgents();
+  // Agents often share one skills directory, and nothing writes between their
+  // read-only inspections, so an exact repeat of an inspected spelling is
+  // skipped. Other spellings, aliases included, are inspected on their own,
+  // from the native roots and canonical source the first inspection resolved.
+  const inspectedDirs = new Set<string>();
+  const nativeRoots = nativeAuthorityRoots(
+    path,
+    { workspaceRoot: location.baseDir, scope: location.scope },
+    location.nativeDirectoryInputs,
+  );
+  let observed: Parameters<typeof inspectSkillAgentArtifact>[1];
   for (const agent of agents) {
     const target = yield* agent.resolveEffectiveSkillsDir({
       workspaceRoot: location.baseDir,
@@ -139,19 +150,18 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
         errorMessage: `Agent ${agent.id} has invalid skills directory settings`,
         blocker: "native-artifact",
       } satisfies BundledAxmSkillReadiness;
-    if (target._tag !== "supported") continue;
-    const inspection = yield* inspectSkillAgentArtifact({
-      nativeRoots: nativeAuthorityRoots(
-        path,
-        { workspaceRoot: location.baseDir, scope: location.scope },
-        location.nativeDirectoryInputs,
-      ),
-      nativeInsertionEligible: existing === undefined,
-      canonicalSkillSrcPath: path.join(canonicalPath, "src"),
-      targetDir: target.dir,
-      sanitizedName: BUNDLED_AXM_SKILL_NAME,
-      baseDir: location.baseDir,
-    }).pipe(Effect.result);
+    if (target._tag !== "supported" || inspectedDirs.has(target.dir)) continue;
+    const inspection = yield* inspectSkillAgentArtifact(
+      {
+        nativeRoots,
+        nativeInsertionEligible: existing === undefined,
+        canonicalSkillSrcPath: path.join(canonicalPath, "src"),
+        targetDir: target.dir,
+        sanitizedName: BUNDLED_AXM_SKILL_NAME,
+        baseDir: location.baseDir,
+      },
+      observed,
+    ).pipe(Effect.result);
     if (inspection._tag === "Failure")
       return {
         readiness: "error",
@@ -160,6 +170,11 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
           "detail" in inspection.failure ? inspection.failure.detail : inspection.failure.message,
         blocker: "native-artifact",
       } satisfies BundledAxmSkillReadiness;
+    inspectedDirs.add(target.dir);
+    observed ??= {
+      rootResolutions: inspection.success.rootResolutions,
+      source: inspection.success.source,
+    };
   }
   return { readiness: "ready", canonicalPath } satisfies BundledAxmSkillReadiness;
 });

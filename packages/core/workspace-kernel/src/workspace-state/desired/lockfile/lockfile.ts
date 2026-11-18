@@ -36,7 +36,7 @@ import {
 } from "./read.js";
 import type { LockfileReadError } from "./errors.js";
 import type { DocumentRoundTripContext } from "../document-round-trip.js";
-import { prepareLockfileRoundTrip } from "./round-trip.js";
+import { prepareLockfileRoundTrip, priorRoundTripUnits } from "./round-trip.js";
 import { emitLockfileToml } from "./toml.js";
 import { parseLockfileToml, type ParsedLockfileToml } from "./toml-values.js";
 
@@ -68,17 +68,15 @@ const ensureLockfileParent = (lockfilePath: string) =>
   });
 
 /** A preservation failure is a write failure, never permission to discard prior tool data. */
-const priorDocument = (path: string, prior: string | undefined) =>
-  prior === undefined
-    ? Effect.succeed(undefined)
-    : Effect.try({
-        try: () => parseLockfileToml(prior),
-        catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
-      }).pipe((effect) =>
-        withWork("axm.parse.lockfile-preservation", effect, {
-          attributes: { "axm.work.count": 1 },
-        }),
-      );
+const priorDocument = (path: string, prior: string) =>
+  Effect.try({
+    try: () => parseLockfileToml(prior),
+    catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
+  }).pipe((effect) =>
+    withWork("axm.parse.lockfile-preservation", effect, {
+      attributes: { "axm.work.count": 1 },
+    }),
+  );
 
 const patchOptionalMap = <T>(
   fresh: Readonly<Record<string, T>> | undefined,
@@ -167,10 +165,12 @@ const withLockfileLock = <A, E, R>(
     return yield* locks.withLock(lockfilePath, effect);
   });
 
-interface LockfileWriteObservation {
-  readonly raw: string | undefined;
-  readonly parsed: ParsedLockfileToml | undefined;
-}
+/** The live prior image under the file lock, with the one parse of exactly those bytes. */
+type LockfileWriteObservation =
+  | { readonly kind: "absent" }
+  | { readonly kind: "present"; readonly raw: string; readonly parsed: ParsedLockfileToml };
+
+const absentLockfile: LockfileWriteObservation = { kind: "absent" };
 
 /** Full replacement only needs the prior document's lossless tool values. */
 const observeLockfileForReplacement = (lockfilePath: string) =>
@@ -183,16 +183,16 @@ const observeLockfileForReplacement = (lockfilePath: string) =>
           (cause) => new LockfileWriteError({ path: lockfilePath, step: "check-target", cause }),
         ),
       );
-    const raw = exists
-      ? yield* fs
-          .readFileString(lockfilePath)
-          .pipe(
-            Effect.mapError(
-              (cause) => new LockfileWriteError({ path: lockfilePath, step: "read-target", cause }),
-            ),
-          )
-      : undefined;
+    if (!exists) return absentLockfile;
+    const raw = yield* fs
+      .readFileString(lockfilePath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new LockfileWriteError({ path: lockfilePath, step: "read-target", cause }),
+        ),
+      );
     return {
+      kind: "present",
       raw,
       parsed: yield* priorDocument(lockfilePath, raw),
     } satisfies LockfileWriteObservation;
@@ -203,11 +203,15 @@ const observeLockfileForPatch = (lockfilePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const raw = yield* readLockfileBytes(fs, lockfilePath);
-    if (Option.isNone(raw))
-      return { observation: { raw: undefined, parsed: undefined }, current: undefined };
+    if (Option.isNone(raw)) return { observation: absentLockfile, current: undefined };
     const parsed = yield* parseLockfileBytes(lockfilePath, raw.value.bytes);
     const current = yield* decodeLockfileDocument(lockfilePath, parsed);
-    return { observation: { raw: raw.value.bytes, parsed }, current };
+    const observation: LockfileWriteObservation = {
+      kind: "present",
+      raw: raw.value.bytes,
+      parsed,
+    };
+    return { observation, current };
   });
 
 const writeLockfileUnlocked = (
@@ -218,7 +222,8 @@ const writeLockfileUnlocked = (
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const { raw: prior, parsed } = observation;
+    const prior = observation.kind === "present" ? observation.raw : undefined;
+    const parsed = observation.kind === "present" ? observation.parsed : undefined;
     const existed = prior !== undefined;
     const encoded = yield* Schema.encodeEffect(LockfileSchema)(lockfile, {
       onExcessProperty: "error",
@@ -243,7 +248,10 @@ const writeLockfileUnlocked = (
         : yield* prepareLockfileRoundTrip({
             context: roundTrip,
             target: lockfilePath,
-            before: prior,
+            before:
+              observation.kind === "present"
+                ? { raw: observation.raw, units: priorRoundTripUnits(observation.parsed.document) }
+                : undefined,
             after: content,
           });
     content = restoration?.content ?? content;

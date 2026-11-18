@@ -13,7 +13,7 @@ import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
-import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import type { DetectedPackage, PackageDetector, PackageReader, ProjectEntries } from "./types.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");
 
@@ -124,8 +124,7 @@ const parseGemspec = (content: string, source: string): ReadonlyArray<DetectedPa
 export const gemDetector: PackageDetector = {
   type: gemType,
   detect: Effect.fn("detect.gem")(
-    function* (projectDir: string) {
-      const fs = yield* FileSystem.FileSystem;
+    function* (projectDir: string, projectEntries: ProjectEntries) {
       const path = yield* Path.Path;
 
       const results: Array<DetectedPackage> = [];
@@ -150,7 +149,7 @@ export const gemDetector: PackageDetector = {
       }
 
       // Parse *.gemspec files
-      const dirEntries = yield* fs.readDirectory(projectDir).pipe(Effect.option);
+      const dirEntries = yield* projectEntries;
       if (Option.isSome(dirEntries)) {
         for (const entry of dirEntries.value) {
           if (entry.endsWith(".gemspec")) {

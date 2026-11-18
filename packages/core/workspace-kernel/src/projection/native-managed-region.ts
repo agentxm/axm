@@ -196,8 +196,12 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
         detail: `Managed region cannot use comment fences in ${args.displayPath}`,
       });
     const kind = regionKind(args.region);
+    // A dry run takes no write lock, so the admission above stands as its
+    // target's route check and only the alias is rechecked against it; apply
+    // rechecks both routes under the exclusive write.
+    const routes = args.dryRun === true ? [alias] : [args.targetPath, alias];
     const run = Effect.gen(function* () {
-      for (const route of [args.targetPath, alias]) {
+      for (const route of routes) {
         const { address: current } = yield* assertNativeMutationWithinRoots(
           roots,
           route,
@@ -352,16 +356,17 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
         aliases: [alias],
         unit: JSON.stringify([args.region, args.scope, args.ownerRoot]),
       };
-      const inverse = withdrawing
-        ? yield* authority.resolveInsertion({ ...receipt, raw: existing })
-        : Option.none();
-      if (
-        withdrawing &&
-        (updated.length === 0 ||
-          (Option.isSome(inverse) && inverse.value.kind === "remove-file")) &&
-        (yield* authority.retireInsertion({ ...receipt, raw: existing, empty: true }))
-      )
-        return { ...result, removedFile: true };
+      const withdrawal = withdrawing
+        ? yield* authority.withdrawInsertions({
+            path: receipt.path,
+            aliases: receipt.aliases,
+            units: [receipt.unit],
+            raw: existing,
+            retire: { unit: receipt.unit, empty: true, renderedEmpty: updated.length === 0 },
+          })
+        : { resolution: Option.none(), retired: false };
+      if (withdrawal.retired) return { ...result, removedFile: true };
+      const inverse = withdrawal.resolution;
       const next =
         Option.isSome(inverse) && inverse.value.kind === "restore-text"
           ? inverse.value.text
@@ -384,8 +389,12 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
         path: physical,
         change: Option.isNone(before) ? "created" : "modified",
       });
-      yield* authority.recordInsertion({ capture, afterRaw: next, createdDirectories });
-      if (withdrawing) yield* authority.forgetInsertion(receipt);
+      yield* authority.recordInsertion({
+        capture,
+        afterRaw: next,
+        createdDirectories,
+        forgetUnits: withdrawing ? [receipt.unit] : [],
+      });
       const observed = yield* fs
         .readFileString(physical)
         .pipe(

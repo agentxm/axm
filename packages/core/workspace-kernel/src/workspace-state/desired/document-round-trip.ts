@@ -9,6 +9,7 @@ import * as Path from "effect/Path";
 import { writeFileAtomic } from "@agentxm/host-primitives";
 import {
   NativeEntryRemoval,
+  admitAndCaptureContainerIdentity,
   applyStructuralInverse,
   assertNativeMutationWithin,
   captureContainerIdentity,
@@ -84,15 +85,22 @@ export const prepareDocumentRoundTrip = <E>(args: {
       ownerRoot: path.dirname(args.context.runtimeDir),
       target: args.target,
     };
-    const address = yield* assertNativeMutationWithin(
-      proof.nativeRoot,
-      proof.target,
-      "content",
-      proof.ownerRoot,
-    );
+    // An existing document's prior identity is captured from the admission's own resolutions.
+    const admitted =
+      args.before === undefined
+        ? {
+            address: yield* assertNativeMutationWithin(
+              proof.nativeRoot,
+              proof.target,
+              "content",
+              proof.ownerRoot,
+            ),
+            identity: undefined,
+          }
+        : yield* admitAndCaptureContainerIdentity(proof);
+    const address = admitted.address;
     const physicalPath = address.referentPath ?? address.entryPath;
-    const priorIdentity =
-      args.before === undefined ? undefined : yield* captureContainerIdentity(proof);
+    const priorIdentity = admitted.identity;
     const parentProof = { ...proof, target: path.dirname(args.target) };
     const parentIdentity =
       args.before === undefined ? yield* captureContainerIdentity(parentProof) : undefined;
@@ -206,22 +214,25 @@ export const prepareDocumentRoundTrip = <E>(args: {
           Effect.provideService(NativeEntryRemoval, removal),
           Effect.mapError((cause) => mapFailure(target, cause)),
         ),
-      write: (target, text) =>
+      write: (target, text, prior) =>
         Effect.gen(function* () {
+          // Only bytes equal to the locked read can be a no-op; that path re-reads
+          // the store after protection so a foreign deletion or replacement heals.
+          const heldEqual = Option.contains(prior.text, text);
           yield* assertNativeMutationWithin(
             args.context.nativeRoot,
             target,
             "entry",
             path.dirname(args.context.runtimeDir),
           );
-          const existed = yield* fs.exists(target);
+          const existed = heldEqual ? yield* fs.exists(target) : Option.isSome(prior.text);
           yield* protectCreatedAncestors(fs, path, path.dirname(target));
           yield* protectWorkspacePath(target);
           yield* fs.makeDirectory(path.dirname(target), { recursive: true });
           yield* writeFileAtomic(fs, {
             targetPath: target,
             content: text,
-            skipIfUnchanged: "ignore-read-errors",
+            ...(heldEqual ? { skipIfUnchanged: "ignore-read-errors" as const } : {}),
             onPublished: (publication) =>
               recordFilePublication(
                 { path: target, change: existed ? "modified" : "created" },
@@ -291,15 +302,16 @@ export const prepareDocumentRoundTrip = <E>(args: {
         const inserted = args.insertions[0];
         const baseline = batch === undefined ? (args.before ?? "") : batchBaseline;
         const absentBefore = batch === undefined ? args.before === undefined : batchAbsent;
-        const inverse =
-          baseline === undefined
-            ? Option.none()
-            : yield* deriveStructuralInverse(baseline, finalContent);
         const unit = batch === undefined ? inserted : batchUnit;
         const eligible =
           batch === undefined
             ? args.context.eligible && args.insertions.length === 1 && args.withdrawals.length === 0
             : batchProven;
+        // Only a publication that can record a receipt needs its inverse.
+        const inverse =
+          baseline === undefined || !eligible || unit === undefined
+            ? Option.none()
+            : yield* deriveStructuralInverse(baseline, finalContent);
         if (eligible && unit !== undefined && Option.isSome(inverse)) {
           receipts.push({
             unit,

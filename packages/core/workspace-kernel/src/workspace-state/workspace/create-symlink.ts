@@ -8,7 +8,11 @@ import {
   protectWorkspacePath,
   recordFootprint,
 } from "../../settlement/index.js";
-import { resolveNativeEntry, resolveNativeReferent } from "../../locations/index.js";
+import {
+  resolveNativeEntry,
+  resolveNativeReferent,
+  type NativeEntryAddress,
+} from "../../locations/index.js";
 
 /**
  * Creates a relative symlink from `link` to `target`, handling the full
@@ -29,12 +33,12 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         (cause) => new SymlinkCreationError({ path: opts.target, step: "resolve-target", cause }),
       ),
     );
-    const resolvedLink = yield* resolveNativeEntry(opts.link).pipe(
-      Effect.map((entry) => entry.entryPath),
+    const linkAddress = yield* resolveNativeEntry(opts.link).pipe(
       Effect.mapError(
         (cause) => new SymlinkCreationError({ path: opts.link, step: "resolve-target", cause }),
       ),
     );
+    const resolvedLink = linkAddress.entryPath;
 
     // Self-reference detection: skip if both resolve to the same location
     if (resolvedTarget === resolvedLink) {
@@ -45,8 +49,13 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     const resolvedLinkParent = p.dirname(resolvedLink);
     const relTarget = p.relative(resolvedLinkParent, resolvedTarget);
 
-    // Check what currently exists at the link path
-    const existingResult = yield* inspectExisting(fs, p, opts.link, resolvedTarget);
+    // Check what currently exists at the link path. Resolution just observed
+    // that entry; when it is the exact absolute spelling of the link, decide
+    // from that observation instead of inspecting the same entry again.
+    const existingResult =
+      p.resolve(opts.link) === opts.link && opts.link === linkAddress.entryPath
+        ? yield* decideFromAddress(p, opts.link, linkAddress, resolvedTarget)
+        : yield* inspectExisting(fs, p, opts.link, resolvedTarget);
     if (existingResult === "no-op") return "no-op" as const;
     yield* protectWorkspacePath(opts.link);
     const linkParent = p.dirname(opts.link);
@@ -92,6 +101,46 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     return existingResult === "replace" ? ("replaced" as const) : ("created" as const);
   });
 
+/** Decide whether an existing symlink at `linkPath` with `linkTarget` text is already correct. */
+const compareExistingLink = (
+  p: Path.Path,
+  linkPath: string,
+  linkTarget: string,
+  resolvedAbsTarget: string,
+) =>
+  Effect.gen(function* () {
+    // Link text is relative to the link's lexical parent.
+    const linkParent = p.dirname(linkPath);
+    const currentAbsTarget = p.resolve(linkParent, linkTarget);
+
+    // Resolve through realpath for cases where parent dirs are symlinks
+    const resolvedCurrentTarget = yield* resolveNativeEntry(currentAbsTarget).pipe(
+      Effect.map((entry) => entry.entryPath),
+      Effect.mapError(
+        (cause) =>
+          new SymlinkCreationError({ path: currentAbsTarget, step: "resolve-target", cause }),
+      ),
+    );
+
+    if (resolvedCurrentTarget === resolvedAbsTarget) return "no-op" as const;
+
+    return "replace" as const;
+  });
+
+/**
+ * Decide from the entry resolution observed at the exact link path: its link
+ * text for a symlink, otherwise whether any entry exists there.
+ */
+const decideFromAddress = (
+  p: Path.Path,
+  linkPath: string,
+  address: NativeEntryAddress,
+  resolvedAbsTarget: string,
+) =>
+  address.linkTarget !== undefined
+    ? compareExistingLink(p, linkPath, address.linkTarget, resolvedAbsTarget)
+    : Effect.succeed(address.kind === "absent" ? ("create" as const) : ("replace" as const));
+
 /**
  * Inspect what exists at the link path.
  *
@@ -110,21 +159,7 @@ const inspectExisting = (
 
     if (Option.isSome(linkTarget)) {
       // It's a symlink — check if it points to the correct target
-      const linkParent = p.dirname(linkPath);
-      const currentAbsTarget = p.resolve(linkParent, linkTarget.value);
-
-      // Resolve through realpath for cases where parent dirs are symlinks
-      const resolvedCurrentTarget = yield* resolveNativeEntry(currentAbsTarget).pipe(
-        Effect.map((entry) => entry.entryPath),
-        Effect.mapError(
-          (cause) =>
-            new SymlinkCreationError({ path: currentAbsTarget, step: "resolve-target", cause }),
-        ),
-      );
-
-      if (resolvedCurrentTarget === resolvedAbsTarget) return "no-op" as const;
-
-      return "replace" as const;
+      return yield* compareExistingLink(p, linkPath, linkTarget.value, resolvedAbsTarget);
     }
 
     // Not a symlink — check if anything else exists (directory, file)

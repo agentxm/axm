@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { sha512Integrity } from "@agentxm/host-primitives";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
 import { validateArchive, type ValidatedArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
@@ -74,7 +75,7 @@ export interface BuildZipArchiveOptions extends PublishFileSelectionOptions {
 }
 
 /** One file, link, or empty directory in the deterministic Registry archive plan. */
-export interface ArchivePlanEntry {
+interface ArchivePlanEntry {
   readonly path: string;
   readonly sourcePath?: string;
   readonly size: number;
@@ -114,15 +115,40 @@ interface PlannedZipArchive {
 }
 
 /**
- * Build a zip archive of a directory.
- * Files are stored at the root of the zip (no enclosing directory).
- * Empty directories have explicit entries; populated directories are implied by their children.
+ * Walk a directory and build its deterministic zip. The returned bytes are
+ * the archive owner's own: callers in this module admit (copy) or digest
+ * them and never hand the buffer itself to another holder.
  */
-export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+/**
+ * Hands over the bytes a caller already read for one absolute source path, at
+ * most once, or nothing. Only preparation supplies one; a rebuild reads live.
+ */
+type TakeSourceBytes = (abs: string) => Uint8Array | undefined;
+
+/**
+ * What the walk observed of one source entry it examined itself, as a Git
+ * comparison of the same entry would: a link's raw target, an empty
+ * directory, or a regular file's executable bit and, when it read them, its
+ * raw bytes.
+ */
+type SourceObservation =
+  | { readonly kind: "link"; readonly target: string }
+  | { readonly kind: "directory" }
+  | { readonly kind: "file"; readonly executable: boolean; readonly bytes?: Uint8Array };
+
+const zipDistribution = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+  /** Hand the walk's own source observations to the caller; only preparation asks. */
+  observeSources = false,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const resolved = yield* resolvePublishSelection(
+    // The listing stays with this walk; neither it nor the Git root reaches
+    // the returned plan.
+    const { listing, gitRoot, ...resolved } = yield* resolvePublishSelection(
       dir,
       options ?? {},
       options?.skillEnvelope === undefined
@@ -152,6 +178,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         readonly sourcePath?: string;
         readonly decision: SelectionDecision;
         readonly payload?: Uint8Array;
+        /** The source path relative to `dir` and what the walk observed there. */
+        readonly observed?: { readonly key: string; readonly observation: SourceObservation };
       }> = [];
       if (options?.skillEnvelope !== undefined) {
         const envelope = yield* prepareManifest(options.skillEnvelope);
@@ -173,11 +201,34 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           payload: envelope,
         });
       }
-      const pending = [""];
+      // Each directory is listed once: by the ignore observation that walked
+      // this tree for the selection, or here, where a directory's emptiness
+      // probe also supplies the names its descent walks.
+      const list = (relative: string) =>
+        Effect.suspend(() => {
+          const listed = listing?.names(relative);
+          return listed === undefined
+            ? fs.readDirectory(path.join(dir, relative))
+            : Effect.succeed(listed);
+        });
+      // An entry's link and kind come from the same observation when it
+      // examined that entry; `.git` it never examines, so that reads live.
+      const observe = (parent: string, name: string, abs: string) =>
+        Effect.gen(function* () {
+          const facts = listing?.facts(parent, name);
+          if (facts !== undefined)
+            return facts.kind === "link"
+              ? { kind: "link" as const, target: facts.target }
+              : { kind: "entry" as const, info: facts };
+          const link = yield* fs.readLink(abs).pipe(Effect.option);
+          if (Option.isSome(link)) return { kind: "link" as const, target: link.value };
+          return { kind: "entry" as const, info: yield* fs.stat(abs) };
+        });
+      const pending = [{ parent: "", children: yield* list("") }];
       while (pending.length > 0) {
-        const parent = pending.pop();
-        if (parent === undefined) break;
-        const children = yield* fs.readDirectory(path.join(dir, parent));
+        const next = pending.pop();
+        if (next === undefined) break;
+        const { parent, children } = next;
         for (const name of children) {
           const relative = path.join(parent, name);
           const abs = path.join(dir, relative);
@@ -185,13 +236,13 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           const rel = options?.skillEnvelope === undefined ? relativePath : `src/${relativePath}`;
           const publicationControl = name.toLowerCase() === ".gitignore";
           if (name === ".git" || publicationControl) {
-            const link = yield* fs.readLink(abs).pipe(Effect.option);
-            const info = Option.isSome(link) ? undefined : yield* fs.stat(abs);
-            const kind = Option.isSome(link)
-              ? "symlink"
-              : info?.type === "Directory"
-                ? "directory"
-                : "file";
+            const observed = yield* observe(parent, name, abs);
+            const kind =
+              observed.kind === "link"
+                ? "symlink"
+                : observed.info.type === "Directory"
+                  ? "directory"
+                  : "file";
             const selected = resolved.selection.evaluate({ path: relativePath, kind });
             if (publicationControl) {
               warnings.push(
@@ -202,27 +253,28 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               rel: kind === "directory" ? `${rel}/` : rel,
               abs,
               sourcePath: relativePath,
-              size: Option.isSome(link)
-                ? new TextEncoder().encode(link.value).length
-                : info?.type === "File"
-                  ? Number(info.size)
-                  : 0,
+              size:
+                observed.kind === "link"
+                  ? new TextEncoder().encode(observed.target).length
+                  : observed.info.type === "File"
+                    ? Number(observed.info.size)
+                    : 0,
               mode: 0,
               payload: new Uint8Array(),
               decision: selected,
             });
             continue;
           }
-          const target = yield* fs.readLink(abs).pipe(Effect.option);
-          if (Option.isSome(target)) {
+          const observed = yield* observe(parent, name, abs);
+          if (observed.kind === "link") {
             if (options?.skillEnvelope === undefined && relativePath === manifestName) {
               return yield* publishRefused({
                 category: "validation",
                 detail: "The distribution manifest must be a regular file, not a symbolic link.",
               });
             }
-            yield* validateContainedLink(dir, abs, target.value);
-            const payload = new TextEncoder().encode(target.value);
+            yield* validateContainedLink(dir, abs, observed.target);
+            const payload = new TextEncoder().encode(observed.target);
             candidates.push({
               rel,
               abs,
@@ -231,12 +283,16 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               mode: 0o120777,
               payload,
               decision: resolved.selection.evaluate({ path: relativePath, kind: "symlink" }),
+              observed: {
+                key: relativePath,
+                observation: { kind: "link", target: observed.target },
+              },
             });
             continue;
           }
-          const info = yield* fs.stat(abs);
+          const info = observed.info;
           if (info.type === "Directory") {
-            const contents = yield* fs.readDirectory(abs);
+            const contents = yield* list(relative);
             if (contents.length === 0) {
               candidates.push({
                 rel: `${rel}/`,
@@ -246,13 +302,16 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
                 sourcePath: relativePath,
                 decision: resolved.selection.evaluate({ path: relativePath, kind: "directory" }),
                 payload: new Uint8Array(),
+                observed: { key: `${relativePath}/`, observation: { kind: "directory" } },
               });
-            } else pending.push(relative);
+            } else pending.push({ parent: relative, children: contents });
           } else if (info.type === "File") {
-            const payload =
+            const sourceBytes =
               options?.skillEnvelope === undefined && relativePath === manifestName
-                ? yield* prepareManifest(yield* fs.readFile(abs))
+                ? yield* fs.readFile(abs)
                 : undefined;
+            const payload =
+              sourceBytes === undefined ? undefined : yield* prepareManifest(sourceBytes);
             candidates.push({
               rel,
               abs,
@@ -261,6 +320,14 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               mode: 0o100000 | (info.mode & 0o777),
               sourcePath: relativePath,
               decision: resolved.selection.evaluate({ path: relativePath, kind: "file" }),
+              observed: {
+                key: relativePath,
+                observation: {
+                  kind: "file",
+                  executable: (info.mode & 0o111) !== 0,
+                  ...(sourceBytes === undefined ? {} : { bytes: sourceBytes }),
+                },
+              },
             });
           } else {
             return yield* publishRefused({
@@ -318,9 +385,14 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     const contents = yield* Effect.forEach(
       files.filter((file) => includedPaths.has(file.rel)),
       ({ rel, abs, payload, mode }) =>
-        (payload === undefined ? fs.readFile(abs) : Effect.succeed(payload)).pipe(
-          Effect.map((bytes) => [rel, bytes, mode] as const),
-        ),
+        (payload === undefined
+          ? Effect.suspend(() => {
+              // Only a regular file the walk classified itself has no payload.
+              const supplied = takeSourceBytes?.(abs);
+              return supplied === undefined ? fs.readFile(abs) : Effect.succeed(supplied);
+            })
+          : Effect.succeed(payload)
+        ).pipe(Effect.map((bytes) => [rel, bytes, mode] as const)),
       { concurrency: READ_CONCURRENCY },
     ).pipe(
       Effect.mapError((cause) =>
@@ -332,12 +404,34 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       ),
     );
 
+    // The walk's own observations, keyed by source path, until the caller's
+    // comparison takes each one; nothing else holds the bytes after zipping.
+    const observations = new Map<string, SourceObservation>();
+    if (observeSources) {
+      // An included regular file's raw bytes are the ones zipped; the
+      // manifest's are the ones read before its distribution copy was made.
+      const archived = new Map(contents.map(([rel, bytes]) => [rel, bytes]));
+      for (const { observed, rel, decision } of files) {
+        if (observed === undefined) continue;
+        const { observation } = observed;
+        const bytes =
+          observation.kind === "file" && observation.bytes === undefined && decision.included
+            ? archived.get(rel)
+            : undefined;
+        observations.set(
+          observed.key,
+          observation.kind === "file" && bytes !== undefined
+            ? { ...observation, bytes }
+            : observation,
+        );
+      }
+    }
     const zippable: Zippable = {};
     for (const [rel, bytes, mode] of contents) {
       zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME, os: 3, attrs: mode << 16 }];
     }
 
-    const archive = yield* Effect.try({
+    const zipBytes = yield* Effect.try({
       // Registry ingest validates each entry independently. Stored entries
       // avoid decompressor-specific limits while retaining deterministic ZIP
       // bytes and bounded source-size accounting.
@@ -349,17 +443,6 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           cause,
         }),
     });
-    // Shared admission also resolves the virtual link graph, including links
-    // whose targets change meaning after an earlier link and a '..' segment.
-    const admitted = yield* validateArchive(archive).pipe(
-      Effect.mapError((cause) =>
-        publishRefused({
-          category: "validation",
-          detail: cause.message,
-          cause,
-        }),
-      ),
-    );
     const patternPlans = resolved.selection.rules.map((rule) => ({
       pattern: rule.pattern,
       origin: rule.origin,
@@ -369,7 +452,20 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       ({ matchCount, origin }) => matchCount !== 0 || origin.kind !== "gitignore",
     );
     return {
-      archive: admitted,
+      zipBytes,
+      ...(gitRoot === undefined ? {} : { gitRoot }),
+      ...(observeSources
+        ? {
+            sourceObservations: {
+              take: (key: string) => {
+                const observation = observations.get(key);
+                observations.delete(key);
+                return observation;
+              },
+              release: () => observations.clear(),
+            },
+          }
+        : {}),
       ...resolved,
       policyFingerprint: JSON.stringify({
         selection: resolved.policyFingerprint,
@@ -396,9 +492,100 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         includedCount: included.length,
         excludedCount: excluded.length,
         uncompressedBytes: included.reduce((total, file) => total + file.size, 0),
-      },
-    } satisfies PlannedZipArchive;
+      } satisfies ArchivePlan,
+    };
+  });
+
+/**
+ * Shared admission also resolves the virtual link graph, including links
+ * whose targets change meaning after an earlier link and a '..' segment.
+ * Admitting raw bytes copies them; an admitted archive is re-checked against
+ * the default limits from its admitted facts.
+ */
+export const admitDistribution = (archive: Uint8Array | ValidatedArchive) =>
+  validateArchive(archive).pipe(
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: cause.message,
+        cause,
+      }),
+    ),
+  );
+
+const planFromZip = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+  observeSources = false,
+) =>
+  Effect.gen(function* () {
+    const { zipBytes, gitRoot, sourceObservations, ...planned } = yield* zipDistribution(
+      dir,
+      options,
+      takeSourceBytes,
+      observeSources,
+    );
+    const archive = yield* admitDistribution(zipBytes);
+    return {
+      zipBytes,
+      gitRoot,
+      sourceObservations,
+      planned: { archive, ...planned } satisfies PlannedZipArchive,
+    };
   }).pipe(Effect.withSpan("axm.publish.archive"));
+
+/**
+ * Build a zip archive of a directory.
+ * Files are stored at the root of the zip (no enclosing directory).
+ * Empty directories have explicit entries; populated directories are implied by their children.
+ */
+export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+  planFromZip(dir, options).pipe(Effect.map(({ planned }) => planned));
+
+/**
+ * Plan and admit a publication archive, also offering its digests over the
+ * archive owner's own bytes so preparation needs no further copy. The
+ * admitted archive is a copy of those bytes that is never mutated, so the
+ * digests are the admitted archive's. `takeSourceBytes` may hand over source
+ * bytes the preparation already read for an included regular file, which the
+ * archive then uses instead of reading that file again. When the selection's
+ * ignore discovery walked to a Git root, the preparation also receives the
+ * root it found (none when it found none). The preparation also receives what
+ * the walk observed of each source entry it examined itself, keyed by source
+ * path ("/" ending an empty directory), to take once each or release.
+ */
+export const prepareZipArchive = (
+  dir: string,
+  options?: BuildZipArchiveOptions,
+  takeSourceBytes?: TakeSourceBytes,
+) =>
+  planFromZip(dir, options, takeSourceBytes, true).pipe(
+    Effect.map(({ zipBytes, gitRoot, sourceObservations, planned }) => ({
+      ...planned,
+      ...(gitRoot === undefined ? {} : { gitRoot }),
+      ...(sourceObservations === undefined ? {} : { sourceObservations }),
+      digests: () => ({
+        integrity: sha512Integrity(zipBytes),
+        sha256: archiveSha256Hex(zipBytes),
+      }),
+    })),
+  );
+
+/**
+ * Rebuild a publication archive from current sources without admitting it:
+ * the caller compares the digest and selection policy with what it prepared
+ * and admits the rebuild only when it differs.
+ */
+export const rebuildDistributionDigest = (dir: string, options?: BuildZipArchiveOptions) =>
+  zipDistribution(dir, options).pipe(
+    Effect.map(({ zipBytes, policyFingerprint }) => ({
+      integrity: sha512Integrity(zipBytes),
+      policyFingerprint,
+      admit: () => admitDistribution(zipBytes),
+    })),
+    Effect.withSpan("axm.publish.archive"),
+  );
 
 export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));

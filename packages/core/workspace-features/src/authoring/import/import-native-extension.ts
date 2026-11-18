@@ -126,12 +126,16 @@ import {
 import { importNativeExtensionPackage } from "../import-native-package.js";
 import {
   preflightAuthoredSubagentProjection,
+  preparedManifestFacts,
   type AuthoredNativeProjection,
+  type PreparedManifestFacts,
 } from "../native-projection.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   copyExtensionDirectory,
+  CreateDestinationExists,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
@@ -440,6 +444,10 @@ interface SettledConversion {
   /** Files the staged package must contain before it is published. */
   readonly requiredFiles: ReadonlyArray<string> | undefined;
   readonly stagedPackage?: string;
+  /** Hash pinned for `stagedPackage` while preparing. */
+  readonly stagedHash?: SourceHash;
+  /** Manifest facts read from `stagedPackage` while preparing. */
+  readonly stagedManifestFacts?: PreparedManifestFacts;
   readonly version?: Version;
   readonly materialPaths: ReadonlyArray<string>;
   readonly populate: (
@@ -493,8 +501,24 @@ const nativeConversion = Effect.fnUntraced(function* (args: {
       ? {}
       : { existingPackagePath: args.existingPackagePath }),
   });
-  const stagedHash = yield* computePackageContentHash(stagedPackage);
-  const converted = yield* readExtensionManifest(stagedPackage, args.target.type).pipe(
+  // The hash walk reads the staged manifest; its text is decoded from those
+  // bytes rather than read again. A manifest the walk did not find as a
+  // regular file is read as before, so its failure is reported unchanged.
+  const manifestFile = manifestFilenameForType(args.target.type);
+  let manifestText: string | undefined;
+  const stagedHash = yield* computePackageContentHash(stagedPackage, {
+    decodeText: {
+      entries: [manifestFile],
+      receive: (_relative, text) => {
+        manifestText = text;
+      },
+    },
+  });
+  const converted = yield* readExtensionManifest(
+    stagedPackage,
+    args.target.type,
+    manifestText === undefined ? undefined : { text: manifestText },
+  ).pipe(
     Effect.mapError((cause) =>
       authoringRefused({
         category: "validation",
@@ -509,6 +533,8 @@ const nativeConversion = Effect.fnUntraced(function* (args: {
     nativeTargets: [],
     requiredFiles: undefined,
     stagedPackage,
+    stagedHash,
+    stagedManifestFacts: preparedManifestFacts(converted),
     version: converted.manifest.version,
     materialPaths: [acquired.directory, stagedPackage],
     populate: (publicationPath: string) =>
@@ -732,7 +758,11 @@ const prepareImportNativeExtension: (
         "An existing subagent directory must be declared as workspace-authored before importing a runtime implementation",
     });
   }
-  if (!updateExisting) yield* createOnly;
+  // Preparation decides the create-only refusal from the probe it just made;
+  // under the lock `targetPreflight` probes the destination fresh.
+  if (!updateExisting && targetExists) {
+    return yield* new CreateDestinationExists({ subject, path: targetDir });
+  }
   const expectedTargetHash = updateExisting
     ? yield* computePackageContentHash(targetDir)
     : undefined;
@@ -782,15 +812,26 @@ const prepareImportNativeExtension: (
         : request.enable || Option.getOrElse(current.enabled, () => false);
   const mcpPreferences =
     request.type === "mcp-server" ? settled.mcpPreferences : current.mcpPreferences;
-  const nativePreflight =
+  // Preparation hands the preflight the hash and manifest facts the
+  // conversion just settled for the same staged package; under the lock the
+  // preflight reads and hashes it fresh.
+  const nativePreflight = (
+    prepared?: Pick<SettledConversion, "stagedHash" | "stagedManifestFacts">,
+  ) =>
     request.type === "subagent" && settled.stagedPackage !== undefined
       ? preflightAuthoredSubagentProjection({
           identity: target,
           packageRoot: settled.stagedPackage,
           enabled,
+          ...(prepared?.stagedHash === undefined
+            ? {}
+            : { sourceHash: Effect.succeed(prepared.stagedHash) }),
+          ...(prepared?.stagedManifestFacts === undefined
+            ? {}
+            : { manifest: Effect.succeed(prepared.stagedManifestFacts) }),
         })
       : Effect.succeed<AuthoredNativeProjection>({});
-  const nativeProjection = yield* nativePreflight;
+  const nativeProjection = yield* nativePreflight(settled);
 
   const artifact: JobStepArtifact = {
     ...nativeProjection,
@@ -832,7 +873,7 @@ const prepareImportNativeExtension: (
     preflight: Effect.gen(function* () {
       yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
       yield* targetPreflight;
-      yield* nativePreflight;
+      yield* nativePreflight();
     }),
     scaffold: (updateExisting
       ? replaceCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
@@ -895,6 +936,8 @@ const prepareImportNativeExtension: (
             materializeAuthoredMcpServer({
               ref,
               nonInteractive: request.nonInteractive,
+              // The authored declaration is the last axm.json write before this install.
+              entryJustPublished: true,
             }),
           buildArtifact: ({ materialization }) =>
             Effect.succeed({

@@ -11,6 +11,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
@@ -21,11 +22,23 @@ import {
   canonicalPathForAcceptedExtension,
   observeAcceptedResolution,
   observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
+  observedCanonicalPath,
 } from "./canonical-observation.js";
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
 import type { LockEntry } from "./lock-entry.js";
 import * as Option from "effect/Option";
-import { resolveProjectWorkspaceLayout } from "./layout.js";
+import * as Result from "effect/Result";
+import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "./layout.js";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Layer from "effect/Layer";
+import type { WorkFact } from "@agentxm/host-primitives/work-observation";
+import { loadSubagentPackage, readExtensionManifest } from "@agentxm/extension-content";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { NativePlatformTest, workObservations } from "../../locations/testing.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
+import { WorkspaceStateTest } from "../testing.js";
+import { withWorkspaceObservationReadView } from "./read-view.js";
 
 const identityOf = (source: string): DesiredNodeIdentity =>
   source.startsWith("workspace:")
@@ -505,6 +518,345 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
+  const authoredSkill = { owner: "@acme", type: "skill", name: "review", version: "1.0.0" };
+  const authoredHook = {
+    owner: "@acme",
+    type: "hook",
+    name: "audit",
+    version: "1.0.0",
+    implementations: [
+      {
+        id: "claude",
+        protocol: "claude-code",
+        bindings: [
+          {
+            id: "audit",
+            event: "Stop",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+    ],
+  };
+  for (const scenario of [
+    {
+      label: "usable",
+      type: "skill",
+      name: "review",
+      manifest: `${JSON.stringify(authoredSkill, null, 2)}\n`,
+      payload: true,
+      status: "usable",
+    },
+    {
+      label: "invalid JSON",
+      type: "skill",
+      name: "review",
+      manifest: "{not json",
+      payload: true,
+      status: "corrupt",
+    },
+    {
+      label: "strict schema failure",
+      type: "hook",
+      name: "audit",
+      manifest: JSON.stringify({ ...authoredHook, fallback: "auto" }),
+      payload: true,
+      status: "corrupt",
+    },
+    {
+      label: "foreign owner",
+      type: "skill",
+      name: "review",
+      manifest: JSON.stringify({ ...authoredSkill, owner: "@other" }),
+      payload: true,
+      status: "wrong-origin",
+    },
+    {
+      label: "missing payload",
+      type: "skill",
+      name: "review",
+      manifest: JSON.stringify(authoredSkill),
+      payload: false,
+      status: "incomplete",
+    },
+    {
+      label: "missing manifest",
+      type: "skill",
+      name: "review",
+      manifest: undefined,
+      payload: true,
+      status: "incomplete",
+    },
+  ] as const) {
+    it.effect(`hands back the manifest text it judged: ${scenario.label}`, () =>
+      Effect.gen(function* () {
+        const layout = yield* projectLayout(root);
+        const source = `workspace:@acme/${scenario.type}s/${scenario.name}`;
+        const desired: DesiredExtensionNode = {
+          type: scenario.type,
+          name: scenario.name,
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        };
+        const canonical = nodePath.join(root, `${scenario.type}s`, scenario.name);
+        const manifestPath = nodePath.join(canonical, `${scenario.type}.json`);
+        nodeFs.mkdirSync(canonical, { recursive: true });
+        if (scenario.payload) {
+          nodeFs.mkdirSync(nodePath.join(canonical, "src"));
+          nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Authored\n");
+        }
+        if (scenario.manifest !== undefined) nodeFs.writeFileSync(manifestPath, scenario.manifest);
+
+        const args = { layout, desired, accepted: undefined };
+        const capture = yield* observeCanonicalExtensionCapturing(args);
+        expect(capture.observation.status).toBe(scenario.status);
+        expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
+        // The decode is the one the type's own manifest reader produces, and
+        // only a successful one is handed back.
+        const own = yield* readExtensionManifest(canonical, scenario.type).pipe(Effect.result);
+        expect(Option.map(capture.manifest, ({ path, text }) => ({ path, text }))).toEqual(
+          scenario.manifest === undefined
+            ? Option.none()
+            : Option.some({ path: manifestPath, text: nodeFs.readFileSync(manifestPath, "utf8") }),
+        );
+        const decoded = Option.flatMap(capture.manifest, ({ decode }) => decode());
+        expect(decoded).toEqual(Option.map(Result.getSuccess(own), ({ manifest }) => manifest));
+        // Frozen when handed out, and the same value on every request.
+        expect(Option.map(decoded, (manifest) => Object.isFrozen(manifest))).toEqual(
+          Result.isSuccess(own) ? Option.some(true) : Option.none(),
+        );
+        expect(
+          Option.flatMap(capture.manifest, ({ decode }) =>
+            Option.map(decode(), (manifest) =>
+              Option.exists(decoded, (first) => first === manifest),
+            ),
+          ),
+        ).toEqual(Result.isSuccess(own) ? Option.some(true) : Option.none());
+      }),
+    );
+  }
+
+  for (const scenario of [
+    { label: "loadable", instructions: true, status: "usable", loaded: true },
+    { label: "missing instructions", instructions: false, status: "incomplete", loaded: false },
+  ] as const)
+    it.effect(`hands back the Subagent package its payload check loaded: ${scenario.label}`, () =>
+      Effect.gen(function* () {
+        const layout = yield* projectLayout(root);
+        const source = "workspace:@acme/subagents/planner";
+        const desired: DesiredExtensionNode = {
+          type: "subagent",
+          name: "planner",
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        };
+        const canonical = nodePath.join(root, "subagents", "planner");
+        nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(canonical, "subagent.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "subagent",
+            name: "planner",
+            version: "1.0.0",
+            description: "Plans work",
+            core: { instructions: "src/planner.md" },
+          }),
+        );
+        if (scenario.instructions)
+          nodeFs.writeFileSync(nodePath.join(canonical, "src", "planner.md"), "Plan the work.");
+        const capture = yield* observeCanonicalExtensionCapturing({
+          layout,
+          desired,
+          accepted: undefined,
+        });
+        expect(capture.observation.status).toBe(scenario.status);
+        expect(Option.map(capture.subagentPackage, ({ root }) => root)).toEqual(
+          Option.some(canonical),
+        );
+        const loaded = Option.flatMap(capture.subagentPackage, ({ loaded }) => loaded());
+        // The capture is the contained loader's own result at that root.
+        const own = yield* loadSubagentPackage(canonical).pipe(Effect.option);
+        expect(loaded).toEqual(own);
+        expect(Option.isSome(loaded)).toBe(scenario.loaded);
+        // Frozen when handed out, and the same value on every request.
+        expect(Option.map(loaded, (pkg) => Object.isFrozen(pkg.implementations))).toEqual(
+          scenario.loaded ? Option.some(true) : Option.none(),
+        );
+        expect(
+          Option.map(
+            Option.flatMap(capture.subagentPackage, ({ loaded }) => loaded()),
+            (pkg) => Option.exists(loaded, (first) => first === pkg),
+          ),
+        ).toEqual(scenario.loaded ? Option.some(true) : Option.none());
+      }),
+    );
+
+  it.effect("hands back no Subagent package when the payload check does not run", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const source = "workspace:@acme/subagents/planner";
+      const canonical = nodePath.join(root, "subagents", "planner");
+      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+      // A foreign owner is judged before the payload is checked.
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "subagent.json"),
+        JSON.stringify({
+          owner: "@other",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+          core: { instructions: "src/planner.md" },
+        }),
+      );
+      const capture = yield* observeCanonicalExtensionCapturing({
+        layout,
+        desired: {
+          type: "subagent",
+          name: "planner",
+          identity: identityOf(source),
+          source,
+          enabled: true,
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+          origins: [{ type: "settings", source, enabled: true }],
+        },
+        accepted: undefined,
+      });
+      expect(capture.observation.status).toBe("wrong-origin");
+      expect(capture.subagentPackage).toEqual(Option.none());
+    }),
+  );
+
+  it.effect("hands back no manifest text when the content root is absent", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const args = {
+        layout,
+        desired: desiredSkill("workspace:@acme/skills/review"),
+        accepted: undefined,
+      };
+      const capture = yield* observeCanonicalExtensionCapturing(args);
+      expect(capture.observation.status).toBe("missing");
+      expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
+      expect(capture.manifest).toEqual(Option.none());
+    }),
+  );
+
+  // The path an observation reports never depends on the content it reads, so
+  // a caller that consumes only the path can derive it without observing.
+  it.effect("derives exactly the path each observation reports, without reading content", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const layout = yield* projectLayout(root);
+      const userLayout = yield* resolveUserWorkspaceLayout(decodeAbsolutePathSync(root));
+      const endpoint = decodeRegistryEndpointSync("https://registry.example.com");
+      const member: DesiredExtensionNode = {
+        ...desiredPackMember({ authority: "workspace", fqn: "@acme/packs/team" }),
+        identity: {
+          authority: "registry",
+          fqn: "@acme/skills/review",
+          registry: { sourceName: "test", endpoint },
+        },
+      };
+      const registryRow = (treeIntegrity = placeholderTreeIntegrity): LockEntry => ({
+        source: { type: "registry", url: endpoint },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-registry-member",
+          publisherBindingId: "test-publisher",
+        },
+        treeIntegrity,
+      });
+      const canonical = canonicalPathForAcceptedExtension(path, layout, member, registryRow());
+      if (canonical === undefined) return yield* Effect.die("Expected an acquired path");
+      const manifest = (owner: string) =>
+        JSON.stringify({ owner, type: "skill", name: "review", version: "1.0.0" });
+      // No files leaves the canonical root absent.
+      const writePackage = (files: Readonly<Record<string, string>>) => {
+        nodeFs.rmSync(canonical, { recursive: true, force: true });
+        for (const [relative, contents] of Object.entries(files)) {
+          nodeFs.mkdirSync(nodePath.dirname(nodePath.join(canonical, relative)), {
+            recursive: true,
+          });
+          nodeFs.writeFileSync(nodePath.join(canonical, relative), contents);
+        }
+      };
+      const complete = { "skill.json": manifest("@acme"), "src/SKILL.md": "# Review\n" };
+      const inline: DesiredExtensionNode = {
+        type: "mcp-server",
+        name: "browser",
+        authority: "inline",
+        identity: { authority: "inline", name: "browser" },
+        enabled: true,
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        origins: [{ type: "settings", authority: "inline", enabled: true }],
+      };
+      const rows: ReadonlyArray<{
+        readonly status: string;
+        readonly files?: Readonly<Record<string, string>>;
+        readonly desired?: DesiredExtensionNode;
+        readonly accepted?: () => Effect.Effect<
+          LockEntry | undefined,
+          never,
+          FileSystem.FileSystem | Path.Path
+        >;
+        readonly user?: boolean;
+      }> = [
+        {
+          status: "usable",
+          files: complete,
+          accepted: () =>
+            Effect.map(Effect.orDie(computeMaterializedTreeIntegrity(canonical)), registryRow),
+        },
+        { status: "missing" },
+        { status: "incomplete", files: { "skill.json": manifest("@acme") } },
+        { status: "materialization-mismatch", files: complete },
+        { status: "wrong-origin", files: { ...complete, "skill.json": manifest("@other") } },
+        {
+          status: "missing-resolution",
+          files: complete,
+          accepted: () => Effect.succeed(undefined),
+        },
+        {
+          status: "wrong-origin",
+          files: complete,
+          accepted: () => Effect.succeed(acceptedPath("vendor/review")),
+        },
+        {
+          status: "constraint-mismatch",
+          files: complete,
+          desired: { ...member, constraint: desiredConstraintOf("^2.0.0") },
+        },
+        { status: "not-applicable", desired: inline },
+        {
+          status: "wrong-origin",
+          files: complete,
+          desired: desiredSkill("workspace:@acme/skills/review"),
+          user: true,
+        },
+      ];
+      for (const row of rows) {
+        writePackage(row.files ?? {});
+        const desired = row.desired ?? member;
+        const accepted = row.accepted === undefined ? registryRow() : yield* row.accepted();
+        const args = { layout: row.user === true ? userLayout : layout, desired, accepted };
+        const observed = yield* observeCanonicalExtension(args);
+        expect(observed.status, row.status).toBe(row.status);
+        expect(observedCanonicalPath(path, args.layout, desired, accepted), row.status).toBe(
+          observed.path,
+        );
+      }
+    }),
+  );
+
   it.effect("evaluates pack constraints against an authored workspace manifest", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
@@ -553,3 +905,61 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 });
+
+/** Requested, executed and reused counts of shared observations, by operation. */
+const observationReuse = (facts: ReadonlyArray<WorkFact>) => {
+  const totals: Record<string, { requested: number; executed: number; reused: number }> = {};
+  for (const fact of facts) {
+    const operation = fact.attributes["axm.observation.operation"];
+    if (fact.kind !== "axm.observation.reuse" || operation === undefined) continue;
+    const total = (totals[operation] ??= { requested: 0, executed: 0, reused: 0 });
+    total.requested += fact.attributes["axm.work.requested"] ?? 0;
+    total.executed += fact.attributes["axm.work.executed"] ?? 0;
+    total.reused += fact.attributes["axm.work.reused-count"] ?? 0;
+  }
+  return totals;
+};
+
+layer(NativePlatformTest, { excludeTestServices: true })(
+  "manifest reads in a shared observation phase",
+  (it) => {
+    it.effect("share one read and one decode without a presence probe", () =>
+      Effect.gen(function* () {
+        const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-manifest-view-"));
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => nodeFs.rmSync(root, { recursive: true, force: true })),
+        );
+        const canonical = nodePath.join(root, "skills", "review");
+        nodeFs.mkdirSync(canonical, { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(canonical, "skill.json"),
+          JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+        );
+        const state = WorkspaceStateTest({
+          projectRoot: decodeAbsolutePathSync(root),
+          scope: "project",
+          allowUninitialized: true,
+        }).pipe(
+          Layer.provide(WorkspaceFileWriteLocksLive),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({ env: { AXM_USER_HOME: `${root}/home` } }),
+            ),
+          ),
+        );
+        const observations = workObservations(false);
+        const [first, second] = yield* withWorkspaceObservationReadView(
+          Effect.all([
+            readExtensionManifest(canonical, "skill"),
+            readExtensionManifest(canonical, "skill"),
+          ]).pipe(observations.provide),
+        ).pipe(Effect.provide(state));
+        expect(second).toEqual(first);
+        expect(observationReuse(observations.facts)).toEqual({
+          "decode-text": { requested: 2, executed: 1, reused: 1 },
+          "read-file": { requested: 1, executed: 1, reused: 0 },
+        });
+      }).pipe(Effect.scoped),
+    );
+  },
+);

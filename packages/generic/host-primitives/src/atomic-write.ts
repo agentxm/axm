@@ -4,8 +4,9 @@
  *
  * The temp file lives next to the target so the rename stays on one
  * filesystem (and therefore atomic), and is removed on any failure or
- * interruption. Temp names follow `<target>.tmp.<unique>`. That prefix is a cross-package
- * protocol: sweepers in other packages rely on it to clean stale temps.
+ * interruption that leaves it unrenamed. Temp names follow
+ * `<target>.tmp.<unique>`. That prefix is a cross-package protocol: sweepers in
+ * other packages rely on it to clean stale temps.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,6 +16,7 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
+import * as Ref from "effect/Ref";
 
 /**
  * Step at which an atomic write failed. `check-target` and `read-target` can
@@ -45,20 +47,15 @@ export interface AtomicWriteFailure {
  */
 type SkipIfUnchanged = "fail-on-read-error" | "ignore-read-errors";
 
-/**
- * Options for `writeFileAtomic`.
- *
- * @experimental This API is unstable and may change without notice.
- */
 /** Identity selected before publication, paired with the bytes the owner wrote. */
 export interface FilePublication {
   readonly info: FileSystem.File.Info;
   readonly content: string | Uint8Array;
 }
 
-export interface WriteFileAtomicOptions<E, PublicationError = never, R = never> {
+/** Options shared by every `writeFileAtomic` content-ownership mode. */
+interface WriteFileAtomicCommonOptions<E> {
   readonly targetPath: string;
-  readonly content: string | Uint8Array;
   /** Permissions applied when creating the temporary file. */
   readonly mode?: number;
   /**
@@ -67,14 +64,47 @@ export interface WriteFileAtomicOptions<E, PublicationError = never, R = never> 
    * names the stage; `sweepStaleAtomicWriteTemps` cannot find it.
    */
   readonly tempPath?: string;
-  /** When set, leave the target untouched if it already has this content. */
-  readonly skipIfUnchanged?: SkipIfUnchanged;
   /** Best-effort remove of the target before rename (Windows cannot always rename over an existing file). */
   readonly removeTargetBeforeRename?: boolean;
   readonly mapError: (failure: AtomicWriteFailure) => E;
+}
+
+/**
+ * Default mode: the writer takes its own snapshot of byte content before any
+ * step, so the comparison, the write and the publication witness observe one
+ * value whatever the caller later does with its buffer.
+ */
+interface CopiedContentOptions<E, PublicationError, R> extends WriteFileAtomicCommonOptions<E> {
+  readonly content: string | Uint8Array;
+  readonly contentOwnership?: "copied";
+  /** When set, leave the target untouched if it already has this content. */
+  readonly skipIfUnchanged?: SkipIfUnchanged;
   /** Runs after rename, using the staged identity. Rename and recording are interruption-masked. */
   readonly onPublished?: (publication: FilePublication) => Effect.Effect<void, PublicationError, R>;
 }
+
+/**
+ * The caller lends a buffer it owns exclusively, and the writer stages it
+ * without copying. The caller guarantees that nothing mutates `content` until
+ * the call completes. The writer never mutates, detaches, transfers or retains
+ * it, and completes only after the write and the rename settle. A content
+ * comparison or a publication witness needs the writer's own snapshot, so
+ * neither is available in this mode.
+ */
+interface TransferredContentOptions<E> extends WriteFileAtomicCommonOptions<E> {
+  readonly content: Uint8Array;
+  readonly contentOwnership: "transferred";
+  readonly skipIfUnchanged?: never;
+  readonly onPublished?: never;
+}
+
+/**
+ * Options for `writeFileAtomic`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type WriteFileAtomicOptions<E, PublicationError = never, R = never> =
+  CopiedContentOptions<E, PublicationError, R> | TransferredContentOptions<E>;
 
 /** In-process sequence so concurrent fibers never share a temp path. */
 let tempSequence = 0;
@@ -131,7 +161,9 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
   Effect.gen(function* () {
     const { mapError, targetPath } = options;
     const content =
-      typeof options.content === "string" ? options.content : Uint8Array.from(options.content);
+      typeof options.content === "string" || options.contentOwnership === "transferred"
+        ? options.content
+        : Uint8Array.from(options.content);
     const tempPath = options.tempPath ?? makeTempPath(targetPath);
     const fail =
       (step: AtomicWriteStep) =>
@@ -151,6 +183,8 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
       if (Option.isSome(unchanged) && unchanged.value) return "skipped" as const;
     }
 
+    // Set once the rename consumed the temp, so cleanup runs only while it can still exist.
+    const renamed = yield* Ref.make(false);
     yield* Effect.gen(function* () {
       yield* (
         typeof content === "string"
@@ -173,6 +207,7 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
             yield* fs.remove(targetPath).pipe(Effect.ignore);
           }
           yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
+          yield* Ref.set(renamed, true);
           if (info !== undefined && options.onPublished !== undefined) {
             // Windows can tunnel the destination's former creation time onto a
             // renamed file. Refresh only that timestamp through the retained
@@ -194,7 +229,13 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
           Effect.uninterruptible,
         );
       }).pipe(Effect.scoped);
-    }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
+    }).pipe(
+      Effect.ensuring(
+        Effect.flatMap(Ref.get(renamed), (consumed) =>
+          consumed ? Effect.void : fs.remove(tempPath, { force: true }).pipe(Effect.ignore),
+        ),
+      ),
+    );
     return "written" as const;
   });
 

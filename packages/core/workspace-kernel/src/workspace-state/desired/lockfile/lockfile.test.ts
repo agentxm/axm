@@ -1,6 +1,11 @@
 import type * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../../locations/index.js";
-import { NativePlatformTest, withDetailedWork } from "../../../locations/testing.js";
+import { readContainerReceipts } from "../../../locations/index.js";
+import {
+  NativePlatformTest,
+  withDetailedWork,
+  workObservations,
+} from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -23,6 +28,12 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
 import { parseLockfileToml } from "./toml-values.js";
+import { emitLockfileToml } from "./toml.js";
+import {
+  ProjectionDigestSchema,
+  ProjectionUnitPathSchema,
+  type ProjectionKindState,
+} from "./projections.js";
 import { LockfileDecodeError, LockfileVersionUnsupported } from "./errors.js";
 import {
   applyLockfileUpdates,
@@ -377,4 +388,152 @@ describe("lockfile", () => {
       }).pipe(Effect.scoped),
     ),
   );
+
+  describe("round-trip parse work", () => {
+    const digest = (character: string) =>
+      ProjectionDigestSchema.make(`sha256:${character.repeat(64)}`);
+    const rows = (...paths: ReadonlyArray<string>): ProjectionKindState => ({
+      contract: 1,
+      units: Object.fromEntries(
+        paths.map((unitPath) => [
+          ProjectionUnitPathSchema.make(unitPath),
+          { gen: digest("a"), output: digest("b") },
+        ]),
+      ),
+    });
+    const alpha: Lockfile = {
+      lockfileVersion: LOCKFILE_VERSION,
+      skills: { alpha: localEntry("/sources/alpha", "alpha") },
+      projections: { rules: rows("AGENTS.md", "docs/AGENTS.md") },
+    };
+    // The prior is the writer's own image, so each introduction is a syntax-only insertion.
+    const priorBytes = emitLockfileToml(
+      Schema.encodeSync(LockfileSchema)(alpha),
+      parseLockfileToml('[tool.keep]\nvalue = "retained"\n').tool,
+    );
+
+    /** One owner call with its lockfile parse work counted by kind and phase. */
+    const observed = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.gen(function* () {
+        const observations = workObservations(false);
+        yield* observations.provide(effect);
+        const parses: Record<string, number> = {};
+        for (const fact of observations.facts) {
+          if (!fact.kind.startsWith("axm.parse.lockfile")) continue;
+          const phase = fact.attributes["axm.parse.phase"];
+          const key = typeof phase === "string" ? `${fact.kind}:${phase}` : fact.kind;
+          parses[key] = (parses[key] ?? 0) + 1;
+        }
+        const receipts = (yield* readContainerReceipts(axmDir)).entries.map((receipt) => ({
+          unit: receipt.unit,
+          kind: receipt.kind,
+          absentBefore: receipt.absentBefore,
+        }));
+        const target = path.join(root, "axm.lock");
+        const content = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : undefined;
+        return { parses, receipts, content };
+      });
+
+    const context = Effect.gen(function* () {
+      fs.mkdirSync(axmDir, { recursive: true });
+      return {
+        nativeRoot: root,
+        runtimeDir: axmDir,
+        eligible: true,
+        locks: yield* WorkspaceFileWriteLocks,
+      };
+    });
+
+    // Exactly one introduced unit is restorable, so a receipt exists only when
+    // every prior unit was recognized as prior.
+    it.effect("derives a replacement's prior units from the preservation parse", () =>
+      run(
+        Effect.gen(function* () {
+          const target = path.join(root, "axm.lock");
+          fs.writeFileSync(target, priorBytes);
+          const roundTrip = yield* context;
+          const next: Lockfile = {
+            ...alpha,
+            skills: { ...alpha.skills, beta: localEntry("/sources/beta", "beta") },
+          };
+
+          const introduce = yield* observed(writeLockfileAtPath(target, next, roundTrip));
+          expect(introduce.parses).toEqual({
+            "axm.parse.lockfile-preservation": 1,
+            "axm.parse.lockfile-round-trip:after": 1,
+          });
+          expect(introduce.content).toContain('value = "retained"');
+          expect(introduce.receipts).toEqual([
+            { unit: '["lockfile","skills","beta"]', kind: "inserted-key", absentBefore: undefined },
+          ]);
+
+          const withdraw = yield* observed(writeLockfileAtPath(target, alpha, roundTrip));
+          expect(withdraw.parses).toEqual({
+            "axm.parse.lockfile-preservation": 1,
+            "axm.parse.lockfile-round-trip:after": 1,
+            "axm.parse.lockfile-round-trip:restored": 1,
+          });
+          expect(withdraw.content).toBe(priorBytes);
+          expect(withdraw.receipts).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("derives a row-only patch's prior units from the patch parse", () =>
+      run(
+        Effect.gen(function* () {
+          const target = path.join(root, "axm.lock");
+          fs.writeFileSync(target, priorBytes);
+          const roundTrip = yield* context;
+          const next: Lockfile = {
+            ...alpha,
+            projections: { rules: rows("AGENTS.md", "docs/AGENTS.md", "src/AGENTS.md") },
+          };
+
+          const introduce = yield* observed(
+            commitLockfileSnapshotUpdateAtPath(target, alpha, next, roundTrip),
+          );
+          expect(introduce.parses).toEqual({
+            "axm.parse.lockfile": 1,
+            "axm.parse.lockfile-decode": 1,
+            "axm.parse.lockfile-round-trip:after": 1,
+          });
+          expect(introduce.receipts).toEqual([
+            {
+              unit: '["lockfile","projections","rules","src/AGENTS.md"]',
+              kind: "inserted-key",
+              absentBefore: undefined,
+            },
+          ]);
+
+          const withdraw = yield* observed(
+            commitLockfileSnapshotUpdateAtPath(target, next, alpha, roundTrip),
+          );
+          expect(withdraw.parses).toEqual({
+            "axm.parse.lockfile": 1,
+            "axm.parse.lockfile-decode": 1,
+            "axm.parse.lockfile-round-trip:after": 1,
+            "axm.parse.lockfile-round-trip:restored": 1,
+          });
+          expect(withdraw.content).toBe(priorBytes);
+          expect(withdraw.receipts).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("keeps the synthetic prior document when no lockfile exists", () =>
+      run(
+        Effect.gen(function* () {
+          const target = path.join(root, "axm.lock");
+          const roundTrip = yield* context;
+
+          const introduce = yield* observed(writeLockfileAtPath(target, alpha, roundTrip));
+          expect(introduce.parses).toEqual({ "axm.parse.lockfile-round-trip:after": 1 });
+          expect(introduce.receipts).toEqual([
+            { unit: '["lockfile","skills","alpha"]', kind: "created-file", absentBefore: true },
+          ]);
+        }),
+      ),
+    );
+  });
 });

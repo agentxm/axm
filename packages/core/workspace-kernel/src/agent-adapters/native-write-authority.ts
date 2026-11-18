@@ -94,6 +94,8 @@ export interface NativeWriteAuthorityService {
     readonly capture: NativeInsertionCapture;
     readonly afterRaw: string;
     readonly createdDirectories: ReadonlyArray<ContainerIdentity>;
+    /** Units whose receipts on this path are forgotten in the same store update. */
+    readonly forgetUnits?: ReadonlyArray<string>;
   }) => Effect.Effect<void, NativeWriteRefused>;
   readonly resolveInsertion: (
     args: NativeInsertionTarget & { readonly raw: string },
@@ -104,8 +106,33 @@ export interface NativeWriteAuthorityService {
       readonly raw: string;
     },
   ) => Effect.Effect<Option.Option<NativeInsertionResolution>, NativeWriteRefused>;
+  /**
+   * Resolve `units` and, when `retire.renderedEmpty` or the resolution removes
+   * the file, retire it, both from one live observation of `raw`.
+   */
+  readonly withdrawInsertions: (
+    args: Omit<NativeInsertionTarget, "unit"> & {
+      readonly units: ReadonlyArray<string>;
+      readonly raw: string;
+      readonly retire: {
+        readonly unit: string;
+        /** The format owner's proof that no unowned units remain. */
+        readonly empty: boolean;
+        readonly renderedEmpty: boolean;
+      };
+    },
+  ) => Effect.Effect<
+    {
+      readonly resolution: Option.Option<NativeInsertionResolution>;
+      readonly retired: boolean;
+    },
+    NativeWriteRefused
+  >;
   readonly forgetInsertion: (
     args: NativeInsertionTarget,
+  ) => Effect.Effect<void, NativeWriteRefused>;
+  readonly forgetInsertions: (
+    args: Omit<NativeInsertionTarget, "unit"> & { readonly units: ReadonlyArray<string> },
   ) => Effect.Effect<void, NativeWriteRefused>;
   /** `empty` is the format owner's proof that no unowned units remain. */
   readonly retireInsertion: (

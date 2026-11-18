@@ -1,5 +1,5 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { withPackagingContext } from "./test-support/context.js";
+import { detectIn, withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,7 @@ const detectInTempDir = (pubspecYaml?: string) =>
     if (pubspecYaml !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "pubspec.yaml"), pubspecYaml);
     }
-    return yield* pubDetector.detect(tmpDir);
+    return yield* detectIn(pubDetector, tmpDir);
   }).pipe(Effect.scoped);
 
 describe("pubDetector", () => {

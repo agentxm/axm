@@ -361,10 +361,15 @@ const preservableRegistryVersion = Effect.fnUntraced(function* (intent: RootUpda
   }
 
   if (intent.type === "pack") {
+    // The desired Pack node itself was just judged usable above; every other
+    // node of the closure, including another Pack sharing its name, is observed.
     const graphNodes = graph.nodes.filter(
       (node) =>
-        (node.type === "pack" && node.name === intent.name) ||
-        node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === intent.target),
+        node !== desired &&
+        ((node.type === "pack" && node.name === intent.name) ||
+          node.origins.some(
+            (origin) => origin.type === "pack" && origin.pack.fqn === intent.target,
+          )),
     );
     const usable = yield* Effect.forEach(graphNodes, (node) =>
       usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(Effect.map(Option.isSome)),

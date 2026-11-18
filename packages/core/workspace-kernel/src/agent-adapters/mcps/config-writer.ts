@@ -36,7 +36,7 @@ import type {
   McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { NativeArtifactChange } from "../agents/coding-agent.js";
-import { deriveStructuralInverse, type NativeLocationOutcome } from "../../locations/index.js";
+import { isStructuralInsertion, type NativeLocationOutcome } from "../../locations/index.js";
 
 export interface WriteAgentMcpConfigArgs {
   readonly workspaceRoot: string;
@@ -155,9 +155,17 @@ const upsertJsonLike = (args: {
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
   readonly format: McpConfigTarget["format"];
-}): Effect.Effect<string, McpConfigInvalid> =>
+}): Effect.Effect<
+  {
+    readonly next: string;
+    /** True only when `next` is the formatted edit already judged structural against `raw`. */
+    readonly structuralChecked: boolean;
+  },
+  McpConfigInvalid
+> =>
   Effect.gen(function* () {
-    const initial = args.raw.trim().length === 0 ? "{}\n" : args.raw;
+    const blank = args.raw.trim().length === 0;
+    const initial = blank ? "{}\n" : args.raw;
     yield* decodeJsonMcpConfig(args.configPath, initial, args.serversPath, args.format);
     const formatted = applyEdits(
       initial,
@@ -165,12 +173,15 @@ const upsertJsonLike = (args: {
         formattingOptions: jsonFormatting(initial),
       }),
     );
-    return Option.isSome(yield* deriveStructuralInverse(initial, formatted))
-      ? formatted
-      : applyEdits(
-          initial,
-          modify(initial, [...args.serversPath, args.serverName], args.entry, {}),
-        );
+    return isStructuralInsertion(initial, formatted)
+      ? { next: formatted, structuralChecked: !blank }
+      : {
+          next: applyEdits(
+            initial,
+            modify(initial, [...args.serversPath, args.serverName], args.entry, {}),
+          ),
+          structuralChecked: false,
+        };
   });
 
 const removeJsonLike = (args: {
@@ -398,12 +409,12 @@ export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: strin
       serverName: args.serverName,
       entry: args.entry,
     };
-    const next = yield* Effect.gen(function* () {
+    const { next, structuralChecked } = yield* Effect.gen(function* () {
       switch (target.format) {
         case "toml":
-          return yield* upsertToml(renderArgs);
+          return { next: yield* upsertToml(renderArgs), structuralChecked: false };
         case "yaml":
-          return yield* upsertYaml(renderArgs);
+          return { next: yield* upsertYaml(renderArgs), structuralChecked: false };
         case "json":
         case "jsonc":
         case "starlark":
@@ -425,9 +436,11 @@ export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: strin
       before: raw,
       after: next,
     });
+    // A formatted JSON-like edit of a non-blank document was judged on this exact pair.
     if (
       !Object.hasOwn(values, args.serverName) &&
-      Option.isNone(yield* deriveStructuralInverse(raw, next))
+      !structuralChecked &&
+      !isStructuralInsertion(raw, next)
     ) {
       return yield* new McpConfigInvalid({
         detail: `Cannot insert MCP server ${args.serverName} without changing unrelated content at ${configPath}`,
@@ -503,8 +516,46 @@ export const validateAgentMcpConfigWrite = (args: WriteAgentMcpConfigArgs) =>
     return yield* prepareMcpWrite(args, configPath, yield* readExisting(configPath));
   });
 
-export const writeAgentMcpConfig = (
+/**
+ * The proposal validation rendered for one write, bound to the physical path,
+ * the exact preimage text (absence as empty), and the write inputs it used.
+ */
+export interface McpWritePreparation {
+  readonly configPath: string;
+  readonly raw: string;
+  readonly next: string;
+  /** Whether the preimage already declared the server. */
+  readonly existed: boolean;
+  readonly serverName: string;
+  readonly serversPath: McpServersPath;
+  readonly format: McpConfigTarget["format"];
+  readonly entry: Readonly<Record<string, unknown>>;
+}
+
+/** A preparation applies only to the same write of the same file with the same preimage. */
+const reusablePreparation = (
   args: WriteAgentMcpConfigArgs,
+  configPath: string,
+  raw: string,
+  prepared: McpWritePreparation | undefined,
+): prepared is McpWritePreparation =>
+  prepared !== undefined &&
+  args.adoption === undefined &&
+  prepared.configPath === configPath &&
+  prepared.raw === raw &&
+  prepared.serverName === args.serverName &&
+  prepared.serversPath === args.serversPath &&
+  prepared.format === args.target.format &&
+  prepared.entry === args.entry;
+
+/**
+ * Write under the lock from the fresh preimage. A validated proposal is used
+ * only when the locked read is byte-identical to the preimage it was rendered
+ * from; otherwise the proposal is rendered again from the fresh bytes.
+ */
+export const writePreparedAgentMcpConfig = (
+  args: WriteAgentMcpConfigArgs,
+  prepared: McpWritePreparation | undefined,
 ): Effect.Effect<
   AgentMcpConfigWriteResult,
   NativeFormatFailure,
@@ -519,13 +570,20 @@ export const writeAgentMcpConfig = (
         Effect.gen(function* () {
           const before = yield* readNativeMcpConfig(configPath);
           const raw = Option.getOrElse(before, () => "");
-          const values = yield* readNativeMcpValues({
-            configPath,
-            raw,
-            format: args.target.format,
-            serversPath: args.serversPath,
-          });
-          const next = yield* prepareMcpWrite(args, configPath, raw);
+          const { next, existed } = reusablePreparation(args, configPath, raw, prepared)
+            ? prepared
+            : yield* Effect.gen(function* () {
+                const values = yield* readNativeMcpValues({
+                  configPath,
+                  raw,
+                  format: args.target.format,
+                  serversPath: args.serversPath,
+                });
+                return {
+                  next: yield* prepareMcpWrite(args, configPath, raw),
+                  existed: Object.hasOwn(values, args.serverName),
+                };
+              });
           const result =
             raw === next
               ? { targets: [{ path: args.target.path, change: "unchanged" as const }] }
@@ -534,16 +592,20 @@ export const writeAgentMcpConfig = (
             args,
             configPath,
             result,
-            raw === next
-              ? "unchanged"
-              : Object.hasOwn(values, args.serverName)
-                ? "updated"
-                : "created",
+            raw === next ? "unchanged" : existed ? "updated" : "created",
           );
         }),
       ),
     );
   });
+
+export const writeAgentMcpConfig = (
+  args: WriteAgentMcpConfigArgs,
+): Effect.Effect<
+  AgentMcpConfigWriteResult,
+  NativeFormatFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> => writePreparedAgentMcpConfig(args, undefined);
 
 const renderMcpRemoval = (args: RemoveAgentMcpConfigArgs, configPath: string, raw: string) =>
   Effect.gen(function* () {
@@ -608,11 +670,23 @@ const renderMcpRemovals = (args: RemoveAgentMcpConfigsArgs, configPath: string, 
     return next;
   });
 
-/** Validate all native removals without publishing an intermediate shared-file state. */
-export const validateAgentMcpConfigRemovals = (args: RemoveAgentMcpConfigsArgs) =>
+/**
+ * Render all native removals of one planned physical file without publishing
+ * an intermediate shared-file state, from one read of that file, and return
+ * the preimage with its proposal so co-reader checks judge the same bytes.
+ */
+export const renderAgentMcpConfigRemovals = (
+  args: RemoveAgentMcpConfigsArgs,
+  expectedPath: string,
+) =>
   Effect.gen(function* () {
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, args.target);
-    return yield* renderMcpRemovals(args, configPath, yield* readExisting(configPath));
+    if (configPath !== expectedPath)
+      return yield* new McpConfigInvalid({
+        detail: `MCP location changed before removal: ${args.target.path}`,
+      });
+    const raw = yield* readExisting(configPath);
+    return { raw, proposedRaw: yield* renderMcpRemovals(args, configPath, raw) };
   });
 
 /** Publish one physical file after every selected owned key has been prepared. */

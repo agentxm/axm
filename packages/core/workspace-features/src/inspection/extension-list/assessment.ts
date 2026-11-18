@@ -17,7 +17,11 @@ import { type InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { RegistryClientFactory, type RegistryClientFailure } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
-import { resolveSource, SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import {
+  resolveSource,
+  SourceHostProviders,
+  withSharedGitDiscoveryCheckouts,
+} from "@agentxm/workspace-kernel/sources";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   lockEntryToSourceParams,
@@ -301,7 +305,7 @@ const localAssessment = (
   return undefined;
 };
 
-export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
+const assessItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
   items: ReadonlyArray<AssessedExtensionListItem>,
   filter: Exclude<ExtensionListFilter, "all">,
 ) {
@@ -401,3 +405,12 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
     .sort((left, right) => left.position - right.position)
     .map(({ item }): AssessedExtensionListItem => item);
 });
+
+/**
+ * Assess each listed item under the filter. Entries that accept one Git URL
+ * and revision are compared against one shared discovery checkout.
+ */
+export const assessExtensionListItems = (
+  items: ReadonlyArray<AssessedExtensionListItem>,
+  filter: Exclude<ExtensionListFilter, "all">,
+) => withSharedGitDiscoveryCheckouts(assessItems(items, filter));

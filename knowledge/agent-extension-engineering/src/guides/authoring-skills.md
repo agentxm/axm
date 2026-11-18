@@ -1,10 +1,10 @@
 ---
 type: Guide
 title: "Authoring and revising skills"
-description: "Resolve overlapping skill triggers and decide how much procedure belongs in the skill."
+description: "Design or revise a skill from a concrete use case, including how it gets invoked and how it chooses a procedure."
 tags: ["skills", "skill.md", "author", "revise", "routing", "progressive-disclosure"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:13:12Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T23:42:23Z" }
 sources:
   - id: writing
     resource: https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-skills/SKILL.md
@@ -16,35 +16,30 @@ sources:
 
 # Authoring and revising skills
 
-Start with a request and the result the user should get. Put the cues that
-distinguish that job in the description. In the body, spell out decisions
-where a plausible choice would produce the wrong result. Give exact steps
-where order matters. If only one task needs a reference, link it at the step
-where the reader needs it.
+Start with one use case. Write it in three lines.
 
-Suppose a code reviewer and a release-note editor both activate on “review this
-change.” Look at what the user supplied and what each skill would return.
+- **Request.** “Can someone who installs this skill follow its migration-guide link?”
+- **Input.** The release-note skill archive the consumer receives.
+- **Inspectable result.** The exact reference and a verdict grounded in the archive listing.
 
-- A diff and a request for defects belong with the code reviewer. A draft and
-  a request to clarify user-visible changes belong with the editor. Narrow each
-  description around its input and outcome.
-- A request to find defects **and** revise the release note has two deliverables.
-  Keep both skills available. An exclusion on the word “review” would hide a
-  useful skill.
-- If both skills take the same draft and return the same edit under the same
-  constraints, merge them unless a caller needs the distinction.
+The same example can introduce the skill in its [README](authoring-readme.md)
+and supply the first execution trial. To design how it gets invoked, choose
+the decisions that matter for this use case.
 
-Try a fresh wording of the ambiguous request with each kind of input. Inspect
-which skill was selected and whether its answer delivered the intended result.
+1. Choose an [invocation policy](../patterns/invocation-policy.md). For this reviewer,
+   a named shortcut and an ordinary request can both lead to the same read-only review.
+2. Put recognizable [trigger cues](../patterns/trigger-cues.md) in the description.
+   Here the requested consumer check and the package artifact identify the job.
+3. Try a [neighboring intent](../patterns/neighboring-intent.md). A request to
+   repair the link changes the deliverable and the authority required.
+4. [Route after inspection](../patterns/route-after-inspection.md) when the
+   procedure depends on the evidence supplied. An archive can establish whether
+   a path exists. An excerpt warrants a narrower verdict.
 
-Within a skill, the same action can have several targets. For “review this
-skill,” a supplied source draft calls for an authoring review, a native path
-and a missing update call for inspecting the projection, and a transcript
-with an unexpected answer calls for examining that run. Honor the named target
-first. When it is implicit, inspect only enough context to distinguish the
-deliverables. Keep a scope such as “just the description” on the selected
-route. If two plausible targets still lead to different work, pose the
-[decision](../patterns/agent-mediated-decisions.md) in the user's terms.
+In the body, spell out decisions where a plausible choice would produce the
+wrong result. Give exact steps when order matters and link a specialized
+reference at the step that needs it. Try an [invocation trial](../patterns/invocation-trial.md)
+when selection is uncertain.
 
 Before revising a skill, find where an actual run went wrong.[^writing] If
 the agent never opened the review guide, examine the routing cue. If it read

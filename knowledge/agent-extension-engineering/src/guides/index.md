@@ -10,7 +10,7 @@ Choose the task you are working on.
 ## Author the selected surface
 
 - [Writing an extension README](authoring-readme.md) — Choose an example and the details a reader needs to decide whether to install an extension and try it.
-- [Authoring and revising skills](authoring-skills.md) — Resolve overlapping skill triggers and decide how much procedure belongs in the skill.
+- [Authoring and revising skills](authoring-skills.md) — Design or revise a skill from a concrete use case, including how it gets invoked and how it chooses a procedure.
 - [Authoring extension knowledge](authoring-knowledge.md) — Design concepts that readers can select from an index or find directly through search.
 - [Authoring agent definitions](authoring-agent-definitions.md) — Decide when to delegate and what the caller must supply for the role to work independently.
 - [Configuring hooks and MCP connections](configuring-hooks-and-mcp.md) — Decide how a hook should handle failure or what access an MCP connection needs.

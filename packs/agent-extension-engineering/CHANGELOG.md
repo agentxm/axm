@@ -2,6 +2,11 @@
 
 ## Candidate 0.2.0
 
+The skill authoring guide now starts with a use case and links to individual
+patterns for invocation policy, trigger cues, neighboring intent, routing after
+inspection, and invocation trials. The pattern index groups these decisions by
+when an author needs them.
+
 Adds the shared glossary, shorter engineering guides, and a guide to writing
 extension READMEs. Guide IDs now start with `guides/`. For scoped instructions use
 `patterns/scoped-instructions`. The glossary keeps its existing ID. The skill

@@ -28,7 +28,7 @@ through the active host or extension manager. With AXM, use
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |
 | Design a user choice or checkpoint in a skill                  | `patterns/agent-mediated-decisions`     |
 | Design validation before a skill applies a batch of edits      | `patterns/validate-the-proposed-change` |
-| Create or revise a skill                                       | `guides/authoring-skills`               |
+| Create or revise a skill, including how it gets invoked        | `guides/authoring-skills`               |
 | Create or improve instructions or rules                        | `patterns/scoped-instructions`          |
 | Create or restructure a knowledge bundle                       | `guides/authoring-knowledge`            |
 | Define a delegated agent role                                  | `guides/authoring-agent-definitions`    |

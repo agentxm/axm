@@ -2,6 +2,8 @@
 
 ## 2026-11-18
 
+- Organized the [pattern library](patterns/index.md) by authoring decision. Added patterns for invocation policy, trigger cues, neighboring intent, routing after inspection, and invocation trials.
+
 - Broadened the router pattern into [Progressive disclosure](patterns/progressive-disclosure.md), added [Validate the proposed change](patterns/validate-the-proposed-change.md), and expanded the skill design and trial guidance.
 - Added [CLI-backed skill](patterns/cli-backed-skill.md) and [Agent-mediated decisions](patterns/agent-mediated-decisions.md), with worked examples for skill routing, repair, and review trials.
 - Grouped [guides](guides/index.md) by task and [patterns](patterns/index.md) by design situation. Scoped instructions now lives in the pattern library alongside the routing skill pattern.

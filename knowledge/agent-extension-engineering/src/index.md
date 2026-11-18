@@ -18,6 +18,7 @@ and basic authoring, start with `axm help authoring`.
 
 ## Author the selected surface
 
+- [Writing an extension README](authoring-readme.md) — Choose an example and the details a reader needs to decide whether to install an extension and try it.
 - [Authoring and revising skills](authoring-skills.md) — Resolve overlapping skill triggers and decide how much procedure belongs in the skill.
 - [Authoring scoped instructions](authoring-instructions.md) — Place an instruction at the scope where it applies and check what neighboring tasks inherit.
 - [Authoring extension knowledge](authoring-knowledge.md) — Design concepts that readers can select from an index or find directly through search.

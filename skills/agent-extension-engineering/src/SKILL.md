@@ -5,7 +5,7 @@ description: >-
   extensions to focused knowledge guidance: skills and SKILL.md, scoped
   instructions such as AGENTS.md and CLAUDE.md, rules, knowledge bundles,
   agent definitions, hooks, MCP connection configuration, and packs. Use for
-  extension craft and composition. Not for building agent runtimes, implementing
+  extension craft, package READMEs, and composition. Not for building agent runtimes, implementing
   MCP servers, ordinary use of an installed extension, or package management alone.
 ---
 
@@ -22,6 +22,7 @@ through the active host or extension manager. With AXM, use
 | ----------------------------------------------------------- | ---------------------------------------------------- |
 | Define or distinguish shared terms                          | `glossary`                                           |
 | Choose an extension type or divide responsibilities         | `choosing-extensions`                                |
+| Write or revise an extension README                         | `authoring-readme`                                   |
 | Create or revise a skill                                    | `authoring-skills`                                   |
 | Create or improve instructions or rules                     | `authoring-instructions`                             |
 | Create or restructure a knowledge bundle                    | `authoring-knowledge`                                |

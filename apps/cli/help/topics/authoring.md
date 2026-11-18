@@ -148,25 +148,12 @@ can read it from the exact-version response; list and search results omit it.
 
 ## README.md
 
-A `README.md` at the extension root is published as part of the package and is
-the long-form, human-facing companion to the one-line `description`. AXM ships
-it in the archive when publication selection includes it. A package-root README
-outside `src/` is not projected as skill instructions. Agents can still read it
-from the repository or retained package; projection exclusion does not prevent
-that reading. Write it for a person deciding whether to install.
+Write the package-root `README.md` for someone deciding whether to install.
+Describe the task, give the install command, and show one example.
 
-A useful starting structure is:
-
-1. What the extension does and who it is for.
-2. When to use it — and when not to.
-3. How to install it (`axm install @owner/<type>s/<name>`).
-4. A short usage example.
-
-Keep agent-facing instructions in `SKILL.md` (or the content file), not the
-README. Link shared facts instead of maintaining competing instructions in both.
-
-If you keep a version history, put it in `CHANGELOG.md`: AXM republishes the
-README with every version, so a change log inside it freezes at that version.
+AXM ships the README when archive selection includes it. Agents can read it
+from the package. Keep runtime instructions in the extension's content file,
+such as `src/SKILL.md`, and version history in `CHANGELOG.md`.
 
 ## CHANGELOG.md
 

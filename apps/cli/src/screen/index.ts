@@ -118,6 +118,7 @@ export {
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
   emphatic,
+  invocation,
   joined,
   ledgerViewPolicy,
   resultLedgerColumns,

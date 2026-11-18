@@ -112,7 +112,7 @@ describe("root list", () => {
         expect(page.find((line) => line.includes("@acme/skills/review"))).toMatch(
           /^ ▲ {3}@acme\/skills\/review .* missing /u,
         );
-        expect(page.at(-1)).toBe("1 extension · 1 enabled · 1 needs attention · axm lint explains");
+        expect(page.at(-1)).toBe("1 extension · 1 enabled · 1 needs attention · run axm lint");
       }),
     );
   });

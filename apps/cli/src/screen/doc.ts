@@ -278,6 +278,12 @@ export type TableColumnPriority = "required" | "preferred" | "optional";
 
 export interface TableColumn {
   readonly header: Text;
+  /**
+   * The column that identifies each row. A reader scans down it, so its cells
+   * never wrap: it keeps its natural width while any other column can give
+   * way, then shortens each name in the middle, keeping its last segments.
+   */
+  readonly role?: "name";
   readonly align?: "left" | "right";
   /** Preferred width in cells; the painter shrinks below it under pressure. */
   readonly width?: number;

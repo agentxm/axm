@@ -38,7 +38,7 @@ export const AgentsListOutputSchema = ConfiguredAgentInventorySchema;
 type AgentListItem = ConfiguredAgentInventory["items"][number];
 
 const AgentListColumns = [
-  { header: "ID", priority: "required", value: (row: AgentListItem) => row.id },
+  { header: "ID", role: "name", priority: "required", value: (row: AgentListItem) => row.id },
   { header: "Kind", value: (row: AgentListItem) => row.kind },
   { header: "Agent", value: (row: AgentListItem) => row.name },
   { header: "Configured", value: (row: AgentListItem) => (row.configured ? "yes" : "no") },

@@ -85,7 +85,12 @@ const trustText = (row: DiscoverTableRow): Text => {
 };
 
 const DiscoverColumns = [
-  { header: "Extension", priority: "required", value: (row: DiscoverTableRow) => row.extension },
+  {
+    header: "Extension",
+    role: "name",
+    priority: "required",
+    value: (row: DiscoverTableRow) => row.extension,
+  },
   {
     header: "Type",
     value: (row: DiscoverTableRow) =>

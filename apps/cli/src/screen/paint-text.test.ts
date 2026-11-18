@@ -239,7 +239,7 @@ describe("paintText", () => {
   });
 
   describe("responsive tables", () => {
-    it("aligns headers with cells and fits a six-column inventory into 100 columns", () => {
+    it("aligns headers with cells, sets wrapped rows apart, and fits a six-column inventory into 100 columns", () => {
       const lines = plain(skillsList, 100);
       expect(widest(lines)).toBeLessThanOrEqual(100);
       const header = lines[1] ?? "";
@@ -252,9 +252,12 @@ describe("paintText", () => {
         "     Name                        State       Activation   Type       Agents",
         "     @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
         "                                                                     gemini-cli",
+        "",
         "     @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
+        "",
         "     local-notes                 detected    n/a          detected   none",
-        "     Not shown at this width: Agent outcomes",
+        "",
+        "     Not shown at this width: Agent outcomes. A wider terminal shows it.",
       ]);
     });
 
@@ -314,7 +317,9 @@ describe("paintText", () => {
       expect(lines).toEqual([
         "     Name               State",
         "     deployment-tools   installed",
-        "     Not shown at this width: Extra one, Extra two",
+        "",
+        "     Not shown at this width: Extra one, Extra two. A",
+        "     wider terminal shows them.",
       ]);
     });
 

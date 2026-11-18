@@ -69,7 +69,7 @@ export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOu
 
 /** Shared sourced-row presentation for Hooks and Rules. */
 export const sourcedListColumns = [
-  { header: "Name", priority: "required", value: (row: SourcedListRow) => row.name },
+  { header: "Name", role: "name", priority: "required", value: (row: SourcedListRow) => row.name },
   { header: "Management", value: (row: SourcedListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: SourcedListRow) => inventoryActivation(row) },
   { header: "Source", value: (row: SourcedListRow) => row.source },

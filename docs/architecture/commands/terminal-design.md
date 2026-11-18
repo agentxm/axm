@@ -241,9 +241,22 @@ each row into its mark and name on one line and every remaining value
 beneath. Because width never hides a value, the `--verbose` hint appears only
 where verbose genuinely shows more: folded already-current and not-selected
 rows, and every agent's outcome. A ledger's name column holds the key lane, so
-its second column, its fields, and its answers share the value column. A
-read-only table instead drops `preferred` columns, names what it dropped in
-one line, and stacks below forty columns, which suits wide inventories.
+its second column, its fields, and its answers share the value column.
+
+A read-only table would rather drop than wrap, because a reader scans its
+rows: it shows an `optional` column whole or not at all, giving up optional
+columns from the right before any cell wraps
+(`cli/tables-keep-rows-scannable`). Its `name` column never wraps; it keeps
+its natural width while any other column can give way and then shortens each
+name in the middle, like a ledger's. Once any row spans more than one line, a
+blank line sets every row apart so a continuation line never reads as a row.
+It drops `preferred` columns too, names what it dropped on a line set apart
+from its rows that says a wider terminal shows them, and stacks below forty
+columns, which suits wide inventories. An inventory states a value every row
+shares once: a column whose view gives that value a summary form leaves the
+table and the form joins the summary, after the inventory's own facts and
+before what needs attention (`cli/inventories-state-uniform-columns-once`). A
+command a summary names is a copyable, tinted invocation, as help shows one.
 
 A protected column is laid out at its natural width even where a width hint
 would keep the columns after it on a shared lane: alignment is worth having

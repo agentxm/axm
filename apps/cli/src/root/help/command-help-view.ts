@@ -17,7 +17,14 @@ import type {
   JsonSubcommandDoc,
 } from "../../cli-runtime/index.js";
 import { learnMoreRows } from "../../formatter.js";
-import type { Doc, DocNode, Field, Span, Text } from "../../screen/index.js";
+import {
+  invocation,
+  type Doc,
+  type DocNode,
+  type Field,
+  type Span,
+  type Text,
+} from "../../screen/index.js";
 
 const heading = (title: string): Text => [{ text: title, bold: true, tone: "neutral" }];
 
@@ -27,9 +34,6 @@ const section = (title: string, children: Doc): Doc =>
 const commandName = (name: string): Span => ({ text: name, tint: "cyan" });
 
 const flagName = (name: string): Span => ({ text: name, tint: "green" });
-
-/** A usage pattern or example invocation: shown whole, never broken across lines. */
-const invocation = (value: string): Text => [{ text: value, tint: "cyan", copyable: true }];
 
 const namesRow = (
   names: ReadonlyArray<string>,
@@ -47,7 +51,7 @@ const learnMoreDoc = (learnMore: string | undefined): Doc => {
     title,
     fieldsNode(
       rows.map(([command, description]) => ({
-        label: [{ text: command, tint: "cyan", copyable: true }],
+        label: invocation(command),
         value: description,
       })),
     ),

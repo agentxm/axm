@@ -8,7 +8,7 @@ import {
 import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
 const SubagentListColumns = [
-  { header: "Name", priority: "required", value: (row: TypeListRow) => row.name },
+  { header: "Name", role: "name", priority: "required", value: (row: TypeListRow) => row.name },
   { header: "Management", value: (row: TypeListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: TypeListRow) => inventoryActivation(row) },
   {

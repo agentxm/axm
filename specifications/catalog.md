@@ -176,6 +176,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts`](../apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts)
 
+##### An inventory states a value every row shares once, in its summary
+
+- Requirement: `cli/inventories-state-uniform-columns-once`
+- Owner: `cli`
+- Statement: When every row of an inventory with two or more rows holds the same value in a column whose view states a shared form, the inventory shall omit that column from its table and shall state that form once in its summary, after the inventory's own facts and before what needs attention.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: An inventory document is a pure function of its rows and columns, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/tables-keep-rows-scannable`
+- Assumptions: A view may state no shared form for a value that goes without saying, such as observing nothing; the column still leaves the table.
+- Source: [`apps/cli/src/screen/inventories-state-uniform-columns-once.spec.ts`](../apps/cli/src/screen/inventories-state-uniform-columns-once.spec.ts)
+
 ##### A ledger moves a value it cannot lay out; it never removes one
 
 - Requirement: `cli/ledger-width-relocates-values`
@@ -630,6 +645,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts`](../packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts)
+
+##### A read-only table keeps each row on one line before it keeps an extra column
+
+- Requirement: `cli/tables-keep-rows-scannable`
+- Owner: `cli`
+- Statement: When a read-only table does not fit the available width, it shall give up its optional columns before it wraps any cell, shall never wrap its name column but shorten each name in the middle only when nothing else can give way, shall set its rows apart with a blank line whenever any row spans more than one line, and shall name the columns it hid on a line set apart from its rows that says how to see them.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Table layout is a pure function of a document and a terminal width, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/names-yield-width-last`, `cli/ascii-human-output-preserves-content`
+- Assumptions: A name column's cells are identifiers a reader scans down, so a name split across lines reads as two rows.
+- Source: [`apps/cli/src/screen/tables-keep-rows-scannable.spec.ts`](../apps/cli/src/screen/tables-keep-rows-scannable.spec.ts)
 
 ##### A refused workload token points at the trusted publisher's permissions
 
@@ -4827,6 +4857,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/list/ordinary-inventory-is-local`, `apps/cli/src/root/list/command.ts`
 - Supersedes: `cli/list/human-inventory-points-to-deprecation-guidance`
 - Source: [`apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts`](../apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts)
+
+##### A person's inventory states each row's local state in one column
+
+- Requirement: `cli/list/human-inventory-states-each-row`
+- Owner: `cli`
+- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and a summary over a row that `axm lint` explains shall name `axm lint` as a command to run.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The list view is a pure function of the inventory document, so the rendered document decides the obligation in memory.
+- Methods: example
+- Derived from: `cli/list/human-inventory-reports-local-state`
+- Source: [`apps/cli/src/root/list/human-inventory-states-each-row.spec.ts`](../apps/cli/src/root/list/human-inventory-states-each-row.spec.ts)
 
 ##### Ordinary listings report local state without registry assessment
 

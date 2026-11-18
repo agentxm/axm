@@ -4,7 +4,7 @@ import { inventoryAgentOutcomes, inventoryLifecycle } from "../inventory-view.js
 import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
 const PackListColumns = [
-  { header: "Name", priority: "required", value: (row: PackListRow) => row.name },
+  { header: "Name", role: "name", priority: "required", value: (row: PackListRow) => row.name },
   { header: "Management", value: (row: PackListRow) => inventoryLifecycle(row) },
   { header: "Owner", value: (row: PackListRow) => row.owner },
   { header: "Version", value: (row: PackListRow) => row.version },

@@ -117,7 +117,7 @@ describe("Local human inventories", () => {
         expect(rendered).not.toContain("Guidance");
         expect(rendered).not.toContain("deprecated");
         expect(rendered).toContain("missing");
-        expect(rendered).toContain("axm lint explains");
+        expect(rendered).toContain("axm lint");
       }),
     );
   });

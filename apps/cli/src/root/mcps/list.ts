@@ -10,7 +10,12 @@ import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "..
 import { makePerTypeListCommand } from "../shared/list-command.js";
 
 const McpServerListColumns = [
-  { header: "Local name", priority: "required", value: (row: McpServerListRow) => row.localName },
+  {
+    header: "Local name",
+    role: "name",
+    priority: "required",
+    value: (row: McpServerListRow) => row.localName,
+  },
   { header: "Source", value: (row: McpServerListRow) => row.source },
   { header: "Management", value: (row: McpServerListRow) => inventoryLifecycle(row) },
   { header: "Version", priority: "optional", value: (row: McpServerListRow) => row.version },

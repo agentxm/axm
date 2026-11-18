@@ -24,6 +24,14 @@ export const joined = (parts: ReadonlyArray<string | undefined>): string =>
     .filter((part): part is string => part !== undefined && part.trim().length > 0)
     .join(PROSE_SEPARATOR);
 
+/**
+ * A command a person types, as help and summaries show one: tinted, and
+ * copyable so the painter never breaks it.
+ */
+export const invocation = (value: string): ReadonlyArray<Span> => [
+  { text: value, tint: "cyan", copyable: true },
+];
+
 /** A title or verdict with the common emphatic treatment. */
 export const emphatic = (value: string): ReadonlyArray<Span> => [{ text: value, bold: true }];
 

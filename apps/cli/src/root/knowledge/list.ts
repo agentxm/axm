@@ -19,7 +19,12 @@ const renderInstructionEntry = (
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleColumns = [
-  { header: "Bundle", priority: "required", value: (row: KnowledgeListRow) => row.name },
+  {
+    header: "Bundle",
+    role: "name",
+    priority: "required",
+    value: (row: KnowledgeListRow) => row.name,
+  },
   {
     header: "Management",
     value: (row: KnowledgeListRow) => inventoryLifecycle({ lifecycle: row.management }),

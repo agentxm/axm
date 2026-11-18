@@ -19,8 +19,8 @@ const item = (ref: string, type: ListItem["type"], facts: Partial<ListItem> = {}
   version: "1.0.0",
   source: {
     kind: "registry",
-    locator: "agentxm:@acme/skills/example@1.0.0",
-    identity: "@acme/skills/example",
+    locator: `agentxm:${ref}@^${facts.version ?? "1.0.0"}`,
+    identity: ref,
   },
   assessment: { state: "not-checked" },
   ...facts,
@@ -31,8 +31,9 @@ const item = (ref: string, type: ListItem["type"], facts: Partial<ListItem> = {}
  * patterns*, board `A · Read`, frame *Inventory table*).
  *
  * Types carry their tint, the leftover row carries a warning mark in the
- * gutter and a toned management cell, and the sentence after the table counts
- * what needs attention and names `axm lint`, which reports leftovers.
+ * gutter and a toned state cell, the disabled server says so in its state,
+ * and agent columns no row fills leave the table for the summary, which
+ * counts what needs attention and names `axm lint`, which reports leftovers.
  */
 const aReadInventoryTable: Doc = listDoc({
   filter: "all",

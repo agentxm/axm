@@ -46,7 +46,7 @@ import {
 } from "@agentxm/registry-access/testing";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { type Screen } from "../screen/index.js";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "./presenter-test.js";
+import { makeTestScreen, logsByTag } from "./test-screen.js";
 import { presentPlan } from "../operation-view.js";
 import {
   PlanInvocationTest,
@@ -458,7 +458,7 @@ export const makeCliTestContext = (opts?: {
       onTestFinished(() => files.remove(directory));
       return directory;
     })();
-  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.machine === true });
   const rendererLayer = opts?.screenLayer ?? renderer.layer;
   const rendererState = renderer.state;
   const promptState: TestPromptState = {

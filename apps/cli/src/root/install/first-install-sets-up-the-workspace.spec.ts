@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { useFirstInstallProject } from "../../test-support/first-install-harness.js";
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { setUpFirstUse } from "../shared/first-use.js";
 
 export const specification = defineSpecification({
@@ -55,7 +55,7 @@ describe("First install where a person can answer", () => {
   it.effect("runs setup after the selection and installs into the workspace it creates", () =>
     Effect.gen(function* () {
       fs.writeFileSync("CLAUDE.md", "# Team\n");
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push(
         { _tag: "Pick", titles: ["review"] },
         { _tag: "Pick", titles: ["Claude Code"] },
@@ -88,7 +88,7 @@ describe("First install where a person can answer", () => {
 
   it.effect("does not ask for agents the request named", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push(
         { _tag: "Pick", titles: ["review"] },
         { _tag: "Confirm", key: "n" },
@@ -112,7 +112,7 @@ describe("First install where a person can answer", () => {
 
   it.effect("records a declined instruction choice as the person's own", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push(
         { _tag: "Pick", titles: ["review"] },
         { _tag: "Pick", titles: ["Codex"] },
@@ -132,7 +132,7 @@ describe("First install where a person can answer", () => {
 
   it.effect("writes nothing when the setup plan is declined", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push(
         { _tag: "Pick", titles: ["review"] },
         { _tag: "Pick", titles: ["Codex"] },
@@ -149,7 +149,7 @@ describe("First install where a person can answer", () => {
 
   it.effect("never starts setup when the selection is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Cancel" });
 
       const failure = yield* setUpInstall(writeSource(["review", "triage"]), screen).pipe(

@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: The terminal design system for AXM human output — the gutter and value column, document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the live scene, the gallery, pseudo-terminal evidence, the supported terminal matrix, and the time-to-first-output budget.
+description: The terminal design system for AXM human output — the gutter and value column, document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the active region, design review through the gallery, renderer conformance, and the lab, pseudo-terminal evidence, the supported terminal matrix, and the time-to-first-output budget.
 depends-on:
   - ./output.md
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
@@ -18,21 +18,24 @@ and at two hundred columns in a wide terminal.
 
 ## Responsibilities
 
-This document owns how feature views select document vocabulary, the gutter
-and value column every node aligns to, what tones and glyphs mean and where a
-glyph goes, when color and animation are permitted, how layout responds to
-width and height, what the live scene shows, how the design is reviewed, which
-terminals are supported, and what latency the first output must meet.
+This document owns the design rules for human output: vocabulary selection,
+the gutter and value column, tone and glyph meaning and placement, color,
+responsive layout, the active region's layout, design review, supported
+terminals, and the first-output budget. It holds their rationale and every
+rule no check enforces; where a check does enforce one, it states the
+principle and names the check.
 
 ## Non-responsibilities
 
-It does not inventory node fields, painter options, or event fields; the
-`Doc` types, the painter, and the lifecycle event schema own those. It does
-not own channel boundaries or contract authority, which [CLI output](output.md)
-owns, or when a prompt or wait may open, which [Interaction](interaction.md)
-owns. It establishes no obligation: executable specifications such as
-`cli/non-tty-output-is-plain-and-unpadded` own the enforceable properties
-described here. The choice of this grammar is recorded in
+It does not inventory node fields, painter options, or event fields; the `Doc`
+types in `apps/cli/src/screen/doc.ts`, the painter, and the lifecycle event
+schema own those. [CLI output](output.md) owns channel boundaries, the
+transcript and active-region model, and contract authority.
+[Interaction](interaction.md) owns when a prompt or wait may open and how each
+one ends. This document establishes no obligation: the executable
+specifications it names, indexed by the
+[specification catalog](../../../specifications/catalog.md), own the
+enforceable properties. The choice of this grammar is recorded in
 [CLI ledger grammar and application-owned prompts](../decisions/cli-ledger-grammar-and-application-owned-prompts.md).
 
 ## Margin, gutter, and value column
@@ -46,11 +49,12 @@ URL use that content edge. Marks are status glyphs, change operations, the
 prompt mark `?`, and the caret ❯.
 
 Fields, answers, waits, and callout asides put their value at the value
-column, which is the start of a ledger's second column — column 36 at eighty
-columns, moving left as the name column shrinks. A settled setup or publish
-therefore reads as one aligned record. The one exception is a wait that
-expires: how long is left is part of its sentence, so the painter joins it to
-the status with its separator rather than setting it at the value column.
+column, which is also where a ledger's second column begins: column 36 at
+eighty columns, moving left on a terminal narrower than seventy columns so
+values keep half the line. A settled setup or publish therefore reads as one
+aligned record. The one exception is a wait that expires: how long is left is
+part of its sentence, so the painter joins it to the status with its
+separator rather than setting it at the value column.
 
 ## Vocabulary
 
@@ -61,7 +65,6 @@ shape happens to fit the terminal.
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | Compare units an operation plans or has settled              | `ledger`; columns declare a header, a role, and a priority, and each row carries a mark and a unit id |
 | Compare many like read-only items across the same attributes | `table`, optionally with a leading mark per row to flag the item that needs attention                 |
-| Show containment or hierarchy                                | `tree`                                                                                                |
 | Describe one item                                            | `fields`                                                                                              |
 | State the outcome of the command                             | `headline` with the outcome tone; one per result                                                      |
 | State facts beside an outcome                                | the outcome `headline`'s `aside`; semantic parts are joined by the painter                            |
@@ -72,7 +75,7 @@ shape happens to fit the terminal.
 | Ask a question                                               | `prompt`, built by the `Screen` from an `Ask` while one is open; views never build it                 |
 | Park the terminal while a person acts elsewhere              | `wait`, built by the `Screen` while one is open; views never build it                                 |
 | Record an answered prompt                                    | `answer`, appended by the `Screen` when a prompt or a wait settles; views never build it              |
-| Group related nodes under a dim title                        | `section`                                                                                             |
+| Group related nodes, optionally under a dim title            | `section`; the painter sets sibling sections apart                                                    |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
 Every command whose result carries a ledger opens with the same title line:
@@ -85,42 +88,49 @@ the last thing a reader sees, and on a result that did not succeed it names a
 recovery that fits: the emitting command again, narrowed to the units still
 waiting where an unchanged retry can change their outcome, or what the
 producers of those failures themselves suggested. Where no command would
-change it, it offers no retry. No command prints a logo or a phase strip; setup opens like
-every other command.
+change the outcome, it offers no retry. No command prints a logo or a phase
+strip; setup opens like every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
-Plan and result ledgers differ in their final columns — a plan
-and detail against a status — and their marks. A version column states the move
-a unit made where both ends are known, the version still installed for a unit
-that did not settle, and that its target is not resolved yet where a plan has
-not resolved one. A ledger folds rows that repeat
-one outcome, such as unchanged units, into one fold line with a mark, a count, a
-noun, and the flag that reveals them. A row that did not settle as planned
-carries its reason: one line beneath the row, at the content column, toned as
-the row's own mark, painted at every width and every level of detail because a
-reason has nowhere else to appear. Row children carry per-agent outcomes and
-details, aligned to the same column and shown at verbose level. A ledger
-takes any columns: lint's are finding, location, and fix, with the rule
-identifier and help as a dim child line, and a rule that repeats folds into one
-row with a location count. The separator between semantic parts of an aside or
-summary belongs to the painter. A view supplies parts and never spells that
-separator. Prose within a single ledger cell remains prose.
+Plan and result ledgers share one grammar — the unit, its version, its
+outcome, and a detail — and differ in their marks and in the outcome column, a
+plan's `Plan` against a result's `Status`. A version column states the move a
+unit made where both ends are known, the version still installed
+for a unit that did not settle, and that its target is not resolved yet where
+a plan has not resolved one. A ledger folds rows that repeat one outcome, such
+as unchanged units, into one fold line with a mark, a count, a noun, and the
+flag that reveals them. A row that did not settle as planned carries its
+reason: one line beneath the row, at the content column, toned as the row's
+own mark, painted at every width and every level of detail because a reason
+has nowhere else to appear. Row children carry per-agent outcomes and details,
+aligned to the same column and shown at verbose level. A ledger takes any
+columns: lint's are finding, location, and fix, with the rule identifier and
+help as a dim child line, and a rule that repeats folds into one row with a
+location count. The separator between semantic parts of an aside or summary
+belongs to the painter; a view supplies parts and never spells it. Prose
+within a single ledger cell remains prose.
 
-The painter owns vertical spacing. A result with a ledger has one blank line
-between its title, ledger, each callout, verdict, and `Next`. Problems and
-empty states are compact: no blank separates their headline, reason or fields,
-and `Next`. Settled answer lines form one group. Views use `blank` only inside
-authored prose, never to arrange result blocks.
+The painter owns vertical spacing, so a view never spaces result blocks
+itself: `blank` separates only two paragraphs of authored prose, and the
+`axm-policy/no-layout-blank` lint rule holds CLI sources to that. A result
+with a ledger has one blank line between its title, ledger, each callout,
+verdict, and `Next`. Problems and empty states are compact: no blank separates
+their headline, reason or fields, and `Next`. Settled answer lines form one
+group. Sibling sections, such as the groups of help and each of its examples,
+stand one blank line apart. An inset paragraph — the one value a sentence asks
+a person to act on — stands one blank line apart from the prose around it, and
+guidance that sets a value apart spaces its `Next` like a result. The
+painter's vertical-spacing tests in `apps/cli/src/screen/paint-text.test.ts`
+hold these rules.
 
 When nothing changed there is no ledger and no title line: the verdict stands
 alone, and it keeps its own status glyph because no row above it carries one. A
 headline states what happened; its aside states how much. A callout is
 subordinate to a headline and never replaces it. A table describes an
-inventory, so an inventory that changed nothing is a table. A tree shows
-structure, so a flat list is never a tree. A detail page is a headline with a
-dim aside, a paragraph, fields, and a `next` command, and a single requested
-field prints raw.
+inventory, so an inventory that changed nothing is a table. A detail page is a
+headline with a dim aside, a paragraph, fields, and a `next` command, and a
+single requested field prints raw.
 
 ## Tone and glyphs
 
@@ -134,9 +144,10 @@ created, `~` updated, `-` removed, and `=` unchanged; a row that did not change
 as planned carries ▲ blocked, ✖ failed, ↶ rolled back, or · not tried. A
 grouped selection shows ◉ selected and ◪ partially selected: a group only some
 of whose options are picked, or an option that comes along with a picked one
-without being picked itself. The same glyph
-always carries the same meaning, so ▲ means "attention" whether it marks a
-callout or a blocked row.
+without being picked itself. The same glyph always carries the same meaning,
+so ▲ means "attention" whether it marks a callout or a blocked row. Glyphs
+come only from the painter's glyph sets in `apps/cli/src/screen/glyphs.ts`;
+authored text never supplies one.
 
 Where a glyph goes is fixed. A row carries its own mark. A verdict that follows
 a ledger has no glyph, because the rows already carry status; it is bold and
@@ -156,39 +167,41 @@ the operation stopped before is · not tried, and a unit in flight when a
 restoring operation stopped is ↶ rolled back. Their verdict's aside ends with
 the exit code.
 
-Glyph width is measured, not trusted. ✔ ✖ ◒ ◓ ↶ ❯ ◉ ◪ are Neutral in Unicode
-East Asian Width. ▲ ● ◯ · … and the tree connectors are Ambiguous: they resolve
-to one cell outside East Asian contexts, so they are measured as one. Every
-ambiguous mark paints in the gutter, which absorbs it: a terminal that draws ▲
-two cells wide shifts only that row's content. The separator, the middle
-ellipsis of a shortened name, the tree connectors, and a list's ↑ ↓ arrows are
-the ones that paint inline instead, where a two-cell render pushes the rest of
-their own line right. The spinner uses only the Neutral frames ◒ and ◓ so its width never
-changes between frames. `AXM_ASCII=1` is the escape for a terminal that still
-misdraws them.
+Glyph width is measured, not trusted. Every glyph counts as one cell, as
+terminals draw East Asian Ambiguous characters outside East Asian contexts.
+An Ambiguous mark such as ▲ paints only in the gutter, which absorbs a
+terminal that draws it two cells wide; the separator, the middle ellipsis, and
+the arrows of lists and hints are the accepted inline exceptions, where a
+two-cell render shifts only the rest of their own line. The spinner's frames ◒
+and ◓ are Neutral, so its width never changes. The width table in
+`apps/cli/src/screen/glyph-width.test.ts` records each glyph's class and fails
+on an unrecorded glyph or an unaccepted inline one. `AXM_ASCII=1` is the
+escape for a terminal that still misdraws them.
 
-An ASCII glyph set replaces the symbols when the terminal cannot be trusted to
-render them: when `TERM` is `dumb`, when the locale does not declare UTF-8, or
-when `AXM_ASCII=1` forces it. ASCII status is two letters — `ok`, `!!`, `xx`,
-and `..` — so `+` always means created and never collides with a status. The
-caret is `>`, a selection is `[x]` selected, `[ ]` unselected, and `[-]`
-partially selected, and a list's arrows are `^` and `v`. A running unit is `..` and does not animate, because a
-terminal that cannot be trusted with symbols is not trusted with motion either.
-Every ordinary ASCII mark fits the same five-column gutter. Pick options are
-the deliberate exception: `[x]`, `[ ]`, and `[-]` are wider than their Unicode
-marks, so their titles begin two columns farther right. The ASCII `info` and
-running marks both use `..`; context distinguishes the one intentionally shared
-mark. The painter and AXM-authored phrases otherwise emit seven-bit text under
-the ASCII glyph set; user and Registry content passes through unchanged.
+The ASCII glyph set replaces the symbols when the terminal cannot be trusted
+to render them; `cli/ascii-human-output-preserves-content` owns when it
+applies. Under it the painter and AXM-authored phrases emit seven-bit text,
+while user and Registry content passes through unchanged. Status is two characters —
+`ok`, `!!`, `xx`, and `..` — so `+` always means created and never collides
+with a status; a rolled-back row is `<` and an untried or waiting one `.`. The
+caret is `>`, selections are `[x]`, `[ ]`, and `[-]`, and a list's arrows are
+`^` and `v`. A running unit is `..` and does not animate, because a terminal
+that cannot be trusted with symbols is not trusted with motion either; `info`
+shares that one mark deliberately, and context tells them apart. Every ASCII
+mark fits the five-column gutter except the wider pick options, whose titles
+begin two columns farther right.
 
 ## Color and animation
 
-Color is applied per stream. A stream receives ANSI styling only when it is a
-terminal; a piped stdout stays plain while an attached stderr may still be
-styled. `NO_COLOR`, `FORCE_COLOR=0`, `CI`, and `TERM=dumb` disable color on
-every stream, and `FORCE_COLOR` enables it without a terminal. Animation
-requires a stderr terminal and the same environment conditions, and forced
-color never implies a live terminal.
+Color is decided per stream by `apps/cli/src/screen/output-policy.ts`. A
+stream is styled only when it is a terminal, so a piped stdout stays plain
+while an attached stderr may still be styled, and `FORCE_COLOR` never styles a
+pipe (`cli/non-tty-output-is-plain-and-unpadded`). `NO_COLOR`, `FORCE_COLOR=0`,
+`TERM=dumb`, and `CI` turn color off on every stream, though `FORCE_COLOR`
+restores it under `CI` on a terminal — a precedence that specification leaves
+open. Animation also needs a stderr terminal, and forced color never implies
+one. Color only styles: stripped of its styling, colored output is the plain
+output.
 
 Only the eight standard colors and the dim attribute are used, never
 hard-coded RGB, so output reads on light and dark themes alike. Extension type
@@ -198,8 +211,9 @@ sequence only when color is enabled.
 
 ## Responsive layout
 
-Every painted line fits the terminal width. The painter measures display
-width, so wide characters and combining marks count correctly.
+Every painted line fits the terminal width and ends without trailing
+whitespace. The painter measures display width, so wide characters and
+combining marks count correctly. Below twenty columns it paints at twenty.
 
 Ledgers and tables share one layout engine. Columns declare a preferred width,
 a minimum width, and a priority of `required`, `preferred`, or `optional`. At a
@@ -218,20 +232,36 @@ is its widest segment rather than the whole list.
 
 A ledger would rather wrap than drop: it shrinks every column to its word
 floors before it gives one up, because wrapping keeps a value in the column
-whose header names it. What it does drop — only an `optional` column — is
-repainted beneath each row that has a value for it, dim, at the content
+whose header names it. Width then moves what a ledger carries and never
+removes it (`cli/ledger-width-relocates-values`). A dropped `optional` column
+is repainted beneath each row that has a value for it, dim, at the content
 column: the bare value when one column was dropped, and `Header  value` pairs
-when more than one was. When the columns it keeps — the gutter, the name, and
-every column that is not optional — overflow, it stacks each row into its mark
-and name on one line and every remaining value beneath. Width therefore moves
-what a ledger carries and never removes it, and no ledger sends a reader to
-`--verbose` for a value the same flag would drop again. The hint remains only
+when more than one was. When the columns it keeps still overflow, it stacks
+each row into its mark and name on one line and every remaining value
+beneath. Because width never hides a value, the `--verbose` hint appears only
 where verbose genuinely shows more: folded already-current and not-selected
-rows, and every agent's outcome. A ledger stacks on overflow, not at a fixed
-width, and its name column holds the key lane, so a ledger's second column,
-its fields, and its answers share the value column. A read-only table instead
-drops `preferred` columns, names what it dropped in one line, and stacks below
-forty columns, which suits wide inventories.
+rows, and every agent's outcome. A ledger's name column holds the key lane, so
+its second column, its fields, and its answers share the value column. A
+read-only table instead drops `preferred` columns, names what it dropped in
+one line, and stacks below forty columns, which suits wide inventories.
+
+A protected column is laid out at its natural width even where a width hint
+would keep the columns after it on a shared lane: alignment is worth having
+while the values fit beside it, and yields to information when they do not. A
+name therefore shortens only once every shrinkable column has given up what it
+can (`cli/names-yield-width-last`). When it must shorten, it gives up scope
+characters and keeps every later segment, because the type segment is what
+tells `@acme/skills/docs` from `@acme/knowledge/docs`:
+`@acme-enterpr…/skills/audits/soc2-review`. Where no scope worth keeping fits,
+whole middle segments go instead, and finally the last segment takes what is
+left. Every row of one ledger identifies its unit in the same form, and that
+form states the unit's type.
+
+A copyable value — a URL, a `next` command, a one-time code, a request
+identifier — is never cut, truncated, or hyphenated; when it does not fit it
+moves to its own line, in a ledger cell as anywhere else. Apart from `raw` and
+`markdown` content passed through verbatim, it is the only content allowed to
+overflow the width.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;
@@ -239,142 +269,165 @@ then they lose their words and the question wraps with a hanging indent. The
 chip of the choice `enter` takes is filled and its key capitalised, so the
 default reads the same on a terminal without color.
 
-A list opens under its question with one line per option, so it is exactly
-as tall as it looks. The caret marks the option `enter` takes, titles sit at
-the content column, and details sit at the value column, or at one column
-past it for the whole list where a title needs the room and details keep half
-the line. Details show for every option or for none: a narrow list drops them
-all before it shortens a title in the middle, rather than leaving some options
+A list opens under its question with one line per option, so it is exactly as
+tall as it looks. The caret marks the option `enter` takes, titles sit at the
+content column, and details sit at the value column, or at one column past it
+for the whole list where a title needs the room and details keep half the
+line. Details show for every option or for none: a narrow list drops them all
+before it shortens a title in the middle, rather than leaving some options
 looking bare. A list whose details do not all fit beside their titles keeps
 lines beneath itself for the caret's own, wrapped and named, and keeps them
 empty where the caret's details already show whole, so its height never
 follows the caret. A list shows as many options as the height it is given and
 names the rest on a dim line at the content column, `↑ 3 more` above the
 window and `↓ 3 more` below it, and its window follows the caret instead of
-scrolling the terminal. A
-typed line follows its question behind the caret, or takes the line beneath it
-when both do not fit; a line the question refuses stays open with the reason
-beneath it in the attention mark.
+scrolling the terminal. A typed line follows its question behind the caret, or
+takes the line beneath it when both do not fit; a line the question refuses
+stays open with the reason beneath it in the attention mark.
 
 A list that takes several puts each option's selection mark between the caret
 and the title. An option may bring others with it; while it is picked, each
 option it brings carries the partial mark unless it is picked in its own
 right, and the line beneath the list counts those apart as included. Taking
 everything takes only what no other option showing brings. Options that share
-a group sit one step in under the group's
-header, whose mark is partial while only some of them are picked and whose
-count sits at the value column; a group whose header scrolls away stays
-pinned above the window while the caret is in it. The left arrow folds the
-caret's group to its header, which then names the first options behind it,
-and the right arrow opens it; the line that counts what the window leaves out
-below also names the groups it has not reached, `↓ 16 more · productivity (7)`.
-Typing after the question narrows the list to the options whose title,
-details, or group contain it and drops groups with no match; what was typed is
-bold where it shows, and details too long for their line open at the match
-rather than hide it. One dim line beneath the list says how many are picked
-and names its keys; a narrow line drops the arrows and the words of named keys
-first, then every key.
+a group sit one step in under the group's header, whose mark is partial while
+only some of them are picked and whose count sits at the value column; a group
+whose header scrolls away stays pinned above the window while the caret is in
+it. The left arrow folds the caret's group to its header, which then names the
+first options behind it, and the right arrow opens it; the line that counts
+what the window leaves out below also names the groups it has not reached,
+`↓ 16 more · productivity (7)`. Typing after the question narrows the list to
+the options whose title, details, or group contain it and drops groups with no
+match; what was typed is bold where it shows, and details too long for their
+line open at the match rather than hide it. One dim line beneath the list says
+how many are picked and names its keys; a narrow line drops the arrows and the
+words of named keys first, then every key.
 
-A protected column is laid out at its natural width even where a width hint
-would keep the columns after it on a shared lane: alignment is worth having
-while the values fit beside it, and yields to information when they do not. A
-name therefore shortens only once every shrinkable column has given up what it
-can. When it must shorten, it gives up scope characters and keeps every later
-segment, because the type segment is what tells `@acme/skills/docs` from
-`@acme/knowledge/docs`: `@acme-enterpr…/skills/audits/soc2-review`. Where no
-scope worth keeping fits, whole middle segments go instead, and finally the
-last segment takes what is left. Every row of one ledger identifies its unit in
-the same form, and that form states the unit's type. A copyable value — a URL, a `next` command, a
-one-time code, a request identifier — is never cut, truncated, or hyphenated;
-when it does not fit it moves to its own line, in a ledger cell as anywhere
-else.
-
-A stream that is not a terminal is unbounded. Nothing written to it is
+A stream that is not a terminal is unbounded: nothing written to it is
 wrapped, truncated, or padded to a terminal width, so an agent or a pager
-receives the whole value on one line.
+receives the whole value on one line
+(`cli/non-tty-output-is-plain-and-unpadded`).
 
 ## Transcript and active region
 
-The transcript is the durable story of an invocation. Once appended, context,
-phase conclusions, review candidates, answers, instructions, warnings, and
-outcomes stay in emission order. Normal narration follows meaningful phases
-and exceptions; verbose and debug may add unit transitions. Continuous
-measurements remain transient at every verbosity.
+[CLI output](output.md) owns the model — a growing transcript and one active
+region that alone repaints — and [Interaction](interaction.md) owns how a
+question or wait commits its context and settles. What the transcript must
+keep belongs to `cli/output-preserves-committed-history`,
+`cli/activity-reports-observed-work`, and
+`cli/interactions-retain-context-and-disposition`. This section owns the
+region's layout.
 
-The active region holds one activity or one foreground interaction. Its title
-identifies the operation and phase; details may show a current unit, a retry,
-a measurement, elapsed time, or the known condition delaying work. Counts name
-what the producer actually measured. An unknown or inconsistent total is not a
-percentage or a fabricated denominator. Moving to a new phase appends the
-previous phase's truthful disposition; the typed final result determines
-whether the requested operation succeeded.
+The active region holds one activity or one foreground interaction, and an
+open interaction takes precedence over progress. Its title identifies the
+operation and phase; details may show a current unit, a retry, a measurement,
+elapsed time, or the known condition delaying work, and a count never invents
+a denominator it did not observe.
 
-Screen owns operation lifetimes and foreground selection. Frame owns only
-serialized writes, terminal geometry, cursor visibility, and repainting the
-active tail. Durable output is appended above that tail, after which the
-current activity can repaint. Open interactions take precedence over progress
-and own one scoped input permit. Releasing an old operation cannot remove a
-newer question.
-
-Active lines do not wrap. They stop one column short of the actual terminal
-width and fit within its height less two rows. Copyable values and full
-failure reasons live in durable documents. A resize changes future layout;
-committed content is never recomputed by AXM. When old cursor geometry becomes
-uncertain, Frame abandons that tail with a newline instead of moving upward
-into history. A terminal may reflow its own scrollback independently.
-
-Questions commit their context before showing controls, then append a labeled
-answer or cancellation. Waits commit actionable instructions before showing
-status, then append their truthful disposition. The active region releases
-the cursor when empty. The result prints after every lossless event subscriber
-has drained and remains complete on stdout.
-
-CI, pipes, and terminals without animation receive the same eligible semantic
-milestones as static text. Quiet mode keeps required actions and actionable
-outcomes while suppressing routine narration and countdowns. Interactivity,
-color, glyph selection, and animation are separate decisions; an allowed
-question remains usable without progress animation. Terminals too small for
-usable controls fail with guidance rather than accepting an unseen decision.
+Active lines do not wrap. They stop one column short of the terminal width and
+fit within its height less two rows, which the gallery checks for every scene,
+so copyable values and full failure reasons belong in durable documents. A
+resize changes future layout; AXM never recomputes committed content. When old
+cursor geometry becomes uncertain, the `Frame` abandons that tail with a
+newline instead of moving upward into history; a terminal may still reflow its
+own scrollback. CI, pipes, and terminals without animation receive the same
+eligible milestones as static text.
 
 ## Gallery
 
 The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
-surface for design. Each fixture is one document or scene for one scenario —
-an inventory list, an inspection, a plan, a transcript checkpoint, a result ledger, a
-failure with recovery, a waiting operation, a wait in its open, static, and
-settled forms, each prompt kind in its initial, filtered, error, narrow, and
-answered states, and every node kind — and its
-file snapshots record the painted output at 40, 80, 120, and 200 columns, and
-at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
-of the terminal size, painted one column short of the width and held within the
-height less two rows. A transcript checkpoint paints its entire committed
-history followed by that bounded scene; the history has no viewport height
-limit.
+surface for design. Each fixture is one document or scene for one scenario:
+command results, plans, failures with recovery, waits in their open, static,
+and settled forms, each prompt kind in its initial, filtered, error, narrow,
+and answered states, transcript checkpoints, and every node kind. A fixture
+that shows a command's output is that command's own view applied to sample
+data, so the gallery reviews what the command paints; only fixtures that
+exercise the painter itself, such as every node kind and the width and prompt
+primitives, build a document by hand.
+
+A fixture module is any `*.gallery.ts` file under `apps/cli/src/`, in the
+gallery directory or beside the view it exercises. It default-exports
+`galleryModule(...)` with its fixtures; nothing registers it. A fixture is a
+settled document, a live scene painted as a pure function of the terminal
+size, one composed active region, or a transcript checkpoint: its entire
+committed history, with no viewport height limit, followed by a bounded scene.
+The gallery test and the lab discover the same modules, order fixtures by
+name, and fail when two fixtures share a name, because a name is the identity
+of its snapshots.
+
+`fixture.ts` owns the widths. Every fixture is checked at 40, 80, 120, and 200
+columns and at each width it snapshots. A settled document is snapshot at 40,
+80, and 120 unless it declares its own widths — those its mock draws, or 200
+where its painting there differs — and a live fixture at all four widths by 16
+and 24 rows. At every checked size, `gallery.test.ts` holds each fixture to
+the width, whitespace, copyable-value, color, ASCII, unbounded, and height
+invariants this document states, and fails on a snapshot file with no fixture
+size behind it.
 
 Scenarios that go wrong are drawn from one shared stress data set — qualified
 names across every extension type, a scope too long for its lane, absolute
 paths, reasons that run to several sentences, and a command a reader copies
 out — so layout is reviewed where it has to choose between the information a
-ledger carries and the columns it lays out. Those frames add a hundred columns
-to the widths above, the width a working terminal usually has. A live scene is
-reviewed over time as well as in one frame: a sequence of scenes cut from one
-recorded event log shows the same operation starting, settling work, failing,
-and advancing phases. Committed lines remain present at later checkpoints. A fixture drawn from the design canvas is named
+ledger carries and the columns it lays out. Those frames are also snapshot at
+a hundred columns, the width a working terminal usually has. A live scene is
+reviewed over time as well as in one frame: a sequence of transcript
+checkpoints cut from one recorded event log shows the same operation starting,
+settling work, failing, and advancing phases, with committed lines still
+present at later checkpoints. A fixture drawn from the design canvas is named
 `<board>--<frame>`, so its snapshots can be held against the mock they
 implement. Retained alternatives are separate fixtures only while they remain
 useful review scenarios; superseded or semantically duplicate variants are
 removed. A design change is reviewed by its snapshot diff.
 
-```bash
-pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>
-```
+## Renderer conformance
+
+The renderer conformance suite in `apps/cli/src/test-support/conformance/` is
+the acceptance gate for any painter behind the `Doc` seam. It runs each
+registered `Painter` — today the production painter alone — over every settled
+gallery document and recorded install event logs, and requires the
+`every-node` fixture to cover every node kind and non-text painter fact, so a
+new node kind cannot land without the gallery showing it. The
+[CLI live-event contract](../decisions/cli-live-event-contract.md) owns what
+the suite asserts and why the seam is held this way.
+
+## Design tools
+
+These are review aids, not evidence; the
+[edit-loop targets](../../guides/repository-task-interface.md#edit-loop-targets)
+describe how they run.
 
 `cli:test:screen` runs the screen's own tests, the gallery, and renderer
-conformance from source in a few seconds, for the edit loop of terminal work.
-It waits on no build and writes no receipts; `cli:test` remains the evidence.
+conformance from source in a few seconds.
+
+The lab, `apps/cli/scripts/lab.ts`, is a never-published Effect CLI run from
+source by `cli:lab`. `lab list` names the fixtures; `lab gallery` paints them
+at the current terminal size or at a given width and live-scene height, with
+`--ascii` and `--plain` for the ASCII glyph set and no color. `lab ask` drives
+one sample question in process: each key of a step script goes through the
+question's own reducer, and the state is painted as the live region paints it,
+controls under the question's short label without the context committed above
+them — after the last step, or after every step with `--frames` — followed by
+the submission or cancellation the keys reached. A resize step repaints the same
+state in the new space; an `await:` step needs a running CLI and is refused.
+Like the gallery, the lab reaches no terminal.
+
+`cli-e2e:preview` shows the CLI itself while it is being changed. It runs the
+CLI from source under a pseudo-terminal of a given size, with an empty home
+and workspace unless they are named, replays a step script, and prints the
+replayed screen after the last step, or after every step with `--frames`.
+
+Both take the one step grammar defined in `@agentxm/test-support/key-steps`:
+steps separated by commas, `await:<text>`, `type:<text>`,
+`size:<columns>x<rows>`, and keys by name such as `down*3`. Each named key
+carries both the bytes a terminal sends and the key readline decodes them as,
+so a script presses the same keys under the pseudo-terminal and in process.
 
 ```bash
 pnpm exec nx run cli:test:screen
+pnpm exec nx run cli:lab -- gallery --name <fixture> --width <columns> --rows <rows>
+pnpm exec nx run cli:lab -- ask toolkit --size 80x24 --steps "down*2,space,type:re" --frames
+pnpm exec nx run cli-e2e:preview -- --size 100x40 \
+  --steps "await:type to filter,down*2,space" -- skills install <source> --agent claude-code
 ```
 
 ## Terminal evidence
@@ -383,14 +436,14 @@ The gallery paints pure functions, so it reaches every state a scene or prompt
 can hold but none of the terminal itself. Raw mode, key decoding, and the
 cleanup that follows an interrupt exist only when stdin is a terminal, and a
 prompt that leaves raw mode on or the cursor hidden breaks the shell it
-returns to. The pseudo-terminal harness in `apps/cli-e2e/src/pty.ts` is where
-that evidence comes from: it runs the built artifact under a real terminal of
-a declared size, replays a script of waits and key writes against it, and
-reports exact bytes and resize points together with whether raw mode was
-handed back and the cursor left visible. Headless terminal replay interprets
-those bytes into the visible buffer and scrollback; merely stripping ANSI
-would incorrectly count erased text as retained history. Each interaction kind proves its keys there; the states
-it can be in are proved in the gallery.
+returns to. The pseudo-terminal harness in `apps/cli-e2e/src/pty.ts` runs the
+built artifact under a real terminal of a declared size, replays waits and key
+writes against it, and reports the exact bytes and resize points with whether
+raw mode was handed back and the cursor left visible. Each interaction kind
+proves its keys there; its states are proved in the gallery. Screen evidence
+interprets those bytes with the headless terminal replay in
+`@agentxm/test-support/terminal-replay`, because stripping ANSI would count
+erased text as retained history.
 
 The harness needs a pseudo-terminal, which the toolchain supplies on POSIX
 only, so it runs on macOS and Linux and skips on Windows. Windows key decoding
@@ -398,18 +451,6 @@ stays a reviewed expectation of the matrix below rather than an automated one.
 
 ```bash
 pnpm exec nx run cli-e2e:e2e-main
-```
-
-The same harness shows a change while it is being made. `cli-e2e:preview` runs
-the CLI from source under a pseudo-terminal of a given size, replays a step
-script — `await:<text>`, `type:<text>`, `size:<columns>x<rows>`, and keys by
-name such as `down*3` — and prints the replayed screen after the last step, or
-after every step with `--frames`. The run gets an empty home and workspace
-unless they are named. It is a review aid, not evidence: nothing asserts on it.
-
-```bash
-pnpm exec nx run cli-e2e:preview -- --size 100x40 \
-  --steps "await:type to filter,down*2,space" -- skills install <source> --agent claude-code
 ```
 
 ## Supported terminals
@@ -421,7 +462,7 @@ pnpm exec nx run cli-e2e:preview -- --size 100x40 \
 | VS Code integrated terminal | Full support; narrow panes trigger the responsive layout                                                               |
 | Warp                        | Full support; the live scene does not fight the block model                                                            |
 | Windows Terminal            | Full support with the Unicode glyph set and key input                                                                  |
-| CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                               |
+| CI logs                     | Plain mode; transcript lines, no cursor movement, no animation, no color unless forced on a terminal                   |
 | Narrow panes                | Ledgers stack when the columns they keep overflow; tables stack below forty; below twenty the painter paints at twenty |
 | Short panes                 | The active region fits; committed history remains in scrollback; unusable controls fail with guidance                  |
 | Piped or redirected streams | Unbounded plain text                                                                                                   |
@@ -435,6 +476,7 @@ warm cache. Startup dominates: the runtime and module loading cost roughly
 250 ms before any command work, so the live frame must appear inside that
 budget and a budget below it requires a startup change, not a presentation
 change. These numbers are a maintained target, not a requirement: the
-diagnostic benchmark under `benchmarks/` measures them, `pnpm bench` runs it
-against the built CLI, and a change that moves the trend is reviewed against
-the target. A required bound would become a performance specification.
+diagnostic benchmark in `benchmarks/cli/time-to-first-output.bench.ts`
+measures them, `pnpm bench` runs it against the built CLI, and a change that
+moves the trend is reviewed against the target. A required bound would become
+a performance specification.

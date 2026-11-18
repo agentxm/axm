@@ -15,7 +15,7 @@ import {
 } from "@agentxm/registry-access/testing";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
+import { makeTestScreen, logsByTag, messages } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { expectRecord, property } from "../../test-support/test-helpers.js";
@@ -29,7 +29,7 @@ const makeLayers = (opts?: {
   readonly revokeFails?: boolean;
   readonly machine?: boolean;
 }) => {
-  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.machine === true });
   const rendererLayer = renderer.layer;
   const rendererState = renderer.state;
   const logs = logsByTag(rendererState);
@@ -129,7 +129,7 @@ describe("auth logout handler", () => {
         yield* handleLogout();
         expect(revokeTokenCalls).toEqual(["axm_ref_existing"]);
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (l) =>
               l._tag === "success" &&
               l.message.includes(REGISTRY_HOST) &&

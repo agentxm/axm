@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -48,7 +48,7 @@ import {
 import { exitCodeFor } from "../../app-error/index.js";
 import { emitPublishResult } from "./result.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import {
   normalizePublishResult,
   publishCause,
@@ -400,7 +400,7 @@ describe("root publish", () => {
 
   describe("human output", () => {
     /** What a person reads on stdout, painted without colour or width limits. */
-    const painted = (state: TestRendererState): ReadonlyArray<string> =>
+    const painted = (state: TestScreenState): ReadonlyArray<string> =>
       state.docs.flatMap((entry) =>
         entry.channel === "stdout"
           ? paintText(entry.doc, { width: "unbounded", colors: false, glyphs: asciiGlyphs })

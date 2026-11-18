@@ -19,12 +19,6 @@ export interface Glyphs {
    */
   readonly hintKeys: Readonly<Record<string, string>>;
   readonly spinner: ReadonlyArray<string>;
-  readonly tree: {
-    readonly branch: string;
-    readonly last: string;
-    readonly pipe: string;
-    readonly space: string;
-  };
   readonly separator: string;
   readonly ellipsis: string;
 }
@@ -55,7 +49,6 @@ export const unicodeGlyphs: Glyphs = {
   arrows: { up: "↑", down: "↓" },
   hintKeys: { arrows: "↑↓", sides: "←→" },
   spinner: ["◒", "◓"],
-  tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
   separator: " · ",
   ellipsis: "…",
 };
@@ -86,7 +79,6 @@ export const asciiGlyphs: Glyphs = {
   arrows: { up: "^", down: "v" },
   hintKeys: { arrows: "up/down", sides: "left/right" },
   spinner: [".."],
-  tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
   separator: " - ",
   ellipsis: "...",
 };

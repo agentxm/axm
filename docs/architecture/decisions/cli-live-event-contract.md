@@ -185,7 +185,7 @@ The renderer conformance suite pairs recorded event logs with golden `Doc`
 fixtures and asserts, for any painter, the width property at 40, 80, 120, and
 200 columns, color and glyph fallbacks, frame and transcript interleaving,
 projector determinism, and interruption restore. A bounded alternative painter
-with a different visual language runs through the same suite behind the same
+with a different visual language ran through the same suite behind the same
 seam.
 
 Spike result: the alternative painter passed the same suite as the
@@ -195,6 +195,14 @@ the suite caught were the alternative's own line-ending and nesting
 mistakes, which the width, color, and glyph checks localized to painter code
 in minutes. A renderer swap is therefore bounded to the painter behind the
 `Doc` seam, and the suite is the acceptance gate for any future one.
+
+## Amendment: spike painter retired
+
+Once the seam was established, the spike painter was retired: it was never a
+product feature, and keeping it meant maintaining a second rendering of every
+node. The suite remains parameterized by its `Painter` interface and runs
+against the production painter alone; a future painter becomes acceptable by
+registering beside it and passing the same suite.
 
 ## Superseded amendment: live ledger
 

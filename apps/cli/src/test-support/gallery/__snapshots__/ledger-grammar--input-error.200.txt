@@ -1,3 +1,0 @@
- ?   Instructions file name ❯ /etc/AGENTS.md
-     Relative to the project root. Created when instruction content is available.
- ▲   Enter a path relative to the project root.

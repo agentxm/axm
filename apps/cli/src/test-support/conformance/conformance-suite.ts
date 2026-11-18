@@ -1,12 +1,12 @@
 /**
  * Renderer conformance suite — the checks any painter of the typed `Doc`
- * tree must pass, expressed as pure functions over painted lines so a test
- * file can register them for the production painter and for an alternative
- * behind the same seam. Every check returns the offending lines (empty when
- * the painter conforms) so a failure names the evidence.
+ * must pass, expressed as pure functions over painted lines and parameterized
+ * by `Painter`, so a test file registers each painter behind the seam. Every
+ * check returns the offending lines (empty when the painter conforms) so a
+ * failure names the evidence.
  */
 
-import { plain, type Doc, type DocNode, type Text, type TreeItem } from "../../screen/doc.js";
+import { plain, type Doc, type DocNode, type Text } from "../../screen/doc.js";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import type { PaintStyle } from "../../screen/paint-text.js";
 import { asciiGlyphs, isHintKeyToken, unicodeGlyphs } from "../../screen/glyphs.js";
@@ -30,13 +30,6 @@ const textOf = (value: Text): string => plain(value);
 const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void): void => {
   const pushText = (value: Text | undefined): void => {
     if (value !== undefined) visit(value, false);
-  };
-  const walkTree = (items: ReadonlyArray<TreeItem>): void => {
-    for (const item of items) {
-      pushText(item.text);
-      pushText(item.detail);
-      if (item.children !== undefined) walkTree(item.children);
-    }
   };
   const walk = (node: DocNode): void => {
     switch (node._tag) {
@@ -109,9 +102,6 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
           pushText(field.label);
           pushText(field.value);
         });
-        return;
-      case "tree":
-        walkTree(node.roots);
         return;
       case "next":
         node.actions.forEach((action) => {
@@ -240,14 +230,6 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       add("span.invert", at, span.invert);
     });
   };
-  const walkTree = (items: ReadonlyArray<TreeItem>, path: string): void => {
-    items.forEach((item, index) => {
-      const at = `${path}[${String(index)}]`;
-      spans(item.text, `${at}.text`);
-      spans(item.detail, `${at}.detail`);
-      if (item.children !== undefined) walkTree(item.children, `${at}.children`);
-    });
-  };
   const walk = (node: DocNode, path: string): void => {
     switch (node._tag) {
       case "headline":
@@ -343,9 +325,6 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
           spans(field.label, `${path}.fields[${String(index)}].label`);
           spans(field.value, `${path}.fields[${String(index)}].value`);
         });
-        return;
-      case "tree":
-        walkTree(node.roots, `${path}.roots`);
         return;
       case "next":
         node.actions.forEach((action, index) => {
@@ -521,7 +500,6 @@ export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "callout",
   "table",
   "fields",
-  "tree",
   "next",
   "summary",
   "section",

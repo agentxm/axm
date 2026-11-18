@@ -3,7 +3,9 @@ import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { Keys, ptyIsSupported, runCliUnderPty, runUnderPty } from "./pty.js";
+import { Keys } from "@agentxm/test-support/key-steps";
+
+import { ptyIsSupported, runCliUnderPty, runUnderPty } from "./pty.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
@@ -195,7 +197,7 @@ describe.skipIf(!ptyIsSupported)("the review gate under a pseudo-terminal", () =
       columns: 100,
       rows: 30,
       env: gateEnv,
-      actions: [{ awaiting: "Apply changes?" }, { send: Keys.interrupt }],
+      actions: [{ awaiting: "Apply changes?" }, { send: Keys.interrupt.sequence }],
     });
 
     expect(result.timedOut, result.transcript).toBe(false);
@@ -237,11 +239,11 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
         rows: 30,
         actions: [
           { awaiting: "Select agents to configure" },
-          { send: Keys.down },
+          { send: Keys.down.sequence },
           { send: "clau" },
-          { send: Keys.space },
-          { send: Keys.escape },
-          { send: Keys.interrupt },
+          { send: Keys.space.sequence },
+          { send: Keys.escape.sequence },
+          { send: Keys.interrupt.sequence },
         ],
       });
 
@@ -293,21 +295,21 @@ describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-ter
       actions: [
         { awaiting: "Select agents to configure" },
         { send: "clau" },
-        { send: Keys.space },
-        { send: Keys.enter },
+        { send: Keys.space.sequence },
+        { send: Keys.enter.sequence },
         { awaiting: "Sync instructions to the selected agents?" },
         { send: "y" },
         { awaiting: "Instructions source" },
         // The caret stops at the last option, so pressing past it lands there.
-        ...Array.from({ length: 8 }, () => ({ send: Keys.down })),
-        { send: Keys.enter },
+        ...Array.from({ length: 8 }, () => ({ send: Keys.down.sequence })),
+        { send: Keys.enter.sequence },
         { awaiting: "Instructions file name" },
         { send: refused },
-        { send: Keys.enter },
+        { send: Keys.enter.sequence },
         { awaiting: "Enter a path relative to the project root." },
-        ...Array.from({ length: refused.length }, () => ({ send: Keys.backspace })),
+        ...Array.from({ length: refused.length }, () => ({ send: Keys.backspace.sequence })),
         { send: "docs/AGENTS.md" },
-        { send: Keys.enter },
+        { send: Keys.enter.sequence },
         { awaiting: "Apply setup?" },
         { send: "n" },
       ],
@@ -436,7 +438,7 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
         columns: 100,
         rows: 30,
         env,
-        actions: [{ awaiting: "Waiting for you to sign in" }, { send: Keys.escape }],
+        actions: [{ awaiting: "Waiting for you to sign in" }, { send: Keys.escape.sequence }],
       });
 
       const [opened] = result.actions;

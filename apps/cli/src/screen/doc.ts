@@ -68,8 +68,9 @@ interface ParagraphNode {
   readonly tone?: Tone;
   /**
    * Set apart at the content edge, past the gutter, the way a `Next` action's
-   * target is: for the one value a sentence above it asks a person to act on,
-   * such as the link a sign-in asks them to open.
+   * target is, and by a blank line from the prose around it: for the one value
+   * a sentence above it asks a person to act on, such as the link a sign-in
+   * asks them to open.
    */
   readonly inset?: true;
 }
@@ -317,17 +318,6 @@ interface FieldsNode {
   readonly fields: ReadonlyArray<Field>;
 }
 
-export interface TreeItem {
-  readonly text: Text;
-  readonly detail?: Text;
-  readonly children?: ReadonlyArray<TreeItem>;
-}
-
-interface TreeNode {
-  readonly _tag: "tree";
-  readonly roots: ReadonlyArray<TreeItem>;
-}
-
 interface NextNode {
   readonly _tag: "next";
   readonly actions: ReadonlyArray<SuggestedAction>;
@@ -342,6 +332,7 @@ interface SummaryNode {
   readonly parts: ReadonlyArray<SummaryPart>;
 }
 
+/** A group of related nodes; the painter sets sibling sections apart by a blank line. */
 interface SectionNode {
   readonly _tag: "section";
   readonly title?: Text;
@@ -358,6 +349,10 @@ interface RawNode {
   readonly content: string;
 }
 
+/**
+ * One blank line inside authored prose. The painter owns the spacing between
+ * result blocks, so a view never uses it to arrange them.
+ */
 interface BlankNode {
   readonly _tag: "blank";
 }
@@ -372,7 +367,6 @@ export type DocNode =
   | CalloutNode
   | TableNode
   | FieldsNode
-  | TreeNode
   | NextNode
   | SummaryNode
   | SectionNode

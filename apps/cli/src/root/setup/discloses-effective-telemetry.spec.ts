@@ -6,7 +6,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach } from "vitest";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { makeSetupSpecContext } from "../../test-support/setup-harness.js";
 import { WorkspaceInitializationInteractionLive } from "../../workspace-initialization-interaction-live.js";
 import { handleSetup } from "../setup.js";
@@ -67,7 +67,7 @@ describe("Early telemetry disclosure", () => {
     );
   });
   it.effect.each(cases)("confirmation: $notice", ({ environment, notice }) => {
-    const renderer = TestRenderer.make();
+    const renderer = makeTestScreen();
     const layer = WorkspaceInitializationInteractionLive.pipe(Layer.provide(renderer.layer));
     return Effect.gen(function* () {
       const interaction = yield* WorkspaceInitializationInteraction;

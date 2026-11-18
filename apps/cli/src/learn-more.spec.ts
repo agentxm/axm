@@ -7,7 +7,7 @@ import { Command } from "effect/cli";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { HELP_TOPIC_DESCRIPTIONS } from "./root/help/help-topic-descriptions.js";
 import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./root/help/command.js";
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen, tables } from "./test-support/test-screen.js";
 import { paintText } from "./screen/index.js";
 
 export const specification = defineSpecification({
@@ -54,7 +54,7 @@ const learnMoreOf = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, Le
 describe("LEARN MORE footers", () => {
   it.effect("uses canonical index descriptions and command-owned contextual link text", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       yield* handleHelpPath([], Command.make("axm")).pipe(Effect.provide(renderer.layer));
       expect(
         paintText(
@@ -67,10 +67,10 @@ describe("LEARN MORE footers", () => {
           { width: "unbounded", colors: false },
         )[0],
       ).toBe("Next");
-      expect(renderer.state.tables[0]?.items).toEqual(
+      expect(tables(renderer.state)[0]?.rows).toEqual(
         ORDERED_TOPIC_NAMES.map((topic) => ({
-          topic,
-          description: HELP_TOPIC_DESCRIPTIONS[topic],
+          Topic: topic,
+          Description: HELP_TOPIC_DESCRIPTIONS[topic],
         })),
       );
       for (const description of Object.values(HELP_TOPIC_DESCRIPTIONS))

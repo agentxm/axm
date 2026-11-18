@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,11 +13,11 @@ import {
 } from "../../test-support/test-stubs.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import { handleList } from "./command.js";
 
 /** What a person reads, painted without colour or width limits. */
-const painted = (state: TestRendererState): ReadonlyArray<string> =>
+const painted = (state: TestScreenState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
 const listAll = { types: [], outdated: false, deprecated: false, archived: false } as const;

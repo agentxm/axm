@@ -20,7 +20,7 @@ import {
   promptRequired,
   type AskFailure,
 } from "../screen/index.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { InstallSelectionLive } from "./extension-selection-interaction-live.js";
 
 const candidate = (name: string): InstallSelectionCandidate => ({
@@ -35,7 +35,7 @@ const first = candidate("inspect-patch");
 const second = candidate("draft-release");
 
 const harness = () => {
-  const renderer = TestRenderer.make();
+  const renderer = makeTestScreen();
   return {
     layer: InstallSelectionLive.pipe(Layer.provide(renderer.layer)),
     state: renderer.state,
@@ -87,7 +87,7 @@ describe("InstallSelectionLive", () => {
 
   it.effect("carries a closed prompt's own usage guidance to the boundary", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const closed = Layer.succeed(Screen, {
         ...screen,
@@ -139,7 +139,7 @@ describe("InstallSelectionLive", () => {
     },
   ])("reports $failure as an internal failure with the port's wording", ({ failing, detail }) =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = yield* failing;
       const error = yield* Effect.gen(function* () {

@@ -30,6 +30,7 @@ import type { NewExtensionArgs } from "../shared/create-extension-command.js";
 import { handlePacksNew } from "./new.js";
 
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
+import { ledgerRows } from "../../test-support/test-screen.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -130,7 +131,7 @@ describe("packs-new.handler", () => {
           expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 
           expect(logs.success).toContain("Created 1 pack");
-          expect(rendererState.summaries).toContain(
+          expect(ledgerRows(rendererState)).toContain(
             "@acme/packs/frontend-tools   0.0.1   created   1 file, packs/frontend-tools/pack.json, axm.json",
           );
           expect(rendererState.suggestions).toEqual([

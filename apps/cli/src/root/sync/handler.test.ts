@@ -7,7 +7,7 @@ import {
   LockfileSchema,
   parseLockfileToml,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits, messages } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -2251,7 +2251,9 @@ describe("root sync handler", () => {
       expect(planResultUnits(result)).toMatchObject([
         { label: "instruction files", state: "ready" },
       ]);
-      const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
+      const rendered = messages(rendererState)
+        .map((entry) => entry.message)
+        .join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");
       expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
     }),

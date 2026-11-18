@@ -17,7 +17,7 @@ import type {
   JsonSubcommandDoc,
 } from "../../cli-runtime/index.js";
 import { learnMoreRows } from "../../formatter.js";
-import type { Doc, Field, Span, Text } from "../../screen/index.js";
+import type { Doc, DocNode, Field, Span, Text } from "../../screen/index.js";
 
 const heading = (title: string): Text => [{ text: title, bold: true, tone: "neutral" }];
 
@@ -39,11 +39,6 @@ const namesRow = (
 
 const fieldsNode = (fields: ReadonlyArray<Field>): Doc =>
   fields.length === 0 ? [] : [{ _tag: "fields", fields }];
-
-const joinSections = (sections: ReadonlyArray<Doc>): Doc =>
-  sections
-    .filter((section) => section.length > 0)
-    .flatMap((section, index) => (index === 0 ? section : [{ _tag: "blank" }, ...section]));
 
 const learnMoreDoc = (learnMore: string | undefined): Doc => {
   if (learnMore === undefined || learnMore === "") return [];
@@ -192,7 +187,8 @@ const rootHelpDoc = (doc: JsonHelpDoc): Doc => {
     (label === LEADING_GROUP ? leadingGroups : trailingGroups).push(rendered);
   }
 
-  return joinSections([
+  // Each part is a section or none at all; the painter sets sibling sections apart.
+  const parts: ReadonlyArray<Doc> = [
     brandingDoc,
     section("USAGE", [
       { _tag: "paragraph", text: invocation(doc.usage.replace("<subcommand>", "<command>")) },
@@ -207,7 +203,8 @@ const rootHelpDoc = (doc: JsonHelpDoc): Doc => {
     ),
     outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
-  ]);
+  ];
+  return parts.flat();
 };
 
 // ---------------------------------------------------------------------------
@@ -235,8 +232,9 @@ const flagFields = (flags: ReadonlyArray<JsonFlagDoc>): ReadonlyArray<Field> =>
     value: parameterHelpLine(flag),
   }));
 
-const commandHelpSections = (doc: JsonHelpDoc): Doc =>
-  joinSections([
+const commandHelpSections = (doc: JsonHelpDoc): Doc => {
+  // Each part is a section or none at all; the painter sets sibling sections apart.
+  const parts: ReadonlyArray<Doc> = [
     doc.description === ""
       ? []
       : section("DESCRIPTION", [{ _tag: "paragraph", text: doc.description }]),
@@ -266,17 +264,22 @@ const commandHelpSections = (doc: JsonHelpDoc): Doc =>
     ),
     section(
       "EXAMPLES",
-      (doc.examples ?? []).flatMap((example, index): Doc => [
-        ...(index > 0 ? [{ _tag: "blank" } as const] : []),
-        ...(example.description === undefined
-          ? []
-          : [{ _tag: "paragraph", tone: "dim", text: `# ${example.description}` } as const]),
-        { _tag: "paragraph", text: invocation(example.command) },
-      ]),
+      // Each example is its own group, so the painter sets one apart from the next.
+      (doc.examples ?? []).map((example): DocNode => ({
+        _tag: "section",
+        children: [
+          ...(example.description === undefined
+            ? []
+            : [{ _tag: "paragraph", tone: "dim", text: `# ${example.description}` } as const]),
+          { _tag: "paragraph", text: invocation(example.command) },
+        ],
+      })),
     ),
     outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
-  ]);
+  ];
+  return parts.flat();
+};
 
 /**
  * Root help describes the tool; command help describes one executable path.

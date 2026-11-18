@@ -16,7 +16,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { handleListTokens, TokenListDocumentSchema } from "./token.js";
 import { withCommandRoute } from "../../test-support/test-helpers.js";
 
@@ -55,7 +55,7 @@ describe("Token inventory", () => {
       expiresAt: expiry,
       lastUsedAt: null,
     }));
-    const renderer = TestMachineRenderer.make();
+    const renderer = makeTestScreen({ machine: true });
     const requests: Array<{ readonly limit?: number; readonly cursor?: string } | undefined> = [];
     const ports = Layer.mergeAll(
       WorkloadCredentialsTest(),
@@ -139,7 +139,7 @@ describe("Token inventory", () => {
               lastUsedAt: null,
               token: "fixture-hidden-secret",
             };
-            const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
+            const renderer = makeTestScreen({ machine });
             const requests: Array<
               { readonly limit?: number; readonly cursor?: string } | undefined
             > = [];

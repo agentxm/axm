@@ -25,11 +25,7 @@ import {
   NativeWriteAuthorityLive,
   WorkspaceInvariantFactsLive,
 } from "@agentxm/workspace-kernel/projection/live";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  type TestRendererState,
-} from "../../test-support/presenter-test.js";
+import { makeTestScreen, type TestScreenState } from "../../test-support/test-screen.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
@@ -107,7 +103,7 @@ describe("axm lint handler", () => {
   };
 
   /** What one stream received, painted in plain ASCII at unbounded width. */
-  const printed = (state: TestRendererState, channel: "stdout" | "stderr"): string =>
+  const printed = (state: TestScreenState, channel: "stdout" | "stderr"): string =>
     state.docs
       .filter((entry) => entry.channel === channel)
       .flatMap((entry) =>
@@ -116,7 +112,7 @@ describe("axm lint handler", () => {
       .join("\n");
 
   const makeLayers = (opts?: { machine?: boolean; quiet?: boolean; verbose?: boolean }) => {
-    const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+    const renderer = makeTestScreen({ machine: opts?.machine === true });
     const baseLayer = Layer.mergeAll(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       makeArtifactHttpClientLayer(globalThis.fetch),

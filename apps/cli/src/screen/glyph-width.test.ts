@@ -32,10 +32,6 @@ const eastAsianWidth = {
   "●": "ambiguous", // ● BLACK CIRCLE
   "◯": "ambiguous", // ◯ LARGE CIRCLE
   "·": "ambiguous-inline", // · MIDDLE DOT
-  "├": "ambiguous-inline", // ├ BOX DRAWINGS LIGHT VERTICAL AND RIGHT
-  "─": "ambiguous-inline", // ─ BOX DRAWINGS LIGHT HORIZONTAL
-  "└": "ambiguous-inline", // └ BOX DRAWINGS LIGHT UP AND RIGHT
-  "│": "ambiguous-inline", // │ BOX DRAWINGS LIGHT VERTICAL
   "←": "ambiguous-inline", // ← LEFTWARDS ARROW
   "→": "ambiguous-inline", // → RIGHTWARDS ARROW
   "↑": "ambiguous-inline", // ↑ UPWARDS ARROW
@@ -47,7 +43,7 @@ type WidthClass = "neutral" | "ambiguous" | "ambiguous-inline";
 
 const isSevenBit = (glyph: string): boolean => /^[\x20-\x7e]*$/u.test(glyph);
 
-/** Every character of a glyph, dropping the padding spaces a connector carries. */
+/** Every character of a glyph, dropping the padding spaces a separator carries. */
 const characters = (glyph: string): ReadonlyArray<string> =>
   [...glyph].filter((character) => character !== " ");
 
@@ -69,7 +65,6 @@ const gutterMarks = (glyphs: Glyphs): ReadonlyArray<string> => [
 
 /** The glyphs a set paints inside a line's content, beside text. */
 const inlineGlyphs = (glyphs: Glyphs): ReadonlyArray<string> => [
-  ...Object.values(glyphs.tree),
   glyphs.separator,
   glyphs.ellipsis,
   ...Object.values(glyphs.arrows),

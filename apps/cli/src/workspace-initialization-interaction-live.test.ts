@@ -8,7 +8,7 @@ import * as Result from "effect/Result";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "./cli-flags/index.js";
 import { plain, Screen, OutputWriteFailed, type Ask } from "./screen/index.js";
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
@@ -16,7 +16,7 @@ import {
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 
 const makeHarness = Effect.sync(() => {
-  const renderer = TestRenderer.make();
+  const renderer = makeTestScreen();
   const layer = Layer.mergeAll(
     renderer.layer,
     Layer.succeed(nonInteractiveFlag, Option.some(false)),
@@ -87,7 +87,7 @@ const selectSource = Effect.gen(function* () {
 describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("keeps a failed setup prompt distinct from a cancelled prompt", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
       const layer = Layer.provide(

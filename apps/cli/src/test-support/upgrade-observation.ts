@@ -13,7 +13,7 @@ import {
   type SubprocessInvocation,
 } from "@agentxm/cli-maintenance/self-update/testing/native";
 import { makeCliUpgradeExecutionObserver } from "../cli-runtime/upgrade-observation.js";
-import { makeTestScreen, rendered } from "./screen-test.js";
+import { makeTestScreen, rendered } from "./test-screen.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 
 export interface ExternalCommandObservation {
@@ -31,7 +31,7 @@ interface ObservedUpgradeOptions extends UpgradeTrialOptions {
 export const runUpgradeTrial = (options?: ObservedUpgradeOptions) =>
   Effect.gen(function* () {
     const events: Array<OperationEvent> = [];
-    const screen = makeTestScreen();
+    const screen = makeTestScreen({ interactive: true });
     const lifecycle = yield* makeOperationLifecycle({
       name: options?.preview === true ? "Preview AXM upgrade" : "Upgrade AXM",
       mode: options?.preview === true ? "preview" : "apply",

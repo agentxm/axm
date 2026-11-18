@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 
 import { stripTerminalFormatting } from "../../screen/width.js";
 import { paintText } from "../../screen/paint-text.js";
@@ -6,65 +10,100 @@ import { asciiGlyphs } from "../../screen/glyphs.js";
 import type { TerminalSize } from "../../screen/scene.js";
 import { displayWidth } from "../../screen/width.js";
 import { copyableValues } from "../conformance/conformance-suite.js";
-import { paintFixture, type GalleryFixture } from "./fixture.js";
-import { gallery, galleryHeights, galleryWidths } from "./index.js";
+import { loadGallery } from "./discover.js";
+import {
+  checkWidthsOf,
+  galleryHeights,
+  paintFixture,
+  snapshotWidthsOf,
+  type GalleryFixture,
+} from "./fixture.js";
+
+const gallery = await loadGallery();
 
 /**
- * The terminal sizes a fixture is snapshot at: widths for a document, which
- * ignores the height, and widths by heights for a scene.
+ * The terminal sizes for a set of widths: each width for a document, which
+ * ignores the height, and each width by each height for a scene.
  */
-const sizesFor = (fixture: GalleryFixture): ReadonlyArray<TerminalSize> => {
-  const widths = fixture.widths ?? galleryWidths;
-  return fixture._tag === "document"
+const sizesAt = (
+  fixture: GalleryFixture,
+  widths: ReadonlyArray<number>,
+): ReadonlyArray<TerminalSize> =>
+  fixture._tag === "document"
     ? widths.map((columns) => ({ columns, rows: Math.max(...galleryHeights) }))
     : widths.flatMap((columns) => galleryHeights.map((rows) => ({ columns, rows })));
-};
 
-const cases = gallery.flatMap((fixture) =>
-  sizesFor(fixture).map((terminal) => ({
+const labelOf = (fixture: GalleryFixture, terminal: TerminalSize): string =>
+  fixture._tag === "document"
+    ? `${fixture.name}.${String(terminal.columns)}`
+    : `${fixture.name}.${String(terminal.columns)}x${String(terminal.rows)}`;
+
+/** Every size a fixture is checked at, and whether that size also has a snapshot. */
+const cases = gallery.flatMap((fixture) => {
+  const snapshotWidths = new Set(snapshotWidthsOf(fixture));
+  return sizesAt(fixture, checkWidthsOf(fixture)).map((terminal) => ({
     fixture,
     terminal,
-    label:
-      fixture._tag === "document"
-        ? `${fixture.name}.${String(terminal.columns)}`
-        : `${fixture.name}.${String(terminal.columns)}x${String(terminal.rows)}`,
-  })),
-);
+    label: labelOf(fixture, terminal),
+    snapshot: snapshotWidths.has(terminal.columns),
+  }));
+});
+
+const snapshotDirectory = new URL("./__snapshots__/", import.meta.url);
 
 describe("terminal design gallery", () => {
-  it.each(cases)("paints $label within the terminal", async ({ fixture, terminal, label }) => {
-    const lines = paintFixture(fixture, terminal, { colors: false });
-    // A live line that reaches the last column wraps, so a scene stops one short.
-    const history =
-      fixture._tag === "transcript"
-        ? fixture.history
-        : fixture._tag === "document"
-          ? fixture.doc
-          : [];
-    const historyLines = paintText(history, { width: terminal.columns, colors: false }).length;
-    // A copyable value is never cut: it is shown whole and may overflow. A
-    // live scene carries none, so every line of a scene fits.
-    const copyable = copyableValues(history);
-    for (const value of copyable) {
-      expect(
-        lines.some((line) => line.includes(value)),
-        `${label} cut a copyable value: ${value}`,
-      ).toBe(true);
-    }
-    for (const [index, line] of lines.entries()) {
-      const width = index < historyLines ? terminal.columns : terminal.columns - 1;
-      if (!copyable.some((value) => line.includes(value))) {
-        expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
+  it.each(cases)(
+    "paints $label within the terminal",
+    async ({ fixture, terminal, label, snapshot }) => {
+      const lines = paintFixture(fixture, terminal, { colors: false });
+      // A live line that reaches the last column wraps, so a scene stops one short.
+      const history =
+        fixture._tag === "transcript"
+          ? fixture.history
+          : fixture._tag === "document"
+            ? fixture.doc
+            : [];
+      const historyLines = paintText(history, { width: terminal.columns, colors: false }).length;
+      // A copyable value is never cut: it is shown whole and may overflow. A
+      // live scene carries none, so every line of a scene fits.
+      const copyable = copyableValues(history);
+      for (const value of copyable) {
+        expect(
+          lines.some((line) => line.includes(value)),
+          `${label} cut a copyable value: ${value}`,
+        ).toBe(true);
       }
-      expect(line, `${label} trailing whitespace: ${JSON.stringify(line)}`).not.toMatch(/\s$/u);
-    }
-    if (fixture._tag !== "document") {
-      expect(lines.length - historyLines, `${label} active height`).toBeLessThanOrEqual(
-        terminal.rows - 2,
+      for (const [index, line] of lines.entries()) {
+        const width = index < historyLines ? terminal.columns : terminal.columns - 1;
+        if (!copyable.some((value) => line.includes(value))) {
+          expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
+        }
+        expect(line, `${label} trailing whitespace: ${JSON.stringify(line)}`).not.toMatch(/\s$/u);
+      }
+      if (fixture._tag !== "document") {
+        expect(lines.length - historyLines, `${label} active height`).toBeLessThanOrEqual(
+          terminal.rows - 2,
+        );
+      }
+      if (snapshot) {
+        await expect(`${lines.join("\n")}\n`).toMatchFileSnapshot(`./__snapshots__/${label}.txt`);
+      }
+    },
+  );
+
+  it.effect("keeps a snapshot file only for a fixture size that is snapshot", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const expected = new Set(
+        cases.flatMap(({ label, snapshot }) => (snapshot ? [`${label}.txt`] : [])),
       );
-    }
-    await expect(`${lines.join("\n")}\n`).toMatchFileSnapshot(`./__snapshots__/${label}.txt`);
-  });
+      const present = yield* fs.readDirectory(yield* path.fromFileUrl(snapshotDirectory));
+      expect(present.filter((file) => !expected.has(file)).sort(), "orphaned snapshots").toEqual(
+        [],
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it("preserves every committed line when an active transcript exceeds the viewport", () => {
     for (const fixture of gallery) {
@@ -78,7 +117,7 @@ describe("terminal design gallery", () => {
   });
 
   it.each(gallery)("paints $name identically with color on and off", (fixture) => {
-    for (const terminal of sizesFor(fixture)) {
+    for (const terminal of sizesAt(fixture, checkWidthsOf(fixture))) {
       const plain = paintFixture(fixture, terminal, { colors: false }).join("\n");
       const colored = paintFixture(fixture, terminal, { colors: true }).join("\n");
       expect(stripTerminalFormatting(colored)).toBe(plain);
@@ -93,8 +132,8 @@ describe("terminal design gallery", () => {
     );
     for (const line of lines) {
       // Content may carry non-ASCII text (names, wide characters, em dashes);
-      // the painter's own glyphs, connectors, and separators must not.
-      expect(line).not.toMatch(/[✔▲✖●↶◒◓◉◯◪❯├└│·↑↓]/u);
+      // the painter's own glyphs and separators must not.
+      expect(line).not.toMatch(/[✔▲✖●↶◒◓◉◯◪❯·↑↓]/u);
     }
   });
 

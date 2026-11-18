@@ -115,13 +115,11 @@ const terminalSignInBrief = (handoff: {
   readonly userCode: string;
 }): Doc => [
   { _tag: "paragraph", text: "To sign in, open this link in a browser:" },
-  { _tag: "blank" },
   {
     _tag: "paragraph",
     inset: true,
     text: [{ text: handoff.verificationUriComplete, copyable: true }],
   },
-  { _tag: "blank" },
   {
     _tag: "paragraph",
     text: [
@@ -130,7 +128,6 @@ const terminalSignInBrief = (handoff: {
       { text: "." },
     ],
   },
-  { _tag: "blank" },
   { _tag: "next", actions: [codeEntryPageAction(handoff)] },
 ];
 

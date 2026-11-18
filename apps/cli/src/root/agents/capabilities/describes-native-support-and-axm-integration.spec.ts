@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
-import { TestMachineRenderer } from "../../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../../test-support/test-screen.js";
 import { AgentCapabilitiesOutputSchema, handleAgentsCapabilities } from "../capabilities.js";
 
 export const specification = defineSpecification({
@@ -50,7 +50,7 @@ export const specification = defineSpecification({
 /** Run the report for one agent and decode the machine document it emitted. */
 const reportFor = (agentId: string) =>
   Effect.gen(function* () {
-    const renderer = TestMachineRenderer.make();
+    const renderer = makeTestScreen({ machine: true });
     yield* handleAgentsCapabilities(agentId).pipe(
       Effect.provide(Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer())),
     );

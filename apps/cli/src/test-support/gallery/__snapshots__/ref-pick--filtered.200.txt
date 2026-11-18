@@ -1,8 +1,0 @@
- ?   Which extensions should be installed?  re
-   ◪ Skills                        1 of 2 shown
- ❯ ◉   code-review                 Reviews a diff before you open a pull request
-   ◯   changelog                   Drafts release notes from merged work
-   ◯ Subagents                     0 of 2 shown
-   ◯   reviewer                    A second reader for risky changes
-   ◯   planner                     Breaks a goal into ordered tasks
-2 of 6 selected (1 hidden) · 4 shown · ^a all shown · esc clears the filter

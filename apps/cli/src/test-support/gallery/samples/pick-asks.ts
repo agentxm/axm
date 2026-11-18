@@ -1,7 +1,8 @@
-import { pickAsk, type AskKey, type PickOption } from "../../../screen/ask/ask.js";
+import { pickAsk, type PickOption } from "../../../screen/ask/ask.js";
 import { initialPickState, reducePick, type PickState } from "../../../screen/ask/pick.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { selectAgentsAsk } from "../../../workspace-initialization-interaction-live.js";
+import { askKeys } from "../drive-ask.js";
 
 const skill = (title: string, description: string, selected?: true): PickOption<string> => ({
   title,
@@ -43,15 +44,9 @@ export const agentsPick = selectAgentsAsk({
   configuredIds: [],
 });
 
-const press = (name: string): AskKey => ({
-  name,
-  ...(name.length === 1 ? { char: name } : {}),
-  ctrl: false,
-});
-
-/** Where `keys` leave the toolkit list, from where it opens. */
-export const toolkitAfter = (keys: ReadonlyArray<string>): PickState =>
-  keys.reduce((state, name) => {
-    const action = reducePick(toolkitPick, state, press(name));
+/** Where a key-step script, such as `down*3`, leaves the toolkit list from where it opens. */
+export const toolkitAfter = (script: string): PickState =>
+  askKeys(script).reduce((state, key) => {
+    const action = reducePick(toolkitPick, state, key);
     return action._tag === "Next" ? action.state : state;
   }, initialPickState(toolkitPick));

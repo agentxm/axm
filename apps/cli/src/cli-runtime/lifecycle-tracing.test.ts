@@ -16,7 +16,7 @@ import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Tracer from "effect/Tracer";
 import { withLiveOperation } from "../operation-lifecycle.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { TraceInvocation, type InvocationTraceAttributes } from "./trace-invocation.js";
 
 const recording = () => {
@@ -38,7 +38,7 @@ describe("Lifecycle trace projection", () => {
     () =>
       Effect.gen(function* () {
         const recorded = recording();
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         yield* withLiveOperation(
           {
             name: "private-registry-host/private-extension",
@@ -88,7 +88,7 @@ describe("Lifecycle trace projection", () => {
       Effect.gen(function* () {
         const recorded = recording();
         const work: Array<{ fact: WorkFact; parent: Tracer.AnySpan | undefined }> = [];
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         const ready = yield* Deferred.make<void>();
         const fiber = yield* withLiveOperation(
           { name: "private-operation", mode: "apply" },
@@ -150,7 +150,7 @@ describe("Lifecycle trace projection", () => {
   it.effect("does not attach the diagnostic observer while tracing is disabled", () =>
     Effect.gen(function* () {
       const recorded = recording();
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       yield* withLiveOperation(
         { name: "private-operation", mode: "query" },
         publishPhaseStarted("planning"),

@@ -30,6 +30,7 @@ import type { NewExtensionArgs } from "../shared/create-extension-command.js";
 import { handleSkillsNew } from "./new.js";
 
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
+import { ledgerRows } from "../../test-support/test-screen.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -141,7 +142,7 @@ describe("skills-new.handler", () => {
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
           expect(logs.success).toEqual(["Created 1 skill"]);
-          expect(rendererState.summaries.some((m) => m.includes("@acme/skills/my-skill"))).toBe(
+          expect(ledgerRows(rendererState).some((m) => m.includes("@acme/skills/my-skill"))).toBe(
             true,
           );
           // Skills are symlinked into every agent dir on creation, so edits to

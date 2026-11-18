@@ -13,7 +13,7 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages } from "../../test-support/test-screen.js";
 import { handleWhoami, WhoamiDocumentSchema } from "./whoami.js";
 
 export const specification = defineSpecification({
@@ -58,7 +58,7 @@ describe("Safe effective identity", () => {
         `reports ${machine ? "machine" : "human"} identity with ${expiresAt ?? "unavailable"} expiry`,
         () =>
           Effect.gen(function* () {
-            const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
+            const renderer = makeTestScreen({ machine });
             const registryLayer = RegistryContextTest(registry);
             const authLayer = AuthClientTest({
               // The transport carries the credential, so the identity read
@@ -97,7 +97,9 @@ describe("Safe effective identity", () => {
               WorkloadCredentialsTest(),
             );
             yield* handleWhoami().pipe(Effect.provide(layer));
-            const output = JSON.stringify(machine ? renderer.state.results : renderer.state.logs);
+            const output = JSON.stringify(
+              machine ? renderer.state.results : messages(renderer.state),
+            );
             for (const secret of [
               "private@example.test",
               "user_01h455vb4pexka56gq5w2r7cpc",
@@ -147,7 +149,7 @@ describe("Safe effective identity", () => {
       `names the trusted publisher behind a workload token in ${machine ? "machine" : "human"} output`,
       () =>
         Effect.gen(function* () {
-          const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
+          const renderer = makeTestScreen({ machine });
           const layer = Layer.mergeAll(
             renderer.layer,
             TestFlagsLayer(),
@@ -175,7 +177,9 @@ describe("Safe effective identity", () => {
             WorkloadCredentialsTest(),
           );
           yield* handleWhoami().pipe(Effect.provide(layer));
-          const output = JSON.stringify(machine ? renderer.state.results : renderer.state.logs);
+          const output = JSON.stringify(
+            machine ? renderer.state.results : messages(renderer.state),
+          );
           expect(output).not.toContain("tpub_01h455vb4pexka56gq5w2r7cpc");
           if (machine) {
             expect(

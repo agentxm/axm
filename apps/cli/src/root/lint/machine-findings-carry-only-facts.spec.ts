@@ -16,7 +16,7 @@ import {
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, callouts } from "../../test-support/test-screen.js";
 import { handleLint } from "./handler.js";
 
 export const specification = defineSpecification({
@@ -85,11 +85,11 @@ describe("Machine lint output", () => {
     cleanups.push(workspace.cleanup);
     // One deterministic violation, so the run has a finding to report.
     workspace.remove(`${CLAUDE_CODE_SKILLS_DIR}/axm`);
-    const renderer = TestMachineRenderer.make();
+    const renderer = makeTestScreen({ machine: true });
 
     return Effect.gen(function* () {
       const suggestionsBefore = renderer.state.suggestions.length;
-      const notesBefore = renderer.state.notes.length;
+      const notesBefore = callouts(renderer.state).length;
 
       yield* Effect.exit(
         handleLint({
@@ -117,7 +117,7 @@ describe("Machine lint output", () => {
       // Machine mode emits no advice on any channel: neither the stdout
       // envelope's suggestions nor a note on the diagnostic stream.
       expect(renderer.state.suggestions.length).toBe(suggestionsBefore);
-      expect(renderer.state.notes.length).toBe(notesBefore);
+      expect(callouts(renderer.state).length).toBe(notesBefore);
       expect(renderer.state.docs).toEqual([]);
     }).pipe(
       Effect.provide(

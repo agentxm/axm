@@ -20,7 +20,7 @@ import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace
 import { handleInstall } from "../root/install/handler.js";
 import type { FirstInstall } from "../root/shared/install-command.js";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
-import type { makeTestScreen } from "./screen-test.js";
+import type { makeTestScreen } from "./test-screen.js";
 import { cliTestBuiltInSources, makeWorkspaceLifecycleTestContext } from "./test-helpers.js";
 
 /** Run each test in a fresh project directory with its own user home. */

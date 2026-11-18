@@ -1,4 +1,4 @@
-import { resolvedUnits, startedUnits } from "../../test-support/presenter-test.js";
+import { resolvedUnits, startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -10,12 +10,12 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import { readMetadataResponse } from "../../test-support/read-harness.js";
 import { handleView } from "./handler.js";
 
 /** The page a person reads, painted without colour or width limits. */
-const painted = (state: TestRendererState): ReadonlyArray<string> =>
+const painted = (state: TestScreenState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
 const initWorkspace = (root: string, registryRoot: string) => {

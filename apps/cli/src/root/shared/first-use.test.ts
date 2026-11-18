@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { WorkspaceInitializationInteractionLive } from "../../workspace-initialization-interaction-live.js";
 import { withFirstUse } from "./first-use.js";
@@ -51,7 +51,7 @@ describe("first use where only the agents are open", () => {
 
   it.effect("asks which agents to configure and installs for the ones picked", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Pick", titles: ["Codex"] });
       const testContext = makeCliTestContext({ screenLayer: screen.layer });
 
@@ -71,7 +71,7 @@ describe("first use where only the agents are open", () => {
 
   it.effect("leaves no workspace behind when the question is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Cancel" });
       const testContext = makeCliTestContext({ screenLayer: screen.layer });
 

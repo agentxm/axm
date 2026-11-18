@@ -11,7 +11,7 @@ import {
   makeTerminalReplay,
   replayBytes,
   terminalTranscript,
-} from "../test-support/terminal-replay.js";
+} from "@agentxm/test-support/terminal-replay";
 
 const active = (text: string, kind: ActiveView["kind"] = "activity"): ActiveView => ({
   owner: Symbol(text),
@@ -41,7 +41,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves interleaved results and diagnostics above active controls", () => {
     const streams = makeRecordingStreams({ stdoutIsTTY: true, stderrIsTTY: true });
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       yield* frame.updateActive(active("Open question", "interaction"));
       yield* frame.stdout("Primary result one\n");
@@ -63,7 +63,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves committed history across replacement, logs and settlement", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       const first = active("Checking sources…");
       yield* frame.stderr("Updating extensions\n");
@@ -82,7 +82,7 @@ describe("Frame transcript ownership", () => {
   it.effect("does not let stale owners remove a newer question", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       const old = active("old", "interaction");
       const current = active("Choose agents", "interaction");
@@ -99,7 +99,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves a transcript longer than the viewport", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay(80, 4);
+      const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
       const frame = yield* Frame;
       h.state.size = { columns: 80, rows: 4 };
       const history = Array.from({ length: 80 }, (_, i) => `Completed phase ${String(i)}`);
@@ -133,7 +133,7 @@ describe("Frame transcript ownership", () => {
     it.effect(`keeps questions usable with ${JSON.stringify(options)}`, () => {
       const h = harness(options);
       return Effect.gen(function* () {
-        const terminal = yield* makeTerminalReplay();
+        const terminal = yield* makeTerminalReplay({ convertEol: true });
         const frame = yield* Frame;
         yield* frame.updateActive(active("Hidden activity"));
         yield* frame.updateActive(active("Answer this question", "interaction"));
@@ -162,7 +162,7 @@ describe("Frame transcript ownership", () => {
         stderrIsTTY: true,
         resize: Stream.fromQueue(resizes),
       });
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       yield* Effect.gen(function* () {
         const frame = yield* Frame;
         yield* frame.stderr("History must survive\n");

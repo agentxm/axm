@@ -21,7 +21,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { captureHelpDoc } from "../../test-support/command-tree-test-helpers.js";
 import { getAppError } from "../../test-support/test-helpers.js";
 import { handleLogin } from "./login.js";
@@ -67,7 +67,7 @@ const inconsistentOptions = [
 describe("Sign-in option validation", () => {
   for (const { name, options } of inconsistentOptions) {
     it.effect(name, () => {
-      const renderer = TestMachineRenderer.make();
+      const renderer = makeTestScreen({ machine: true });
       const deviceFlowStarts: Array<string> = [];
       const ports = Layer.mergeAll(
         renderer.layer,

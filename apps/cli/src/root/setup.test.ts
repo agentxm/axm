@@ -27,7 +27,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
-import { TestMachineRenderer, TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen, messages, ledgerRows, callouts } from "../test-support/test-screen.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -82,7 +82,7 @@ const makeSetupTestContext = (opts?: {
   readonly scope?: "project" | "user";
   readonly renderer?: "text" | "machine";
 }) => {
-  const renderer = opts?.renderer === "machine" ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.renderer === "machine" });
   const selectAgentsOverride = opts?.selectAgents;
   const syncInstructionsOverride = opts?.syncInstructions;
   const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
@@ -226,7 +226,7 @@ describe("setup.handler", () => {
             yield* handleSetup({ scope: "project", agents: ["claude-code"] });
             yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-            const successMessages = rendererState.logs
+            const successMessages = messages(rendererState)
               .filter((entry) => entry._tag === "success")
               .map((entry) => entry.message);
             expect(successMessages).toEqual([
@@ -398,15 +398,15 @@ describe("setup.handler", () => {
 
           // The result ledger names every file the bundled skill occupies:
           // its canonical package, with its version, and the agent's copy.
-          expect(rendererState.summaries).toContainEqual(
+          expect(ledgerRows(rendererState)).toContainEqual(
             `@agentxm/skills/axm   created   ${AXM_SKILL_VERSION}`,
           );
-          expect(rendererState.summaries).toContainEqual(
+          expect(ledgerRows(rendererState)).toContainEqual(
             ".claude/skills/axm   created   Claude Code",
           );
           // Every type Claude Code takes in project scope is supported, and what
           // every agent supports needs no mention.
-          expect(rendererState.notes.map((note) => note.title)).not.toContain(
+          expect(callouts(rendererState).map((callout) => callout.title)).not.toContain(
             "Some extension types are limited in project scope",
           );
         }),
@@ -440,7 +440,7 @@ describe("setup.handler", () => {
             ]);
           }
           expect(bundledSkillInstalled()).toBe(false);
-          expect(rendererState.logs).toEqual([]);
+          expect(messages(rendererState)).toEqual([]);
           expect(rendererState.results).toEqual([]);
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
         }),
@@ -914,7 +914,7 @@ describe("setup.handler", () => {
         expect(unapproved.promptState.presentSetupPlanCalls).toEqual(
           approved.promptState.presentSetupPlanCalls,
         );
-        expect(unapproved.rendererState.logs).toEqual(approved.rendererState.logs);
+        expect(messages(unapproved.rendererState)).toEqual(messages(approved.rendererState));
         expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
       });
@@ -1199,7 +1199,7 @@ describe("setup.handler", () => {
             yes: true,
           }).pipe(Effect.catchCause(() => Effect.void));
 
-          expect(rendererState.logs).toContainEqual({
+          expect(messages(rendererState)).toContainEqual({
             _tag: "error",
             message: "Approval required — no changes applied",
           });
@@ -1305,7 +1305,10 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project" });
 
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
-          expect(rendererState.logs).toContainEqual({ _tag: "warn", message: "Setup cancelled" });
+          expect(messages(rendererState)).toContainEqual({
+            _tag: "warn",
+            message: "Setup cancelled",
+          });
           expect(rendererState.results[0]?.completion).toEqual({
             mode: "apply",
             outcome: "cancelled",
@@ -1420,11 +1423,13 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "user", agents: ["claude-code"] });
 
-          const limits = rendererState.notes.find(
-            (note) => note.title === "Some extension types are limited for this user",
+          const limits = callouts(rendererState).find(
+            (callout) =>
+              callout.tone === "info" &&
+              callout.title === "Some extension types are limited for this user",
           );
-          expect(limits?.message.split("\n").length).toBeGreaterThan(0);
-          expect(limits?.message).not.toMatch(/supports skills/);
+          expect(limits?.body.split("\n").length).toBeGreaterThan(0);
+          expect(limits?.body).not.toMatch(/supports skills/);
         }),
       );
     });
@@ -1609,7 +1614,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          const messageLogs = rendererState.logs.filter((entry) => entry._tag === "message");
+          const messageLogs = messages(rendererState).filter((entry) => entry._tag === "message");
           expect(messageLogs).toEqual([]);
         }),
       );
@@ -1629,7 +1634,7 @@ describe("setup.handler", () => {
           expect(rendererState.docs.slice(before).map((entry) => entry.doc[0]?._tag)).toEqual([
             "headline",
           ]);
-          expect(rendererState.logs.at(-1)?._tag).toBe("success");
+          expect(messages(rendererState).at(-1)?._tag).toBe("success");
         }),
       );
     });
@@ -1643,9 +1648,9 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(rendererState.logs[0]?.message).toMatch(/^Setting up AXM in /);
-          expect(rendererState.summaries).toContainEqual("axm.json   created   ");
-          expect(rendererState.logs).toContainEqual({
+          expect(messages(rendererState)[0]?.message).toMatch(/^Setting up AXM in /);
+          expect(ledgerRows(rendererState)).toContainEqual("axm.json   created   ");
+          expect(messages(rendererState)).toContainEqual({
             _tag: "success",
             message: "Set up AXM for 1 agent",
           });
@@ -1662,10 +1667,10 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(rendererState.logs).toEqual([
+          expect(messages(rendererState)).toEqual([
             { _tag: "success", message: "Set up AXM for 1 agent" },
           ]);
-          expect(rendererState.summaries).toEqual([]);
+          expect(ledgerRows(rendererState)).toEqual([]);
           expect(rendererState.suggestions).toEqual([]);
         }),
       );
@@ -1684,9 +1689,10 @@ describe("setup.handler", () => {
 
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(rendererState.notes).toContainEqual({
+          expect(callouts(rendererState)).toContainEqual({
+            tone: "info",
             title: "Existing subagent files were left as they are",
-            message: "Claude Code: 1 file in .claude/agents",
+            body: "Claude Code: 1 file in .claude/agents",
           });
         }),
       );

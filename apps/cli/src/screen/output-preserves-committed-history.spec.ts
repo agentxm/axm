@@ -14,7 +14,7 @@ import {
   makeTerminalReplay,
   replayBytes,
   terminalTranscript,
-} from "../test-support/terminal-replay.js";
+} from "@agentxm/test-support/terminal-replay";
 
 export const specification = defineSpecification({
   requirement: "cli/output-preserves-committed-history",
@@ -93,7 +93,7 @@ describe("Committed CLI history", () => {
           ),
         );
         return Effect.gen(function* () {
-          const terminal = yield* makeTerminalReplay(columns, 4);
+          const terminal = yield* makeTerminalReplay({ columns, rows: 4, convertEol: true });
           const screen = yield* Screen;
           const lifecycle = yield* makeOperationLifecycle({
             name: "Updating extensions",

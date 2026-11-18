@@ -57,16 +57,6 @@ const everyNodeDocument: Doc = [
   },
   { _tag: "fields", fields: [{ label: "Owner", value: "@acme" }] },
   {
-    _tag: "tree",
-    roots: [
-      {
-        text: "root",
-        detail: "managed",
-        children: [{ text: "child" }],
-      },
-    ],
-  },
-  {
     _tag: "next",
     actions: [{ description: "Inspect", cmd: "axm list" }],
   },
@@ -187,9 +177,6 @@ describe("paintText", () => {
       "     alpha   ready",
       "",
       "     Owner                         @acme",
-      "",
-      "└─ root  managed",
-      "   └─ child",
       "",
       "Next",
       "     axm list   Inspect",
@@ -770,6 +757,76 @@ describe("paintText", () => {
     });
   });
 
+  describe("vertical spacing", () => {
+    it("sets sibling sections apart and keeps each group's lines together", () => {
+      const groups: Doc = [
+        {
+          _tag: "section",
+          title: "USAGE",
+          children: [{ _tag: "paragraph", text: "axm install <source>" }],
+        },
+        {
+          _tag: "section",
+          title: "EXAMPLES",
+          children: [
+            {
+              _tag: "section",
+              children: [
+                { _tag: "paragraph", tone: "dim", text: "# Install a skill" },
+                { _tag: "paragraph", text: "axm install @acme/skills/review" },
+              ],
+            },
+            {
+              _tag: "section",
+              children: [{ _tag: "paragraph", text: "axm install --all github:acme/x" }],
+            },
+          ],
+        },
+      ];
+      expect(plain(groups, 80)).toEqual([
+        "USAGE",
+        "     axm install <source>",
+        "",
+        "EXAMPLES",
+        "     # Install a skill",
+        "     axm install @acme/skills/review",
+        "",
+        "     axm install --all github:acme/x",
+      ]);
+    });
+
+    it("sets an inset value apart from its prose and the guidance's Next apart too", () => {
+      const guidance: Doc = [
+        { _tag: "paragraph", text: "Open this link:" },
+        { _tag: "paragraph", inset: true, text: "https://agentxm.ai/device" },
+        { _tag: "paragraph", text: "Check the code." },
+        { _tag: "next", actions: [{ description: "Resume", cmd: "axm login" }] },
+      ];
+      expect(plain(guidance, 80)).toEqual([
+        "Open this link:",
+        "",
+        "     https://agentxm.ai/device",
+        "",
+        "Check the code.",
+        "",
+        "Next",
+        "     axm login   Resume",
+      ]);
+    });
+
+    it("keeps an empty state's prose and Next together", () => {
+      const empty: Doc = [
+        { _tag: "paragraph", text: "No extensions installed in this project." },
+        { _tag: "next", actions: [{ description: "Find extensions", cmd: "axm discover" }] },
+      ];
+      expect(plain(empty, 80)).toEqual([
+        "No extensions installed in this project.",
+        "Next",
+        "     axm discover   Find extensions",
+      ]);
+    });
+  });
+
   describe("copyable values", () => {
     const url = "https://agentxm.ai/auth/publish-requests/pubreq_8f3k2q7d1m4x";
 
@@ -835,8 +892,6 @@ describe("paintText", () => {
       " !!  Warning",
       "     Check permissions",
     ]);
-    expect(lines).toContain("`- root  managed");
-    expect(lines).toContain("   `- child");
     expect(lines).toContain("     axm list   Inspect");
   });
 });

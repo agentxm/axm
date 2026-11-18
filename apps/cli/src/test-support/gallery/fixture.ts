@@ -10,13 +10,37 @@ import {
   type TerminalSize,
 } from "../../screen/scene.js";
 
+/**
+ * The widths every fixture is checked at: it fits, leaves no trailing
+ * whitespace, and never cuts a copyable value at each of them, whether or not
+ * it is snapshot there.
+ */
+export const galleryWidths: ReadonlyArray<number> = [40, 80, 120, 200];
+
+/**
+ * The widths a settled document is snapshot at unless it declares its own.
+ * Most documents paint the same at 200 columns as at 120, so a fixture keeps a
+ * 200-column snapshot only when its painting there differs and it says so.
+ */
+const documentSnapshotWidths: ReadonlyArray<number> = [40, 80, 120];
+
+/**
+ * The widths the stress frames are held at. They add the hundred columns a
+ * working terminal actually has, which is where a ledger first has to choose
+ * between the information it carries and the columns it lays out.
+ */
+export const stressWidths: ReadonlyArray<number> = [40, 80, 100, 120, 200];
+
+/** Terminal heights a live scene must fit; settled documents are not height-bound. */
+export const galleryHeights: ReadonlyArray<number> = [16, 24];
+
 /** A settled document: printed once to the transcript and bounded by width only. */
 interface DocumentFixture {
   readonly _tag: "document";
   readonly name: string;
   readonly doc: Doc;
-  /** Widths this fixture is snapshot at, when its mock names its own. */
-  readonly widths?: ReadonlyArray<number>;
+  /** Widths this fixture is snapshot at; `documentSnapshotWidths` by default. */
+  readonly snapshotWidths?: ReadonlyArray<number>;
   /** The glyph set the snapshot is painted with, when its mock draws its own. */
   readonly glyphs?: Glyphs;
 }
@@ -29,8 +53,8 @@ interface SceneFixture {
   readonly _tag: "scene";
   readonly name: string;
   readonly scene: (terminal: TerminalSize) => Doc;
-  /** Widths this fixture is snapshot at, when its mock names its own. */
-  readonly widths?: ReadonlyArray<number>;
+  /** Widths this fixture is snapshot at; `galleryWidths` by default. */
+  readonly snapshotWidths?: ReadonlyArray<number>;
 }
 
 /**
@@ -40,8 +64,8 @@ interface ComposedFixture {
   readonly _tag: "composed";
   readonly name: string;
   readonly scene: Scene;
-  /** Widths this fixture is snapshot at, when its mock names its own. */
-  readonly widths?: ReadonlyArray<number>;
+  /** Widths this fixture is snapshot at; `galleryWidths` by default. */
+  readonly snapshotWidths?: ReadonlyArray<number>;
 }
 
 /** Committed history has no height bound; only the current scene can repaint. */
@@ -53,10 +77,34 @@ export interface TranscriptCheckpoint {
 interface TranscriptFixture extends TranscriptCheckpoint {
   readonly _tag: "transcript";
   readonly name: string;
-  readonly widths?: ReadonlyArray<number>;
+  /** Widths this fixture is snapshot at; `galleryWidths` by default. */
+  readonly snapshotWidths?: ReadonlyArray<number>;
 }
 
 export type GalleryFixture = DocumentFixture | SceneFixture | ComposedFixture | TranscriptFixture;
+
+/**
+ * What a gallery module exports by default. The gallery discovers every
+ * `*.gallery.ts` module under the CLI's sources, so a fixture lives beside the
+ * view it exercises or in this directory, and needs no registration.
+ */
+export class GalleryModule {
+  constructor(readonly fixtures: ReadonlyArray<GalleryFixture>) {}
+}
+
+export const galleryModule = (...fixtures: ReadonlyArray<GalleryFixture>): GalleryModule =>
+  new GalleryModule(fixtures);
+
+const uniqueSorted = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
+  [...new Set(widths)].sort((left, right) => left - right);
+
+/** The widths a fixture is snapshot at. */
+export const snapshotWidthsOf = (fixture: GalleryFixture): ReadonlyArray<number> =>
+  fixture.snapshotWidths ?? (fixture._tag === "document" ? documentSnapshotWidths : galleryWidths);
+
+/** The widths a fixture's invariants are checked at: every gallery width and every snapshot width. */
+export const checkWidthsOf = (fixture: GalleryFixture): ReadonlyArray<number> =>
+  uniqueSorted([...galleryWidths, ...snapshotWidthsOf(fixture)]);
 
 /**
  * Paint a fixture as the terminal would show it. A settled document fills the

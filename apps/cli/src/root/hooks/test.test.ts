@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { humanScreenLayer, makeRecordingStreams } from "../../test-support/screen-harness.js";
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits } from "../../test-support/test-screen.js";
 import { handleHookTest } from "./test.js";
 
 describe("hooks test output", () => {

@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits, messages } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -330,7 +330,9 @@ describe("agents add.handler", () => {
           preview: false,
         });
 
-        expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "success", message: "Configured 1 agent" },
+        ]);
         // --quiet keeps next-step guidance: the filter drops progress and
         // decoration only.
         expect(rendererState.suggestions).toEqual([cursorSuggestion]);
@@ -371,15 +373,15 @@ describe("agents add.handler", () => {
           preview: false,
         });
 
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "error",
           message: "Failed to configure 2 agents",
         });
-        expect(rendererState.logs).not.toContainEqual({
+        expect(messages(rendererState)).not.toContainEqual({
           _tag: "success",
           message: "Configured 1 agent",
         });
-        expect(rendererState.logs).toContainEqual(
+        expect(messages(rendererState)).toContainEqual(
           expect.objectContaining({
             _tag: "error",
             message: expect.stringContaining("Injected review skill materialization failure"),
@@ -466,7 +468,7 @@ describe("agents add.handler", () => {
         });
 
         expect(readConfiguredAgents(homeDir)).toEqual([]);
-        expect(rendererState.logs).toContainEqual(
+        expect(messages(rendererState)).toContainEqual(
           expect.objectContaining({
             _tag: "warn",
             message: expect.stringContaining(
@@ -474,7 +476,7 @@ describe("agents add.handler", () => {
             ),
           }),
         );
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "success",
           message: "No active detected agents to configure",
         });

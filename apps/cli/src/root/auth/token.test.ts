@@ -16,7 +16,7 @@ import {
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages, fieldSets, tables } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-support/test-helpers.js";
@@ -35,7 +35,7 @@ const makeLayers = (opts?: {
   authOverrides?: Parameters<typeof AuthClientTest>[0];
   environment?: Record<string, string>;
 }) => {
-  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.machine === true });
   const interaction = AuthLoginInteractionTest({
     openBrowser: () => Effect.succeed(true),
   });
@@ -135,7 +135,7 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         yield* handleToken({});
         expect(rendererState.credentials).toEqual(["axm_ses_mytoken\n"]);
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([]);
       }),
     );
   });
@@ -209,9 +209,9 @@ describe("auth token handler", () => {
           permission: "publish",
         });
 
-        expect(rendererState.details[0]?.item).toMatchObject({
-          id: "token_123",
-          token: "axmt_created",
+        expect(fieldSets(rendererState)[0]).toMatchObject({
+          ID: "token_123",
+          Token: "axmt_created",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "List tokens", cmd: "axm token list" },
@@ -256,7 +256,7 @@ describe("auth token handler", () => {
 
         expect(rendererState.credentials).toEqual(["axmt_created\n"]);
         expect(rendererState.results).toEqual([]);
-        expect(rendererState.details).toEqual([]);
+        expect(fieldSets(rendererState)).toEqual([]);
         const stderr = rendererState.docs
           .filter((entry) => entry.channel === "stderr")
           .map((entry) => JSON.stringify(entry.doc))
@@ -300,12 +300,12 @@ describe("auth token handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleListTokens({});
-        expect(rendererState.tables[0]?.items).toMatchObject([
+        expect(tables(rendererState)[0]?.rows).toMatchObject([
           {
-            id: "token_123",
-            name: "ci",
-            canDo: "Read extensions — @foo",
-            lastUsedAt: "never",
+            ID: "token_123",
+            Name: "ci",
+            "Can do": "Read extensions — @foo",
+            "Last used": "never",
           },
         ]);
       }),
@@ -376,8 +376,8 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         yield* handleListTokens({});
 
-        expect(rendererState.tables).toEqual([]);
-        expect(rendererState.logs).toEqual([]);
+        expect(tables(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
@@ -413,7 +413,7 @@ describe("auth token handler", () => {
           status: "revoked",
           tokenId: "token_123",
         });
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "success",
           message: "Revoked token token_123. It is refused on its next request.",
         });
@@ -447,7 +447,7 @@ describe("auth token handler", () => {
             tokenId: "token_123",
           },
         });
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([]);
         expect(rendererState.suggestions).toEqual([
           { description: "List remaining tokens", cmd: "axm token list" },
         ]);

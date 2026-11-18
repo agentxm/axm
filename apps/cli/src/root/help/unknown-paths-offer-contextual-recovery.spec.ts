@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { Command } from "effect/cli";
 
 import { handleHelpPath } from "./command.js";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 
 export const specification = defineSpecification({
   requirement: "cli/help/unknown-paths-offer-contextual-recovery",
@@ -41,7 +41,7 @@ describe("Unknown help path recovery", () => {
     it.effect(`${path.join(" ")} offers ${help}`, () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(
-          handleHelpPath(path, root).pipe(Effect.provide(TestRenderer.make().layer)),
+          handleHelpPath(path, root).pipe(Effect.provide(makeTestScreen().layer)),
         );
         expect(error).toMatchObject({
           _tag: "AppError",
@@ -55,7 +55,7 @@ describe("Unknown help path recovery", () => {
   it.effect("a valid alias delegates to canonical command help", () =>
     Effect.gen(function* () {
       const signal = yield* Effect.flip(
-        handleHelpPath(["sk", "install"], root).pipe(Effect.provide(TestRenderer.make().layer)),
+        handleHelpPath(["sk", "install"], root).pipe(Effect.provide(makeTestScreen().layer)),
       );
       expect(signal).toMatchObject({
         _tag: "ShowHelp",

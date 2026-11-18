@@ -23,7 +23,7 @@ import {
   withWorkspace,
 } from "./runtime.js";
 import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js";
-import { makeTestScreen } from "./test-support/screen-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import { localTracingCollector } from "./test-support/local-tracing-collector.js";
 import { withLocalTracing } from "./cli-runtime/index.js";
 

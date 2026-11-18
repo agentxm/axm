@@ -50,11 +50,6 @@ Inventory
                     need wrapping at
                     narrow widths
 
-└─ root  managed
-   ├─ child
-   │  └─ grandchild  leaf
-   └─ sibling
-
 Next
      axm list   Inspect
      https://axm.sh/docs

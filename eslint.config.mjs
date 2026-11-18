@@ -39,6 +39,65 @@ const axmPolicyPlugin = {
         };
       },
     },
+    "no-layout-blank": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          painter:
+            "The painter owns vertical spacing: a blank node only separates two paragraphs of authored prose, never result blocks. Use a section, an inset paragraph, or teach the painter the rule.",
+        },
+      },
+      // A `{ _tag: "blank" }` literal is allowed only as an element of an array
+      // literal whose neighbouring elements are both paragraph literals. Any
+      // other position, such as a conditional spread or a join between
+      // computed groups, arranges blocks the painter spaces itself.
+      create(context) {
+        const unwrap = (node) =>
+          node?.type === "TSAsExpression" || node?.type === "TSSatisfiesExpression"
+            ? unwrap(node.expression)
+            : node;
+        const tagOf = (node) => {
+          const object = unwrap(node);
+          if (object?.type !== "ObjectExpression") return undefined;
+          for (const property of object.properties) {
+            if (
+              property.type === "Property" &&
+              !property.computed &&
+              ((property.key.type === "Identifier" && property.key.name === "_tag") ||
+                (property.key.type === "Literal" && property.key.value === "_tag"))
+            ) {
+              const value = unwrap(property.value);
+              return value?.type === "Literal" ? value.value : undefined;
+            }
+          }
+          return undefined;
+        };
+        const separatesProse = (object) => {
+          let element = object;
+          while (
+            element.parent?.type === "TSAsExpression" ||
+            element.parent?.type === "TSSatisfiesExpression"
+          ) {
+            element = element.parent;
+          }
+          const array = element.parent;
+          if (array?.type !== "ArrayExpression") return false;
+          const index = array.elements.indexOf(element);
+          return (
+            tagOf(array.elements[index - 1]) === "paragraph" &&
+            tagOf(array.elements[index + 1]) === "paragraph"
+          );
+        };
+        return {
+          ObjectExpression(node) {
+            if (tagOf(node) === "blank" && !separatesProse(node)) {
+              context.report({ node, messageId: "painter" });
+            }
+          },
+        };
+      },
+    },
     "no-unbounded-io": {
       meta: {
         type: "problem",
@@ -637,6 +696,11 @@ const testPurposeFiles = [
   // Test support is excluded from every library build and from the published
   // files; what it composes is test wiring, not product code.
   "**/src/**/test-support/**/*.ts",
+  // Gallery fixture modules are discovered by the gallery test and the lab.
+  "**/*.gallery.ts",
+  // The never-published terminal design lab composes the gallery and the
+  // shared key-step grammar from test support.
+  "apps/cli/scripts/lab.ts",
   "**/*.test.ts",
   "**/*.test.tsx",
   "**/*.test.cts",
@@ -829,6 +893,7 @@ export default [
           // they import is a devDependency, not a published one.
           ignoredFiles: [
             "{projectRoot}/src/**/test-support/**/*.ts",
+            "{projectRoot}/src/**/*.gallery.ts",
             "{projectRoot}/src/**/test-helpers.ts",
           ],
         },
@@ -846,6 +911,7 @@ export default [
       "**/src/config.ts",
       "**/src/runtime.ts",
       "**/src/**/test-support/**",
+      "**/*.gallery.ts",
       "**/e2e/**",
       "**/*-e2e/**",
       // Vitest host adapters: the reporters run inside the test runner and
@@ -925,7 +991,7 @@ export default [
     // A command may return a nonzero process outcome or a typed failure.
     // Screen's duplicate-output guard is a true invariant outside this scope.
     files: ["apps/cli/src/root/**/*.ts", "apps/cli/src/cli-runtime/**/*.ts"],
-    ignores: ["**/*.test.ts", "**/*.spec.ts", "**/test-support/**"],
+    ignores: ["**/*.test.ts", "**/*.spec.ts", "**/*.gallery.ts", "**/test-support/**"],
     plugins: {
       "axm-policy": axmPolicyPlugin,
     },
@@ -952,6 +1018,7 @@ export default [
       "**/*.spec.ts",
       "apps/cli-e2e/**",
       "apps/cli/src/test-support/**",
+      "apps/cli/src/**/*.gallery.ts",
       // deterministic archive mtime constant, not a clock read
       "packages/core/workspace-features/src/publishing/archive.ts",
     ],
@@ -1022,6 +1089,7 @@ export default [
       "**/*.test.ts",
       "**/*.spec.ts",
       "**/src/**/test-support/**",
+      "**/*.gallery.ts",
       "**/src/**/test-helpers.ts",
       // Vitest host adapters: the reporters run inside the test runner and
       // read its environment, clock, and output streams directly.
@@ -1099,6 +1167,7 @@ export default [
       // it drives use cases from tests and specifications over the real
       // services or the deterministic ports its dependencies publish.
       "**/src/**/test-support/**",
+      "**/*.gallery.ts",
       "**/src/**/test-helpers.ts",
       "**/__tests__/**",
       ...featureLiveFixtures,
@@ -1225,6 +1294,16 @@ export default [
     files: ["apps/cli/src/root/**/*.ts"],
     ignores: testPurposeFiles,
     rules: { "axm-policy/no-terminal-control-literals": "error" },
+  },
+  {
+    // The painter owns vertical spacing (docs/architecture/commands/terminal-design.md):
+    // views build semantic documents and never space result blocks themselves.
+    files: ["apps/cli/src/**/*.ts"],
+    ignores: testPurposeFiles,
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
+    rules: { "axm-policy/no-layout-blank": "error" },
   },
   {
     files: cliHandlerBoundaryExceptions,

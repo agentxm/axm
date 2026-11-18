@@ -40,11 +40,6 @@ Inventory
      Description                   A field whose value is long enough to need
                                    wrapping at narrow widths
 
-└─ root  managed
-   ├─ child
-   │  └─ grandchild  leaf
-   └─ sibling
-
 Next
      axm list   Inspect
      https://axm.sh/docs

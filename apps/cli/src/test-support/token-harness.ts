@@ -24,7 +24,7 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { CredentialDeliveryFailed, Screen } from "../screen/index.js";
-import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
+import { makeTestScreen } from "./test-screen.js";
 
 const TOKEN_REGISTRY_URL = "https://registry.agentxm.ai";
 export const SESSION_ACCESS_TOKEN = "axm_ses_fixture";
@@ -53,7 +53,7 @@ export interface TokenSpecContextOptions {
 }
 
 export const makeTokenSpecContext = (options: TokenSpecContextOptions = {}) => {
-  const renderer = options.interactive === true ? TestRenderer.make() : TestMachineRenderer.make();
+  const renderer = makeTestScreen({ machine: options.interactive !== true });
   const creations: Array<string> = [];
   const revocations: Array<string> = [];
   const interaction = AuthLoginInteractionTest();

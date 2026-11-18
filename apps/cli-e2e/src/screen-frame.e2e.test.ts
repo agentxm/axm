@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
-import { Keys, ptyIsSupported, runUnderPty } from "./pty.js";
-import { replay } from "./pty-replay.js";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import { Keys } from "@agentxm/test-support/key-steps";
+
+import { ptyIsSupported, replayPtyRun, runUnderPty } from "./pty.js";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/screen-log-frame.mjs", import.meta.url));
 const subject = { runtime: "bun-script", path: fixturePath } as const;
@@ -45,43 +47,55 @@ describe.skipIf(!ptyIsSupported)("screen history under a real pseudo-terminal", 
     [120, 24],
     [200, 4],
   ] as const) {
-    it(`preserves history at ${columns} by ${rows}`, async () => {
-      const result = await runUnderPty(subject, [], { columns, rows, env });
-      expect(result.exitCode, result.transcript).toBe(0);
-      expect(result.output).toContain("\u001b[?25l");
-      expect(result.cursorRestored).toBe(true);
-      expect(result.rawModeRestored).toBe(true);
-      expectHistory(await replay(result, columns, rows));
-    });
+    it.effect(`preserves history at ${columns} by ${rows}`, () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.promise(() =>
+          runUnderPty(subject, [], { columns, rows, env }),
+        );
+        expect(result.exitCode, result.transcript).toBe(0);
+        expect(result.output).toContain("\u001b[?25l");
+        expect(result.cursorRestored).toBe(true);
+        expect(result.rawModeRestored).toBe(true);
+        expectHistory((yield* replayPtyRun(result, columns, rows)).final);
+      }),
+    );
   }
 
   for (const size of [
     { columns: 20, rows: 4 },
     { columns: 1, rows: 1 },
   ]) {
-    it(`preserves history and hands back input after resize to ${size.columns} by ${size.rows}`, async () => {
-      const usable = size.columns >= 20;
-      const result = await runUnderPty(subject, ["question"], {
-        columns: 100,
-        rows: 24,
-        env,
-        actions: [
-          { awaiting: "Keep these changes?" },
-          { resize: size },
-          ...(usable ? [{ send: Keys.enter }] : []),
-        ],
-      });
-      expect(
-        result.actions.every((step) => step.matched),
-        result.transcript,
-      ).toBe(true);
-      expect(result.exitCode, result.transcript).toBe(0);
-      expect(result.rawModeRestored).toBe(true);
-      expect(result.cursorRestored).toBe(true);
-      const text = await replay(result, 100, 24);
-      expectHistory(text);
-      expect(text.replace(/\s+/gu, " ")).toContain("Keep these changes?");
-      expect(text.replace(/\s+/gu, " ")).toContain(usable ? "Changes yes" : "Changes: cancelled");
-    });
+    it.effect(
+      `preserves history and hands back input after resize to ${size.columns} by ${size.rows}`,
+      () =>
+        Effect.gen(function* () {
+          const usable = size.columns >= 20;
+          const result = yield* Effect.promise(() =>
+            runUnderPty(subject, ["question"], {
+              columns: 100,
+              rows: 24,
+              env,
+              actions: [
+                { awaiting: "Keep these changes?" },
+                { resize: size },
+                ...(usable ? [{ send: Keys.enter.sequence }] : []),
+              ],
+            }),
+          );
+          expect(
+            result.actions.every((step) => step.matched),
+            result.transcript,
+          ).toBe(true);
+          expect(result.exitCode, result.transcript).toBe(0);
+          expect(result.rawModeRestored).toBe(true);
+          expect(result.cursorRestored).toBe(true);
+          const text = (yield* replayPtyRun(result, 100, 24)).final;
+          expectHistory(text);
+          expect(text.replace(/\s+/gu, " ")).toContain("Keep these changes?");
+          expect(text.replace(/\s+/gu, " ")).toContain(
+            usable ? "Changes yes" : "Changes: cancelled",
+          );
+        }),
+    );
   }
 });

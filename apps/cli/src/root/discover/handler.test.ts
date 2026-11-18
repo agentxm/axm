@@ -13,7 +13,7 @@ import {
   type RegistryClient,
 } from "@agentxm/registry-client";
 
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits, messages, tables } from "../../test-support/test-screen.js";
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-support/test-helpers.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -162,8 +162,8 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toEqual([]);
-          expect(rendererState.logs).toEqual([]);
+          expect(tables(rendererState)).toEqual([]);
+          expect(messages(rendererState)).toEqual([]);
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
             _tag: "paragraph",
             text: "No dependencies detected in this project.",
@@ -183,8 +183,8 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toEqual([]);
-          expect(rendererState.logs).toEqual([]);
+          expect(tables(rendererState)).toEqual([]);
+          expect(messages(rendererState)).toEqual([]);
           const doc = rendererState.docs.flatMap((entry) => entry.doc);
           expect(doc).toContainEqual({
             _tag: "paragraph",

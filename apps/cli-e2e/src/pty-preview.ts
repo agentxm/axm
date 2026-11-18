@@ -9,9 +9,10 @@
  * The gallery paints every state a prompt can hold from pure functions; this
  * runs the CLI itself from source under a pseudo-terminal of the given size,
  * replays a step script against it, and prints the screen a person would see
- * after the last step — or after every step with `--frames`. Steps are
- * documented in `pty-steps.ts`: `await:<text>`, `type:<text>`,
- * `size:<columns>x<rows>`, and keys by name such as `down*3` or `space`.
+ * after the last step — or after every step with `--frames`. Steps follow the
+ * shared grammar in `@agentxm/test-support/key-steps`: `await:<text>`,
+ * `type:<text>`, `size:<columns>x<rows>`, and keys by name such as `down*3` or
+ * `space`.
  *
  * The run gets an empty home and an empty workspace unless they are named, so
  * a command that writes cannot reach this repository or a real profile.
@@ -23,16 +24,22 @@ import { fileURLToPath } from "node:url";
 
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import { runUnderPty, type PtyAction } from "./pty.js";
-import { replayFrames } from "./pty-replay.js";
-import { parseSteps } from "./pty-steps.js";
+import {
+  describeKeyStep,
+  parseKeySteps,
+  parseTerminalSize,
+  type KeyStep,
+} from "@agentxm/test-support/key-steps";
+
+import { replayPtyRun, runUnderPty, type PtyAction } from "./pty.js";
 
 interface PreviewOptions {
   readonly columns: number;
   readonly rows: number;
-  readonly actions: ReadonlyArray<PtyAction>;
+  readonly steps: ReadonlyArray<KeyStep>;
   readonly frames: boolean;
   readonly workspace: string | undefined;
   readonly home: string | undefined;
@@ -54,7 +61,7 @@ const parsePreviewArguments = (
   let options: PreviewOptions = {
     columns: 100,
     rows: 30,
-    actions: [],
+    steps: [],
     frames: false,
     workspace: undefined,
     home: undefined,
@@ -71,22 +78,14 @@ const parsePreviewArguments = (
     index += 1;
     if (value === undefined) return Result.fail(`${String(flag)} takes a value.`);
     if (flag === "--size") {
-      const [columns, rows, ...rest] = value.split("x").map(Number);
-      if (
-        columns === undefined ||
-        rows === undefined ||
-        rest.length > 0 ||
-        !Number.isInteger(columns) ||
-        !Number.isInteger(rows) ||
-        columns < 1 ||
-        rows < 1
-      )
+      const size = parseTerminalSize(value);
+      if (Option.isNone(size))
         return Result.fail("--size names a terminal as columns by rows, such as 100x40.");
-      options = { ...options, columns, rows };
+      options = { ...options, ...size.value };
     } else if (flag === "--steps") {
-      const actions = parseSteps(value);
-      if (Result.isFailure(actions)) return Result.fail(actions.failure);
-      options = { ...options, actions: actions.success };
+      const steps = parseKeySteps(value);
+      if (Result.isFailure(steps)) return Result.fail(steps.failure);
+      options = { ...options, steps: steps.success };
     } else if (flag === "--workspace") {
       options = { ...options, workspace: path.resolve(value) };
     } else if (flag === "--home") {
@@ -108,12 +107,17 @@ const definedEntries = (env: NodeJS.ProcessEnv): Record<string, string> =>
     Object.entries(env).flatMap(([name, value]) => (value === undefined ? [] : [[name, value]])),
   );
 
-const describeAction = (action: PtyAction): string =>
-  "awaiting" in action
-    ? `await ${JSON.stringify(action.awaiting)}`
-    : "resize" in action
-      ? `size ${String(action.resize.columns)}x${String(action.resize.rows)}`
-      : `send ${JSON.stringify(action.send)}`;
+/** The pseudo-terminal action one step takes: its wait, the bytes its key sends, or its resize. */
+const ptyAction = (step: KeyStep): PtyAction => {
+  switch (step._tag) {
+    case "Await":
+      return { awaiting: step.text };
+    case "Press":
+      return { send: step.key.sequence };
+    case "Resize":
+      return { resize: step.size };
+  }
+};
 
 const preview = (options: PreviewOptions) =>
   Effect.gen(function* () {
@@ -127,7 +131,7 @@ const preview = (options: PreviewOptions) =>
         columns: options.columns,
         rows: options.rows,
         cwd: workspace,
-        actions: options.actions,
+        actions: options.steps.map(ptyAction),
         // A preview is read at its last step; it does not wait for the command to end.
         exitTimeout: 1_000,
         env: {
@@ -141,22 +145,22 @@ const preview = (options: PreviewOptions) =>
         },
       }),
     );
-    const frames = yield* Effect.tryPromise(() =>
-      replayFrames(result, options.columns, options.rows),
-    );
-    const shown = (frame: string): string => frame.replace(/\s+$/u, "");
+    const frames = yield* replayPtyRun(result, options.columns, options.rows);
     if (options.frames) {
-      for (const [index, step] of result.actions.entries()) {
-        yield* Console.log(`── after ${describeAction(step.action)}`);
-        yield* Console.log(shown(frames.afterActions[index] ?? ""));
+      // Each step is one action, and the driver stops at the first wait that
+      // is never shown, so the frames cover the steps up to that one.
+      for (const [index, step] of options.steps.slice(0, frames.afterActions.length).entries()) {
+        yield* Console.log(`── after ${describeKeyStep(step)}`);
+        yield* Console.log(frames.afterActions[index] ?? "");
         yield* Console.log("");
       }
     } else {
-      yield* Console.log(shown(frames.afterActions.at(-1) ?? frames.final));
+      yield* Console.log(frames.afterActions.at(-1) ?? frames.final);
     }
-    const unmatched = result.actions.find((step) => !step.matched);
-    if (unmatched !== undefined) {
-      yield* Console.error(`\nNever shown: ${describeAction(unmatched.action)}`);
+    const unmatched = result.actions.findIndex((step) => !step.matched);
+    const neverShown = options.steps[unmatched];
+    if (neverShown !== undefined) {
+      yield* Console.error(`\nNever shown: ${describeKeyStep(neverShown)}`);
       return 1;
     }
     return 0;

@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
 import { paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { handleRootVersion } from "./command.js";
@@ -54,7 +54,7 @@ describe("version argument grammar", () => {
 });
 
 /** The page a person reads, painted without colour or width limits. */
-const painted = (state: TestRendererState): ReadonlyArray<string> =>
+const painted = (state: TestScreenState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
 /**

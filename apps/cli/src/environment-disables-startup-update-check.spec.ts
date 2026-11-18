@@ -14,7 +14,7 @@ import { rememberLatestRelease } from "@agentxm/cli-maintenance/self-update/appl
 import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { snapshotDirectory } from "@agentxm/cli-maintenance/self-update/testing/native";
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import { withUpdateCheck } from "./update-check-startup.js";
 
 export const specification = defineSpecification({
@@ -63,7 +63,7 @@ const servicesFor = (home: string, value: string, http: HttpClient.HttpClient) =
     httpLayer,
     UpdateCheckCacheLive.pipe(Layer.provide(platform)),
     LatestReleaseCheckLive.pipe(Layer.provide(httpLayer)),
-    TestRenderer.make().layer,
+    makeTestScreen().layer,
   );
 };
 

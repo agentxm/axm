@@ -17,12 +17,7 @@ import {
   type DeviceLoginPendingResult,
   type HumanHandoff,
 } from "@agentxm/registry-access/authentication";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-  startedUnits,
-} from "./test-support/presenter-test.js";
+import { makeTestScreen, logsByTag, startedUnits } from "./test-support/test-screen.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
 import { emitLoginOutcome as emitOutcome } from "./root/auth/login.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
@@ -113,7 +108,7 @@ const loginSuccessSuggestions = [
 ];
 
 const makeHuman = () => {
-  const renderer = TestRenderer.make();
+  const renderer = makeTestScreen();
   const copied: Array<string> = [];
   const dependencies = Layer.merge(
     renderer.layer,
@@ -135,7 +130,7 @@ const makeHuman = () => {
 };
 
 const makeMachine = () => {
-  const renderer = TestMachineRenderer.make();
+  const renderer = makeTestScreen({ machine: true });
   const dependencies = Layer.merge(
     renderer.layer,
     Layer.succeed(DeviceLoginInteraction, noInteraction),
@@ -189,7 +184,7 @@ describe("AuthLoginPresenterLive", () => {
 
   it.effect("propagates a failed pending document as a typed output failure", () =>
     Effect.gen(function* () {
-      const renderer = TestMachineRenderer.make();
+      const renderer = makeTestScreen({ machine: true });
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" });
       const dependencies = Layer.merge(
@@ -206,7 +201,7 @@ describe("AuthLoginPresenterLive", () => {
 
   it.effect("distinguishes failed session-replacement output from prompt cancellation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
       const dependencies = Layer.merge(
@@ -222,7 +217,7 @@ describe("AuthLoginPresenterLive", () => {
   );
   it.effect("keeps unavailable interaction configuration distinct from cancellation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const sourceError = new ConfigProvider.SourceError({ message: "private source detail" });
       const configError = yield* Config.String("CI").pipe(
@@ -274,13 +269,11 @@ describe("AuthLoginPresenterLive", () => {
     const view = handoffWaitView(deviceHandoff);
     expect(view.brief).toEqual([
       { _tag: "paragraph", text: "To sign in, open this link in a browser:" },
-      { _tag: "blank" },
       {
         _tag: "paragraph",
         inset: true,
         text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
       },
-      { _tag: "blank" },
       {
         _tag: "paragraph",
         text: [
@@ -289,7 +282,6 @@ describe("AuthLoginPresenterLive", () => {
           { text: "." },
         ],
       },
-      { _tag: "blank" },
       { _tag: "next", actions: [codeEntryPage] },
     ]);
   });

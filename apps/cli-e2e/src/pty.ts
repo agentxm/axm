@@ -17,34 +17,25 @@
  *
  * What comes back is a transcript, not an emulated screen grid: prompts
  * repaint their whole block, so the frame a key produced is the output that
- * followed it, reported per action as `emitted`.
+ * followed it, reported per action as `emitted`. `replayPtyRun` interprets the
+ * exact bytes with a headless terminal when the screen a person would see is
+ * the evidence.
  */
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { cliArtifact } from "./cli-artifact.js";
+import {
+  makeTerminalReplay,
+  replayBytes,
+  resizeTerminal,
+  terminalTranscript,
+} from "@agentxm/test-support/terminal-replay";
 
-/** Key sequences a terminal sends; the values are what a test writes. */
-export const Keys = {
-  up: "\u001B[A",
-  down: "\u001B[B",
-  right: "\u001B[C",
-  left: "\u001B[D",
-  pageUp: "\u001B[5~",
-  pageDown: "\u001B[6~",
-  home: "\u001B[H",
-  end: "\u001B[F",
-  space: " ",
-  enter: "\r",
-  tab: "\t",
-  backspace: "\u007F",
-  escape: "\u001B",
-  /** Ctrl-C. Raw mode suppresses SIGINT, so this arrives as a byte. */
-  interrupt: "\u0003",
-} as const;
+import { cliArtifact } from "./cli-artifact.js";
 
 /** Wait until the visible transcript contains `awaiting`. */
 const PtyAwaitSchema = Schema.Struct({ awaiting: Schema.String });
@@ -268,3 +259,27 @@ export const runCliUnderPty = (
     },
   });
 };
+
+/**
+ * The screen after each action of a run, in order, and after everything the
+ * subject wrote once the last action had settled. A resize action resizes the
+ * replay terminal before the bytes that followed it are interpreted.
+ */
+export const replayPtyRun = (result: PtyRunResult, columns: number, rows: number) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      // PTY output already carries the line discipline's carriage returns.
+      const terminal = yield* makeTerminalReplay({ columns, rows, convertEol: false });
+      let consumed = 0;
+      const afterActions: Array<string> = [];
+      for (const step of result.actions) {
+        if ("resize" in step.action)
+          yield* resizeTerminal(terminal, step.action.resize.columns, step.action.resize.rows);
+        yield* replayBytes(terminal, step.bytes);
+        consumed += step.bytes.length;
+        afterActions.push(terminalTranscript(terminal));
+      }
+      yield* replayBytes(terminal, result.output.slice(consumed));
+      return { afterActions, final: terminalTranscript(terminal) };
+    }),
+  );

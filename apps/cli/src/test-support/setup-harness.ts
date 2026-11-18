@@ -35,7 +35,7 @@ import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import { TestFlagsLayer } from "../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
+import { makeTestScreen } from "./test-screen.js";
 import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-features/configuration/testing";
@@ -87,7 +87,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
   // home is supplied both ways and restored on cleanup.
   const previousHome = process.env["HOME"];
   process.env["HOME"] = home;
-  const renderer = options.machine === true ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: options.machine === true });
   const interaction = WorkspaceInitializationInteractionTest({
     ...(options.interaction?.selectAgents === undefined
       ? {}

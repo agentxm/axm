@@ -1,8 +1,9 @@
 /**
- * Renderer conformance: the production painter and the alternative painter
- * run through the same suite over the gallery fixtures and the recorded
- * event logs, so a renderer swap behind the `Doc` and event seams is a
- * checked claim rather than an assumption.
+ * Renderer conformance: every registered painter runs through the same suite
+ * over the gallery fixtures and the recorded event logs, so a renderer swap
+ * behind the `Doc` and event seams is a checked claim rather than an
+ * assumption. The production painter is the one registered; another painter
+ * joins by adding a `Painter` row.
  */
 
 import * as fs from "node:fs";
@@ -26,7 +27,7 @@ import {
 
 import type { Doc } from "../../screen/doc.js";
 import { FrameLive } from "../../screen/frame.js";
-import { gallery } from "../gallery/index.js";
+import { loadGallery } from "../gallery/discover.js";
 import { paintText } from "../../screen/paint-text.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
 import { progressActivity } from "../../screen/progress-view.js";
@@ -35,7 +36,6 @@ import { Screen, ScreenLive } from "../../screen/screen.js";
 import { OutputStreams, type OutputWriteFailed } from "../../screen/streams.js";
 import { asciiGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
-import { paintBoxed } from "./alternative-painter.js";
 import {
   asciiViolations,
   colorViolations,
@@ -51,10 +51,8 @@ import {
   type Painter,
 } from "./conformance-suite.js";
 
-const painters: ReadonlyArray<Painter> = [
-  { name: "paintText", paint: paintText },
-  { name: "paintBoxed (alternative)", paint: paintBoxed },
-];
+const painters: ReadonlyArray<Painter> = [{ name: "paintText", paint: paintText }];
+const gallery = await loadGallery();
 
 const recordedDir = fileURLToPath(new URL("./recorded/", import.meta.url));
 const decodeLog = Schema.decodeUnknownSync(Schema.Array(OperationEventSchema));

@@ -1,2 +1,0 @@
- ?   Instructions file name ❯ docs/AGENTS.md
-     Relative to the project root. Created when instruction content is available.

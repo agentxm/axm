@@ -15,6 +15,6 @@
   "recommendedPacks": ["@agentxm/packs/agent-extension-engineering"],
   "standalone": false,
   "publish": {
-    "exclude": ["/AGENTS.md"]
+    "exclude": ["/AGENTS.md", "/evals/"]
   }
 }

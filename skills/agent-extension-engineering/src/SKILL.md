@@ -19,29 +19,31 @@ through the active host or extension manager. With AXM, use
 
 ## Select the use case
 
-| User intent                                                 | Concept                                                           |
-| ----------------------------------------------------------- | ----------------------------------------------------------------- |
-| Define or distinguish shared terms                          | `glossary`                                                        |
-| Choose an extension type or divide responsibilities         | `guides/choosing-extensions`                                      |
-| Write or revise an extension README                         | `guides/authoring-readme`                                         |
-| Share detailed guidance across skill workflows              | `patterns/routing-skill-with-knowledge`                           |
-| Design a skill that drives a CLI                            | `patterns/cli-backed-skill`                                       |
-| Design a user choice or checkpoint in a skill               | `patterns/agent-mediated-decisions`                               |
-| Create or revise a skill                                    | `guides/authoring-skills`                                         |
-| Create or improve instructions or rules                     | `patterns/scoped-instructions`                                    |
-| Create or restructure a knowledge bundle                    | `guides/authoring-knowledge`                                      |
-| Define a delegated agent role                               | `guides/authoring-agent-definitions`                              |
-| Configure a hook or MCP connection                          | `guides/configuring-hooks-and-mcp`                                |
-| Compose extensions into a pack                              | `guides/composing-packs`                                          |
-| Review, audit, remediate, or verify earlier findings        | `guides/reviewing-extensions`, then the relevant guide or pattern |
-| Check routing, behavior, portability, or improvement claims | `guides/verification`                                             |
-| Assess execution, provenance, credentials, or side effects  | `guides/trust-and-authority`                                      |
-| Publish, replace, deprecate, or retire extensions           | `guides/lifecycle`                                                |
+| User intent                                                    | Concept                                 |
+| -------------------------------------------------------------- | --------------------------------------- |
+| Define or distinguish shared terms                             | `glossary`                              |
+| Choose an extension type or divide responsibilities            | `guides/choosing-extensions`            |
+| Write or revise an extension README                            | `guides/authoring-readme`               |
+| Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
+| Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |
+| Design a user choice or checkpoint in a skill                  | `patterns/agent-mediated-decisions`     |
+| Design validation before a skill applies a batch of edits      | `patterns/validate-the-proposed-change` |
+| Create or revise a skill                                       | `guides/authoring-skills`               |
+| Create or improve instructions or rules                        | `patterns/scoped-instructions`          |
+| Create or restructure a knowledge bundle                       | `guides/authoring-knowledge`            |
+| Define a delegated agent role                                  | `guides/authoring-agent-definitions`    |
+| Configure a hook or MCP connection                             | `guides/configuring-hooks-and-mcp`      |
+| Compose extensions into a pack                                 | `guides/composing-packs`                |
+| Review, audit, remediate, or verify earlier findings           | `guides/reviewing-extensions`           |
+| Check routing, behavior, portability, or improvement claims    | `guides/verification`                   |
+| Assess execution, provenance, credentials, or side effects     | `guides/trust-and-authority`            |
+| Publish, replace, deprecate, or retire extensions              | `guides/lifecycle`                      |
 
 Use `glossary` when shared terminology affects interpretation or a design decision.
 
 Read only the selected concepts and the additional guidance their application
-requires. For mixed requests, select the relevant routes together. Resolve
+requires. For a review, stop when the artifact and review guide settle the claim.
+For mixed requests, select the relevant routes together. Resolve
 obvious intent from the request and local context; clarify only material missing
 scope. If the required bundle or concept is unavailable, name the missing
 identity and preserve the target rather than inventing a substitute baseline.

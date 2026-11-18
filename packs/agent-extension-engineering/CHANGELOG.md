@@ -7,7 +7,10 @@ extension READMEs. Guide IDs now start with `guides/`. For scoped instructions u
 `patterns/scoped-instructions`. The glossary keeps its existing ID. The skill
 also routes authors to patterns for CLI-backed skills and agent-mediated decisions.
 The review guides now cover clean controls, incomplete evidence, and checking a
-repair against the original request.
+repair against the original request. The former bundle-routing pattern is now
+`patterns/progressive-disclosure`. For batch edit workflows use
+`patterns/validate-the-proposed-change`. The authoring and verification guides
+show how to distinguish a discovery failure from a failure to apply guidance.
 
 ## 0.1.0
 

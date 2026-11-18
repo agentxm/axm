@@ -5,7 +5,12 @@
 Adds the shared glossary, shorter engineering guides, and a guide to writing
 extension READMEs. Guide IDs now start with `guides/`. For scoped instructions use
 `patterns/scoped-instructions`. The glossary keeps its existing ID. The skill
-routes directly to the guides and both design patterns.
+also routes authors to patterns for CLI-backed skills and agent-mediated decisions.
+The review guides now cover clean controls, incomplete evidence, and checking a
+repair against the original request. The former bundle-routing pattern is now
+`patterns/progressive-disclosure`. For batch edit workflows use
+`patterns/validate-the-proposed-change`. The authoring and verification guides
+show how to distinguish a discovery failure from a failure to apply guidance.
 
 ## 0.1.0
 

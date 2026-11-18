@@ -4,14 +4,14 @@ title: "Composing extension packs"
 description: "Choose pack members and compatible versions from the job a clean installation must support."
 tags: ["packs", "composition", "dependencies", "versions", "distribution"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T22:48:38Z" }
 ---
 
 # Composing extension packs
 
 Imagine installing the pack into an empty workspace. Which promised task
-breaks if a member is missing? A skill that routes to knowledge needs the
-bundle that answers its requests. The bundle may still be useful on its own.
+breaks if a member is missing? A [routing skill with a knowledge bundle](../patterns/routing-skill-with-knowledge.md)
+needs both members to answer a request.
 An unrelated skill used by the maintainer has no such claim to membership.
 
 A version range promises that the members work together. If the skill names

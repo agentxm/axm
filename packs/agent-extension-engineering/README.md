@@ -1,7 +1,7 @@
 # Agent extension engineering
 
 Design and improve extensions for your agent. The pack pairs a routing skill
-with guides on choices such as when to split a skill, scope an instruction,
+with guides and patterns on choices such as when to split a skill, scope an instruction,
 or use a hook.
 
 ```sh

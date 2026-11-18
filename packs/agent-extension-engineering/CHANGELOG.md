@@ -3,7 +3,9 @@
 ## Candidate 0.2.0
 
 Adds the shared glossary, shorter engineering guides, and a guide to writing
-extension READMEs. The routing skill selects the new guide for README requests.
+extension READMEs. Guide IDs now start with `guides/`. For scoped instructions use
+`patterns/scoped-instructions`. The glossary keeps its existing ID. The skill
+routes directly to the guides and both design patterns.
 
 ## 0.1.0
 

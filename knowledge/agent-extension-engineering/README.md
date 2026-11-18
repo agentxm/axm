@@ -1,7 +1,7 @@
 # Agent extension engineering knowledge
 
-Browse the [guides and glossary](src/index.md) when choosing, writing, or
-reviewing an extension. For example, [Choosing extension boundaries](src/choosing-extensions.md)
+Browse the [guides, patterns, and glossary](src/index.md) when choosing, writing, or
+reviewing an extension. For example, [Choosing extension boundaries](src/guides/choosing-extensions.md)
 helps you decide whether a task calls for a skill, scoped instructions, or a hook.
 
 To have your agent select the relevant guide, install the pack.

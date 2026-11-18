@@ -2,7 +2,8 @@
 
 ## 2026-11-18
 
-- Added [Writing an extension README](authoring-readme.md) for authors choosing a first-use example.
+- Grouped [guides](guides/index.md) by task and [patterns](patterns/index.md) by design situation. Scoped instructions now lives in the pattern library alongside the routing skill pattern.
+- Added [Writing an extension README](guides/authoring-readme.md) for authors choosing a first-use example.
 - Reworked the eleven guides around authoring decisions, with examples of overlapping skills, scoped instructions, knowledge discovery, and consumer migration.
 
 ## 2026-10-31

@@ -8,4 +8,4 @@ axm install @agentxm/packs/agent-extension-engineering
 ```
 
 Ask “Should this build instruction go at the repository root or in the website
-package?” The skill selects the guide to scoped instructions.
+package?” The skill selects the scoped instructions pattern.

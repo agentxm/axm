@@ -4,9 +4,8 @@ okf_version: "0.2"
 
 # Agent extension engineering
 
-Guidance for designing, authoring, reviewing, and maintaining extensions to
-existing agents. Start with the use case below. Agent runtimes, planning loops,
-and MCP server implementation are outside this bundle.
+Choose a guide for the extension decision you face. For AXM package mechanics
+and basic authoring, start with `axm help authoring`.
 
 ## Shared vocabulary
 
@@ -14,20 +13,20 @@ and MCP server implementation are outside this bundle.
 
 ## Choose and compose
 
-- [Choosing extension boundaries](choosing-extensions.md) — Use when deciding how to extend an agent; choose the smallest extension types that own the required behavior.
-- [Composing extension packs](composing-packs.md) — Use when extensions must work together; declare a complete dependency graph and verify installation and independent versioning.
+- [Choosing extension boundaries](choosing-extensions.md) — Choose an extension type based on when and where the behavior should apply.
+- [Composing extension packs](composing-packs.md) — Choose pack members and compatible versions from the job a clean installation must support.
 
 ## Author the selected surface
 
-- [Authoring and revising skills](authoring-skills.md) — Use when creating or changing a skill; define its routing and workflow contracts and check representative requests.
-- [Authoring scoped instructions](authoring-instructions.md) — Use when creating or improving AGENTS.md, CLAUDE.md, or rules; establish effective scope and preserve useful discovery.
-- [Authoring extension knowledge](authoring-knowledge.md) — Use when creating or restructuring a knowledge bundle; give substantive guidance one home and make it discoverable.
-- [Authoring agent definitions](authoring-agent-definitions.md) — Use when configuring a delegated agent role; bind its responsibilities, tools, inputs, and handoff to the supported host.
-- [Configuring hooks and MCP connections](configuring-hooks-and-mcp.md) — Use when extending a host through lifecycle hooks or an existing MCP service; bound execution and verify the selected host configuration.
+- [Authoring and revising skills](authoring-skills.md) — Resolve overlapping skill triggers and decide how much procedure belongs in the skill.
+- [Authoring scoped instructions](authoring-instructions.md) — Place an instruction at the scope where it applies and check what neighboring tasks inherit.
+- [Authoring extension knowledge](authoring-knowledge.md) — Design concepts that readers can select from an index or find directly through search.
+- [Authoring agent definitions](authoring-agent-definitions.md) — Decide when to delegate and what the caller must supply for the role to work independently.
+- [Configuring hooks and MCP connections](configuring-hooks-and-mcp.md) — Decide how a hook should handle failure or what access an MCP connection needs.
 
 ## Review, verify, and maintain
 
-- [Reviewing and remediating extensions](reviewing-extensions.md) — Use when reviewing, auditing, or fixing an extension; bind findings to exact evidence and keep assessment separate from mutation.
-- [Verifying extension behavior](verification.md) — Use when checking an extension or an improvement claim; separate structural, routing, runtime, and comparative evidence.
-- [Bounding extension trust and authority](trust-and-authority.md) — Use when an extension reads data, executes code, or changes external state; identify provenance and keep actions within authorized boundaries.
-- [Publishing and retiring extensions](lifecycle.md) — Use when publishing, replacing, deprecating, or retiring extensions; preserve exact identities and provide a verifiable consumer migration.
+- [Reviewing and remediating extensions](reviewing-extensions.md) — Turn a suspected extension defect into a finding and verify an authorized fix against the original case.
+- [Verifying extension behavior](verification.md) — Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement.
+- [Bounding extension trust and authority](trust-and-authority.md) — Review how a change affects what an extension can read, execute, or send.
+- [Publishing and retiring extensions](lifecycle.md) — Plan an extension replacement or retirement around what existing consumers gain, lose, or must change.

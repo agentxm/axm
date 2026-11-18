@@ -1,38 +1,24 @@
 ---
 type: Guide
 title: "Composing extension packs"
-description: "Use when extensions must work together; declare a complete dependency graph and verify installation and independent versioning."
+description: "Choose pack members and compatible versions from the job a clean installation must support."
 tags: ["packs", "composition", "dependencies", "versions", "distribution"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-30T20:56:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
 ---
 
 # Composing extension packs
 
-A pack is a distribution and composition contract. Include extensions because
-they are required for the collection's job, not because they coexist in a
-workspace. Keep pack contents understandable from its stated purpose.
+Imagine installing the pack into an empty workspace. Which promised task
+breaks if a member is missing? A skill that routes to knowledge needs the
+bundle that answers its requests. The bundle may still be useful on its own.
+An unrelated skill used by the maintainer has no such claim to membership.
 
-For a routing skill and knowledge bundle, put both directly in the pack. The
-skill names the knowledge identity and exact concept routes, declares itself
-non-standalone when the bundle is required, and recommends the pack. Knowledge
-may remain independently useful. Do not reference sibling filesystem paths.
+A version range promises that the members work together. If the skill names
+a concept introduced in version 2, a range admitting version 1 leaves some
+consumers with a broken route. Base the range on the routes and behavior the
+skill uses. Pin the combination if that is the extent of the evidence.
 
-Check that selected version ranges contain the required concept and behavior
-contracts. A broad range is a compatibility claim; use exact versions when only
-that combination has been checked. Update the pack when required routes change.
-Avoid cycles, hidden dependencies, and accidental inclusion of unrelated skills.
-
-Use the manager's current composition and lifecycle semantics. For AXM, inspect
-pack membership and the previewed member closure. Recommended-pack metadata is
-discovery, not proof of installation. Distinguish direct workspace selections
-from pack membership when migrating or uninstalling.
-
-Validate the complete selected archive set and install it into an isolated
-consumer when practical. Resolve the skill's knowledge routes from that
-consumer, then inspect intended projections. A source-workspace success does
-not prove the published archive is complete.
-
-Keep extension versions separate from the CLI or application release cohort
-unless the repository explicitly owns a coupled release contract. Follow
-[lifecycle](lifecycle.md) for publication and migration.
+Try the promised task from the selected archives in a clean consumer. A sibling
+installed for unrelated work can hide a missing dependency in the author's
+workspace. AXM's membership and dependency conventions are in `axm help packs`.

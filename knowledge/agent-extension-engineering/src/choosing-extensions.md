@@ -1,47 +1,28 @@
 ---
 type: Guide
 title: "Choosing extension boundaries"
-description: "Use when deciding how to extend an agent; choose the smallest extension types that own the required behavior."
+description: "Choose an extension type based on when and where the behavior should apply."
 tags: ["extensions", "boundaries", "design", "skills", "rules", "packs"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-30T20:56:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
 ---
 
 # Choosing extension boundaries
 
-Start with the user's intended outcome, the consuming host, and the observable
-completion evidence. An extension changes an existing agent's capabilities or
-context. Designing the agent's autonomous runtime, planning loop, memory system,
-or multi-agent orchestration is outside this collection.
+Start with a task the agent should handle differently. If an existing command
+already does the work, a link from the place where people need it may suffice.
 
-## Choose by responsibility
+| When is it needed?                                          | What to author                                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------- |
+| On every task in a particular scope                         | Scoped instructions, or a rule when workspaces should share it |
+| When a user asks for a particular outcome                   | A skill for the decisions and procedure                        |
+| When a question calls for domain facts or detailed guidance | A knowledge concept                                            |
+| When another role needs its own context or tools            | An agent definition                                            |
+| At a host event, even if the agent never asks               | A hook                                                         |
+| When the agent needs tools from an existing service         | An MCP connection                                              |
+| When consumers need several extensions installed together   | A pack                                                         |
 
-| Need                                                           | Owning surface               |
-| -------------------------------------------------------------- | ---------------------------- |
-| On-demand procedural judgment                                  | Skill                        |
-| Persistent constraints at a defined scope                      | Instructions or rules        |
-| Facts, explanations, reference, and detailed guidance          | Knowledge bundle             |
-| A delegated role with its own host-supported tools and context | Agent definition             |
-| Deterministic behavior at a host lifecycle event               | Hook                         |
-| Access to an existing tool service                             | MCP connection configuration |
-| A required, installable group of extensions                    | Pack                         |
-
-A prompt is content within one of these surfaces when it serves that surface's
-job. A tool implementation belongs to software engineering. Installing an MCP
-connection does not implement its server. Avoid creating a new abstraction when
-an adopted host or manager already supplies the required capability.
-
-## Establish the contract
-
-Record the triggering request, intended users, inputs, outputs, supported host,
-authority, dependencies, side effects, failure recovery, and completion evidence.
-Mark unknown host behavior as unknown. Keep required relationships distinct from
-extensions that merely happen to be installed together.
-
-Split responsibilities when they have different activation conditions or
-owners. Combine a small routing skill with knowledge when several related uses
-share a body of guidance: the skill selects the relevant concepts; the knowledge
-owns the substance. Do not duplicate procedures in both.
-
-Finish with an explicit choice and its reason, a canonical owner for each
-surface, and the next relevant [authoring route](index.md).
+For example, a repository may require a generated file to match its source.
+Let a check enforce the match. A short instruction naming the source helps an
+agent editing nearby. Add a repair skill only if diagnosing a mismatch takes
+judgment that the check's output cannot supply.

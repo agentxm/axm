@@ -1,52 +1,26 @@
 ---
 type: Guide
 title: "Authoring extension knowledge"
-description: "Use when creating or restructuring a knowledge bundle; give substantive guidance one home and make it discoverable."
+description: "Design concepts that readers can select from an index or find directly through search."
 tags: ["knowledge", "okf", "indexes", "metadata", "discovery", "documentation"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-30T20:56:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
 ---
 
 # Authoring extension knowledge
 
-Define the audience, scope, exclusions, and reader jobs before choosing
-folders. Organize by distinctions readers use to select guidance. A routing
-skill selects knowledge; it should not become a second copy of that knowledge.
+Give each concept a question it can answer on its own. Split two procedures
+when the reader has a reason to choose between them. Keep steps together when
+the reader needs both to reach one outcome.
 
-## Build progressive discovery
+Under a “Webhook delivery” index, “Retry a delivery” looks clear. In a search
+result it could describe either a request that never reached the receiver or
+one whose acknowledgement was lost. Retrying the second could repeat a write.
+Name the condition in the preview and carry it into the body. For example,
+“Missing webhook acknowledgement” can open by telling the reader how to check
+whether the receiver already applied the event.
 
-- Package description: identify the domain and distinctive scope.
-- Root index: explain where to start and link the major reader routes.
-- Section index: distinguish its immediate concepts and narrower sections.
-- Concept metadata: make title, description, and tags useful without folder
-  context. A guide description names both its use case and supported outcome.
-- Concept body: deliver the promised explanation, reference, or procedure.
-
-Keep every concept reachable through indexes, and also check likely search
-terms. Use the exact concept title and description in index entries. Add a
-section only when it creates a meaningful choice. Link to neighboring authority
-instead of restating its claims.
-
-## OKF representation
-
-For OKF v0.2, every non-reserved Markdown concept has parseable YAML frontmatter
-with a non-empty `type`. Reuse a small consistent type vocabulary. `index.md`
-and `log.md` are reserved at every level; they are not concepts. Only the root
-index may have frontmatter, carrying `okf_version: "0.2"`. Log date headings use
-`YYYY-MM-DD`, newest first.
-
-Record provenance truthfully. Conversion is generation, not human verification.
-Use sources and claim attribution for external factual claims, preserve licenses,
-and avoid invented review or approval. An application profile adds its own rules;
-profile conformance and base OKF conformance are distinct claims.
-
-## Maintain and verify
-
-For a move, inventory inbound references, establish the new home, update indexes
-and callers, and remove duplication or record the supported migration. Keep
-retired published identities available according to the lifecycle decision.
-Run the applicable format and profile validators, check internal links, and
-walk both browse and search paths. Resolve errors and explain material warnings.
-
-Use the declared format specification and host tooling for current mechanics;
-this guide does not replace a bundle's application profile.
+Try both routes. Browse from the index, then search using the symptom and read
+the returned concept on its own. Put shared explanations in one concept and link
+them where they affect a decision. For the OKF specification and AXM profile, see
+`axm help knowledge`.

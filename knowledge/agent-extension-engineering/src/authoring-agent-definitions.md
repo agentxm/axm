@@ -1,34 +1,24 @@
 ---
 type: Guide
 title: "Authoring agent definitions"
-description: "Use when configuring a delegated agent role; bind its responsibilities, tools, inputs, and handoff to the supported host."
+description: "Decide when to delegate and what the caller must supply for the role to work independently."
 tags: ["subagents", "agent-definitions", "delegation", "handoff", "host"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-30T20:56:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
 ---
 
 # Authoring agent definitions
 
-Start with a concrete delegated responsibility. Prefer a skill when the need
-is reusable guidance for the current agent. A definition is warranted when the
-host supplies a separate role or execution context needed by the task.
+Use an agent definition when the task benefits from a separate context or tool
+set. A skill suffices when the current agent already has the right context and
+only needs a procedure.
 
-Specify the role's inputs, allowed decisions, outputs, completion evidence,
-uncertainty reporting, and escalation conditions. Declare the tools and context
-needed for that responsibility. Keep permission and model choices supported by
-the actual host; a field in a portable manifest does not enforce runtime access.
+For a read-only diff reviewer, have the caller supply the base, candidate
+revision, and review scope. Give the role tools to inspect those revisions.
+Return findings tied to the candidate so the caller can tell whether they
+still apply after another edit. If the base is missing, the reviewer should
+surface that gap before attributing a defect to the change.
 
-Define how the caller supplies the task and receives artifacts or findings.
-Avoid hidden dependencies on the caller's unshared history. Bind output to the
-inspected revision or data identity where freshness matters. A handoff should
-identify what changed, what was checked, what remains uncertain, and who owns the
-next action.
-
-Use current host and manager schemas to render the definition. Inspect the
-projection and, when authorized and supported, exercise one bounded delegation
-with representative inputs and a missing-input case. Distinguish rendering from
-runtime selection, execution, and result quality.
-
-This guide covers the extension definition. Designing a multi-agent scheduler,
-coordination protocol, planning system, or autonomous runtime belongs to agent
-system engineering.
+Try the handoff in the intended host with only the inputs the caller promises.
+This exposes reliance on unshared conversation history and shows which tools
+the role actually receives.

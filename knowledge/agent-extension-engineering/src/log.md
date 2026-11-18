@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-18
+
+- Reworked the eleven guides around authoring decisions, with examples of overlapping skills, scoped instructions, knowledge discovery, and consumer migration.
+
 ## 2026-10-31
 
 - **Addition**: Defined Open agent through standards-based third-party extensibility and portable extension management, with scope qualifications and citations to Agent Skills, MCP, and AGENTS.md.

@@ -16,6 +16,25 @@
 | `status` | opt | enum | `draft` \| `stable` \| `deprecated`. Absent means `stable`. |
 | `stale_after` | opt | offset datetime | Absolute instant, not a TTL. Stale when `now >= stale_after`. |
 
+## Quote string scalars YAML could convert
+
+Common YAML 1.1 parsers, including PyYAML, convert unquoted scalars that look
+like numbers, booleans, or timestamps. A converted value can lose its written
+form: `001` becomes `1`, so a `[^001]` footnote no longer matches its source.
+Quote string values that a parser could read as another type:
+
+```yaml
+okf_version: "0.2"     # root index.md only
+type: "2024"           # when a type really is digit-only
+sources:
+  - id: "001"
+    resource: https://example.com/source
+```
+
+The validator warns when `okf_version` or `sources[].id` loads as a non-string,
+and fails a `type` that loads as a number or boolean. It keeps timestamps as
+text; quote them too when other consumers must round-trip the exact text.
+
 ## Add metadata from evidence
 
 The concept template intentionally omits trust, usage, freshness, and source
@@ -55,7 +74,8 @@ Every timestamp-valued key uses an ISO 8601 datetime with an explicit UTC offset
 applies to `generated.at`, every `verified[].at`, `sources[].last_modified`,
 both endpoints of shared and per-source `usage_window`, and `stale_after`.
 Compare staleness as instants, preserving offsets and time of day. Quoted and
-unquoted YAML timestamps have the same meaning. Reserved log headings remain
+unquoted YAML timestamps have the same meaning to the bundled validator; see
+[quoting](#quote-string-scalars-yaml-could-convert) for other parsers. Reserved log headings remain
 date-only `YYYY-MM-DD` (§9).
 
 Earlier v0.2 snapshots used dates for `last_modified`, `usage_window`, and
@@ -87,6 +107,14 @@ unchanged. Missing or invalid timestamps leave freshness unknown. A later
 machine check does not constitute a new human review, even when an earlier
 human event keeps the standard tier at human-reviewed. Inspect the actual events
 when the distinction matters.
+
+§5.3 derives the tier from verifying actors alone, so a producer that records a
+check of its own output still reaches machine-confirmed. Prefer a verifier
+independent of `generated.by`. Record a self-check only when it actually ran,
+and never present it as independent review. With `--info`, the validator reports
+`self-verification` when every valid event is by the non-human `generated.by`
+actor. The tier is unchanged. A human who authored content and then reviewed it
+is not reported.
 
 ## Maintenance and identity
 

@@ -341,6 +341,7 @@ def check_verified(f, rel, fm) -> str:
 
     valid_kinds = []
     valid_times = []
+    valid_actors = []
     for i, entry in enumerate(entries):
         where = f"verified[{i}]"
         if not isinstance(entry, dict):
@@ -361,10 +362,24 @@ def check_verified(f, rel, fm) -> str:
         if kind in ("human", "process", "agent") and valid_at:
             valid_kinds.append(kind)
             valid_times.append(as_datetime(entry["at"]))
+            valid_actors.append(entry["by"].strip())
     if not valid_kinds:
         f.warn("verified-no-valid-events", rel, "`verified` contains no complete, valid verification event")
         return "unverified"
     generated = fm.get("generated")
+    producer = generated.get("by") if isinstance(generated, dict) else None
+    if (
+        "human" not in valid_kinds
+        and actor_kind(producer) in ("agent", "process")
+        and all(actor == producer.strip() for actor in valid_actors)
+    ):
+        f.info(
+            "self-verification",
+            rel,
+            f"every valid verification event is by generated.by ({producer.strip()}); "
+            "machine-confirmed reflects self-verification, not an independent check. "
+            "Trust tier is unchanged (§5.3)",
+        )
     changed_at = as_datetime(generated.get("at")) if isinstance(generated, dict) else None
     latest_verified = max(valid_times)
     if changed_at is not None and changed_at > latest_verified:
@@ -393,18 +408,23 @@ def check_usage_window(f, rel, where, window) -> bool:
     return valid
 
 
-def check_sources(f, rel, fm) -> set[str]:
-    """Validate `sources` / `usage_window`; return the set of declared source ids."""
+def check_sources(f, rel, fm) -> tuple[set[str], set[str]]:
+    """Validate `sources` / `usage_window`.
+
+    Return the declared source ids as strings, plus the subset that YAML loaded
+    as another scalar type (for example an unquoted `001` becoming `1`).
+    """
     ids: set[str] = set()
+    nonstring_ids: set[str] = set()
     window = fm.get("usage_window")
     if "usage_window" in fm:
         check_usage_window(f, rel, "usage_window", window)
     if "sources" not in fm:
-        return ids
+        return ids, nonstring_ids
     sources = fm["sources"]
     if not isinstance(sources, list):
         f.warn("sources-shape", rel, "`sources` must be a list of mappings")
-        return ids
+        return ids, nonstring_ids
 
     has_usage_count = False
     for i, src in enumerate(sources):
@@ -417,6 +437,14 @@ def check_sources(f, rel, fm) -> set[str]:
             f.warn("source-resource-missing", rel, f"{where} has no string `resource` (required per entry)")
         sid = src.get("id")
         if sid is not None:
+            if not isinstance(sid, str):
+                f.warn(
+                    "source-id-type",
+                    rel,
+                    f"{where}.id loaded as {type(sid).__name__} {sid!r}, not a string; YAML converts "
+                    "unquoted numeric or boolean values, so footnote labels may not match. Quote the intended label",
+                )
+                nonstring_ids.add(str(sid))
             if str(sid) in ids:
                 f.warn("source-id-duplicate", rel, f"duplicate sources id {str(sid)!r}")
             ids.add(str(sid))
@@ -439,7 +467,7 @@ def check_sources(f, rel, fm) -> set[str]:
 
     if "usage_window" in fm and not has_usage_count:
         f.info("usage-window-unused", rel, "`usage_window` present but no source declares `usage_count`")
-    return ids
+    return ids, nonstring_ids
 
 
 def check_attested_computation(f, rel, fm, body, path, root):
@@ -591,10 +619,11 @@ def check_links(f, rel, body, body_start, path, root):
             )
 
 
-def check_footnotes(f, rel, body, source_ids, sources_present):
+def check_footnotes(f, rel, body, source_ids, sources_present, nonstring_ids=frozenset()):
     prose = strip_code(body)
     defined = {m.group(1) for m in RE_FOOTNOTE_DEF.finditer(prose)}
     referenced = {m.group(1) for m in RE_FOOTNOTE_REF.finditer(prose)}
+    coercion_hint = "; a non-string sources[].id may have changed during YAML loading (see source-id-type)"
 
     for label in sorted(referenced - defined):
         f.warn("footnote-undefined", rel, f"footnote [^{label}] is referenced but never defined")
@@ -603,9 +632,12 @@ def check_footnotes(f, rel, body, source_ids, sources_present):
             f.warn(
                 "footnote-unmatched",
                 rel,
-                f"footnote [^{label}] has no matching sources[].id; attribution will not resolve",
+                f"footnote [^{label}] has no matching sources[].id; attribution will not resolve"
+                + (coercion_hint if nonstring_ids else ""),
             )
-    for sid in sorted(source_ids - referenced):
+    # A converted id is already reported by source-id-type; its loaded form is
+    # not a label the author wrote, so do not also report it as uncited.
+    for sid in sorted(source_ids - referenced - set(nonstring_ids)):
         f.info("source-uncited", rel, f"sources id {sid!r} is declared but never cited in the body")
 
 
@@ -655,13 +687,15 @@ def check_index(f, rel, path, root, text, is_root):
                         f.warn(
                             "okf-version-type",
                             rel,
-                            f"`okf_version` should be the string \"0.2\", got {declared_version!r}",
+                            f"`okf_version` should be the quoted string \"0.2\", got {declared_version!r}; "
+                            "YAML reads an unquoted version as a number",
                         )
-                    if declared_version != "0.2":
+                    # Compare the written version, so an unquoted 0.2 gets only the type warning.
+                    if str(declared_version).strip() != "0.2":
                         f.warn(
                             "okf-version",
                             rel,
-                            f"bundle declares okf_version {declared_version!r}; this validator targets 0.2",
+                            f"bundle declares okf_version {declared_version!r}; this validator applies OKF 0.2 rules only",
                         )
     elif has_frontmatter_opener(text):
         f.error(
@@ -819,6 +853,10 @@ def audit_discovery(f, root: Path, documents: dict[Path, str]):
                 reached_concepts.add(target)
 
     for concept in sorted(concepts - reached_concepts):
+        # A file without readable mapping frontmatter already has a base error;
+        # it may not be a concept at all (for example a README inside the root).
+        if metadata.get(concept) is None:
+            continue
         rel = concept.relative_to(root).as_posix()
         f.warn(
             "discovery-unreachable",
@@ -880,7 +918,12 @@ def check_concept(f, rel, path, root, text, now, stats):
                 "frontmatter opens with `---` but has no closing `---` delimiter (§4.1)",
             )
         else:
-            f.error("frontmatter-missing", rel, "no YAML frontmatter block at the start of the file (§4.1)")
+            f.error(
+                "frontmatter-missing",
+                rel,
+                "no YAML frontmatter block at the start of the file (§4.1); add frontmatter with a `type`, "
+                "or move non-concept Markdown such as a README outside the bundle root",
+            )
         return
     try:
         fm = yaml.load(fm_text, Loader=FrontmatterLoader)
@@ -897,7 +940,14 @@ def check_concept(f, rel, path, root, text, now, stats):
     ctype = fm.get("type")
     if ctype is None:
         f.error("type-missing", rel, "frontmatter has no `type` (§11)")
-    elif not isinstance(ctype, str) or not ctype.strip():
+    elif not isinstance(ctype, str):
+        f.error(
+            "type-empty",
+            rel,
+            f"`type` must be a non-empty string, got {type(ctype).__name__} {ctype!r} (§11); "
+            "quote values YAML reads as numbers or booleans",
+        )
+    elif not ctype.strip():
         f.error("type-empty", rel, f"`type` must be a non-empty string, got {ctype!r} (§11)")
     else:
         stats["types"].setdefault(ctype.strip(), []).append(rel)
@@ -944,14 +994,14 @@ def check_concept(f, rel, path, root, text, now, stats):
     tier = check_verified(f, rel, fm)
     stats["tiers"][tier] = stats["tiers"].get(tier, 0) + 1
 
-    source_ids = check_sources(f, rel, fm)
+    source_ids, nonstring_ids = check_sources(f, rel, fm)
 
     if isinstance(ctype, str) and normalize_type(ctype) == "attestedcomputation":
         check_attested_computation(f, rel, fm, body, path, root)
 
     check_paths(f, rel, fm, path, root)
     check_links(f, rel, body, body_start, path, root)
-    check_footnotes(f, rel, body, source_ids, "sources" in fm)
+    check_footnotes(f, rel, body, source_ids, "sources" in fm, nonstring_ids)
 
 
 # --------------------------------------------------------------------------- driver

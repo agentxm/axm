@@ -2,6 +2,7 @@
 
 ## 2026-11-18
 
+- Added [CLI-backed skill](patterns/cli-backed-skill.md) and [Agent-mediated decisions](patterns/agent-mediated-decisions.md), with worked examples for skill routing, repair, and review trials.
 - Grouped [guides](guides/index.md) by task and [patterns](patterns/index.md) by design situation. Scoped instructions now lives in the pattern library alongside the routing skill pattern.
 - Added [Writing an extension README](guides/authoring-readme.md) for authors choosing a first-use example.
 - Reworked the eleven guides around authoring decisions, with examples of overlapping skills, scoped instructions, knowledge discovery, and consumer migration.

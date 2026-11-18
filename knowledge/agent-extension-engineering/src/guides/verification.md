@@ -4,7 +4,7 @@ title: "Verifying extension behavior"
 description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
 tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-18T23:06:15Z" }
 ---
 
 # Verifying extension behavior
@@ -28,3 +28,18 @@ For a comparison, hold the host, model, inputs, and available tools steady.
 Keep fresh cases for evaluation and repeat trials where selection varies.
 Record the revision and observed output. A shorter route can save tokens while
 producing a worse answer, so assess cost and task quality separately.
+
+To exercise an extension reviewer, vary what it can actually inspect. Give it
+the same request in three fresh contexts: “Check whether this skill's
+migration guide is available to a consumer.”
+
+| Material supplied                                  | Expected review outcome                                                                             |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| A complete archive with a link to a missing guide  | Identify the broken reference and the workflow it blocks.                                           |
+| The same archive with the guide at the linked path | Report that the reference resolves. A clean result can close the review.                            |
+| Only the excerpt containing the link               | Leave availability unresolved and identify the archive or its file listing as the missing evidence. |
+
+Record how the workflow went alongside the verdict. A reviewer might reach
+the right finding after opening three unrelated concepts. Capture the extra
+lookups and what prompted them as trial observations. If the detour recurs,
+try a more specific route or retain the case for the next comparison.

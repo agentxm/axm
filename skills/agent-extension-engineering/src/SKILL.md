@@ -25,6 +25,8 @@ through the active host or extension manager. With AXM, use
 | Choose an extension type or divide responsibilities         | `guides/choosing-extensions`                                      |
 | Write or revise an extension README                         | `guides/authoring-readme`                                         |
 | Share detailed guidance across skill workflows              | `patterns/routing-skill-with-knowledge`                           |
+| Design a skill that drives a CLI                            | `patterns/cli-backed-skill`                                       |
+| Design a user choice or checkpoint in a skill               | `patterns/agent-mediated-decisions`                               |
 | Create or revise a skill                                    | `guides/authoring-skills`                                         |
 | Create or improve instructions or rules                     | `patterns/scoped-instructions`                                    |
 | Create or restructure a knowledge bundle                    | `guides/authoring-knowledge`                                      |

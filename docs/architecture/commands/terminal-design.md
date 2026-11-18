@@ -44,8 +44,8 @@ Human output has two left edges. An unmarked title, verdict, `Next` label,
 empty-state sentence, or hint begins at the margin. Every node that carries a
 mark paints it in a five-column gutter — a space, the mark, and padding — and
 content aligned with that mark begins at column six. Ledger headers and rows,
-callout bodies, fields, answers, prompt options, `Next` actions, and a wait's
-URL use that content edge. Marks are status glyphs, change operations, the
+callout bodies, fields, answers, prompt options, `Next` actions, a wait's URL,
+and prose that continues a marked headline use that content edge. Marks are status glyphs, change operations, the
 prompt mark `?`, and the caret ❯.
 
 Fields, answers, waits, and callout asides put their value at the value
@@ -118,9 +118,12 @@ with a ledger has one blank line between its title, ledger, each callout,
 verdict, and `Next`. Problems and empty states are compact: no blank separates
 their headline, reason or fields, and `Next`. Settled answer lines form one
 group. Sibling sections, such as the groups of help and each of its examples,
-stand one blank line apart. An inset paragraph — the one value a sentence asks
-a person to act on — stands one blank line apart from the prose around it, and
-guidance that sets a value apart spaces its `Next` like a result. The
+stand one blank line apart, and in a result a titled section stands apart
+from what precedes it. Anything a view places after `Next` stands one blank
+line apart from it, because `Next` closes a result. An inset paragraph — the
+one value a sentence asks a person to act on — stands one blank line apart
+from the prose around it, and guidance that sets a value apart spaces its
+`Next` like a result. The
 painter's vertical-spacing tests in `apps/cli/src/screen/paint-text.test.ts`
 hold these rules.
 
@@ -206,7 +209,9 @@ output.
 Only the eight standard colors and the dim attribute are used, never
 hard-coded RGB, so output reads on light and dark themes alike. Extension type
 tints map to the nearest standard color, and key chips are inverse cyan for
-the default and inverse dim for the others. Links use the terminal hyperlink
+the default and inverse dim for the others. Reverse video belongs to key chips
+alone: the painter fills a chip's cell itself, and a view's text cannot ask
+for it, so no prose reads as a key to press. Links use the terminal hyperlink
 sequence only when color is enabled.
 
 ## Responsive layout
@@ -274,7 +279,8 @@ A copyable value — a URL, a `next` command, a one-time code, a request
 identifier — is never cut, truncated, or hyphenated; when it does not fit it
 moves to its own line, in a ledger cell as anywhere else. Apart from `raw` and
 `markdown` content passed through verbatim, it is the only content allowed to
-overflow the width.
+overflow the width. A `Next` action, whether a command or a link, carries its
+description beside the target where both fit and beneath it where they do not.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;
@@ -352,11 +358,15 @@ The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
 surface for design. Each fixture is one document or scene for one scenario:
 command results, plans, failures with recovery, waits in their open, static,
 and settled forms, each prompt kind in its initial, filtered, error, narrow,
-and answered states, transcript checkpoints, and every node kind. A fixture
-that shows a command's output is that command's own view applied to sample
-data, so the gallery reviews what the command paints; only fixtures that
-exercise the painter itself, such as every node kind and the width and prompt
-primitives, build a document by hand.
+and answered states, transcript checkpoints, and the painter's vocabulary. A
+fixture that shows a command's output is that command's own view applied to
+sample data, so the gallery reviews what the command paints; only fixtures that
+exercise the painter itself, such as the vocabulary and the width and prompt
+primitives, build a document by hand. The `vocabulary--` fixtures split the
+node kinds across screens a person could meet — a settled result, a read,
+pass-through content, and each kind of open question — rather than one
+inventory of every node, so each reads as a design and none shows states that
+cannot coexist, such as two open questions.
 
 A fixture module is any `*.gallery.ts` file under `apps/cli/src/`, in the
 gallery directory or beside the view it exercises. It default-exports
@@ -398,8 +408,8 @@ The renderer conformance suite in `apps/cli/src/test-support/conformance/` is
 the acceptance gate for any painter behind the `Doc` seam. It runs each
 registered `Painter` — today the production painter alone — over every settled
 gallery document and recorded install event logs, and requires the
-`every-node` fixture to cover every node kind and non-text painter fact, so a
-new node kind cannot land without the gallery showing it. The
+`vocabulary--` fixtures together to cover every node kind and non-text painter
+fact, so a new node kind cannot land without the gallery showing it. The
 [CLI live-event contract](../decisions/cli-live-event-contract.md) owns what
 the suite asserts and why the seam is held this way.
 

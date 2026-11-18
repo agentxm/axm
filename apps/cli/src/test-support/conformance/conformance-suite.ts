@@ -145,7 +145,6 @@ export type SemanticFactKind =
   | "span.bold"
   | "span.link"
   | "span.copyable"
-  | "span.invert"
   | "headline.tone"
   | "headline.verdict"
   | "paragraph.tone"
@@ -182,7 +181,6 @@ export const semanticFactKinds: ReadonlyArray<SemanticFactKind> = [
   "span.bold",
   "span.link",
   "span.copyable",
-  "span.invert",
   "headline.tone",
   "headline.verdict",
   "paragraph.tone",
@@ -227,7 +225,6 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       add("span.bold", at, span.bold);
       add("span.link", at, span.link);
       add("span.copyable", at, span.copyable);
-      add("span.invert", at, span.invert);
     });
   };
   const walk = (node: DocNode, path: string): void => {
@@ -489,7 +486,7 @@ export const determinismViolations = (
     : ["painting twice differs"];
 };
 
-/** Every node kind a painter must handle; the every-node fixture exercises them all. */
+/** Every node kind a painter must handle; the vocabulary fixtures exercise them all. */
 export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "headline",
   "paragraph",

@@ -111,15 +111,17 @@ const replay = (
   );
 
 describe("renderer conformance", () => {
-  it("the every-node fixture covers every node kind", () => {
-    const everyNode = gallery.find((fixture) => fixture.name === "every-node");
-    const covered = nodeKindsOf(everyNode?._tag === "document" ? everyNode.doc : []);
-    expect([...covered].sort()).toEqual([...nodeKinds].sort());
+  // The vocabulary fixtures together, not any one screen, carry the whole vocabulary.
+  const vocabulary: Doc = gallery.flatMap((fixture) =>
+    fixture._tag === "document" && fixture.name.startsWith("vocabulary--") ? fixture.doc : [],
+  );
+
+  it("the vocabulary fixtures cover every node kind", () => {
+    expect([...nodeKindsOf(vocabulary)].sort()).toEqual([...nodeKinds].sort());
   });
 
-  it("the every-node fixture covers every non-text painter fact", () => {
-    const everyNode = gallery.find((fixture) => fixture.name === "every-node");
-    const facts = collectSemanticFacts(everyNode?._tag === "document" ? everyNode.doc : []);
+  it("the vocabulary fixtures cover every non-text painter fact", () => {
+    const facts = collectSemanticFacts(vocabulary);
     expect([...new Set(facts.map((fact) => fact.kind))].sort()).toEqual(
       [...semanticFactKinds].sort(),
     );
@@ -209,24 +211,25 @@ describe("renderer conformance", () => {
       expect(painted.some((line) => line.includes("OK"))).toBe(true);
     });
 
-    it("paints tint, inversion, and links rather than dropping span presentation", () => {
+    it("paints tint and links rather than dropping span presentation", () => {
       const styled: Doc = [
         {
           _tag: "paragraph",
-          text: [
-            {
-              text: "styled",
-              tint: "magenta",
-              invert: true,
-              link: "https://example.test/styled",
-            },
-          ],
+          text: [{ text: "styled", tint: "magenta", link: "https://example.test/styled" }],
         },
       ];
       const output = painter.paint(styled, { width: 80, colors: true }).join("\n");
       expect(output).toContain("\u001b[35m");
-      expect(output).toContain("\u001b[7m");
       expect(output).toContain("\u001b]8;;https://example.test/styled");
+      expect(output, "only a key chip is inverted").not.toContain("\u001b[7m");
+    });
+
+    it("fills a key chip's cell", () => {
+      const asked: Doc = [
+        { _tag: "prompt", question: "Apply?", chips: [{ key: "y", word: "yes", current: true }] },
+      ];
+      const output = painter.paint(asked, { width: 80, colors: true }).join("\n");
+      expect(output).toContain("\u001b[7m");
     });
   });
 

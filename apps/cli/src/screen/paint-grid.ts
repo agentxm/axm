@@ -8,7 +8,7 @@ import type {
   Mark,
   TableColumn,
   TableRow,
-  Text,
+  PaintText,
   Tone,
 } from "./doc.js";
 import {
@@ -40,7 +40,7 @@ import { longestWordWidth, spansOf, truncateText } from "./wrap-text.js";
  * value: a long label pushes its own value right instead.
  */
 export const paintFields = (
-  fields: ReadonlyArray<{ readonly label: Text; readonly value: Text }>,
+  fields: ReadonlyArray<{ readonly label: PaintText; readonly value: PaintText }>,
   style: ResolvedStyle,
   options: { readonly indent: number; readonly valueStart: number; readonly gap: number },
 ): ReadonlyArray<string> => {
@@ -75,14 +75,14 @@ export const paintFields = (
 
 interface GridSource {
   readonly columns: ReadonlyArray<LayoutColumn>;
-  readonly headers: ReadonlyArray<Text>;
-  readonly rows: ReadonlyArray<ReadonlyArray<Text>>;
+  readonly headers: ReadonlyArray<PaintText>;
+  readonly rows: ReadonlyArray<ReadonlyArray<PaintText>>;
 }
 
 const layoutColumn = (
   column: TableColumn | undefined,
-  header: Text,
-  cells: ReadonlyArray<Text>,
+  header: PaintText,
+  cells: ReadonlyArray<PaintText>,
 ): LayoutColumn => {
   const values = [header, ...cells];
   return {
@@ -96,7 +96,7 @@ const layoutColumn = (
   };
 };
 
-const cellAt = (row: ReadonlyArray<Text>, index: number): Text => row[index] ?? "";
+const cellAt = (row: ReadonlyArray<PaintText>, index: number): PaintText => row[index] ?? "";
 
 /** Narrowest a table's name column shortens to before the table stacks instead. */
 const TABLE_NAME_FLOOR = 20;
@@ -114,7 +114,7 @@ const tableNameColumn = (laid: LayoutColumn): LayoutColumn => ({
 });
 
 interface PaintedCell {
-  readonly text: Text;
+  readonly text: PaintText;
   readonly width: PaintWidth;
   readonly align: "left" | "right";
   /** Cells the content is indented by inside the column, on every line. */
@@ -150,7 +150,7 @@ const paintCells = (
 
 const gridCells = (
   layout: Extract<TableLayout, { _tag: "grid" }>,
-  cells: ReadonlyArray<Text>,
+  cells: ReadonlyArray<PaintText>,
   shorten?: { readonly index: number; readonly ellipsis: string },
 ): ReadonlyArray<PaintedCell> =>
   layout.columns.map((column) => {
@@ -281,7 +281,7 @@ const depthLead = (row: LedgerRow): number => Math.max(0, row.depth ?? 0) * DEPT
  */
 const ledgerColumn = (
   column: LedgerColumn,
-  cells: ReadonlyArray<Text>,
+  cells: ReadonlyArray<PaintText>,
   nameLaneWidth: number,
 ): LayoutColumn => {
   const laid = layoutColumn(
@@ -337,9 +337,9 @@ const reasonTone = (mark: Mark): Tone => {
 const relocatedText = (
   row: LedgerRow,
   hidden: ReadonlyArray<number>,
-  headers: ReadonlyArray<Text>,
+  headers: ReadonlyArray<PaintText>,
   glyphs: Glyphs,
-): Text => {
+): PaintText => {
   const shown = hidden.flatMap((index) => {
     const cell = cellAt(row.cells, index);
     return plain(cell).length === 0 ? [] : [{ header: plain(headers[index] ?? ""), cell }];
@@ -357,7 +357,7 @@ const relocatedText = (
 const paintRelocated = (
   row: LedgerRow,
   hidden: ReadonlyArray<number>,
-  headers: ReadonlyArray<Text>,
+  headers: ReadonlyArray<PaintText>,
   style: ResolvedStyle,
   indent: number,
 ): ReadonlyArray<string> => {

@@ -43,14 +43,20 @@ export interface Span {
    * one: it moves to a line of its own and overflows the width instead.
    */
   readonly copyable?: true;
-  /**
-   * Reverse video, so the span reads as a filled cell. A key chip uses bold or
-   * capitalized text as its separate default-choice signal.
-   */
-  readonly invert?: true;
 }
 
 export type Text = string | ReadonlyArray<Span>;
+
+/**
+ * A span as the painter lays it out. Reverse video belongs to the painter
+ * alone: it fills a key chip's cell, so a view's text never reads as a key.
+ * A chip uses bold or capitalized text as its separate default-choice signal.
+ */
+export interface PaintSpan extends Span {
+  readonly invert?: true;
+}
+
+export type PaintText = string | ReadonlyArray<PaintSpan>;
 
 interface HeadlineNode {
   readonly _tag: "headline";

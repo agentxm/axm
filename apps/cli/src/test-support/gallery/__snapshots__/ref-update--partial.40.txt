@@ -115,6 +115,7 @@ Next
      Try the extensions that did not
      update again
      https://status.example.com/registry
+     Check the registry's status
      axm update @acme/packs/field-notes --reinstall
      Resolve the source again, then
      update

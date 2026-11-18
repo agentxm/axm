@@ -1,4 +1,4 @@
-import { plain, type Span, type Text } from "./doc.js";
+import { plain, type PaintSpan, type PaintText } from "./doc.js";
 import {
   displayWidth,
   takeDisplayEnd,
@@ -14,7 +14,7 @@ import {
  * at character boundaries. `"unbounded"` only honors hard breaks.
  */
 
-type Attributes = Omit<Span, "text">;
+type Attributes = Omit<PaintSpan, "text">;
 
 interface Fragment {
   readonly text: string;
@@ -30,7 +30,7 @@ interface Chunk {
   readonly glued: boolean;
 }
 
-const attributesOf = (span: Span): Attributes => ({
+const attributesOf = (span: PaintSpan): Attributes => ({
   ...(span.tone === undefined ? {} : { tone: span.tone }),
   ...(span.tint === undefined ? {} : { tint: span.tint }),
   ...(span.bold === undefined ? {} : { bold: span.bold }),
@@ -51,13 +51,13 @@ const sameAttributes = (left: Attributes, right: Attributes): boolean =>
 const isCopyable = (word: Word): boolean =>
   word.length > 0 && word.every((fragment) => fragment.attributes.copyable === true);
 
-export const spansOf = (value: Text): ReadonlyArray<Span> =>
+export const spansOf = (value: PaintText): ReadonlyArray<PaintSpan> =>
   typeof value === "string" ? [{ text: value }] : value;
 
 const isWhitespace = (character: string): boolean => /^\s$/u.test(character);
 
 /** Split the text into hard lines of words; each word is a run of fragments. */
-const tokenize = (spans: ReadonlyArray<Span>): ReadonlyArray<ReadonlyArray<Word>> => {
+const tokenize = (spans: ReadonlyArray<PaintSpan>): ReadonlyArray<ReadonlyArray<Word>> => {
   const lines: Array<Array<Word>> = [[]];
   let word: Array<Fragment> = [];
   const currentLine = (): Array<Word> => {
@@ -216,8 +216,8 @@ const fillLines = (
   return lines;
 };
 
-const joinWords = (chunks: ReadonlyArray<Chunk>): ReadonlyArray<Span> => {
-  const spans: Array<Span> = [];
+const joinWords = (chunks: ReadonlyArray<Chunk>): ReadonlyArray<PaintSpan> => {
+  const spans: Array<PaintSpan> = [];
   const push = (fragment: Fragment) => {
     const last = spans[spans.length - 1];
     if (last !== undefined && sameAttributes(attributesOf(last), fragment.attributes)) {
@@ -233,8 +233,8 @@ const joinWords = (chunks: ReadonlyArray<Chunk>): ReadonlyArray<Span> => {
   return spans;
 };
 
-const hardLines = (spans: ReadonlyArray<Span>): ReadonlyArray<ReadonlyArray<Span>> => {
-  const lines: Array<Array<Span>> = [[]];
+const hardLines = (spans: ReadonlyArray<PaintSpan>): ReadonlyArray<ReadonlyArray<PaintSpan>> => {
+  const lines: Array<Array<PaintSpan>> = [[]];
   for (const span of spans) {
     const parts = span.text.split("\n");
     parts.forEach((part, index) => {
@@ -249,9 +249,9 @@ const hardLines = (spans: ReadonlyArray<Span>): ReadonlyArray<ReadonlyArray<Span
 
 /** Wrap text into lines of spans. An empty source line yields an empty line. */
 export const wrapText = (
-  value: Text,
+  value: PaintText,
   width: number | "unbounded",
-): ReadonlyArray<ReadonlyArray<Span>> => {
+): ReadonlyArray<ReadonlyArray<PaintSpan>> => {
   const spans = spansOf(value);
   if (width === "unbounded") return hardLines(spans);
   const safeWidth = Math.max(1, width);
@@ -262,12 +262,12 @@ export const wrapText = (
 
 /** Take display columns off one end of a value, keeping every span attribute. */
 const takeSide = (
-  spans: ReadonlyArray<Span>,
+  spans: ReadonlyArray<PaintSpan>,
   width: number,
   side: "start" | "end",
-): ReadonlyArray<Span> => {
+): ReadonlyArray<PaintSpan> => {
   const ordered = side === "start" ? spans : [...spans].reverse();
-  const taken: Array<Span> = [];
+  const taken: Array<PaintSpan> = [];
   let used = 0;
   for (const span of ordered) {
     const room = width - used;
@@ -298,11 +298,11 @@ const sharedWidth = (left: string, right: string, side: "start" | "end"): number
  * copyable value is returned whole: it is never cut.
  */
 export const truncateText = (
-  value: Text,
+  value: PaintText,
   width: number,
   mode: TruncateMode = "end",
   ellipsis = "…",
-): Text => {
+): PaintText => {
   const spans = spansOf(value);
   if (spans.some((span) => span.copyable === true)) return value;
   const rendered = plain(value);
@@ -328,7 +328,7 @@ export const truncateText = (
  * splitting words. A path list's floor is its widest segment, not the list,
  * because the list gives way at its separators.
  */
-export const longestWordWidth = (value: Text): number =>
+export const longestWordWidth = (value: PaintText): number =>
   Math.max(
     0,
     ...tokenize(spansOf(value)).flatMap((words) =>

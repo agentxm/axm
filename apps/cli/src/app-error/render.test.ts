@@ -51,7 +51,7 @@ describe("renderAppError", () => {
         "     Remote registry is unreachable",
         "Next",
         "     axm login   Sign in again.",
-        "     https://axm.sh/docs",
+        "     https://axm.sh/docs   See the docs.",
       ].join("\n"),
     );
   });
@@ -71,7 +71,7 @@ describe("renderAppError", () => {
         titleLine("Internal Error", "internal, exit 10"),
         "     Installation failed",
         "Next",
-        "     https://github.com/agentxm/axm/issues/new/choose",
+        "     https://github.com/agentxm/axm/issues/new/choose   This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
       ].join("\n"),
     );
   });
@@ -243,7 +243,7 @@ describe("renderAppError", () => {
         "     Installation failed",
         "     Cause: Error: permission denied",
         "Next",
-        "     https://github.com/agentxm/axm/issues/new/choose",
+        "     https://github.com/agentxm/axm/issues/new/choose   This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
       ].join("\n"),
     );
   });

@@ -163,7 +163,7 @@ describe("paintText", () => {
   it("paints every node kind as one stable wide document", () => {
     expect(plain(everyNodeDocument, 80)).toEqual([
       " ✔   Ready",
-      "部署 package is ready for review",
+      "     部署 package is ready for review",
       "",
       " +   alpha                         created",
       " ~   beta                          updated",
@@ -180,7 +180,9 @@ describe("paintText", () => {
       "",
       "Next",
       "     axm list   Inspect",
+      "",
       "1 changed",
+      "",
       "Details",
       "     Section body",
       "# Heading",
@@ -460,6 +462,42 @@ describe("paintText", () => {
         expect(line.slice(0, 5), line).toMatch(/^ \S{1,3} *$/u);
         expect(line.charAt(5), line).not.toBe(" ");
       }
+    });
+
+    it("starts prose that continues a marked headline at the content column", () => {
+      const continued: Doc = [
+        { _tag: "headline", tone: "ok", text: "Signed in" },
+        { _tag: "paragraph", text: "Your token lasts 30 days." },
+        { _tag: "blank" },
+        { _tag: "paragraph", text: "It is stored in the keychain." },
+        { _tag: "next", actions: [{ description: "Check", cmd: "axm whoami" }] },
+        { _tag: "paragraph", text: "Unrelated prose." },
+      ];
+      expect(plain(continued, 80)).toEqual([
+        " ✔   Signed in",
+        "     Your token lasts 30 days.",
+        "",
+        "     It is stored in the keychain.",
+        "Next",
+        "     axm whoami   Check",
+        "",
+        "Unrelated prose.",
+      ]);
+    });
+
+    it("keeps prose after an unmarked title or a verdict at the margin", () => {
+      const titled: Doc = [
+        { _tag: "headline", tone: "neutral", text: "Publishing 2 extensions" },
+        { _tag: "paragraph", text: "Both are new." },
+        { _tag: "headline", tone: "ok", text: "Published", verdict: true },
+        { _tag: "paragraph", text: "They are public now." },
+      ];
+      expect(plain(titled, 80)).toEqual([
+        "Publishing 2 extensions",
+        "Both are new.",
+        "Published",
+        "They are public now.",
+      ]);
     });
 
     it("gives a verdict after a ledger no glyph and bolds it", () => {
@@ -819,6 +857,43 @@ describe("paintText", () => {
       ]);
     });
 
+    it("sets apart whatever a view puts after Next", () => {
+      const trailing: Doc = [
+        { _tag: "next", actions: [{ description: "Inspect", cmd: "axm list" }] },
+        { _tag: "summary", parts: [{ text: "1 changed" }] },
+      ];
+      expect(plain(trailing, 80)).toEqual(["Next", "     axm list   Inspect", "", "1 changed"]);
+    });
+
+    it("sets a titled section apart in a result but keeps an untitled one with its prose", () => {
+      const result: Doc = [
+        {
+          _tag: "table",
+          columns: [{ header: "Name" }],
+          rows: [{ cells: ["alpha"] }],
+        },
+        { _tag: "summary", parts: [{ text: "1 member" }] },
+        {
+          _tag: "section",
+          title: "Details",
+          children: [{ _tag: "paragraph", text: "Published 12 Sep" }],
+        },
+        { _tag: "paragraph", text: "Signed by @acme" },
+        { _tag: "section", children: [{ _tag: "paragraph", text: "Key 4F2A" }] },
+      ];
+      expect(plain(result, 80)).toEqual([
+        "     Name",
+        "     alpha",
+        "",
+        "1 member",
+        "",
+        "Details",
+        "     Published 12 Sep",
+        "Signed by @acme",
+        "Key 4F2A",
+      ]);
+    });
+
     it("keeps an empty state's prose and Next together", () => {
       const empty: Doc = [
         { _tag: "paragraph", text: "No extensions installed in this project." },
@@ -873,6 +948,17 @@ describe("paintText", () => {
       ]);
     });
 
+    it("describes a next link beside it, or beneath it when it cannot fit", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [{ description: "Read the guide", url: "https://axm.sh/docs" }],
+        },
+      ];
+      expect(plain(doc, 80)).toEqual(["Next", "     https://axm.sh/docs   Read the guide"]);
+      expect(plain(doc, 30)).toEqual(["Next", "     https://axm.sh/docs", "     Read the guide"]);
+    });
+
     it("still joins a next command that fits", () => {
       const doc: Doc = [
         {
@@ -888,7 +974,7 @@ describe("paintText", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
     expect(lines.slice(0, 9)).toEqual([
       " ok  Ready",
-      "部署 package is ready for review",
+      "     部署 package is ready for review",
       "",
       " +   alpha                         created",
       " ~   beta                          updated",

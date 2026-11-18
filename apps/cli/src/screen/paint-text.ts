@@ -163,7 +163,7 @@ const paintNode = (
             });
           }
           const lines = paintPrefixed(target, style, { indent: actionStart, first: "" });
-          if (action.url !== undefined || plain(action.description).length === 0) return lines;
+          if (plain(action.description).length === 0) return lines;
           return withSupplement(lines, action.description, style, actionStart, {
             gap: spaces(COLUMN_GAP),
             ownLine: action.description,
@@ -220,9 +220,16 @@ const paintNodes = (
         return true;
       case "answer":
         return previous?._tag !== "answer";
+      case "section":
+        // A titled group is a block of its own; an untitled one continues the prose before it.
+        return (
+          node.title !== undefined ||
+          previous?._tag === "ledger" ||
+          previous?._tag === "table" ||
+          previous?._tag === "fields"
+        );
       case "paragraph":
       case "summary":
-      case "section":
       case "markdown":
       case "raw":
         return (
@@ -235,15 +242,35 @@ const paintNodes = (
 
   const setApart = (node: DocNode, previous: DocNode): boolean =>
     (structured && startsBlock(node, previous)) ||
+    // `Next` closes a result, so anything a view puts after it starts anew.
+    previous._tag === "next" ||
     // Sibling groups stand apart from each other.
     (node._tag === "section" && previous._tag === "section") ||
     // The one value a sentence asks a person to act on stands apart from the prose around it.
     isInset(node) ||
     isInset(previous);
 
+  // A marked headline's text starts past the gutter, so the prose that
+  // continues it starts there too rather than back at the margin.
+  const marked = (node: DocNode): boolean =>
+    node._tag === "headline" &&
+    node.verdict !== true &&
+    statusGlyph(node.tone, style.glyphs) !== undefined;
+  const continuation: Placement = { mark, content: Math.max(content, mark + GUTTER_WIDTH) };
+
   const lines: Array<string> = [];
   let previous: DocNode | undefined;
+  // Whether prose here continues a marked headline: blank lines between its
+  // paragraphs keep the run, and any other node ends it.
+  let continuing = false;
   for (const node of doc) {
+    continuing =
+      (previous !== undefined && marked(previous)) ||
+      (continuing && (previous?._tag === "paragraph" || previous?._tag === "blank"));
+    const placement =
+      continuing && node._tag === "paragraph" && node.inset !== true
+        ? continuation
+        : { mark, content };
     if (
       node._tag !== "blank" &&
       previous !== undefined &&
@@ -253,7 +280,7 @@ const paintNodes = (
     ) {
       lines.push("");
     }
-    lines.push(...paintNode(node, style, { mark, content }));
+    lines.push(...paintNode(node, style, placement));
     previous = node;
   }
   return lines;

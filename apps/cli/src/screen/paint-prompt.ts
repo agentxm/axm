@@ -6,8 +6,8 @@ import type {
   PromptNode,
   PromptOption,
   PromptPicked,
-  Span,
-  Text,
+  PaintSpan,
+  PaintText,
   Tone,
   WaitNode,
 } from "./doc.js";
@@ -51,10 +51,10 @@ const NAMED_KEY_LENGTH = 3;
 const chipSpans = (
   chip: PromptChip,
   options: { readonly word: boolean; readonly last: boolean },
-): ReadonlyArray<Span> => {
-  const emphasis: Omit<Span, "text"> =
+): ReadonlyArray<PaintSpan> => {
+  const emphasis: Omit<PaintSpan, "text"> =
     chip.current === true ? { tone: "info", bold: true } : { tone: "dim" };
-  const fill: Span = {
+  const fill: PaintSpan = {
     text: ` ${chip.key}${options.word || !options.last ? " " : ""}`,
     invert: true,
     ...emphasis,
@@ -65,19 +65,19 @@ const chipSpans = (
 };
 
 /** Every chip of one prompt, in paint order, with or without their words. */
-const chipsSpans = (chips: ReadonlyArray<PromptChip>, word: boolean): ReadonlyArray<Span> =>
+const chipsSpans = (chips: ReadonlyArray<PromptChip>, word: boolean): ReadonlyArray<PaintSpan> =>
   chips.flatMap((chip, index) => [
     ...(index === 0 ? [] : [{ text: spaces(CHIP_GAP) }]),
     ...chipSpans(chip, { word, last: index === chips.length - 1 }),
   ]);
 
-const spansWidth = (spans: ReadonlyArray<Span>): number => displayWidth(plain(spans));
+const spansWidth = (spans: ReadonlyArray<PaintSpan>): number => displayWidth(plain(spans));
 
 /**
  * The line being typed, behind the caret. An empty line is the caret alone,
  * so the question line never ends in a space.
  */
-const entrySpans = (entry: Text, style: ResolvedStyle): ReadonlyArray<Span> =>
+const entrySpans = (entry: PaintText, style: ResolvedStyle): ReadonlyArray<PaintSpan> =>
   plain(entry).length === 0
     ? [{ text: style.glyphs.marks.caret }]
     : [{ text: `${style.glyphs.marks.caret} ` }, ...spansOf(entry)];
@@ -108,7 +108,7 @@ const paintQuestion = (
   const room = (used: number): boolean => style.width === "unbounded" || used <= style.width;
   const alone = paintPrefixed(question, style, { indent, first });
   if (!style.wrap && style.width !== "unbounded") {
-    const suffix: ReadonlyArray<Span> =
+    const suffix: ReadonlyArray<PaintSpan> =
       node.filter !== undefined
         ? node.filter.length === 0
           ? [{ text: FILTER_INVITATION, tone: "dim" }]
@@ -137,7 +137,7 @@ const paintQuestion = (
   if (node.filter !== undefined) {
     // An empty filter invites typing while the line has room for it; a typed
     // one is what the list shows, so it takes the next line rather than go.
-    const filter: ReadonlyArray<Span> =
+    const filter: ReadonlyArray<PaintSpan> =
       node.filter.length === 0
         ? [{ text: FILTER_INVITATION, tone: "dim" }]
         : [{ text: node.filter }];
@@ -201,7 +201,7 @@ const optionLead = (
 };
 
 /** An option's title, shortened in the middle to what the line leaves it. */
-const optionTitle = (option: PromptOption, style: ResolvedStyle, start: number): Text =>
+const optionTitle = (option: PromptOption, style: ResolvedStyle, start: number): PaintText =>
   style.width === "unbounded"
     ? option.title
     : truncateText(option.title, Math.max(1, style.width - start), "middle", style.glyphs.ellipsis);
@@ -215,7 +215,7 @@ const matchAt = (text: string, filter: string | undefined): number => {
 };
 
 /** A value with what was typed in bold where it first shows, so a match is seen to be one. */
-const withMatch = (value: Text, filter: string | undefined): ReadonlyArray<Span> => {
+const withMatch = (value: PaintText, filter: string | undefined): ReadonlyArray<PaintSpan> => {
   const spans = spansOf(value);
   const index = spans.findIndex((span) => matchAt(span.text, filter) >= 0);
   const span = spans[index];
@@ -237,11 +237,11 @@ const withMatch = (value: Text, filter: string | undefined): ReadonlyArray<Span>
  * an option is never listed without the reason it is.
  */
 const shortenedDetails = (
-  details: ReadonlyArray<Span>,
+  details: ReadonlyArray<PaintSpan>,
   room: number,
   style: ResolvedStyle,
   filter: string | undefined,
-): ReadonlyArray<Span> => {
+): ReadonlyArray<PaintSpan> => {
   const text = plain(details);
   const at = matchAt(text, filter);
   const ellipsis = style.glyphs.ellipsis;
@@ -250,19 +250,19 @@ const shortenedDetails = (
     at < 0 || displayWidth(text.slice(0, at + (filter ?? "").length)) <= cut
       ? 0
       : text.lastIndexOf(" ", Math.max(0, at - Math.floor(room / 3))) + 1;
-  const shown: Text = from === 0 ? details : `${ellipsis}${text.slice(from)}`;
+  const shown: PaintText = from === 0 ? details : `${ellipsis}${text.slice(from)}`;
   return spansOf(truncateText(withMatch(shown, filter), Math.max(1, room), "end", ellipsis));
 };
 
 /** An option's details joined by the painter's own separator. */
-const optionDetails = (option: PromptOption, style: ResolvedStyle): ReadonlyArray<Span> =>
+const optionDetails = (option: PromptOption, style: ResolvedStyle): ReadonlyArray<PaintSpan> =>
   (option.details ?? []).flatMap((detail, index) => [
     ...(index === 0 ? [] : [{ text: style.glyphs.separator }]),
     ...spansOf(detail),
   ]);
 
 /** Where an option's details start: the list's column, unless its title reaches past it. */
-const detailsStart = (title: Text, column: number, start: number): number =>
+const detailsStart = (title: PaintText, column: number, start: number): number =>
   Math.max(column, start + displayWidth(plain(title)) + COLUMN_GAP);
 
 /**
@@ -332,7 +332,7 @@ const paintSkipped = (
   count: number,
   style: ResolvedStyle,
   indent: number,
-  what?: Text,
+  what?: PaintText,
 ): ReadonlyArray<string> => {
   const start = indent + GUTTER_WIDTH;
   const named = `${arrow} ${String(count)} more${what === undefined ? "" : `${style.glyphs.separator}${plain(what)}`}`;

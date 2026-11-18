@@ -33,7 +33,9 @@ const withRecordedFileSystem = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 const storeFixture = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const root = yield* fs.makeTempDirectoryScoped();
+  // The physical spelling, so that recorded calls are counted under the paths the
+  // product resolves: a platform's temporary directory may be an alias.
+  const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
   const workspaceDir = path.join(root, ".axm");
   const store = path.join(workspaceDir, "projection-containers.json");
   const native = path.join(root, "native.json");

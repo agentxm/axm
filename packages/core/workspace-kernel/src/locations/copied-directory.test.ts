@@ -207,9 +207,9 @@ const treeFixture = Effect.gen(function* () {
     });
   const stats = (directory: string) =>
     Object.fromEntries(
-      ["", "a.txt", "scripts", path.join("scripts", "run.sh"), "link"].map((relative) => [
-        relative === "" ? "." : relative,
-        recording.calls({ path: path.join(directory, relative), method: "stat" }).length,
+      [[], ["a.txt"], ["scripts"], ["scripts", "run.sh"], ["link"]].map((segments) => [
+        segments.length === 0 ? "." : segments.join("/"),
+        recording.calls({ path: path.join(directory, ...segments), method: "stat" }).length,
       ]),
     );
   return { fs, path, source, copy, fresh, receipt: receipt.value, recorded, recording, stats };

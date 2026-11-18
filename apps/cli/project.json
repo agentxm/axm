@@ -410,18 +410,6 @@
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"
     },
-    "lab": {
-      "metadata": {
-        "description": "Terminal design lab, run from source: list (gallery fixture names); gallery [--name <fixture>] [--width <columns>] [--rows <rows>] [--ascii] [--plain]; ask <name> [--steps <script>] [--size <columns>x<rows>] [--frames] (a sample question driven by key steps in process)."
-      },
-      "cache": false,
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun --conditions=axm-source scripts/lab.ts",
-        "cwd": "apps/cli",
-        "forwardAllArgs": true
-      }
-    },
     "compile-darwin-arm64": {
       "cache": true,
       "dependsOn": ["build"],

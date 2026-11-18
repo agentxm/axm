@@ -11,99 +11,28 @@
  * of it.
  */
 
-import * as Option from "effect/Option";
-
 import {
+  PROJECT_ROOT,
+  aChangedUnit,
+  aFailedUnit,
+  aFailure,
+  aPlannedUnit,
+  aUnit,
+  anArtifact,
+  anOperation,
+  anUnchangedUnit,
+  installVerb,
+  syncVerb,
+  updateVerb,
+} from "./builders.js";
+import type {
+  OperationEvent,
+  ResolvedUnit,
   StepFailure,
-  makeOperationResolution,
-  operationPresentation,
-  type JobStepArtifact,
-  type OperationEvent,
-  type OperationPresentation,
-  type OperationResolution,
-  type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
 
-const updatePresentation: OperationPresentation = operationPresentation({
-  imperative: "update",
-  past: "Updated",
-  gerund: "Updating",
-});
-
-const installPresentation: OperationPresentation = operationPresentation({
-  imperative: "install",
-  past: "Installed",
-  gerund: "Installing",
-});
-
-const syncPresentation: OperationPresentation = operationPresentation({
-  imperative: "sync",
-  past: "Synced",
-  gerund: "Syncing",
-});
-
-/** Where a project's extensions live, as a reason names them. */
-const PROJECT_ROOT = "/home/dev/work/platform-services";
-
-const artifact = (
-  name: string,
-  change: JobStepArtifact["change"],
-  options?: {
-    readonly version?: string;
-    readonly previousVersion?: string;
-    readonly fileCount?: number;
-    readonly agents?: ReadonlyArray<string>;
-  },
-): JobStepArtifact => ({
-  path: `${PROJECT_ROOT}/agent_extensions/${name.split("/").at(-1) ?? name}`,
-  scope: "project",
-  change,
-  ...(options?.version === undefined ? {} : { version: options.version }),
-  ...(options?.previousVersion === undefined ? {} : { previousVersion: options.previousVersion }),
-  ...(options?.fileCount === undefined ? {} : { fileCount: options.fileCount }),
-  ...(options?.agents === undefined ? {} : { agents: options.agents }),
-});
-
-const AGENTS = ["claude-code", "codex", "grok-cli", "opencode"];
-
-/** A unit that changed as planned, with the agents it reached. */
-const changed = (
-  name: string,
-  version: string,
-  previousVersion: string,
-): ResolvedUnit<unknown> => ({
-  id: name,
-  label: name,
-  state: "committed",
-  artifact: artifact(name, "updated", {
-    version,
-    previousVersion,
-    fileCount: 6,
-    agents: AGENTS,
-  }),
-});
-
-/**
- * A unit that failed. Its reason is the producer's own sentence, long enough
- * that no cell at any supported width holds it, and its suggestion is the
- * route that unit admits.
- */
-const failed = (
-  name: string,
-  installedVersion: string,
-  failure: StepFailure,
-): ResolvedUnit<unknown> => ({
-  id: name,
-  label: name,
-  state: "failed",
-  disposition: "restored",
-  message: `${failure.detail} (${failure.category})`,
-  error: failure,
-  artifact: artifact(name, "updated", { previousVersion: installedVersion }),
-});
-
 const registryTimeout = (name: string): StepFailure =>
-  new StepFailure({
+  aFailure({
     category: "timeout",
     detail: `The registry did not answer within 30s while resolving ${name}. The request was retried three times and the workspace was left as it was.`,
     suggestions: [
@@ -112,7 +41,7 @@ const registryTimeout = (name: string): StepFailure =>
   });
 
 const integrityMismatch = (name: string): StepFailure =>
-  new StepFailure({
+  aFailure({
     category: "conflict",
     detail: `The archive AXM downloaded for ${name} does not match the integrity the lockfile records. Nothing was written to ${PROJECT_ROOT}/agent_extensions, and the installed version is still in place.`,
     suggestions: [
@@ -124,18 +53,22 @@ const integrityMismatch = (name: string): StepFailure =>
   });
 
 const projectionDenied = (name: string, path: string): StepFailure =>
-  new StepFailure({
+  aFailure({
     category: "forbidden",
     detail: `AXM could not write ${path}: the directory is read-only. The extension was not projected into any agent, and ${name} still resolves to the version already installed.`,
   });
 
+/** A unit that failed on `failure`, restored to the version still installed. */
+const failed = (name: string, installedVersion: string, failure: StepFailure) =>
+  aFailedUnit(name, { installedVersion, failure });
+
 /** Thirteen units, as a project-wide update settles them. */
 const partialUpdateUnits: ReadonlyArray<ResolvedUnit<unknown>> = [
-  changed("@acme/skills/improve-whatever", "1.0.2", "1.0.1"),
-  changed("@acme/skills/spot-spew", "0.2.0", "0.1.9"),
-  changed("@acme/skills/devops-docs", "0.5.1", "0.5.0"),
-  changed("@acme/skills/okf", "0.1.9", "0.1.8"),
-  changed("@acme/skills/research", "1.2.0", "1.1.3"),
+  aChangedUnit("@acme/skills/improve-whatever", { version: "1.0.2", previousVersion: "1.0.1" }),
+  aChangedUnit("@acme/skills/spot-spew", { version: "0.2.0", previousVersion: "0.1.9" }),
+  aChangedUnit("@acme/skills/devops-docs", { version: "0.5.1", previousVersion: "0.5.0" }),
+  aChangedUnit("@acme/skills/okf", { version: "0.1.9", previousVersion: "0.1.8" }),
+  aChangedUnit("@acme/skills/research", { version: "1.2.0", previousVersion: "1.1.3" }),
   failed(
     "@acme/knowledge/agent-engineering",
     "0.9.4",
@@ -163,12 +96,7 @@ const partialUpdateUnits: ReadonlyArray<ResolvedUnit<unknown>> = [
     projectionDenied("@acme/rules/typescript", `${PROJECT_ROOT}/.codex/rules`),
   ),
   failed("@acme/skills/incident-review", "2.0.0", registryTimeout("@acme/skills/incident-review")),
-  {
-    id: "@acme/hooks/pre-commit",
-    label: "@acme/hooks/pre-commit",
-    state: "unchanged",
-    artifact: artifact("@acme/hooks/pre-commit", "unchanged", { version: "1.0.3", agents: AGENTS }),
-  },
+  anUnchangedUnit("@acme/hooks/pre-commit", "1.0.3"),
 ];
 
 /**
@@ -177,12 +105,9 @@ const partialUpdateUnits: ReadonlyArray<ResolvedUnit<unknown>> = [
  * the operation left the workspace coherent and the reader needs the reasons
  * to decide what to do next.
  */
-export const partialUpdate: OperationResolution<unknown> = makeOperationResolution({
+export const partialUpdate = anOperation({
   name: "Update extensions",
-  description: Option.none(),
-  mode: "apply",
-  presentation: updatePresentation,
-  atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+  verb: updateVerb,
   units: partialUpdateUnits,
 });
 
@@ -214,29 +139,22 @@ export const partialUpdateReleaseAge = {
  * failed on a dependency it could not resolve, and the two behind it were
  * never tried because the operation stopped.
  */
-export const failedRolledBackInstall: OperationResolution<unknown> = makeOperationResolution({
+export const failedRolledBackInstall = anOperation({
   name: "Install extensions",
-  description: Option.none(),
-  mode: "apply",
-  presentation: installPresentation,
-  atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+  verb: installVerb,
   units: [
-    {
-      id: "@acme/packs/review-kit",
-      label: "@acme/packs/review-kit",
+    aUnit("@acme/packs/review-kit", {
       state: "rolled-back",
       disposition: "restored",
       message: "The pack's members were written and then removed again when a later member failed.",
-      artifact: artifact("@acme/packs/review-kit", "created", { version: "2.1.0" }),
-    },
-    {
-      id: "@acme-enterprise/subagents/incident-commander",
-      label: "@acme-enterprise/subagents/incident-commander",
+      artifact: anArtifact("@acme/packs/review-kit", "created", { version: "2.1.0" }),
+    }),
+    aUnit("@acme-enterprise/subagents/incident-commander", {
       state: "failed",
       disposition: "restored",
       message:
         "The registry has no version of @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which @acme/packs/review-kit requires. Nothing was installed. (not_found)",
-      error: new StepFailure({
+      error: aFailure({
         category: "not_found",
         detail:
           "The registry has no version of @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which @acme/packs/review-kit requires. Nothing was installed.",
@@ -247,50 +165,33 @@ export const failedRolledBackInstall: OperationResolution<unknown> = makeOperati
           },
         ],
       }),
-      artifact: artifact("@acme-enterprise/subagents/incident-commander", "created"),
-    },
-    {
-      id: "@acme/skills/incident-review",
-      label: "@acme/skills/incident-review",
-      state: "planned",
-      artifact: artifact("@acme/skills/incident-review", "created", { version: "2.0.0" }),
-    },
-    {
-      id: "@acme/knowledge/runbooks",
-      label: "@acme/knowledge/runbooks",
-      state: "planned",
-      artifact: artifact("@acme/knowledge/runbooks", "created", { version: "5.2.0" }),
-    },
+      artifact: anArtifact("@acme-enterprise/subagents/incident-commander", "created"),
+    }),
+    aPlannedUnit("@acme/skills/incident-review", "created", { version: "2.0.0" }),
+    aPlannedUnit("@acme/knowledge/runbooks", "created", { version: "5.2.0" }),
   ],
-  failure: new StepFailure({
+  failure: aFailure({
     category: "not_found",
     detail: "One extension could not be resolved, so the install was rolled back.",
   }),
 });
 
+const versionConflict =
+  "The workspace pins @acme-enterprise/knowledge/effect-v4 to 0.4.2 while the pack @acme/packs/field-notes requires ^0.5.0. Two settings ask for versions that cannot both hold, so AXM changed nothing.";
+
 /**
  * A sync blocked before it changed anything: two units are held by a
  * condition a person has to resolve, and the rest were never reached.
  */
-export const blockedSync: OperationResolution<unknown> = makeOperationResolution({
+export const blockedSync = anOperation({
   name: "Sync workspace",
-  description: Option.none(),
-  mode: "apply",
-  presentation: syncPresentation,
-  atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+  verb: syncVerb,
   units: [
-    {
-      id: "@acme-enterprise/knowledge/effect-v4",
-      label: "@acme-enterprise/knowledge/effect-v4",
+    aUnit("@acme-enterprise/knowledge/effect-v4", {
       state: "blocked",
       disposition: "untouched",
-      message:
-        "The workspace pins @acme-enterprise/knowledge/effect-v4 to 0.4.2 while the pack @acme/packs/field-notes requires ^0.5.0. Two settings ask for versions that cannot both hold, so AXM changed nothing.",
-      error: new StepFailure({
-        category: "conflict",
-        detail:
-          "The workspace pins @acme-enterprise/knowledge/effect-v4 to 0.4.2 while the pack @acme/packs/field-notes requires ^0.5.0. Two settings ask for versions that cannot both hold, so AXM changed nothing.",
-      }),
+      message: versionConflict,
+      error: aFailure({ category: "conflict", detail: versionConflict }),
       blocking: {
         class: "precondition-unmet",
         subject: "@acme-enterprise/knowledge/effect-v4",
@@ -298,13 +199,11 @@ export const blockedSync: OperationResolution<unknown> = makeOperationResolution
         detail: "Two settings ask for versions of one extension that cannot both hold.",
         reference: "pinned-version-conflict",
       },
-      artifact: artifact("@acme-enterprise/knowledge/effect-v4", "updated", {
+      artifact: anArtifact("@acme-enterprise/knowledge/effect-v4", "updated", {
         previousVersion: "0.4.2",
       }),
-    },
-    {
-      id: "@acme/packs/field-notes",
-      label: "@acme/packs/field-notes",
+    }),
+    aUnit("@acme/packs/field-notes", {
       state: "blocked",
       disposition: "untouched",
       message:
@@ -316,14 +215,9 @@ export const blockedSync: OperationResolution<unknown> = makeOperationResolution
         detail: "A member of this pack is blocked.",
         reference: "@acme-enterprise/knowledge/effect-v4",
       },
-      artifact: artifact("@acme/packs/field-notes", "updated", { previousVersion: "1.0.0" }),
-    },
-    {
-      id: "@acme/skills/research",
-      label: "@acme/skills/research",
-      state: "planned",
-      artifact: artifact("@acme/skills/research", "updated", { previousVersion: "1.1.3" }),
-    },
+      artifact: anArtifact("@acme/packs/field-notes", "updated", { previousVersion: "1.0.0" }),
+    }),
+    aPlannedUnit("@acme/skills/research", "updated", { previousVersion: "1.1.3" }),
   ],
 });
 
@@ -403,3 +297,17 @@ export const liveUpdateThrough = (
 
 /** The wall clock each cut frame is painted at. */
 export const liveUpdateNowMs = (index: number): number => STARTED_AT + 700 + index * 900;
+
+/**
+ * The whole update as one playable recording: the live log, then the
+ * operation settling partially once the last unit resolves.
+ */
+export const liveUpdateRecording: ReadonlyArray<OperationEvent> = [
+  ...liveUpdateLog,
+  {
+    _tag: "OperationSettled",
+    seq: liveUpdateLog.length + 1,
+    atMs: (liveUpdateLog.at(-1)?.atMs ?? STARTED_AT) + 300,
+    outcome: "partial",
+  },
+];

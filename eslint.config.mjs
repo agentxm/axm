@@ -700,7 +700,7 @@ const testPurposeFiles = [
   "**/*.gallery.ts",
   // The never-published terminal design lab composes the gallery and the
   // shared key-step grammar from test support.
-  "apps/cli/scripts/lab.ts",
+  "apps/cli/scripts/lab/**/*.ts",
   "**/*.test.ts",
   "**/*.test.tsx",
   "**/*.test.cts",

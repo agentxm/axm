@@ -7,6 +7,7 @@
   },
   "scripts": {
     "axm": "bun --conditions=axm-source apps/cli/src/main.ts",
+    "lab": "bun --conditions=axm-source apps/cli/scripts/lab/main.ts",
     "axm:local": "./scripts/axm-local",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "resolve:release-source": "bun scripts/resolve-release-source.ts",

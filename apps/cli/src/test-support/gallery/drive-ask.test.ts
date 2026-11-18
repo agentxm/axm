@@ -64,7 +64,7 @@ describe("driveAsk", () => {
 
   it("refuses a wait, and a step after the question has settled", () => {
     const wait = drive("await:Skills");
-    expect(Result.isFailure(wait) && wait.failure).toContain("cli-e2e:preview");
+    expect(Result.isFailure(wait) && wait.failure).toContain("pnpm lab run");
     const late = drive("enter,down");
     expect(Result.isFailure(late) && late.failure).toContain("settled at step 1");
   });

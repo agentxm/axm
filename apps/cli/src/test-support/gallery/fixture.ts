@@ -32,7 +32,7 @@ const documentSnapshotWidths: ReadonlyArray<number> = [40, 80, 120];
 export const stressWidths: ReadonlyArray<number> = [40, 80, 100, 120, 200];
 
 /** Terminal heights a live scene must fit; settled documents are not height-bound. */
-export const galleryHeights: ReadonlyArray<number> = [16, 24];
+const galleryHeights: ReadonlyArray<number> = [16, 24];
 
 /** A settled document: printed once to the transcript and bounded by width only. */
 interface DocumentFixture {
@@ -105,6 +105,30 @@ export const snapshotWidthsOf = (fixture: GalleryFixture): ReadonlyArray<number>
 /** The widths a fixture's invariants are checked at: every gallery width and every snapshot width. */
 export const checkWidthsOf = (fixture: GalleryFixture): ReadonlyArray<number> =>
   uniqueSorted([...galleryWidths, ...snapshotWidthsOf(fixture)]);
+
+/**
+ * The terminal sizes for a set of widths: each width for a document, which
+ * ignores the height, and each width by each height for a scene.
+ */
+export const sizesAt = (
+  fixture: GalleryFixture,
+  widths: ReadonlyArray<number>,
+): ReadonlyArray<TerminalSize> =>
+  fixture._tag === "document"
+    ? widths.map((columns) => ({ columns, rows: Math.max(...galleryHeights) }))
+    : widths.flatMap((columns) => galleryHeights.map((rows) => ({ columns, rows })));
+
+/** A fixture at one size, as its test and its snapshot file are named. */
+export const labelOf = (fixture: GalleryFixture, terminal: TerminalSize): string =>
+  fixture._tag === "document"
+    ? `${fixture.name}.${String(terminal.columns)}`
+    : `${fixture.name}.${String(terminal.columns)}x${String(terminal.rows)}`;
+
+/** The snapshot files a fixture keeps, by name, in the gallery's `__snapshots__` directory. */
+export const snapshotFilesOf = (fixture: GalleryFixture): ReadonlyArray<string> =>
+  sizesAt(fixture, snapshotWidthsOf(fixture)).map(
+    (terminal) => `${labelOf(fixture, terminal)}.txt`,
+  );
 
 /**
  * Paint a fixture as the terminal would show it. A settled document fills the

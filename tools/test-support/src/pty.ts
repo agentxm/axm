@@ -1,0 +1,267 @@
+/**
+ * Pseudo-terminal harness: run a command under a real terminal.
+ *
+ * Application-owned prompts and waits only exist when stdin is a terminal:
+ * raw mode, key decoding, and the cleanup that follows an interrupt are the
+ * parts no unit test reaches. This harness runs a command under a real PTY of
+ * a declared size, replays a script of waits and key writes against it, and
+ * reports what the terminal emitted together with the two process-level facts
+ * the design depends on — that raw mode was handed back and the cursor was
+ * left visible.
+ *
+ * The PTY itself is Bun's (`Bun.Terminal`), the one pseudo-terminal in this
+ * repository's toolchain and available only inside the Bun runtime, while
+ * Vitest runs under Node. `pty-driver.ts` is therefore spawned under Bun for
+ * each run and speaks one JSON request and one JSON result over its own pipes;
+ * everything the subject writes goes to the PTY instead. The E2E suite runs
+ * the axm artifact through it, and the terminal design lab runs the CLI from
+ * source.
+ *
+ * What comes back is a transcript, not an emulated screen grid: prompts
+ * repaint their whole block, so the frame a key produced is the output that
+ * followed it, reported per action as `emitted`. `replayPtyRun` interprets the
+ * exact bytes with a headless terminal when the screen a person would see is
+ * the evidence.
+ */
+
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+
+import type { KeyStep } from "./key-steps.js";
+import {
+  makeTerminalReplay,
+  replayBytes,
+  resizeTerminal,
+  terminalTranscript,
+} from "./terminal-replay.js";
+
+/** Wait until the visible transcript contains `awaiting`. */
+const PtyAwaitSchema = Schema.Struct({ awaiting: Schema.String });
+
+/** Write `send` to the terminal, then let the subject's repaint settle. */
+const PtySendSchema = Schema.Struct({ send: Schema.String });
+
+const PtyResizeSchema = Schema.Struct({
+  resize: Schema.Struct({ columns: Schema.Number, rows: Schema.Number }),
+});
+
+const PtyActionSchema = Schema.Union([PtyAwaitSchema, PtySendSchema, PtyResizeSchema]);
+
+const PtyActionOutcomeSchema = Schema.Struct({
+  action: PtyActionSchema,
+  /** Always true for a write; false when a wait ran out of time. */
+  matched: Schema.Boolean,
+  /** Transcript this action produced, with escape sequences removed. */
+  emitted: Schema.String,
+  /** Exact bytes since the preceding action, for terminal replay. */
+  bytes: Schema.String,
+});
+
+export type PtyAction = typeof PtyActionSchema.Type;
+export type PtyActionOutcome = typeof PtyActionOutcomeSchema.Type;
+
+export interface PtyRunOptions {
+  readonly columns?: number;
+  readonly rows?: number;
+  readonly cwd?: string;
+  readonly env?: Readonly<Record<string, string>>;
+  readonly actions?: ReadonlyArray<PtyAction>;
+  /** Budget for one `awaiting` action. Default 30s. */
+  readonly awaitTimeout?: number;
+  /** Budget for the subject to exit after the last action. Default 15s. */
+  readonly exitTimeout?: number;
+}
+
+export interface PtyRunResult {
+  /** Null when the subject had to be killed for overrunning its budget. */
+  readonly exitCode: number | null;
+  readonly signal: string | number | null;
+  readonly timedOut: boolean;
+  /** Everything the terminal emitted, escape sequences intact. */
+  readonly output: string;
+  /** The same output with escape sequences removed and newlines normalised. */
+  readonly transcript: string;
+  readonly actions: ReadonlyArray<PtyActionOutcome>;
+  /** Whether the subject left canonical mode and echo back on the terminal. */
+  readonly rawModeRestored: boolean;
+  /** Whether the cursor was visible when the subject let go of the terminal. */
+  readonly cursorRestored: boolean;
+}
+
+/** The wire contract between this module and the Bun driver. */
+const PtyDriverRequestSchema = Schema.Struct({
+  subject: Schema.Struct({
+    runtime: Schema.Literals(["binary", "bun-script"] as const),
+    path: Schema.String,
+  }),
+  args: Schema.Array(Schema.String),
+  columns: Schema.Number,
+  rows: Schema.Number,
+  cwd: Schema.String,
+  env: Schema.Record(Schema.String, Schema.String),
+  actions: Schema.Array(PtyActionSchema),
+  awaitTimeoutMs: Schema.Number,
+  exitTimeoutMs: Schema.Number,
+});
+
+const PtyDriverResultSchema = Schema.Struct({
+  exitCode: Schema.NullOr(Schema.Number),
+  signal: Schema.NullOr(Schema.Union([Schema.String, Schema.Int])),
+  timedOut: Schema.Boolean,
+  output: Schema.String,
+  actions: Schema.Array(PtyActionOutcomeSchema),
+  /** `c_lflag` read from the terminal once the subject had let go of it. */
+  localFlags: Schema.Number,
+});
+
+export type PtyDriverRequest = typeof PtyDriverRequestSchema.Type;
+export type PtyDriverResult = typeof PtyDriverResultSchema.Type;
+
+export const decodePtyDriverRequest = Schema.decodeUnknownSync(PtyDriverRequestSchema);
+const decodePtyDriverResult = Schema.decodeUnknownSync(PtyDriverResultSchema);
+
+/**
+ * Bun allocates a pseudo-terminal on POSIX only. The suite's Windows coverage
+ * runs from its own config and its own files, so a Windows host skips rather
+ * than fails.
+ */
+export const ptyIsSupported = process.platform === "darwin" || process.platform === "linux";
+
+// termios `c_lflag` bits. ECHO agrees across the supported platforms; ICANON
+// does not, so the two values are named rather than shared.
+const ECHO = 0x8;
+const ICANON = process.platform === "linux" ? 0x2 : 0x100;
+
+// Enough of the escape grammar to reduce a terminal transcript to its visible
+// text. The pattern is built from strings so no line of this file carries a
+// control character of its own.
+const ESCAPE_SEQUENCE = new RegExp(
+  [
+    // An OSC string, terminated by BEL or by ST.
+    String.raw`\u001B\][\s\S]*?(?:\u0007|\u001B\\)`,
+    // A CSI sequence: colour, cursor movement, erase, mode set.
+    String.raw`\u001B\[[0-9;?]*[ -/]*[@-~]`,
+    // A two-character escape.
+    String.raw`\u001B[@-Z\\-_]`,
+  ].join("|"),
+  "g",
+);
+
+const HIDE_CURSOR = "\u001B[?25l";
+const SHOW_CURSOR = "\u001B[?25h";
+
+export const visibleText = (output: string): string =>
+  output.replace(ESCAPE_SEQUENCE, "").replaceAll("\r\n", "\n");
+
+/** An environment's set variables, for the environment a subject is given. */
+export const definedEntries = (env: NodeJS.ProcessEnv): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+
+const driverPath = fileURLToPath(new URL("./pty-driver.ts", import.meta.url));
+
+const runDriver = (request: PtyDriverRequest): Promise<PtyDriverResult> =>
+  new Promise((resolve, reject) => {
+    // The driver runs in the parent toolchain; only the subject's environment
+    // is isolated, and it travels inside the request.
+    const driver = spawn("bun", ["run", driverPath], { stdio: ["pipe", "pipe", "pipe"] });
+
+    let stdout = "";
+    let stderr = "";
+    driver.stdout.setEncoding("utf8");
+    driver.stderr.setEncoding("utf8");
+    driver.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    driver.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    driver.on("error", reject);
+    driver.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`The PTY driver exited with ${String(code)}.\n${stderr}`));
+        return;
+      }
+      try {
+        resolve(decodePtyDriverResult(JSON.parse(stdout)));
+      } catch (cause) {
+        reject(
+          new Error(`The PTY driver did not report a result.\n${stdout}\n${stderr}`, { cause }),
+        );
+      }
+    });
+
+    driver.stdin.end(JSON.stringify(request));
+  });
+
+/** Run an arbitrary command under a pseudo-terminal. */
+export const runUnderPty = async (
+  subject: PtyDriverRequest["subject"],
+  args: ReadonlyArray<string>,
+  options: PtyRunOptions = {},
+): Promise<PtyRunResult> => {
+  if (!ptyIsSupported) throw new Error(`No pseudo-terminal is available on ${process.platform}.`);
+
+  const driverResult = await runDriver({
+    subject,
+    args,
+    columns: options.columns ?? 100,
+    rows: options.rows ?? 30,
+    cwd: options.cwd ?? process.cwd(),
+    env: options.env ?? {},
+    actions: options.actions ?? [],
+    awaitTimeoutMs: options.awaitTimeout ?? 30_000,
+    exitTimeoutMs: options.exitTimeout ?? 15_000,
+  });
+
+  const { localFlags, output, ...reported } = driverResult;
+  const hidden = output.lastIndexOf(HIDE_CURSOR);
+
+  return {
+    ...reported,
+    output,
+    transcript: visibleText(output),
+    rawModeRestored: (localFlags & ICANON) !== 0 && (localFlags & ECHO) !== 0,
+    cursorRestored: hidden === -1 || output.lastIndexOf(SHOW_CURSOR) > hidden,
+  };
+};
+
+/** The pseudo-terminal action one key step takes: its wait, the bytes its key sends, or its resize. */
+export const ptyActionOf = (step: KeyStep): PtyAction => {
+  switch (step._tag) {
+    case "Await":
+      return { awaiting: step.text };
+    case "Press":
+      return { send: step.key.sequence };
+    case "Resize":
+      return { resize: step.size };
+  }
+};
+
+/**
+ * The screen after each action of a run, in order, and after everything the
+ * subject wrote once the last action had settled. A resize action resizes the
+ * replay terminal before the bytes that followed it are interpreted.
+ */
+export const replayPtyRun = (result: PtyRunResult, columns: number, rows: number) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      // PTY output already carries the line discipline's carriage returns.
+      const terminal = yield* makeTerminalReplay({ columns, rows, convertEol: false });
+      let consumed = 0;
+      const afterActions: Array<string> = [];
+      for (const step of result.actions) {
+        if ("resize" in step.action)
+          yield* resizeTerminal(terminal, step.action.resize.columns, step.action.resize.rows);
+        yield* replayBytes(terminal, step.bytes);
+        consumed += step.bytes.length;
+        afterActions.push(terminalTranscript(terminal));
+      }
+      yield* replayBytes(terminal, result.output.slice(consumed));
+      return { afterActions, final: terminalTranscript(terminal) };
+    }),
+  );

@@ -431,11 +431,16 @@ Some targets exist to shorten the loop while a change is being made. They are
 uncached, write no receipts, and are not evidence; the owning `test` or `e2e`
 target still decides acceptance.
 
-| Target            | What it runs                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------- |
-| `cli:test:screen` | The terminal screen, prompt, gallery, and renderer-conformance tests from source                                |
-| `cli:lab`         | The terminal design lab: gallery fixtures listed or painted at a size, or a sample question driven by key steps |
-| `cli-e2e:preview` | The source CLI under a pseudo-terminal, printing the screen after a step script                                 |
+| Target or workflow | What it runs                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `cli:test:screen`  | The terminal screen, prompt, gallery, and renderer-conformance tests from source                 |
+| `pnpm lab`         | The terminal design lab from source: browse, view, paint, play, run, and accept gallery fixtures |
+
+The lab is a root workflow rather than an Nx target because it is
+interactive and long-lived: it owns the terminal, restarts itself under
+`--watch`, and has no inputs or outputs to cache.
+[Terminal UX development](../../contributing/guides/terminal-ux.md) describes
+its commands.
 
 Every Vitest run ends with a plain `FAILED TESTS` block naming each failed
 test, its file, and the first line of why, so the last lines of a failing log

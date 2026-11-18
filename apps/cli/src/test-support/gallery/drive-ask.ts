@@ -92,7 +92,7 @@ const driveKind = <S, A>(
   for (const [index, step] of steps.entries()) {
     if (step._tag === "Await")
       return Result.fail(
-        `${describeKeyStep(step)} waits on a running CLI; drive one with cli-e2e:preview.`,
+        `${describeKeyStep(step)} waits on a running CLI; drive one with \`pnpm lab run\`.`,
       );
     if (step._tag === "Resize") {
       size = step.size;

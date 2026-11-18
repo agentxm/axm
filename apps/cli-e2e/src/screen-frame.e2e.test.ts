@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { Keys } from "@agentxm/test-support/key-steps";
 
-import { ptyIsSupported, replayPtyRun, runUnderPty } from "./pty.js";
+import { ptyIsSupported, replayPtyRun, runUnderPty } from "@agentxm/test-support/pty";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/screen-log-frame.mjs", import.meta.url));
 const subject = { runtime: "bun-script", path: fixturePath } as const;

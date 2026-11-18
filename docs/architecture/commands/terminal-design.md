@@ -392,43 +392,20 @@ the suite asserts and why the seam is held this way.
 
 ## Design tools
 
-These are review aids, not evidence; the
-[edit-loop targets](../../guides/repository-task-interface.md#edit-loop-targets)
-describe how they run.
+The lab, `pnpm lab`, is the review aid for design work; it is not evidence,
+and [Terminal UX development](../../../contributing/guides/terminal-ux.md)
+describes how to use it. It serves the gallery as a person would review it:
+every fixture viewed at the terminal's own size and repainted as the terminal
+resizes or a source changes, sample questions driven key by key through their
+own reducers, recorded operations replayed through the real `Screen`, the
+source CLI run under a pseudo-terminal, and changed snapshots shown before and
+after. Browsing the gallery asks the CLI's own `Pick` question, so reviewing
+the design also exercises the prompt it ships.
 
-`cli:test:screen` runs the screen's own tests, the gallery, and renderer
-conformance from source in a few seconds.
-
-The lab, `apps/cli/scripts/lab.ts`, is a never-published Effect CLI run from
-source by `cli:lab`. `lab list` names the fixtures; `lab gallery` paints them
-at the current terminal size or at a given width and live-scene height, with
-`--ascii` and `--plain` for the ASCII glyph set and no color. `lab ask` drives
-one sample question in process: each key of a step script goes through the
-question's own reducer, and the state is painted as the live region paints it,
-controls under the question's short label without the context committed above
-them — after the last step, or after every step with `--frames` — followed by
-the submission or cancellation the keys reached. A resize step repaints the same
-state in the new space; an `await:` step needs a running CLI and is refused.
-Like the gallery, the lab reaches no terminal.
-
-`cli-e2e:preview` shows the CLI itself while it is being changed. It runs the
-CLI from source under a pseudo-terminal of a given size, with an empty home
-and workspace unless they are named, replays a step script, and prints the
-replayed screen after the last step, or after every step with `--frames`.
-
-Both take the one step grammar defined in `@agentxm/test-support/key-steps`:
-steps separated by commas, `await:<text>`, `type:<text>`,
-`size:<columns>x<rows>`, and keys by name such as `down*3`. Each named key
-carries both the bytes a terminal sends and the key readline decodes them as,
-so a script presses the same keys under the pseudo-terminal and in process.
-
-```bash
-pnpm exec nx run cli:test:screen
-pnpm exec nx run cli:lab -- gallery --name <fixture> --width <columns> --rows <rows>
-pnpm exec nx run cli:lab -- ask toolkit --size 80x24 --steps "down*2,space,type:re" --frames
-pnpm exec nx run cli-e2e:preview -- --size 100x40 \
-  --steps "await:type to filter,down*2,space" -- skills install <source> --agent claude-code
-```
+One step grammar, defined in `@agentxm/test-support/key-steps`, drives a
+prompt in process and under a pseudo-terminal alike. Each named key carries
+both the bytes a terminal sends and the key readline decodes them as, so a
+script presses the same keys in both.
 
 ## Terminal evidence
 
@@ -436,8 +413,8 @@ The gallery paints pure functions, so it reaches every state a scene or prompt
 can hold but none of the terminal itself. Raw mode, key decoding, and the
 cleanup that follows an interrupt exist only when stdin is a terminal, and a
 prompt that leaves raw mode on or the cursor hidden breaks the shell it
-returns to. The pseudo-terminal harness in `apps/cli-e2e/src/pty.ts` runs the
-built artifact under a real terminal of a declared size, replays waits and key
+returns to. The pseudo-terminal harness in `@agentxm/test-support/pty` runs
+the built artifact under a real terminal of a declared size, replays waits and key
 writes against it, and reports the exact bytes and resize points with whether
 raw mode was handed back and the cursor left visible. Each interaction kind
 proves its keys there; its states are proved in the gallery. Screen evidence

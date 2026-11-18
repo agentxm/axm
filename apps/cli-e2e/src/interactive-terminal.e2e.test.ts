@@ -5,7 +5,9 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { Keys } from "@agentxm/test-support/key-steps";
 
-import { ptyIsSupported, runCliUnderPty, runUnderPty } from "./pty.js";
+import { ptyIsSupported, runUnderPty } from "@agentxm/test-support/pty";
+
+import { runCliUnderPty } from "./pty.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";

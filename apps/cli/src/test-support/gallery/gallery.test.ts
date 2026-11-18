@@ -7,36 +7,19 @@ import * as Path from "effect/Path";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import { paintText } from "../../screen/paint-text.js";
 import { asciiGlyphs } from "../../screen/glyphs.js";
-import type { TerminalSize } from "../../screen/scene.js";
 import { displayWidth } from "../../screen/width.js";
 import { copyableValues } from "../conformance/conformance-suite.js";
 import { loadGallery } from "./discover.js";
 import {
   checkWidthsOf,
-  galleryHeights,
+  labelOf,
   paintFixture,
+  sizesAt,
+  snapshotFilesOf,
   snapshotWidthsOf,
-  type GalleryFixture,
 } from "./fixture.js";
 
 const gallery = await loadGallery();
-
-/**
- * The terminal sizes for a set of widths: each width for a document, which
- * ignores the height, and each width by each height for a scene.
- */
-const sizesAt = (
-  fixture: GalleryFixture,
-  widths: ReadonlyArray<number>,
-): ReadonlyArray<TerminalSize> =>
-  fixture._tag === "document"
-    ? widths.map((columns) => ({ columns, rows: Math.max(...galleryHeights) }))
-    : widths.flatMap((columns) => galleryHeights.map((rows) => ({ columns, rows })));
-
-const labelOf = (fixture: GalleryFixture, terminal: TerminalSize): string =>
-  fixture._tag === "document"
-    ? `${fixture.name}.${String(terminal.columns)}`
-    : `${fixture.name}.${String(terminal.columns)}x${String(terminal.rows)}`;
 
 /** Every size a fixture is checked at, and whether that size also has a snapshot. */
 const cases = gallery.flatMap((fixture) => {
@@ -95,9 +78,7 @@ describe("terminal design gallery", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const expected = new Set(
-        cases.flatMap(({ label, snapshot }) => (snapshot ? [`${label}.txt`] : [])),
-      );
+      const expected = new Set(gallery.flatMap(snapshotFilesOf));
       const present = yield* fs.readDirectory(yield* path.fromFileUrl(snapshotDirectory));
       expect(present.filter((file) => !expected.has(file)).sort(), "orphaned snapshots").toEqual(
         [],

@@ -24,6 +24,10 @@
     "./key-steps": {
       "types": "./src/key-steps.ts",
       "default": "./src/key-steps.ts"
+    },
+    "./pty": {
+      "types": "./src/pty.ts",
+      "default": "./src/pty.ts"
     }
   },
   "nx": {
@@ -39,6 +43,7 @@
     "@agentxm/test-reporting": "workspace:*",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:"
   }

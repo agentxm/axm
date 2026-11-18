@@ -108,7 +108,7 @@
         "scripts/generate-cli-reference.ts",
         "scripts/generate-schemas.ts",
         "scripts/generate-type-enumerations.ts",
-        "scripts/lab.ts",
+        "scripts/lab/main.ts",
       ],
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],

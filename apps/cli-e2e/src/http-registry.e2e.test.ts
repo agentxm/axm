@@ -12,7 +12,8 @@ import {
 } from "./__generated__/extension-type-matrix.js";
 import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { createTempDir, runCli } from "./e2e/utils.js";
-import { ptyIsSupported, runCliUnderPty } from "./pty.js";
+import { ptyIsSupported } from "@agentxm/test-support/pty";
+import { runCliUnderPty } from "./pty.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 /**

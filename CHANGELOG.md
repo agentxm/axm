@@ -1,3 +1,19 @@
+## 0.53.1 (2026-11-19)
+
+### 🚀 Features
+
+- Refresh extension authoring and review guidance for AXE and improve terminal operation output. ([48de47415](https://github.com/agentxm/axm/commit/48de47415))
+
+### 🩹 Fixes
+
+- Reuse validated inputs within each CLI invocation where owners share the same obligation: commands read, parse, hash, and resolve the same workspace documents, manifests, receipts, and native locations fewer times, while live conflict, identity, rollback, and publication checks are preserved. ([e09b2afa4](https://github.com/agentxm/axm/commit/e09b2afa4))
+- Constrain the `failure.category` of an `axm verify` assessment to the `ErrorCode` vocabulary in the machine-output schema. Reported values are unchanged. ([3c4b27e82](https://github.com/agentxm/axm/commit/3c4b27e82))
+- `axm verify --publish-result` verifies a release the result lists more than once only once when its entries agree, and refuses a result whose entries for one release disagree before any Registry request. ([79963c6b4](https://github.com/agentxm/axm/commit/79963c6b4))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.53.0 (2026-11-15)
 
 ### 🚀 Features

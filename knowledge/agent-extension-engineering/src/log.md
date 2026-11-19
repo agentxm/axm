@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Updated the [authoring](guides/authoring-skills.md) and [review](guides/reviewing-extensions.md) guides to leave the approach to the agent by default. Pruning now considers which decisions can be delegated and what each constraint protects.
+
 - Expanded [Scope selector](patterns/scope-selector.md) with a ranked picker and equivalent text replies for choosing one or all matching targets.
 
 - Revised [Preserve agent judgment](principles/preserve-agent-judgment.md) to make the user's purpose and desired outcome explicit and delegate the approach by default. The [verification guide](guides/verification.md) now cites the archive-review trials.

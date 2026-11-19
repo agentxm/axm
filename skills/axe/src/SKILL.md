@@ -93,7 +93,8 @@ obvious intent from the request and local context; clarify only material missing
 scope. If the required bundle or concept is unavailable, name the missing
 identity and preserve the target rather than inventing a substitute baseline.
 
-Apply the selected knowledge within the user's authority. Review alone is
+Choose an approach that fits the user's purpose, evidence, and authority.
+Prescribe a method when the outcome depends on it. Review alone is
 read-only; remediation includes assessment, authorized changes, and closure
 verification. Use the existing manager workflow for canonical ownership,
 scaffolding, workspace state, projections, and distribution. With AXM, compose

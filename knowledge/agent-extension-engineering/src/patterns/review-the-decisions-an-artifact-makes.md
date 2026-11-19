@@ -4,7 +4,7 @@ title: "Review the decisions an artifact makes"
 description: "When reviewing a working extension, use its decisions and the applicable design guidance to discover issues, improvements, and pruning opportunities."
 tags: ["review", "discovery", "issues", "improvement", "pruning"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T01:19:56Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:45:36Z" }
 ---
 
 # Review the decisions an artifact makes
@@ -27,11 +27,11 @@ lead to different recommendations in different artifacts. For example, use
 [Scope selector](scope-selector.md) and [Contextual default](contextual-default.md)
 to walk through a package picker:
 
-| Observed behavior                                                                 | Finding the case supports                                                                                         |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Two packages match a short name. The skill silently edits the first.              | **Issue.** Resolve the ambiguity before editing.                                                                  |
-| The skill correctly pauses but asks only “Which package?”                         | **Improvement.** Show the matching qualified names so the caller can choose in one reply.                         |
-| The caller supplied an exact path and must still choose that package from a list. | **Pruning.** Skip the picker for an exact path. Exercise the ambiguous short name to check that it still prompts. |
+| Observed behavior                                                                 | Finding the case supports                                                                                                            |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Two packages match a short name. The skill silently edits the first.              | **Issue.** Resolve the ambiguity before editing.                                                                                     |
+| The skill correctly pauses but asks only “Which package?”                         | **Improvement.** Show the matching qualified names so the caller can choose in one reply.                                            |
+| The caller supplied an exact path and must still choose that package from a list. | **Pruning.** Use the target established by the request or earlier context. Ask the caller to choose if the target remains ambiguous. |
 
 A hook raises different questions. The [hook guide](../guides/configuring-hooks-and-mcp.md)
 prompts the reviewer to follow a duplicate delivery. If a repeated event

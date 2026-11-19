@@ -1500,7 +1500,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/review-guidance`
 - Owner: `axm`
-- Statement: Axe shall guide reviewers to use applicable guides and patterns to identify grounded issues, improvement opportunities, and pruning opportunities within the requested focus, leaving changes for the user's selection.
+- Statement: Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints and leaving changes for the user's selection.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`

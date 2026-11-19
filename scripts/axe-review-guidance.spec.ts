@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/review-guidance",
   title: "Axe guides extension reviews across issues, improvements, and pruning",
   statement:
-    "Axe shall guide reviewers to use applicable guides and patterns to identify grounded issues, improvement opportunities, and pruning opportunities within the requested focus, leaving changes for the user's selection.",
+    "Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints and leaving changes for the user's selection.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -23,7 +23,7 @@ export const specification = defineSpecification({
 });
 
 it.effect(
-  "a reviewer following the skill can reach the three review lenses and both decision indexes",
+  "a reviewer following the skill can reach the three review lenses, the decision indexes, and the judgment principle",
   () =>
     Effect.sync(() => {
       const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
@@ -40,6 +40,7 @@ it.effect(
         guidance.matchAll(/\]\([^)#]+\.md\)/g),
         (match) => new URL(match[0].slice(2, -1), guide).href,
       );
+      expect(destinations).toContain(new URL("principles/preserve-agent-judgment.md", bundle).href);
       for (const index of ["guides/index.md", "patterns/index.md"]) {
         const destination = new URL(index, bundle);
         expect(destinations).toContain(destination.href);

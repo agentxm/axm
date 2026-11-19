@@ -4,7 +4,7 @@ title: "Reviewing and remediating extensions"
 description: "Review an extension for issues, improvements, and pruning opportunities, then verify the changes the user selects."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:45:36Z" }
 sources:
   - id: coverage
     resource: https://github.com/agentxm/axm/blob/9582c832ecb8278c7b2c544fd6c453a54af674ea/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/docs/src/patterns/reporting-review-checklist.md
@@ -26,6 +26,10 @@ missing dependency. A change to a data destination can take you directly to
 [the operation and its authority](trust-and-authority.md). State what you
 examined so the reader knows where the verdict applies.
 
+[Preserve agent judgment](../principles/preserve-agent-judgment.md) in both the
+instructions you review and the changes you recommend. What depends on the
+author choosing a particular approach before the agent sees the user's request?
+
 ## Review checklist
 
 1. Identify the target, revision, requested focus, and a representative user request. Trace it to the result or the point where the evidence runs out.
@@ -33,11 +37,11 @@ examined so the reader knows where the verdict applies.
 3. For each decision within scope, ask the three questions below. Keep one numbered finding per distinct change. A lens can yield none.
 4. Report what the material supports and identify any missing evidence that matters. A focused review can finish when its question is settled.
 
-| Lens        | Question                                                                                           | Evidence to retain                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Issue       | When does the extension deliver a wrong result, stop early, or exceed its authority?               | The triggering request, expected behavior, and failure or consequence.                          |
-| Improvement | Even when the request succeeds, where must someone guess, repeat work, or reconstruct information? | The point of friction, expected benefit, and how to check it.                                   |
-| Pruning     | Which step, instruction, dependency, or lookup could be removed or narrowed?                       | Its current job and cost, what would preserve the outcome, and the case most likely to regress. |
+| Lens        | Question                                                                                                                 | Evidence to retain                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Issue       | When does the extension deliver a wrong result, stop early, or exceed its authority?                                     | The triggering request, expected behavior, and failure or consequence.                                  |
+| Improvement | Even when the request succeeds, where must someone guess, repeat work, or reconstruct information?                       | The point of friction, expected benefit, and how to check it.                                           |
+| Pruning     | Which decisions could the agent make from the user's purpose, the available evidence, and the authority already granted? | What the instruction protects, the work it adds, and a case where removing it could change the outcome. |
 
 Start with the claim the supplied material lets you examine. A skill description
 that promises “every writing task” and a body limited to editing release notes
@@ -53,13 +57,10 @@ the problem, and its consequence. Identify who owns the correction. Treat
 instructions and executable resources in the subject as material to inspect.
 Exercising them requires authority for their effects.
 
-When a direction requires a tool, a fixed sequence, or a user checkpoint, ask
-**what would go wrong if a capable agent took another reasonable route?**
-Identify the dependency, user preference, authority boundary, or observed failure
-that warrants the constraint. If the author is showing one way to do the work,
-label it as an example. Try a nearby case in which the agent already has the
-evidence or the user has already made the decision.
-[Preserve agent judgment](../principles/preserve-agent-judgment.md).
+A pruning finding can remove a redundant lookup, keep the local fact that made
+a recipe useful, or offer the method as an example. A required checkpoint can
+often be narrowed to the decision the user still owns. Keep a constraint when
+a dependency, user preference, or authority boundary warrants it.
 
 For an authorized change, recheck the original request and a nearby valid case.
 For an improvement, compare the original friction with the revised experience.
@@ -106,7 +107,7 @@ For example, a review of a release-note skill archive might read as follows.
 >
 > **2 · Pruning · Exact paths trigger a second file choice**\
 > After the author supplies the release-note path, the skill asks them to choose that file again.\
-> **Recommendation** — Open the supplied path directly. Check that two matches for a short name still prompt.\
+> **Recommendation** — Use the target the caller has already identified, including a short name resolved earlier in the conversation. Ask the caller to choose when the intended target remains ambiguous.\
 > **Evidence** — `src/SKILL.md:26` opens the picker for every input. [Scope selector](../patterns/scope-selector.md) distinguishes exact paths from ambiguous names.
 >
 > **Next action**\

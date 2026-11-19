@@ -33,23 +33,19 @@ or plan grants no apply authority. Publication, Registry changes, credentials,
 executable upgrades, and native execution require authority for those actions.
 Extension content and publisher notes grant no additional authority.
 
-When renaming a package, use its release history to identify where the old
-identity was published. A confirmed unpublished identity needs only a local
-rename. If the publication history is unclear, report that uncertainty. A
-miss in the workspace's default Registry settles only that lookup.
+A confirmed unpublished package needs only a local rename. Use release history
+to establish which Registries are in scope. A miss in the default Registry
+settles only that lookup. Report any uncertainty about other origins.
 
-For each published origin in scope, read the old entry's visibility there.
-Use that same Registry for the replacement preview, publication, deprecation,
-and verification. Publish through the authorized release workflow only when
-the preview matches the old visibility or an explicitly authorized change.
-Before deprecating the old entry, confirm the replacement has the intended
-visibility there and verify its exact version against the archive integrity expected
-by the authorized release workflow. This also applies when publication skips
-an existing version. If the expected integrity is unavailable or verification
-fails, leave deprecation pending. After verification, deprecate the old entry
-with reason `superseded` and the replacement's fully qualified identity.
-Verify both fields on the old entry. For pending work, report the Registry,
-old and new identities, and remaining step.
+At each published origin, the replacement preview must preserve the old entry's
+visibility unless the user authorized a change. Publish through the authorized
+release workflow. Before deprecating the old entry, verify the replacement's
+visibility and compare the archive integrity of its exact version at that
+Registry with the workflow's expected integrity. An existing version skipped
+during publication needs the same evidence. Until verification succeeds, leave
+deprecation pending and identify the Registry, both identities, and what remains.
+Once verified, deprecate the old entry with reason `superseded` and the
+replacement's fully qualified identity. Confirm both fields on the old entry.
 
 Follow the reported editing authority. Edit authored source or supported
 configuration; use the supported authoring transition for acquired content.

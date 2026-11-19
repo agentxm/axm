@@ -25,11 +25,11 @@ the user submits it.
 When an action also needs a target, let the user select it in the control
 or supply both in one reply. For reviews, [Select from findings](select-from-findings.md)
 keeps the displayed numbers bound to their findings. “Inspect 2” shows the
-evidence for that finding. “Fix 2” applies its recommendation within the
+evidence for that finding. “Apply 2” applies its recommendation within the
 user's authority. “Done” ends the review.
 
 Use one choice for the whole result when the same actions apply to every
-item. Collapse choices with identical effects, such as “fix all” and “fix
+item. Collapse choices with identical effects, such as “apply all” and “apply
 selected” in a single-finding report. If the user has already chosen the
 action and scope, carry them forward. Each extra picker costs a turn.
 

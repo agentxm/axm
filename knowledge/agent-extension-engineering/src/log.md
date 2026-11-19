@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-19
+
+- Added the candidate [Review the decisions an artifact makes](patterns/review-the-decisions-an-artifact-makes.md) and a [review checklist](guides/reviewing-extensions.md#review-checklist) for finding issues, improvements, and pruning opportunities. Reviewers can apply selected recommendations by number.
+
 ## 2026-11-18
 
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.

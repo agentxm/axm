@@ -17,7 +17,7 @@ Choose the task you are working on.
 
 ## Review, verify, and maintain
 
-- [Reviewing and remediating extensions](reviewing-extensions.md) — Turn a suspected extension defect into a finding and verify an authorized fix against the original case.
+- [Reviewing and remediating extensions](reviewing-extensions.md) — Review an extension for issues, improvements, and pruning opportunities, then verify the changes the user selects.
 - [Verifying extension behavior](verification.md) — Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement.
 - [Bounding extension trust and authority](trust-and-authority.md) — Review how a change affects what an extension can read, execute, or send.
 - [Publishing and retiring extensions](lifecycle.md) — Plan an extension replacement or retirement around what existing consumers gain, lose, or must change.

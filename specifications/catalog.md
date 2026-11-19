@@ -1482,6 +1482,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Source: [`apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts`](../apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts)
 
+##### Authors can assess boundaries and interactions across sets of extensions
+
+- Requirement: `extension-engineering/extension-set-guidance`
+- Owner: `axm`
+- Statement: The engineering pack shall route authors designing or reviewing relationships among extensions to guidance for tracing a change and a request across the relevant authored, packaged, or active set.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored skill, guide index, review guide, and pack composition guide expose routes to the exercises. Reading those routes does not exercise host skill selection.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-extension-sets.spec.ts`](../scripts/axe-extension-sets.spec.ts)
+
 ##### Callers can select a recommended or alternative remedy in one reply
 
 - Requirement: `extension-engineering/remedy-selection`

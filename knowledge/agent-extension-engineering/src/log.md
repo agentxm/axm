@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Added [Designing and reviewing sets of extensions](guides/extension-sets.md), with change and request traces for deciding boundaries across a repository, a pack, or an active workspace.
+
 - The [review guide](guides/reviewing-extensions.md) distinguishes a defect in a rule from a lapse in following it. The [decision-review pattern](patterns/review-the-decisions-an-artifact-makes.md) shows how a working case can constrain a repair. [Select from findings](patterns/select-from-findings.md) shows how to choose an alternative remedy by reply.
 
 - Added guidance on [mining patterns from examples](guides/authoring-knowledge.md#when-an-example-belongs-in-the-pattern-catalog), [briefing independent reviewers](guides/authoring-agent-definitions.md#ask-for-an-independent-assessment), and [refreshing version-sensitive guidance](guides/lifecycle.md#when-an-upstream-change-calls-for-a-review). The [verification guide](guides/verification.md) pairs an advice request with an edit request for the same skill.

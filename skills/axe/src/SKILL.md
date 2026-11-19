@@ -5,7 +5,8 @@ description: >-
   extensions to focused knowledge guidance: skills and SKILL.md, scoped
   instructions such as AGENTS.md and CLAUDE.md, rules, knowledge bundles,
   agent definitions, hooks, MCP connection configuration, and packs. Use for
-  extension craft, design patterns, package READMEs, and composition. Not for
+  extension craft, design patterns, package READMEs, and how sets of extensions
+  fit and work together. Not for
   building agent runtimes, implementing MCP servers, ordinary use of an
   installed extension, or package management alone.
 ---
@@ -58,6 +59,7 @@ guidance, with a worked example when it helps.
 | Decide how much of the agent’s approach to prescribe           | `principles/preserve-agent-judgment`    |
 | Define or distinguish shared terms                             | `glossary`                              |
 | Choose an extension type or divide responsibilities            | `guides/choosing-extensions`            |
+| Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
 | Write or revise an extension README                            | `guides/authoring-readme`               |
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |

@@ -14,7 +14,8 @@ to design an extension. Use `create`, `revise`, or `verify` when you want an
 authored draft, a bounded change, or evidence about behavior.
 
 Try asking “Two of our skills both activate on ‘review this change.’ Should we
-narrow their descriptions or combine them?” The skill selects the authoring
-guide and helps you decide based on the inputs and results of each skill.
+narrow their descriptions or combine them?” The guide to sets of extensions
+helps you trace a change across both skills and try requests that need one
+or both.
 
 Upgrading from the plural-named pack? See the [migration notes](CHANGELOG.md#migration).

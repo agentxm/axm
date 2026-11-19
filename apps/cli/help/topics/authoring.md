@@ -1,7 +1,8 @@
 # Authoring extensions
 
 For repository, Registry archive, canonical-install, and agent-projection
-boundaries—including `publish.include` and `publish.exclude`—read `axm help publish`.
+boundaries, choosing what ships with `publish.include` and `publish.exclude`,
+and inspecting the candidate archive, read `axm help publish`.
 
 Guidance for the registry-facing text you write when you publish an extension:
 the manifest `description`, `keywords`, and the package `README.md`. Good
@@ -30,7 +31,9 @@ This core path works without another authoring extension. For more opinionated
 extension design, review, and patterns, use the optional, encouraged
 `@agentxm/packs/agent-extension-engineering` collection. Its single routing skill
 selects focused knowledge. Install it only when wanted; its absence does not
-block ordinary authoring.
+block ordinary authoring. For a worked example of choosing files for a release, see
+`@agentxm/knowledge/agent-extension-engineering#guides/lifecycle` in that
+collection.
 
 The writing examples below are recommendations unless a schema or an explicit
 AXM convention says otherwise.

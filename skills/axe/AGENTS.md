@@ -9,7 +9,10 @@ This file is repository maintainer guidance. Keep it outside `src/` and excluded
 from publication.
 
 The [discovery and execution trials](evals/2026-11-18/README.md) record the
-README routing comparison and the review router change.
+README routing comparison and the review router change. When a review misses
+something, capture a fresh case first. Add a standing instruction when varied
+cases show a recurring miss and a comparison improves detection while
+preserving focused and clean reviews.
 
 Use the [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
 for shared meanings. Keep definitions in that knowledge concept and maintain

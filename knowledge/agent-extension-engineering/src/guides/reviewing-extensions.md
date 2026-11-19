@@ -4,7 +4,7 @@ title: "Reviewing and remediating extensions"
 description: "Turn a suspected extension defect into a finding and verify an authorized fix against the original case."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T01:53:47Z" }
 sources:
   - id: overlay
     resource: https://impeccable.style/tutorials/critique-with-overlay/
@@ -16,11 +16,21 @@ sources:
 
 # Reviewing and remediating extensions
 
+Honor the caller's focus. For an open review, use the extension's purpose, the
+change under review, and the available evidence to choose what deserves
+inspection. Following one promised task through an installation can expose a
+missing dependency. A change to a data destination can take you directly to
+[the operation and its authority](trust-and-authority.md). State what you
+examined so the reader knows where the verdict applies.
+
 Start with the claim the supplied material lets you examine. A skill description
 that promises “every writing task” and a body limited to editing release notes
 are enough to identify a scope mismatch. Predicting how often the host will
 choose the wrong skill takes [routing evidence](verification.md). A snippet can
-also omit a resource that the full package contains.
+also omit a resource that the full package contains. When reviewing [what a
+release ships](lifecycle.md#choose-what-ships), check a suspected omission or
+unintended inclusion against the candidate preview or the exact release
+archive and the purpose of the file.
 
 Tie each finding to the inspected revision or excerpt, the request that exposes
 the problem, and its consequence. Identify who owns the correction. Treat

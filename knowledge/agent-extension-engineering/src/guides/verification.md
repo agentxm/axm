@@ -4,7 +4,7 @@ title: "Verifying extension behavior"
 description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
 tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:42:23Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T01:53:47Z" }
 sources:
   - id: eval
     resource: https://developers.openai.com/blog/eval-skills
@@ -16,15 +16,15 @@ sources:
 
 # Verifying extension behavior
 
-| Claim                             | What to inspect or exercise                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------- |
-| The package is valid              | Applicable schema and format checks                                                   |
-| The archive is complete           | Required resources in the exact archive                                               |
-| The host received the extension   | The selected host's projection                                                        |
-| Requests reach the intended skill | Observed selection for direct requests, paraphrases, and a plausible neighboring task |
-| The workflow works                | The result of a representative task and any failure path the claim covers             |
-| The change improves results       | The same tasks with the candidate and a prior, smaller, or absent extension           |
-| The behavior is portable          | The claimed behavior in each supported host                                           |
+| Claim                                | What to inspect or exercise                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| The package is valid                 | Applicable schema and format checks                                                                  |
+| The release ships the intended files | Consumer workflows and file audiences compared with the candidate inventory or exact release archive |
+| The host received the extension      | The selected host's projection                                                                       |
+| Requests reach the intended skill    | Observed selection for direct requests, paraphrases, and a plausible neighboring task                |
+| The workflow works                   | The result of a representative task and any failure path the claim covers                            |
+| The change improves results          | The same tasks with the candidate and a prior, smaller, or absent extension                          |
+| The behavior is portable             | The claimed behavior in each supported host                                                          |
 
 Choose cases from the extension's promise. For this pack's router, “review this
 skill” and “fix this skill” should both reach the relevant craft guidance, but
@@ -54,6 +54,13 @@ migration guide is available to a consumer.”
 | A complete archive with a link to a missing guide  | Identify the broken reference and the workflow it blocks.                                           |
 | The same archive with the guide at the linked path | Report that the reference resolves. A clean result can close the review.                            |
 | Only the excerpt containing the link               | Leave availability unresolved and identify the archive or its file listing as the missing evidence. |
+
+For an open review, give the reviewer an ordinary request without naming the
+defect. Include a valid case that resembles the defect and repeat with a
+narrower focus. One way to vary the release is to change [which files
+ship](lifecycle.md#choose-what-ships) while retaining a fixture used in an
+installed example. Judge the finding, its evidence, and respect for scope.
+Different inspection paths can support the same verdict.
 
 Record how the workflow went alongside the verdict. A reviewer might reach
 the right finding after opening three unrelated concepts. Capture the extra

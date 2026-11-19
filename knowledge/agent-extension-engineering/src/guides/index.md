@@ -20,4 +20,4 @@ Choose the task you are working on.
 - [Reviewing and remediating extensions](reviewing-extensions.md) — Turn a suspected extension defect into a finding and verify an authorized fix against the original case.
 - [Verifying extension behavior](verification.md) — Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement.
 - [Bounding extension trust and authority](trust-and-authority.md) — Review how a change affects what an extension can read, execute, or send.
-- [Publishing and retiring extensions](lifecycle.md) — Plan an extension replacement or retirement around what existing consumers gain, lose, or must change.
+- [Publishing and retiring extensions](lifecycle.md) — Choose what consumers receive in a release and plan what changes for them on upgrade or retirement.

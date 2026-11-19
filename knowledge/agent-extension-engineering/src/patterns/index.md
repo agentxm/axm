@@ -21,7 +21,7 @@ Choose the decision you are making. Patterns from different groups can be used t
 
 - [Scoped instructions](scoped-instructions.md) — When a direction applies to only part of a workspace, place it where the host loads it for that work.
 - [Progressive disclosure](progressive-disclosure.md) — When only some tasks need detailed guidance, put it where each reader can discover and use it.
-- [Domain glossary](domain-glossary.md) — When a familiar word has a specialized meaning, give people and agents a shared place to look it up in context.
+- [Domain glossary](domain-glossary.md) — When several workflows depend on local terminology, give them a glossary concept they can consult where the meaning affects a decision.
 
 ## How does the skill carry out the task?
 

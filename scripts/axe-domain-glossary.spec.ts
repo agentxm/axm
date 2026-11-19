@@ -8,13 +8,13 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/domain-glossary-guidance",
   title: "Authors can distinguish designing a domain glossary from looking up a term",
   statement:
-    "The engineering pack shall direct glossary authors to guidance on LLM-drafted, computationally derived, and hand-authored entries and direct readers looking up extension terminology to the shared glossary.",
+    "The engineering pack shall show glossary authors how a consuming extension uses a knowledge concept with LLM-drafted, computationally derived, or hand-authored entries and route terminology lookups to the shared glossary.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
   boundary: "repository",
   boundaryRationale:
-    "The authored routes and their destinations establish what guidance the pack makes available. Agent selection and practitioner agreement on definitions require separate evidence.",
+    "The route check locates the authoring variants and the term reference. Reviewing the worked example establishes what the consumer can decide from it. Host selection requires separate evidence.",
   methods: ["static", "review"],
   derivedFrom: [],
   supersedes: [],

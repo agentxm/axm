@@ -1,10 +1,10 @@
 ---
 type: Pattern
 title: Domain glossary
-description: When a familiar word has a specialized meaning, give people and agents a shared place to look it up in context.
+description: When several workflows depend on local terminology, give them a glossary concept they can consult where the meaning affects a decision.
 tags: [knowledge, terminology, glossary, ubiquitous language, bounded context, generated glossary]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:40:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:52:30Z" }
 sources:
   - id: fowler
     resource: https://martinfowler.com/bliki/GeneratedGlossary.html
@@ -16,16 +16,44 @@ sources:
 
 # Domain glossary
 
-A team may use a familiar word precisely enough that nobody thinks to explain
-it. An agent can then write a plausible guide using a different meaning. Give
-people and agents a glossary they can consult when that difference changes a
-decision. A short definition, the context where it applies, and an example of
-its use can be enough.
+Suppose a fulfillment team uses “release” for handing a packed order to its carrier.
+A software team in the same organization uses it for publishing a version.
+When agents write customer updates and release notes, both meanings matter.
+A glossary can make the team's ubiquitous language available to both workflows.
+Give each meaning its bounded context. Where people in the same context
+disagree, bring the conflicting examples to them for a decision.[^fowler]
 
-A glossary helps a team develop its ubiquitous language. When two groups use
-the same term differently, record each meaning with its bounded context. If
-people working in the _same_ context disagree, show them examples of the
-conflicting uses so they can decide what the term should mean.[^fowler]
+## Give the vocabulary a home
+
+For the fulfillment team, add a reference concept such as `glossary.md` to
+its domain knowledge bundle and link it from the bundle index. The entry for
+“Release (fulfillment)” might say that a packed order reaches release when
+the carrier takes possession. Printing the label leaves it awaiting release.
+A reader can now look up the term directly. For a large vocabulary, an index
+of terms can point to separate concepts by context.
+
+If the team has a customer-update skill, put the retrieval cue at the writing
+decision in its `SKILL.md`. For example, “When translating an order status
+into customer-facing language, consult the fulfillment glossary.” Give the
+skill a packed order with a printed label and no carrier handoff. Its draft
+should say the order is packed and awaiting pickup. The release-note skill can consult the software
+team’s vocabulary. If users only need direct lookup, the knowledge bundle
+alone provides it. If a word matters at just one step of one skill, explain
+it there. [Progressive disclosure](progressive-disclosure.md) covers those
+placement choices.
+
+This pack uses the same arrangement. “Can an open agent use a proprietary
+model?” follows Axe’s term-lookup cue to the [open agent entry](../glossary.md#open-agent).
+A reader can retrieve that same concept directly in AXM.
+
+```sh
+axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#glossary'
+```
+
+The entry lets the reader answer yes and explain which extension interfaces
+matter.[^extension-glossary] “How should our agents use our fulfillment
+vocabulary?” reaches this pattern instead. Try both questions when checking
+a routing skill that offers both jobs.
 
 ## Choose how to maintain an entry
 
@@ -33,35 +61,20 @@ conflicting uses so they can decide what the term should mean.[^fowler]
   used in unfamiliar ways across documents, code, or conversations. Have it
   show a usage example for each proposed meaning. A domain practitioner can
   then confirm the distinction, correct it, or leave the question open. Revisit
-  the evidence when usage changes.[^fowler]
+  the evidence when usage changes.[^fowler] A recurring drafting task can
+  live in a maintenance skill that proposes edits for review.
 - **Computationally derived.** When a schema or another structured source
-  already defines the terms, generate entries from its names and descriptions.
-  Link back to that source and regenerate when it changes. A field name alone
+  already defines the terms, let the bundle’s build generate entries from its
+  names and descriptions, with links back to their source. A field name alone
   gives you a candidate term. Its meaning still needs an author.
 - **Hand-authored.** When practitioners choose a term together, write down the
-  agreed meaning and an example while the decision is fresh. A small, stable
+  agreed meaning and an example directly in the concept. A small, stable
   vocabulary may need only a few entries maintained this way.
 
 These methods can coexist. A model might surface two uses of a field name, a
 schema might define its API meaning, and a domain expert might write the entry
 for its use in conversation. Give each meaning one authoritative home so a
 correction reaches everyone who relies on it.
-
-## Put the glossary where the decision happens
-
-Suppose an author is asked whether an “open agent” can use a proprietary model.
-The [open agent entry](../glossary.md#open-agent) directs the author to examine
-how third parties can extend the agent. The model's license alone cannot settle
-that question.[^extension-glossary] Link the author to the entry wherever that
-choice arises. For a large vocabulary, a searchable list of terms with links
-lets the agent retrieve just the definition it needs. See [Progressive
-disclosure](progressive-disclosure.md).
-
-Try a real naming or writing decision with the entry. If a reader still needs
-to ask which meaning applies, add the distinguishing context or a better
-example. If a word occurs in only one procedure and a sentence there settles
-the question, explain it at that step. A separate entry adds another lookup
-and another definition to maintain.
 
 [^fowler]: Martin Fowler, [Generated Glossary](https://martinfowler.com/bliki/GeneratedGlossary.html).
 

@@ -8,6 +8,11 @@ bundle, AXM skill, CLI help, and website docs.
 This file is repository maintainer guidance. Keep it outside `src/` and excluded
 from publication.
 
+When changing a route, start with a request an extension author would make.
+Follow it to the concept and check that the author can act on the answer.
+Try a nearby request with a different destination. Add a routing cue when
+the distinction changes which guidance the reader needs.
+
 The [discovery and execution trials](evals/2026-11-18/README.md) record the
 README routing comparison and the review router change. When a review misses
 something, capture a fresh case first. Add a standing instruction when varied

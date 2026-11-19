@@ -67,7 +67,7 @@ guide only when there is a relationship between extensions to decide.
 | User intent                                                    | Concept                                 |
 | -------------------------------------------------------------- | --------------------------------------- |
 | Decide how much of the agent’s approach to prescribe           | `principles/preserve-agent-judgment`    |
-| Define or distinguish shared terms                             | `glossary`                              |
+| Define or distinguish agent extension terms                    | `glossary`                              |
 | Design or maintain a glossary for a domain                     | `patterns/domain-glossary`              |
 | Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
@@ -96,7 +96,7 @@ guide only when there is a relationship between extensions to decide.
 | Assess execution, provenance, credentials, or side effects     | `guides/trust-and-authority`            |
 | Publish, replace, deprecate, or retire extensions              | `guides/lifecycle`                      |
 
-Use `glossary` when shared terminology affects interpretation or a design decision.
+Use `glossary` when the meaning of an agent extension term affects a decision.
 
 Read only the selected concepts and the additional guidance their application
 requires. For a focused review, start with the review guide and the target.

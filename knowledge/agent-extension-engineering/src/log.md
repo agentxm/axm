@@ -8,7 +8,7 @@
 
 - Expanded the [set guide](guides/extension-sets.md) with a whole-repository ownership example and the [review guide](guides/reviewing-extensions.md) with evidence for the selected subject.
 
-- Added [Domain glossary](patterns/domain-glossary.md) for choosing how to draft, derive, or directly author definitions in a bounded context.
+- Added [Domain glossary](patterns/domain-glossary.md) with three ways to maintain a reference concept and a worked example of a customer-update skill using it. Revised the authoring guides and interaction patterns to connect their examples to what the author changes and how a consumer can check it.
 
 - Linked [extension type selection](guides/choosing-extensions.md) and [neighboring intent](patterns/neighboring-intent.md) to the set guide where a proposed extension overlaps an existing one.
 

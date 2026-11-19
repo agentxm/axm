@@ -1486,12 +1486,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/domain-glossary-guidance`
 - Owner: `axm`
-- Statement: The engineering pack shall direct glossary authors to guidance on LLM-drafted, computationally derived, and hand-authored entries and direct readers looking up extension terminology to the shared glossary.
+- Statement: The engineering pack shall show glossary authors how a consuming extension uses a knowledge concept with LLM-drafted, computationally derived, or hand-authored entries and route terminology lookups to the shared glossary.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The authored routes and their destinations establish what guidance the pack makes available. Agent selection and practitioner agreement on definitions require separate evidence.
+- Boundary rationale: The route check locates the authoring variants and the term reference. Reviewing the worked example establishes what the consumer can decide from it. Host selection requires separate evidence.
 - Methods: static, review
 - Assumptions: The engineering skill and knowledge bundle are available together.
 - Source: [`scripts/axe-domain-glossary.spec.ts`](../scripts/axe-domain-glossary.spec.ts)

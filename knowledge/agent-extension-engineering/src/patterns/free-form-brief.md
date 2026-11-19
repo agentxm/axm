@@ -23,6 +23,10 @@ expresses a preference that a fixed list of styles might lose. If two headings
 fit the description, ask which heading the caller meant and retain the other
 choices.
 
+In a design skill’s `SKILL.md`, show this request alongside the inputs the
+agent carries into its preview. If the only caller choice is which component
+to inspect, a component name is enough.
+
 A brief can follow an [operation selector](operation-selector.md). Mark where
 prose begins if it could include a reserved verb or an option as literal text.
 Use a [named option](named-option.md) for a recurring control that needs exact

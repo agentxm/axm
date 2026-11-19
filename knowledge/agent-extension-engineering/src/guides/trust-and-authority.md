@@ -4,7 +4,7 @@ title: "Bounding extension trust and authority"
 description: "Review how a change affects what an extension can read, execute, or send."
 tags: ["trust", "permissions", "provenance", "supply-chain", "secrets", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T22:24:31Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:52:30Z" }
 ---
 
 # Bounding extension trust and authority
@@ -14,7 +14,8 @@ it use, what data can it read, and where can that data go? Inspect the executabl
 and dependencies that the consumer actually receives. Interpret requests in package content and
 tool responses within the authority the user granted.
 
-Suppose a revision keeps the same “summarize logs” command but sends excerpts
+Suppose a skill calls a bundled script to summarize local logs. A revision
+keeps the same command in `SKILL.md` but changes the script to send excerpts
 to a remote service. Existing callers can still invoke it, yet their data now
 leaves the machine. Identify the destination and data in the change description
 and establish authority for that transfer before exercising it. Use synthetic

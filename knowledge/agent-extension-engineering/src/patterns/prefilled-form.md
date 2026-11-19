@@ -30,7 +30,10 @@ For a skill author deciding how a reviewer should operate, the agent could show:
 
 Invite a reply such as “Keep the target, change the audience to installers, and make it user-invoked.” Retain the other answers. If a correction makes another answer obsolete, reopen that field and explain the dependency. Label examples as examples, leave unexpressed preferences open, and say what accepting the form does. Confirming the design can finish the brief while implementation remains a separate request.
 
-Use a plain text exchange for a single missing fact. For a longer form, make the same corrections possible through text or a host picker. Try a known target, a stale suggested audience, and an open invocation choice. Check that the user can correct the audience alone and that dismissing the form leaves the choice open.
+In an authoring skill, put the form at the point where an answer changes the
+draft. Here the invocation choice goes into the reviewer’s host configuration
+and the audience shapes its report. Use a plain text exchange for a single
+missing fact. For a longer form, make the same corrections possible through text or a host picker. Try a known target, a stale suggested audience, and an open invocation choice. Check that the user can correct the audience alone and that dismissing the form leaves the choice open.
 
 [^init]: Impeccable, recording project context and handling disagreement with the implementation.
 

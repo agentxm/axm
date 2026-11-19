@@ -4,7 +4,7 @@ title: "Writing an extension README"
 description: "Choose an example and the details a reader needs to decide whether to install an extension and try it."
 tags: ["readme", "authoring", "installation", "usage", "examples"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T22:42:56Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:52:30Z" }
 sources:
   - id: skills
     resource: https://github.com/anthropics/skills#claude-code
@@ -23,6 +23,11 @@ first use and the result to expect.
 For a skill, show a request and its result.[^skills] For a hook, show the event
 and its observable effect. For knowledge, show a question and the concept
 that answers it.
+
+For example, the README for an archive-review skill might invite the reader
+to ask “Can an installer open the migration guide in this archive?” Tell
+them to expect the linked path and a verdict based on the archive listing.
+Try that request using only the README and the files an installer receives.
 
 Mention a prerequisite, permission, side effect, or limitation when it changes
 the install decision or the example.[^actions] Link deeper instructions and

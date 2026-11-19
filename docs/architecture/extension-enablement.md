@@ -52,6 +52,13 @@ engineering knowledge, and agents can use the website before installing AXM.
    variations. Measure correctness, authority, loaded guidance, calls, and output
    volume separately. A shorter file alone does not establish independence.
 
+## Engineering pack authoring
+
+Ground the pack’s guidance in a decision someone makes while designing,
+authoring, reviewing, or maintaining extensions. Show what that decision
+changes in an extension or in the work of someone using it, with the detail
+the document’s purpose calls for.
+
 ## Shared vocabulary
 
 The [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)

@@ -28,7 +28,7 @@ import { AuthLoginPresenter, type MeResponse } from "@agentxm/registry-access/au
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
+import { makeTestScreen } from "./test-screen.js";
 
 export const LOGIN_REGISTRY_URL = "https://registry.agentxm.ai";
 export const LOGIN_REGISTRY_HOST = "registry.agentxm.ai";
@@ -54,7 +54,7 @@ export interface LoginSpecContextOptions {
 }
 
 export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
-  const renderer = options.machine === true ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: options.machine === true });
   const identity: MeResponse = {
     userHandle: EXISTING_HANDLE,
     email: null,

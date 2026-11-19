@@ -30,6 +30,7 @@ import {
   property,
 } from "../../test-support/test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./remove.js";
+import { ledgerRows } from "../../test-support/test-screen.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -188,7 +189,7 @@ describe("packs-remove.handler", () => {
           expect(logs.success).toContain("Removed 1 pack");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
-          expect(rendererState.summaries).toContain(
+          expect(ledgerRows(rendererState)).toContain(
             "@acme/packs/frontend-tools   updated   1 file, packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
@@ -244,8 +245,8 @@ describe("packs-remove.handler", () => {
 
           // Preview outcome should appear
           expect(logs.info.some((m) => m.includes("Would remove 1 pack"))).toBe(true);
-          expect(rendererState.summaries.join("\n")).toContain("@acme/skills/code-review");
-          expect(rendererState.summaries.join("\n")).toContain("^1.2.0");
+          expect(ledgerRows(rendererState).join("\n")).toContain("@acme/skills/code-review");
+          expect(ledgerRows(rendererState).join("\n")).toContain("^1.2.0");
         }),
       );
     });

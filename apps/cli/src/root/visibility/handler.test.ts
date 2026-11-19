@@ -56,7 +56,7 @@ describe("visibility human output", () => {
           target,
           "not configured",
           "public",
-          "unconfigured",
+          "no intent configured",
           evaluation.findings[0]?.message ?? "",
         ])
           expect(stdout).toContain(fact);

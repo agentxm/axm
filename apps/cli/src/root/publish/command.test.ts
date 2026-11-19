@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -48,7 +48,7 @@ import {
 import { exitCodeFor } from "../../app-error/index.js";
 import { emitPublishResult } from "./result.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import {
   normalizePublishResult,
   publishCause,
@@ -320,7 +320,7 @@ describe("root publish", () => {
           new Response(
             JSON.stringify({
               type: "https://registry.agentxm.ai/v1/problems/not_found",
-              title: "Not Found",
+              title: "Not found",
               status: 404,
               detail: "Extension not found",
               code: "not_found",
@@ -400,7 +400,7 @@ describe("root publish", () => {
 
   describe("human output", () => {
     /** What a person reads on stdout, painted without colour or width limits. */
-    const painted = (state: TestRendererState): ReadonlyArray<string> =>
+    const painted = (state: TestScreenState): ReadonlyArray<string> =>
       state.docs.flatMap((entry) =>
         entry.channel === "stdout"
           ? paintText(entry.doc, { width: "unbounded", colors: false, glyphs: asciiGlyphs })
@@ -438,7 +438,7 @@ describe("root publish", () => {
             "",
             "     Visibility                    public (from platform defaults)",
             "",
-            "Would publish 1 extension  nothing was uploaded",
+            "Would publish 1 extension  no changes made",
             "--verbose for details",
           ]);
         }),
@@ -492,7 +492,7 @@ describe("root publish", () => {
           yield* handleRootPublish(args(registry, { preview: false }));
 
           expect(painted(rendererState)).toEqual([
-            "Publishing  as @acme - to publication",
+            "Publish  as @acme - to publication",
             "",
             "     Extension                     Version   Status      Detail",
             " +   @acme/skills/review           1.0.0     published",
@@ -569,9 +569,7 @@ describe("root publish", () => {
           expect(lines).toContain(
             " !!  @acme/skills/review           1.0.0     blocked   1 path differs from HEAD",
           );
-          expect(lines).toContain(
-            " !!  Publish is blocked — an explicit override is required   1 blocked, exit 2",
-          );
+          expect(lines).toContain(" !!  Publish is blocked            1 blocked - exit 2");
           expect(
             rendererState.suggestions.some((suggestion) =>
               suggestion.cmd?.includes("--accept-warnings"),
@@ -629,19 +627,26 @@ describe("root publish", () => {
       ],
     });
 
-    it.effect("prints the registry page as a copyable line beneath the verdict", () => {
+    it.effect("offers the registry page as the first next step after the verdict", () => {
       const { provide, rendererState } = makeContext(false);
 
       return provide(
         Effect.gen(function* () {
           yield* emitPublishResult(publishedReview, { elapsedMs: 1_200 });
 
-          expect(painted(rendererState).slice(-2)).toEqual([
+          expect(painted(rendererState).slice(-4)).toEqual([
             "Published 1 extension  public - 1.2s",
-            "https://agentxm.ai/acme/skills/review",
+            "",
+            "Next",
+            "     https://agentxm.ai/acme/skills/review   View @acme/skills/review in the registry",
           ]);
-          // The page is already on screen, so the next steps do not repeat it.
-          expect(rendererState.suggestions).toEqual([]);
+          // The page leads `Next` once; no other suggestion repeats it.
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View @acme/skills/review in the registry",
+              url: "https://agentxm.ai/acme/skills/review",
+            },
+          ]);
         }),
       );
     });
@@ -713,14 +718,14 @@ describe("root publish", () => {
           );
 
           expect(painted(rendererState)).toEqual([
-            "Publishing  as @acme - to unknown",
+            "Publish  as @acme - to unknown",
             "",
             "     Extension                     Version   Status   Detail",
             " xx  @acme/skills/review           1.0.0     failed   upload failed, retryable",
             "     Registry upload is temporarily unavailable.",
             "     request req_retry",
             "",
-            "Publish failed for 1 extension  1 failed - exit 8",
+            "Failed to publish 1 extension  1 failed - exit 8",
             "",
             "Next",
             "     axm publish @acme/skills/review   Continue the failed items and their blocked dependents",

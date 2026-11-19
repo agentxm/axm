@@ -176,6 +176,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts`](../apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts)
 
+##### An inventory states a value every row shares once, in its summary
+
+- Requirement: `cli/inventories-state-uniform-columns-once`
+- Owner: `cli`
+- Statement: When every row of an inventory with two or more rows holds the same value in a column whose view states a shared form, the inventory shall omit that column from its table and shall state that form once in its summary, after the inventory's own facts and before what needs attention.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: An inventory document is a pure function of its rows and columns, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/tables-keep-rows-scannable`
+- Assumptions: A view may state no shared form for a value that goes without saying, such as observing nothing; the column still leaves the table.
+- Source: [`apps/cli/src/screen/inventories-state-uniform-columns-once.spec.ts`](../apps/cli/src/screen/inventories-state-uniform-columns-once.spec.ts)
+
 ##### A ledger moves a value it cannot lay out; it never removes one
 
 - Requirement: `cli/ledger-width-relocates-values`
@@ -631,6 +646,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts`](../packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts)
 
+##### A read-only table keeps each row on one line before it keeps an extra column
+
+- Requirement: `cli/tables-keep-rows-scannable`
+- Owner: `cli`
+- Statement: When a read-only table does not fit the available width, it shall give up its optional columns before it wraps any cell, shall never wrap its name column but shorten each name in the middle only when nothing else can give way, shall set its rows apart with a blank line whenever any row spans more than one line, and shall name the columns it hid on a line set apart from its rows that says how to see them.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Table layout is a pure function of a document and a terminal width, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/names-yield-width-last`, `cli/ascii-human-output-preserves-content`
+- Assumptions: A name column's cells are identifiers a reader scans down, so a name split across lines reads as two rows.
+- Source: [`apps/cli/src/screen/tables-keep-rows-scannable.spec.ts`](../apps/cli/src/screen/tables-keep-rows-scannable.spec.ts)
+
 ##### A refused workload token points at the trusted publisher's permissions
 
 - Requirement: `cli/trusted-publishing/refusals-name-the-trusted-publishers-permissions`
@@ -648,7 +678,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/unsettled-units-state-their-reason`
 - Owner: `cli`
-- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
+- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity — the producer's sentence, naming its own unit as this unit because the row already identifies it, and without the category code the machine output carries as a field — and shall state whether the unit's prior state was kept, restored, or left incomplete, beneath its row or once for every unit that shares it, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, except that where another unit's reason or the operation's interruption already states what stopped the operation, such units may be counted together at quiet and normal detail and shall be named with their reasons at verbose detail; and a unit whose producer supplied no reason shall state that rather than showing nothing.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
@@ -676,7 +706,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/usage-errors-render-once`
 - Owner: `cli-e2e`
-- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage Error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
+- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -815,7 +845,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/screen/output-policy.test.ts`, `apps/cli/src/screen/paint-text.test.ts`
 - Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.
-- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
+- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
 - Source: [`apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts`](../apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts)
 
 ##### Interactions retain their context and outcome
@@ -1437,6 +1467,146 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `apps/cli/src/root/version/command.ts`
 - Source: [`packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts`](../packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts)
 
+#### Human factors
+
+##### Authors can decide which files a release needs
+
+- Requirement: `cli/help/publish-guidance-explains-file-selection`
+- Owner: `cli`
+- Statement: AXM authoring help shall lead authors to publication guidance that explains how a consumer workflow and the purpose of a file inform its inclusion in the candidate archive.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The bundled authoring and publish topics expose the documented decision and the preview command; a reader's file choices require separate observation.
+- Methods: example
+- Source: [`apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts`](../apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts)
+
+##### Authors can distinguish designing a domain glossary from looking up a term
+
+- Requirement: `extension-engineering/domain-glossary-guidance`
+- Owner: `axm`
+- Statement: The engineering pack shall show glossary authors how a consuming extension uses a knowledge concept with LLM-drafted, computationally derived, or hand-authored entries and route terminology lookups to the shared glossary.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The route check locates the authoring variants and the term reference. Reviewing the worked example establishes what the consumer can decide from it. Host selection requires separate evidence.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-domain-glossary.spec.ts`](../scripts/axe-domain-glossary.spec.ts)
+
+##### Authors can assess boundaries and interactions across sets of extensions
+
+- Requirement: `extension-engineering/extension-set-guidance`
+- Owner: `axm`
+- Statement: The engineering pack shall preserve the caller’s selected extensions and route design or review of relationships across the full authored inventory, a pack’s members, or the extensions participating in a host request or event to the relevant change and request traces.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored skill and the knowledge entry points for design, overlapping intent, pack composition, and review expose routes to the exercises. Reading those routes does not exercise host skill selection.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-extension-sets.spec.ts`](../scripts/axe-extension-sets.spec.ts)
+
+##### Callers can select a recommended or alternative remedy in one reply
+
+- Requirement: `extension-engineering/remedy-selection`
+- Owner: `axm`
+- Statement: AXE review guidance shall let the caller select the displayed recommendation by finding number or a particular displayed alternative by finding number and remedy letter.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The knowledge pattern demonstrates the two selections and their distinct effects. Actual interpretation in a host requires a trial.
+- Methods: static, review
+- Assumptions: The caller has received a numbered finding with alternative remedies.
+- Source: [`scripts/axe-remedy-selection.spec.ts`](../scripts/axe-remedy-selection.spec.ts)
+
+##### AXE reviews show the evidence behind their verdict
+
+- Requirement: `extension-engineering/review-coverage`
+- Owner: `axm`
+- Statement: Every AXE review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The sibling knowledge bundle supplies the report template. Static evidence checks its reader-facing example and status vocabulary. Host trials exercise the resulting reports.
+- Methods: static, review
+- Assumptions: The reviewer can access the axe skill and its engineering knowledge bundle.
+- Source: [`scripts/axe-review-coverage.spec.ts`](../scripts/axe-review-coverage.spec.ts)
+
+##### AXE guides extension reviews across issues, improvements, and pruning
+
+- Requirement: `extension-engineering/review-guidance`
+- Owner: `axm`
+- Statement: AXE shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored skill and sibling knowledge bundle supply the review route and checklist. Host trials separately observe the resulting findings, scope, and selected edits.
+- Methods: static, review
+- Assumptions: The engineering pack's skill and knowledge bundle are available together.
+- Source: [`scripts/axe-review-guidance.spec.ts`](../scripts/axe-review-guidance.spec.ts)
+
+##### Extension reviews follow the caller's focus and available evidence
+
+- Requirement: `extension-engineering/review-scope`
+- Owner: `axm`
+- Statement: AXE review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The shipped review guide expresses the decision. The trials in skills/axe/evals/2026-11-18 separately exercise open and focused reviews from pack and member entry points.
+- Methods: static, review
+- Assumptions: The reviewer has access to the engineering knowledge bundle.
+- Source: [`scripts/axe-review-scope.spec.ts`](../scripts/axe-review-scope.spec.ts)
+
+##### Callers can select the intended scope of an ambiguous package name
+
+- Requirement: `extension-engineering/target-choice`
+- Owner: `axm`
+- Statement: When a package name remains ambiguous, AXE and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The shared example exposes the text choices and their identities. Host trials separately exercise skill instructions, native input and continuation.
+- Methods: static, review
+- Source: [`scripts/extension-target-choice.spec.ts`](../scripts/extension-target-choice.spec.ts)
+
+##### Teams can choose how to keep extension workflows usable as their workspace changes
+
+- Requirement: `extension-engineering/workspace-management`
+- Owner: `axm`
+- Statement: The engineering pack shall route workspace policy questions to guidance on choosing and verifying a policy for the affected users and hosts according to who owns each extension, including in workspaces that author none, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Links and routes establish that the pack exposes the practice through its glossary, setup guide, index, and skill. Reader trials separately exercise selection, policy tradeoffs, and application.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-workspace-management.spec.ts`](../scripts/axe-workspace-management.spec.ts)
+
+##### Authors can design or review a workspace for its intended users
+
+- Requirement: `extension-engineering/workspace-setup`
+- Owner: `axm`
+- Statement: The engineering pack shall route workspace design and review to guidance that assesses an intended user's workflow against workspace configuration and host evidence, using the workspace manager for state inspection and authorized changes.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored routes establish guide availability. The mixed-workspace trials separately exercise subject selection, evidence use, and scope in a host.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-workspace-setup.spec.ts`](../scripts/axe-workspace-setup.spec.ts)
+
 ### Goal: extension-adoption
 
 People and agents can find, install, update, and remove reusable extensions across coding agents through dependable product surfaces.
@@ -1981,6 +2151,19 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Additional evidence: process via [`apps/cli-e2e/src/help-ignores-workspace-state.e2e.test.ts`](../apps/cli-e2e/src/help-ignores-workspace-state.e2e.test.ts) — A registered-tree walk cannot show what a help request does to a populated workspace; only a real invocation against malformed project and user state shows the reply arriving unchanged and nothing being written.
 - Source: [`apps/cli/src/command-help-is-complete.spec.ts`](../apps/cli/src/command-help-is-complete.spec.ts)
 
+##### Authoring help explains when to leave the method open
+
+- Requirement: `cli/help/authoring-explains-agent-discretion`
+- Owner: `cli`
+- Statement: The authoring help topic shall explain when a method matters to the requested result and when it can be offered as an example, with an optional route to the canonical engineering principle.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `agent-interoperability`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The bundled authoring topic contains the advice and the discovery route that ship with the CLI.
+- Methods: example
+- Source: [`apps/cli/src/root/help/authoring-explains-agent-discretion.spec.ts`](../apps/cli/src/root/help/authoring-explains-agent-discretion.spec.ts)
+
 ##### Extension command groups separate management from authoring
 
 - Requirement: `cli/help/groups-type-commands-by-purpose`
@@ -2332,6 +2515,22 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Open questions: The alias prohibition is phrased as a pre-launch condition in its scenario; whether alias routes stay prohibited after public launch is unresolved.
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`apps/cli/src/commands-have-no-alias-routes.spec.ts`](../apps/cli/src/commands-have-no-alias-routes.spec.ts)
+
+#### Human factors
+
+##### Git hook guidance connects branch changes and staged commits to the appropriate AXM check
+
+- Requirement: `cli/help/git-hook-workflows`
+- Owner: `cli-e2e`
+- Statement: Project users shall be able to discover and use bundled Git hook recipes to check the staged commit and check or reconcile the current checkout after branch changes, preserving local edits and surfacing planning failures separately from actionable drift.
+- Class: human-factors
+- Role: experience
+- Product goals: `knowledge-access`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Git runs hooks extracted from the compiled CLI help in a disposable two-branch project. The index, workspace lock, visible instructions, diagnostics, and exit status expose the effects.
+- Methods: example
+- Assumptions: Git and a POSIX shell are available to the consumer.
+- Source: [`apps/cli-e2e/src/git-hook-guidance.spec.ts`](../apps/cli-e2e/src/git-hook-guidance.spec.ts)
 
 ### Goal: machine-automation
 
@@ -4827,6 +5026,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/list/ordinary-inventory-is-local`, `apps/cli/src/root/list/command.ts`
 - Supersedes: `cli/list/human-inventory-points-to-deprecation-guidance`
 - Source: [`apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts`](../apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts)
+
+##### A person's inventory states each row's local state in one column
+
+- Requirement: `cli/list/human-inventory-states-each-row`
+- Owner: `cli`
+- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and an inventory with a row that `axm lint` explains shall offer `axm lint` as its next command.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The list view is a pure function of the inventory document, so the rendered document decides the obligation in memory.
+- Methods: example
+- Derived from: `cli/list/human-inventory-reports-local-state`
+- Source: [`apps/cli/src/root/list/human-inventory-states-each-row.spec.ts`](../apps/cli/src/root/list/human-inventory-states-each-row.spec.ts)
 
 ##### Ordinary listings report local state without registry assessment
 

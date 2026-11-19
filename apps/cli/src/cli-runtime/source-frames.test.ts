@@ -159,14 +159,14 @@ describe("owned source frames", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const { collect, recording } = yield* builtFiles({
-          [builtAppError]: builtModule(builtAppError, [10, 20, 353]),
+          [builtAppError]: builtModule(builtAppError, [10, 20, 300]),
         });
         const stack = stackAt([
           [builtAppError, 1],
           [builtAppError, 2],
           [builtAppError, 3],
         ]);
-        const expected = [appErrorFrame(353), appErrorFrame(20), appErrorFrame(10)];
+        const expected = [appErrorFrame(300), appErrorFrame(20), appErrorFrame(10)];
         expect(yield* collect([stack])).toEqual(expected);
         const afterOne = recording.counts(builtAppError).open;
         expect(yield* collect([stack])).toEqual(expected);

@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/usage-errors-render-once",
   title: "Usage failures show help followed by one error block",
   statement:
-    "Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage Error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.",
+    "Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
@@ -50,9 +50,9 @@ describe("Usage error rendering", () => {
           expect(result.stdout).toBe("");
           expect(result.stderr).toContain("USAGE");
           expect(result.stderr).toContain(`axm ${command.join(" ")}`);
-          expect(result.stderr.indexOf("USAGE")).toBeLessThan(result.stderr.indexOf("Usage Error"));
-          expect((result.stdout + result.stderr).match(/Usage Error/gu)).toHaveLength(1);
-          expect(result.stderr).toContain("usage, exit 2");
+          expect(result.stderr.indexOf("USAGE")).toBeLessThan(result.stderr.indexOf("Usage error"));
+          expect((result.stdout + result.stderr).match(/Usage error/gu)).toHaveLength(1);
+          expect(result.stderr).toMatch(/usage [·-] exit 2/u);
         }
       } finally {
         fixture.cleanup();

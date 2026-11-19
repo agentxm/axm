@@ -17,19 +17,24 @@ import type {
   JsonSubcommandDoc,
 } from "../../cli-runtime/index.js";
 import { learnMoreRows } from "../../formatter.js";
-import type { Doc, Field, Span, Text } from "../../screen/index.js";
+import {
+  commandSpan,
+  invocation,
+  type Doc,
+  type DocNode,
+  type Field,
+  type Span,
+  type Text,
+} from "../../screen/index.js";
 
 const heading = (title: string): Text => [{ text: title, bold: true, tone: "neutral" }];
 
 const section = (title: string, children: Doc): Doc =>
   children.length === 0 ? [] : [{ _tag: "section", title: heading(title), children }];
 
-const commandName = (name: string): Span => ({ text: name, tint: "cyan" });
+const commandName = (name: string): Span => commandSpan(name);
 
 const flagName = (name: string): Span => ({ text: name, tint: "green" });
-
-/** A usage pattern or example invocation: shown whole, never broken across lines. */
-const invocation = (value: string): Text => [{ text: value, tint: "cyan", copyable: true }];
 
 const namesRow = (
   names: ReadonlyArray<string>,
@@ -40,11 +45,6 @@ const namesRow = (
 const fieldsNode = (fields: ReadonlyArray<Field>): Doc =>
   fields.length === 0 ? [] : [{ _tag: "fields", fields }];
 
-const joinSections = (sections: ReadonlyArray<Doc>): Doc =>
-  sections
-    .filter((section) => section.length > 0)
-    .flatMap((section, index) => (index === 0 ? section : [{ _tag: "blank" }, ...section]));
-
 const learnMoreDoc = (learnMore: string | undefined): Doc => {
   if (learnMore === undefined || learnMore === "") return [];
   const { title, rows } = learnMoreRows(learnMore);
@@ -52,7 +52,7 @@ const learnMoreDoc = (learnMore: string | undefined): Doc => {
     title,
     fieldsNode(
       rows.map(([command, description]) => ({
-        label: [{ text: command, tint: "cyan", copyable: true }],
+        label: invocation(command),
         value: description,
       })),
     ),
@@ -192,7 +192,8 @@ const rootHelpDoc = (doc: JsonHelpDoc): Doc => {
     (label === LEADING_GROUP ? leadingGroups : trailingGroups).push(rendered);
   }
 
-  return joinSections([
+  // Each part is a section or none at all; the painter sets sibling sections apart.
+  const parts: ReadonlyArray<Doc> = [
     brandingDoc,
     section("USAGE", [
       { _tag: "paragraph", text: invocation(doc.usage.replace("<subcommand>", "<command>")) },
@@ -207,7 +208,8 @@ const rootHelpDoc = (doc: JsonHelpDoc): Doc => {
     ),
     outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
-  ]);
+  ];
+  return parts.flat();
 };
 
 // ---------------------------------------------------------------------------
@@ -235,8 +237,9 @@ const flagFields = (flags: ReadonlyArray<JsonFlagDoc>): ReadonlyArray<Field> =>
     value: parameterHelpLine(flag),
   }));
 
-const commandHelpSections = (doc: JsonHelpDoc): Doc =>
-  joinSections([
+const commandHelpSections = (doc: JsonHelpDoc): Doc => {
+  // Each part is a section or none at all; the painter sets sibling sections apart.
+  const parts: ReadonlyArray<Doc> = [
     doc.description === ""
       ? []
       : section("DESCRIPTION", [{ _tag: "paragraph", text: doc.description }]),
@@ -266,17 +269,22 @@ const commandHelpSections = (doc: JsonHelpDoc): Doc =>
     ),
     section(
       "EXAMPLES",
-      (doc.examples ?? []).flatMap((example, index): Doc => [
-        ...(index > 0 ? [{ _tag: "blank" } as const] : []),
-        ...(example.description === undefined
-          ? []
-          : [{ _tag: "paragraph", tone: "dim", text: `# ${example.description}` } as const]),
-        { _tag: "paragraph", text: invocation(example.command) },
-      ]),
+      // Each example is its own group, so the painter sets one apart from the next.
+      (doc.examples ?? []).map((example): DocNode => ({
+        _tag: "section",
+        children: [
+          ...(example.description === undefined
+            ? []
+            : [{ _tag: "paragraph", tone: "dim", text: `# ${example.description}` } as const]),
+          { _tag: "paragraph", text: invocation(example.command) },
+        ],
+      })),
     ),
     outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
-  ]);
+  ];
+  return parts.flat();
+};
 
 /**
  * Root help describes the tool; command help describes one executable path.

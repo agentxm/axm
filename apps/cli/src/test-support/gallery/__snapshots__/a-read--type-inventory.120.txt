@@ -1,0 +1,9 @@
+     Name             Management                  Activation   Source                       Locked   Agent outcomes
+     format-on-save   managed by this workspace   enabled      @acme/hooks/format-on-save   yes      none
+     block-secrets    included by a pack          enabled      @acme/packs/review-kit       yes      none
+     legacy-notify    outside AXM                 disabled     .claude/settings.json        no       none
+
+3 hooks · 1 managed by this workspace · 1 included by packs · 3 installed · 1 found outside AXM
+
+ ▲   Part of this inventory could not be observed
+     .codex/hooks.json: The file is not valid JSON

@@ -15,6 +15,7 @@ commands or executable sources.
 - [Effect layers](effect-layers.md) — CLI runtime composition
 - [Local tracing](local-tracing.md) — inspect operation phases and actual work with an explicitly enabled local OTLP receiver
 - [Authentication](authentication.md) — the two sign-in states, the commands that may ask for more, session renewal, and device-flow contracts
+- [Terminal UX development](terminal-ux.md) — the lab, the gallery, and the loop for changing how the CLI looks and behaves in a terminal
 
 ## Engineering and operations
 

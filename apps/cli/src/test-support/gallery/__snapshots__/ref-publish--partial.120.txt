@@ -1,4 +1,4 @@
-Publishing  as @acme · to agentxm
+Publish  as @acme · to agentxm
 
      Extension                     Version   Status      Detail
  +   @acme/skills/code-review      1.4.0     published
@@ -11,4 +11,4 @@ Partially published  1 published · 1 failed · 1 not tried · exit 8
 
 Next
      axm publish @acme/subagents/reviewer @acme/packs/review-kit
-     Continue the failed items and their blocked dependents
+       Continue the failed items and their blocked dependents

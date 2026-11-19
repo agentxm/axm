@@ -118,11 +118,9 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
     diverged
       ? {
           recovery,
-          message: "Workspace is out of sync; no changes were made",
+          message: "Workspace is out of sync",
           suggestions: retry,
         }
-      : outcome === "no-op" && resolution.units.length === 0
-        ? { recovery, message: candidate.upToDateMessage }
-        : { recovery, suggestions: retry },
+      : { recovery, suggestions: retry },
   );
 });

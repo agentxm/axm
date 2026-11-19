@@ -31,8 +31,19 @@ export type Mark = Change | Status | LiveMark;
  */
 export type Tint = "green" | "yellow" | "blue" | "magenta" | "cyan";
 
+/**
+ * What a span's text is, so every command shows the same kind of value the
+ * same way: a `command` a person runs is tinted and never broken, a `url` is
+ * never broken and becomes a terminal hyperlink where colour is on, an
+ * `identifier` such as a one-time code or request ID is never broken, and a
+ * `path` wraps at its separators. The painter derives the styling; a view
+ * names only the kind.
+ */
+export type SpanKind = "command" | "url" | "identifier" | "path";
+
 export interface Span {
   readonly text: string;
+  readonly kind?: SpanKind;
   readonly tone?: Tone;
   readonly tint?: Tint;
   readonly bold?: boolean;
@@ -43,14 +54,25 @@ export interface Span {
    * one: it moves to a line of its own and overflows the width instead.
    */
   readonly copyable?: true;
-  /**
-   * Reverse video, so the span reads as a filled cell. A key chip uses bold or
-   * capitalized text as its separate default-choice signal.
-   */
-  readonly invert?: true;
 }
 
 export type Text = string | ReadonlyArray<Span>;
+
+/**
+ * A span as the painter lays it out. Reverse video belongs to the painter
+ * alone: it fills a key chip's cell, so a view's text never reads as a key.
+ * A chip uses bold or capitalized text as its separate default-choice signal.
+ */
+export interface PaintSpan extends Span {
+  readonly invert?: true;
+  /**
+   * The painter's own separator between two facts. Wrapping keeps it on the
+   * line of the fact before it, so a wrapped aside never opens with one.
+   */
+  readonly separator?: true;
+}
+
+export type PaintText = string | ReadonlyArray<PaintSpan>;
 
 interface HeadlineNode {
   readonly _tag: "headline";
@@ -68,8 +90,9 @@ interface ParagraphNode {
   readonly tone?: Tone;
   /**
    * Set apart at the content edge, past the gutter, the way a `Next` action's
-   * target is: for the one value a sentence above it asks a person to act on,
-   * such as the link a sign-in asks them to open.
+   * target is, and by a blank line from the prose around it: for the one value
+   * a sentence above it asks a person to act on, such as the link a sign-in
+   * asks them to open.
    */
   readonly inset?: true;
 }
@@ -263,8 +286,11 @@ export interface CalloutNode {
   readonly _tag: "callout";
   readonly tone: Tone;
   readonly title: Text;
-  /** A dim aside, such as a stable code, painted at the value column. */
-  readonly aside?: Text;
+  /**
+   * Dim facts at the value column, such as a stable code and an exit code,
+   * which the painter joins with the active glyph set's separator.
+   */
+  readonly aside?: ReadonlyArray<SummaryPart>;
   readonly children?: Doc;
 }
 
@@ -277,6 +303,12 @@ export type TableColumnPriority = "required" | "preferred" | "optional";
 
 export interface TableColumn {
   readonly header: Text;
+  /**
+   * The column that identifies each row. A reader scans down it, so its cells
+   * never wrap: it keeps its natural width while any other column can give
+   * way, then shortens each name in the middle, keeping its last segments.
+   */
+  readonly role?: "name";
   readonly align?: "left" | "right";
   /** Preferred width in cells; the painter shrinks below it under pressure. */
   readonly width?: number;
@@ -317,17 +349,6 @@ interface FieldsNode {
   readonly fields: ReadonlyArray<Field>;
 }
 
-export interface TreeItem {
-  readonly text: Text;
-  readonly detail?: Text;
-  readonly children?: ReadonlyArray<TreeItem>;
-}
-
-interface TreeNode {
-  readonly _tag: "tree";
-  readonly roots: ReadonlyArray<TreeItem>;
-}
-
 interface NextNode {
   readonly _tag: "next";
   readonly actions: ReadonlyArray<SuggestedAction>;
@@ -342,6 +363,7 @@ interface SummaryNode {
   readonly parts: ReadonlyArray<SummaryPart>;
 }
 
+/** A group of related nodes; the painter sets sibling sections apart by a blank line. */
 interface SectionNode {
   readonly _tag: "section";
   readonly title?: Text;
@@ -358,6 +380,10 @@ interface RawNode {
   readonly content: string;
 }
 
+/**
+ * One blank line inside authored prose. The painter owns the spacing between
+ * result blocks, so a view never uses it to arrange them.
+ */
 interface BlankNode {
   readonly _tag: "blank";
 }
@@ -372,7 +398,6 @@ export type DocNode =
   | CalloutNode
   | TableNode
   | FieldsNode
-  | TreeNode
   | NextNode
   | SummaryNode
   | SectionNode
@@ -381,6 +406,21 @@ export type DocNode =
   | BlankNode;
 
 export type Doc = ReadonlyArray<DocNode>;
+
+/** Whether the painter must keep a span whole: copyable by flag or by kind. */
+export const isCopyableSpan = (span: Span): boolean =>
+  span.copyable === true ||
+  span.kind === "command" ||
+  span.kind === "url" ||
+  span.kind === "identifier";
+
+/** The link a span carries: its own, or a URL's text. */
+export const spanLink = (span: Span): string | undefined =>
+  span.link ?? (span.kind === "url" ? span.text : undefined);
+
+/** The tint a span paints in: its own, or a command's. */
+export const spanTint = (span: Span): Tint | undefined =>
+  span.tint ?? (span.kind === "command" ? "cyan" : undefined);
 
 export const plain = (value: Text): string =>
   typeof value === "string" ? value : value.map((span) => span.text).join("");

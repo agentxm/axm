@@ -14,7 +14,7 @@ import { ExitCodeDefinitions, appErrorCodeForExit } from "../app-error/index.js"
 import { resolutionExitCode } from "../operation-exit-code.js";
 import { HelpTopicResultSchema, handleHelpPath } from "../root/help/command.js";
 import { OperationExitLive, classifyError, getOperationExitCode } from "./index.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { handleDemote } from "../root/demote/command.js";
 import { rootCommand } from "../app.js";
 
@@ -170,7 +170,7 @@ describe("Published exit-code reference", () => {
 
   it.effect("the served exit-codes help topic states exactly the runtime exit codes", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       yield* handleHelpPath(["exit-codes"], rootCommand).pipe(Effect.provide(renderer.layer));
 
       const topic = yield* decodeTopic(renderer.state.results[0]?.data);

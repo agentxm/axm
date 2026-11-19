@@ -3,12 +3,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, tables } from "../../test-support/test-screen.js";
 import { handleAgentsCapabilities } from "./capabilities.js";
 
 describe("agents capabilities.handler", () => {
   const makeLayers = () => {
-    const renderer = TestRenderer.make();
+    const renderer = makeTestScreen();
     return {
       provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         effect.pipe(
@@ -25,7 +25,7 @@ describe("agents capabilities.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsCapabilities("codemaker");
 
-        expect(rendererState.tables[0]?.caption).toContain("retired");
+        expect(tables(rendererState)[0]?.caption).toContain("retired");
       }),
     );
   });

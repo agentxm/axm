@@ -1,17 +1,18 @@
 import type { PublishResult } from "@agentxm/workspace-features/publishing";
 
 import {
-  ALREADY_PUBLISHED,
   NOT_TRIED,
   blockingClass,
+  capitalized,
   count,
   duration,
   exitPhrase,
   interruptionPhrase,
-  joined,
-  publishOutcome,
+  NO_CHANGES_MADE,
+  verdictFacts,
   type Tone,
 } from "../../screen/index.js";
+import { ALREADY_PUBLISHED, publishOutcome } from "./phrases.js";
 import {
   distinct,
   versionedPublishIdentity,
@@ -39,16 +40,14 @@ const tally = (
   ].filter((part): part is string => part !== undefined);
 };
 
-const visibilitySummary = (published: ReadonlyArray<PlacedPublication>): string | undefined => {
+const visibilitySummary = (published: ReadonlyArray<PlacedPublication>): ReadonlyArray<string> => {
   const values = published.flatMap(({ item }) =>
     item.visibility === undefined ? [] : [item.visibility.value],
   );
   const kinds = distinct(values);
   const [only] = kinds;
-  if (kinds.length === 1) return only;
-  return joined(
-    kinds.map((kind) => `${String(values.filter((value) => value === kind).length)} ${kind}`),
-  );
+  if (kinds.length === 1) return only === undefined ? [] : [only];
+  return kinds.map((kind) => `${String(values.filter((value) => value === kind).length)} ${kind}`);
 };
 
 export interface PublishVerdict {
@@ -67,8 +66,8 @@ const alreadyPublishedVerdict = (existing: ReadonlyArray<PlacedPublication>): st
     : `All ${String(existing.length)} selected versions are already published`;
 };
 
-const preflightFailureVerdict = (failed: number): string =>
-  `AXM found ${failed === 1 ? "a problem" : "problems"} in ${count(failed, "extension")} before publishing`;
+const failureVerdict = (failed: number): string =>
+  `Failed to publish ${count(failed, "extension")}`;
 
 export const publishVerdictOf = (
   result: PublishResult,
@@ -88,13 +87,14 @@ export const publishVerdictOf = (
   const problemAside = tally(placed, options.exitCode);
 
   if (result.interruption !== undefined) {
+    const interrupted = interruptionPhrase(
+      result.interruption.signal,
+      published.length > 0 ? "retained" : unconfirmed.length > 0 ? "unknown" : "untouched",
+    );
     return {
       tone: "error",
-      verdict: interruptionPhrase(
-        result.interruption.signal,
-        published.length > 0 ? "retained" : unconfirmed.length > 0 ? "unknown" : "untouched",
-      ),
-      aside: problemAside,
+      verdict: interrupted.claim,
+      aside: verdictFacts(interrupted, problemAside),
     };
   }
   if (placed.length === 0) {
@@ -104,16 +104,26 @@ export const publishVerdictOf = (
   if (failure !== undefined) {
     const [ownCondition] = blocked;
     return ownCondition === undefined
-      ? { tone: "error", verdict: "Publish failed", aside: problemAside, reason: failure.message }
-      : {
-          tone: "warn",
-          verdict: `Publish is blocked — ${blockingClass(
-            ownCondition.item.reason === "source_state_not_accepted"
-              ? "override-required"
-              : "stale-candidate",
-          )}`,
+      ? {
+          tone: "error",
+          verdict: failureVerdict(Math.max(1, placed.length)),
           aside: problemAside,
           reason: failure.message,
+        }
+      : {
+          tone: "warn",
+          verdict: "Publish is blocked",
+          aside: problemAside,
+          reason:
+            failure.message.length > 0
+              ? failure.message
+              : `${capitalized(
+                  blockingClass(
+                    ownCondition.item.reason === "source_state_not_accepted"
+                      ? "override-required"
+                      : "stale-candidate",
+                  ),
+                )}.`,
           blocked: true,
         };
   }
@@ -121,8 +131,8 @@ export const publishVerdictOf = (
     if (failed.length > 0) {
       return {
         tone: "error",
-        verdict: preflightFailureVerdict(failed.length),
-        aside: ["nothing was uploaded", ...problemAside],
+        verdict: failureVerdict(failed.length),
+        aside: [NO_CHANGES_MADE, ...problemAside],
       };
     }
     if (toPublish.length === 0 && existing.length > 0) {
@@ -133,7 +143,7 @@ export const publishVerdictOf = (
       verdict: `Would publish ${count(toPublish.length, "extension")}`,
       aside: [
         existing.length === 0 ? undefined : `${String(existing.length)} ${ALREADY_PUBLISHED}`,
-        "nothing was uploaded",
+        NO_CHANGES_MADE,
       ].filter((part): part is string => part !== undefined),
     };
   }
@@ -143,23 +153,15 @@ export const publishVerdictOf = (
       tone: "ok",
       verdict: `Published ${count(published.length, "extension")}`,
       aside: [
-        visibilitySummary(published),
-        options.elapsedMs === undefined ? undefined : duration(options.elapsedMs),
-      ].filter((part): part is string => part !== undefined),
+        ...visibilitySummary(published),
+        ...(options.elapsedMs === undefined ? [] : [duration(options.elapsedMs)]),
+      ],
     };
   }
   if (published.length > 0)
     return { tone: "warn", verdict: "Partially published", aside: problemAside };
   if (failed.length > 0) {
-    const label = failed.some((entry) => entry.item.phase === "upload_execution")
-      ? "Publish failed"
-      : preflightFailureVerdict(failed.length);
-    return {
-      tone: "error",
-      verdict:
-        label === "Publish failed" ? `${label} for ${count(failed.length, "extension")}` : label,
-      aside: problemAside,
-    };
+    return { tone: "error", verdict: failureVerdict(failed.length), aside: problemAside };
   }
   if (unconfirmed.length > 0) {
     return {
@@ -174,8 +176,8 @@ export const publishVerdictOf = (
   }
   return {
     tone: "ok",
-    verdict: `No extensions published — ${count(skipped.length, "dependency", "dependencies")} left as registry references`,
-    aside: [],
+    verdict: "No extensions published",
+    aside: [`${count(skipped.length, "dependency", "dependencies")} left as registry references`],
     alone: true,
   };
 };

@@ -13,6 +13,7 @@ import {
   makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleMcpsAdopt } from "./adopt.js";
+import { ledgerRows } from "../../test-support/test-screen.js";
 
 describe("mcps adopt output", () => {
   let tempDir: string;
@@ -73,7 +74,7 @@ describe("mcps adopt output", () => {
       Effect.gen(function* () {
         yield* handleMcpsAdopt({ preview: false });
 
-        expect(logs.success).toEqual(["No unmanaged MCP servers adopted."]);
+        expect(logs.success).toEqual(["No unmanaged MCP servers adopted"]);
       }),
     );
   });
@@ -89,7 +90,7 @@ describe("mcps adopt output", () => {
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
           planName: "Adopt MCP servers",
-          message: "No unmanaged MCP servers adopted.",
+          message: "No unmanaged MCP servers adopted",
         });
       }),
     );
@@ -323,7 +324,7 @@ describe("mcps adopt output", () => {
         yield* handleMcpsAdopt({ preview: false });
 
         expect(logs.success).toEqual(["Adopted 1 MCP server"]);
-        expect(rendererState.summaries).toEqual([
+        expect(ledgerRows(rendererState)).toEqual([
           "Adopt 1 MCP server   updated   2 files, axm.json",
         ]);
         expect(rendererState.suggestions).toEqual([

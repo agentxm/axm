@@ -7,10 +7,12 @@ import { type ErrorCode, type FailureSuggestedAction } from "@agentxm/workspace-
 
 import {
   exitPhrase,
+  factParts,
   paintText,
   type Doc,
   type DocNode,
   type Field,
+  type SummaryPart,
   type Text,
 } from "../screen/index.js";
 import { type AppError, effectiveSuggestionsFor, exitCodeFor } from "./app-error.js";
@@ -111,7 +113,8 @@ const formatCause = (
  * The dim aside every problem title carries at the value column: the stable
  * code a script matches on and the process exit code it will see.
  */
-const problemAside = (code: ErrorCode): string => `${code}, ${exitPhrase(exitCodeFor(code))}`;
+const problemAside = (code: ErrorCode): ReadonlyArray<SummaryPart> =>
+  factParts([code, exitPhrase(exitCodeFor(code))]);
 
 /** The reason, with how many attempts it took when a retry policy ran out. */
 const reasonText = (error: AppError, secrets: ReadonlyArray<string>): Text => {
@@ -143,7 +146,10 @@ export const appErrorDoc = (
   }));
   const children: Array<DocNode> = [];
   if (error.diagnosticId !== undefined)
-    fields.push({ label: "Diagnostic ID", value: [{ text: error.diagnosticId, copyable: true }] });
+    fields.push({
+      label: "Diagnostic ID",
+      value: [{ text: error.diagnosticId, kind: "identifier" }],
+    });
 
   if (registryUrl !== undefined) {
     fields.push({ label: "Registry", value: formatRegistryLocation(registryUrl, secrets) });
@@ -159,7 +165,7 @@ export const appErrorDoc = (
   if (requestId !== undefined && (detailed || error.code === "internal")) {
     fields.push({
       label: "Request ID",
-      value: [{ text: redactCredentialText(requestId, { secrets }), copyable: true }],
+      value: [{ text: redactCredentialText(requestId, { secrets }), kind: "identifier" }],
     });
   }
 

@@ -8,7 +8,7 @@ import {
 import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
 const SkillListColumns = [
-  { header: "Name", priority: "required", value: (row: SkillListRow) => row.name },
+  { header: "Name", role: "name", priority: "required", value: (row: SkillListRow) => row.name },
   { header: "Management", value: (row: SkillListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: SkillListRow) => inventoryActivation(row) },
   { header: "Type", priority: "optional", value: (row: SkillListRow) => row.sourceType },

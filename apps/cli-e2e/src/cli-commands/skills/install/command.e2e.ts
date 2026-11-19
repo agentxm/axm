@@ -113,7 +113,7 @@ describe("axm skills install", () => {
         const unitRow = "skills/my-skill               created   1 file";
         expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
         expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
-        expect(output).toMatch(/Installing {2}in this project [·-] agents: claude-code/);
+        expect(output).toMatch(/Install {2}in \S+ [·-] agents: claude-code/);
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");
@@ -166,7 +166,7 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).not.toBe(0);
         expect(result.stderr).toContain("No skills found in source");
-        expect(result.stderr).toContain("not_found, exit 3");
+        expect(result.stderr).toMatch(/not_found [·-] exit 3/u);
       } finally {
         temp.cleanup();
       }

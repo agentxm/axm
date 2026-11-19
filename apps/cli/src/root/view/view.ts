@@ -4,7 +4,6 @@ import {
   recoverySwitch,
   type FailureSuggestedAction,
 } from "@agentxm/workspace-kernel/operations";
-import * as DateTime from "effect/DateTime";
 
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
@@ -13,6 +12,7 @@ import type { ViewDocument } from "@agentxm/workspace-features/inspection";
 
 import {
   ABSENT,
+  day,
   factParts,
   suggestionsDoc,
   type Doc,
@@ -42,23 +42,10 @@ const identityAside = (data: ViewDocument): ReadonlyArray<SummaryPart> =>
       : [{ text: data.lifecycleState, tone: "warn" }],
   ]);
 
-const archivedOn = (archival: ArchivalView): string =>
-  `Archived on ${DateTime.format(archival.archivedAt, {
-    locale: "en-GB",
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })}`;
+const archivedOn = (archival: ArchivalView): string => `Archived on ${day(archival.archivedAt)}`;
 
 const deprecatedOn = (deprecation: DeprecationView): string =>
-  `Deprecated on ${DateTime.format(deprecation.deprecatedAt, {
-    locale: "en-GB",
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })}`;
+  `Deprecated on ${day(deprecation.deprecatedAt)}`;
 
 const replacementText = (deprecation: DeprecationView): Text | undefined => {
   const replacement = deprecation.replacement;

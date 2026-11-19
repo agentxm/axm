@@ -1,0 +1,22 @@
+ ✔   @acme/packs/review-kit is ready   2.1.0
+     部署 bundles code review and triage for @acme teams. Install it with axm install @acme/packs/review-kit
+
+     Members install together and update as one pack.
+
+     Owner                         @acme
+     Page                          https://agentxm.ai/@acme/packs/review-kit
+     Location                      ~/code/storefront/agent_extensions/review-kit
+     Update                        axm update @acme/packs/review-kit
+     Request                       req_01J8ZQ4M7T
+     Description                   A field whose value is long enough to need wrapping at narrow widths
+
+Members
+     Name          State     Files
+     code-review   ready        42
+ ▲   triage        blocked       3
+
+2 members · 1 blocked
+
+Details
+     Published 12 Sep
+     Signed with the registry key

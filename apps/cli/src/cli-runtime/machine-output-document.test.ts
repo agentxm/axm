@@ -26,7 +26,7 @@ describe("machine-output document contract", () => {
       "result-envelope-v1",
     ],
     [
-      { ok: false, code: "usage", title: "Usage Error", detail: "Invalid arguments" },
+      { ok: false, code: "usage", title: "Usage error", detail: "Invalid arguments" },
       "error-envelope-v1",
     ],
     [{ type: "help", description: "Help", usage: "axm", flags: [] }, "help-document-v1"],

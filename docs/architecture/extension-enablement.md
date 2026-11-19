@@ -23,7 +23,7 @@ behavioral change and requires corresponding review and verification.
 | CLI behavior and results         | Answer the requested question, enforce operational authority and ownership, preserve uncertainty, and report the actual effects, verdict, and bounded recovery.                                                         | Work without an AXM skill or a prescribed agent reading sequence. Conversational intent and actions taken through other tools remain outside the CLI's control.                                         |
 | AXM skill                        | Recognize relevant requests and retain the conversational, direct-editor, and pre-tool boundaries the CLI cannot enforce. The skill is bundled with the CLI.                                                            | Each instruction needs evidence of a remaining need. Command recipes, output interpretation, and recovery mechanics belong to the CLI. Bundling does not imply automatic activation in every workspace. |
 | CLI help and guidance            | Explain AXM's capabilities, behavior, standards, conventions, and supported workflows for the installed version. Provide sufficient guidance for ordinary use and basic authoring.                                      | Own AXM-specific correctness and conventions; leave deeper design judgment and pattern libraries to the engineering collection.                                                                         |
-| Agent-extension-engineering pack | Provide optional, encouraged, opinionated guidance for designing, authoring, evaluating, and improving extensions. One routing skill selects knowledge containing the substantive principles, procedures, and patterns. | Complement AXM without becoming a prerequisite for using it or independently redefining its contracts. Distinguish engineering recommendations from product or external-standard requirements.          |
+| Agent Extension Engineering pack | Provide optional, encouraged, opinionated guidance for designing, authoring, evaluating, and improving extensions. One routing skill selects knowledge containing the substantive principles, procedures, and patterns. | Complement AXM without becoming a prerequisite for using it or independently redefining its contracts. Distinguish engineering recommendations from product or external-standard requirements.          |
 | Website docs                     | Own public discovery, onboarding, explanations, and learning journeys. Present relevant CLI reference, operational guidance, and engineering knowledge in a web-friendly form.                                          | Derivative material retains its source authority and stays synchronized with it. Website-specific teaching and navigation can be authored independently.                                                |
 
 These are primary roles, not exclusive audiences: humans can read the
@@ -52,10 +52,17 @@ engineering knowledge, and agents can use the website before installing AXM.
    variations. Measure correctness, authority, loaded guidance, calls, and output
    volume separately. A shorter file alone does not establish independence.
 
+## Engineering pack authoring
+
+Ground the pack’s guidance in a decision someone makes while designing,
+authoring, reviewing, or maintaining extensions. Show what that decision
+changes in an extension or in the work of someone using it, with the detail
+the document’s purpose calls for.
+
 ## Shared vocabulary
 
-The [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
-in `@agentxm/knowledge/agent-extension-engineering` owns shared term definitions.
+The [Agent Extension Glossary](../../knowledge/axe/src/glossary.md)
+in `@agentxm/knowledge/axe` owns shared term definitions.
 Its reference authority is distinct from the collection’s opinionated engineering
 guidance. The AgentXM Knowledge bundle owns deeper product explanations and naming
 conventions; schemas and external standards retain their own contract authority.

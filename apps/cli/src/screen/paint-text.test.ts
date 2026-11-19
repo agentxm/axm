@@ -57,16 +57,6 @@ const everyNodeDocument: Doc = [
   },
   { _tag: "fields", fields: [{ label: "Owner", value: "@acme" }] },
   {
-    _tag: "tree",
-    roots: [
-      {
-        text: "root",
-        detail: "managed",
-        children: [{ text: "child" }],
-      },
-    ],
-  },
-  {
     _tag: "next",
     actions: [{ description: "Inspect", cmd: "axm list" }],
   },
@@ -173,7 +163,7 @@ describe("paintText", () => {
   it("paints every node kind as one stable wide document", () => {
     expect(plain(everyNodeDocument, 80)).toEqual([
       " ✔   Ready",
-      "部署 package is ready for review",
+      "     部署 package is ready for review",
       "",
       " +   alpha                         created",
       " ~   beta                          updated",
@@ -188,12 +178,11 @@ describe("paintText", () => {
       "",
       "     Owner                         @acme",
       "",
-      "└─ root  managed",
-      "   └─ child",
-      "",
       "Next",
       "     axm list   Inspect",
+      "",
       "1 changed",
+      "",
       "Details",
       "     Section body",
       "# Heading",
@@ -252,7 +241,7 @@ describe("paintText", () => {
   });
 
   describe("responsive tables", () => {
-    it("aligns headers with cells and fits a six-column inventory into 100 columns", () => {
+    it("aligns headers with cells, sets wrapped rows apart, and fits a six-column inventory into 100 columns", () => {
       const lines = plain(skillsList, 100);
       expect(widest(lines)).toBeLessThanOrEqual(100);
       const header = lines[1] ?? "";
@@ -265,9 +254,12 @@ describe("paintText", () => {
         "     Name                        State       Activation   Type       Agents",
         "     @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
         "                                                                     gemini-cli",
+        "",
         "     @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
+        "",
         "     local-notes                 detected    n/a          detected   none",
-        "     Not shown at this width: Agent outcomes",
+        "",
+        "     Not shown at this width: Agent outcomes. A wider terminal shows it.",
       ]);
     });
 
@@ -327,7 +319,9 @@ describe("paintText", () => {
       expect(lines).toEqual([
         "     Name               State",
         "     deployment-tools   installed",
-        "     Not shown at this width: Extra one, Extra two",
+        "",
+        "     Not shown at this width: Extra one, Extra two. A",
+        "     wider terminal shows them.",
       ]);
     });
 
@@ -470,6 +464,42 @@ describe("paintText", () => {
       }
     });
 
+    it("starts prose that continues a marked headline at the content column", () => {
+      const continued: Doc = [
+        { _tag: "headline", tone: "ok", text: "Signed in" },
+        { _tag: "paragraph", text: "Your token lasts 30 days." },
+        { _tag: "blank" },
+        { _tag: "paragraph", text: "It is stored in the keychain." },
+        { _tag: "next", actions: [{ description: "Check", cmd: "axm whoami" }] },
+        { _tag: "paragraph", text: "Unrelated prose." },
+      ];
+      expect(plain(continued, 80)).toEqual([
+        " ✔   Signed in",
+        "     Your token lasts 30 days.",
+        "",
+        "     It is stored in the keychain.",
+        "Next",
+        "     axm whoami   Check",
+        "",
+        "Unrelated prose.",
+      ]);
+    });
+
+    it("keeps prose after an unmarked title or a verdict at the margin", () => {
+      const titled: Doc = [
+        { _tag: "headline", tone: "neutral", text: "Publishing 2 extensions" },
+        { _tag: "paragraph", text: "Both are new." },
+        { _tag: "headline", tone: "ok", text: "Published", verdict: true },
+        { _tag: "paragraph", text: "They are public now." },
+      ];
+      expect(plain(titled, 80)).toEqual([
+        "Publishing 2 extensions",
+        "Both are new.",
+        "Published",
+        "They are public now.",
+      ]);
+    });
+
     it("gives a verdict after a ledger no glyph and bolds it", () => {
       const verdict: Doc = [
         {
@@ -510,7 +540,7 @@ describe("paintText", () => {
         _tag: "callout",
         tone: "error",
         title: "Invalid skill name",
-        aside: "validation · exit 9",
+        aside: [{ text: "validation" }, { text: "exit 9" }],
         children: [
           {
             _tag: "fields",
@@ -770,6 +800,113 @@ describe("paintText", () => {
     });
   });
 
+  describe("vertical spacing", () => {
+    it("sets sibling sections apart and keeps each group's lines together", () => {
+      const groups: Doc = [
+        {
+          _tag: "section",
+          title: "USAGE",
+          children: [{ _tag: "paragraph", text: "axm install <source>" }],
+        },
+        {
+          _tag: "section",
+          title: "EXAMPLES",
+          children: [
+            {
+              _tag: "section",
+              children: [
+                { _tag: "paragraph", tone: "dim", text: "# Install a skill" },
+                { _tag: "paragraph", text: "axm install @acme/skills/review" },
+              ],
+            },
+            {
+              _tag: "section",
+              children: [{ _tag: "paragraph", text: "axm install --all github:acme/x" }],
+            },
+          ],
+        },
+      ];
+      expect(plain(groups, 80)).toEqual([
+        "USAGE",
+        "     axm install <source>",
+        "",
+        "EXAMPLES",
+        "     # Install a skill",
+        "     axm install @acme/skills/review",
+        "",
+        "     axm install --all github:acme/x",
+      ]);
+    });
+
+    it("sets an inset value apart from its prose and the guidance's Next apart too", () => {
+      const guidance: Doc = [
+        { _tag: "paragraph", text: "Open this link:" },
+        { _tag: "paragraph", inset: true, text: "https://agentxm.ai/device" },
+        { _tag: "paragraph", text: "Check the code." },
+        { _tag: "next", actions: [{ description: "Resume", cmd: "axm login" }] },
+      ];
+      expect(plain(guidance, 80)).toEqual([
+        "Open this link:",
+        "",
+        "     https://agentxm.ai/device",
+        "",
+        "Check the code.",
+        "",
+        "Next",
+        "     axm login   Resume",
+      ]);
+    });
+
+    it("sets apart whatever a view puts after Next", () => {
+      const trailing: Doc = [
+        { _tag: "next", actions: [{ description: "Inspect", cmd: "axm list" }] },
+        { _tag: "summary", parts: [{ text: "1 changed" }] },
+      ];
+      expect(plain(trailing, 80)).toEqual(["Next", "     axm list   Inspect", "", "1 changed"]);
+    });
+
+    it("sets a titled section apart in a result but keeps an untitled one with its prose", () => {
+      const result: Doc = [
+        {
+          _tag: "table",
+          columns: [{ header: "Name" }],
+          rows: [{ cells: ["alpha"] }],
+        },
+        { _tag: "summary", parts: [{ text: "1 member" }] },
+        {
+          _tag: "section",
+          title: "Details",
+          children: [{ _tag: "paragraph", text: "Published 12 Sep" }],
+        },
+        { _tag: "paragraph", text: "Signed by @acme" },
+        { _tag: "section", children: [{ _tag: "paragraph", text: "Key 4F2A" }] },
+      ];
+      expect(plain(result, 80)).toEqual([
+        "     Name",
+        "     alpha",
+        "",
+        "1 member",
+        "",
+        "Details",
+        "     Published 12 Sep",
+        "Signed by @acme",
+        "Key 4F2A",
+      ]);
+    });
+
+    it("keeps an empty state's prose and Next together", () => {
+      const empty: Doc = [
+        { _tag: "paragraph", text: "No extensions installed in this project." },
+        { _tag: "next", actions: [{ description: "Find extensions", cmd: "axm discover" }] },
+      ];
+      expect(plain(empty, 80)).toEqual([
+        "No extensions installed in this project.",
+        "Next",
+        "     axm discover   Find extensions",
+      ]);
+    });
+  });
+
   describe("copyable values", () => {
     const url = "https://agentxm.ai/auth/publish-requests/pubreq_8f3k2q7d1m4x";
 
@@ -792,7 +929,7 @@ describe("paintText", () => {
       expect(plain(doc, 60)).toEqual(["Run", command]);
     });
 
-    it("gives a next command a line of its own rather than cut it", () => {
+    it("gives a next command a line of its own rather than cut it, its description hanging beneath", () => {
       const doc: Doc = [
         {
           _tag: "next",
@@ -807,8 +944,19 @@ describe("paintText", () => {
       expect(plain(doc, 60)).toEqual([
         "Next",
         "     axm install @acme-enterprise/skills/soc2-evidence-review --yes",
-        "     Install the reviewed extension",
+        "       Install the reviewed extension",
       ]);
+    });
+
+    it("describes a next link beside it, or beneath it when it cannot fit", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [{ description: "Read the guide", url: "https://axm.sh/docs" }],
+        },
+      ];
+      expect(plain(doc, 80)).toEqual(["Next", "     https://axm.sh/docs   Read the guide"]);
+      expect(plain(doc, 30)).toEqual(["Next", "     https://axm.sh/docs", "       Read the guide"]);
     });
 
     it("still joins a next command that fits", () => {
@@ -826,7 +974,7 @@ describe("paintText", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
     expect(lines.slice(0, 9)).toEqual([
       " ok  Ready",
-      "部署 package is ready for review",
+      "     部署 package is ready for review",
       "",
       " +   alpha                         created",
       " ~   beta                          updated",
@@ -835,8 +983,6 @@ describe("paintText", () => {
       " !!  Warning",
       "     Check permissions",
     ]);
-    expect(lines).toContain("`- root  managed");
-    expect(lines).toContain("   `- child");
     expect(lines).toContain("     axm list   Inspect");
   });
 });

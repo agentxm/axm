@@ -33,6 +33,7 @@ import {
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./add.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { ledgerRows } from "../../test-support/test-screen.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -365,7 +366,7 @@ describe("packs-add.handler", () => {
           expect(logs.success).toContain("Added 1 pack");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
-          expect(rendererState.summaries).toContain(
+          expect(ledgerRows(rendererState)).toContain(
             "@acme/packs/frontend-tools   updated   1 file, packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
@@ -623,8 +624,8 @@ describe("packs-add.handler", () => {
 
           // Preview outcome should appear
           expect(logs.info.some((m) => m.includes("Would add 1 pack"))).toBe(true);
-          expect(rendererState.summaries.join("\n")).toContain("@acme/skills/code-review");
-          expect(rendererState.summaries.join("\n")).toContain(">=1.2.0");
+          expect(ledgerRows(rendererState).join("\n")).toContain("@acme/skills/code-review");
+          expect(ledgerRows(rendererState).join("\n")).toContain(">=1.2.0");
         }),
       );
     });
@@ -838,7 +839,7 @@ describe("packs-add.handler", () => {
           expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
           expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Add to pack",
-            message: "No extensions added to pack.",
+            message: "No extensions added to pack",
           });
         }),
       );
@@ -876,7 +877,7 @@ describe("packs-add.handler", () => {
           expect(logs.success).toEqual([]);
           expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Add to pack",
-            message: "No extensions added to pack.",
+            message: "No extensions added to pack",
           });
         }),
       );

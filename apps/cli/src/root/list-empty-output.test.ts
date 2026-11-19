@@ -25,6 +25,7 @@ import {
   McpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
+import { messages } from "../test-support/test-screen.js";
 
 describe("list command empty output", () => {
   let tempDir: string;
@@ -53,7 +54,7 @@ describe("list command empty output", () => {
           count: 0,
           items: [],
         });
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([]);
         expect(rendererState.suggestions).toEqual([]);
       }),
     );

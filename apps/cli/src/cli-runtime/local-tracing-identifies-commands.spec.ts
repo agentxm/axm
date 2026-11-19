@@ -8,7 +8,7 @@ import { makeCommandTraceIdentity } from "../command-tracing.js";
 import { baseLayer } from "../runtime.js";
 import { TelemetryClientTest } from "../telemetry/index.js";
 import { COMMAND_ROUTE_ALLOCATION } from "../test-support/command-routes.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { TraceInvocation, type InvocationTraceAttributes } from "./trace-invocation.js";
 import { withLocalTracing } from "./index.js";
 import { localTracingCollector } from "../test-support/local-tracing-collector.js";
@@ -55,7 +55,7 @@ describe("Command trace identity", () => {
           Effect.gen(function* () {
             const attributes: InvocationTraceAttributes[] = [];
             const spans: Tracer.NativeSpan[] = [];
-            const renderer = TestRenderer.make();
+            const renderer = makeTestScreen();
             yield* runCommand([...path, "--help"], false).pipe(
               Effect.exit,
               Effect.provide(Layer.mergeAll(baseLayer, renderer.layer, TelemetryClientTest)),
@@ -110,7 +110,7 @@ describe("Command trace identity", () => {
       ({ argv, route }) =>
         Effect.gen(function* () {
           const attributes: InvocationTraceAttributes[] = [];
-          const renderer = TestRenderer.make();
+          const renderer = makeTestScreen();
           yield* runCommand(argv, false).pipe(
             Effect.exit,
             Effect.provide(Layer.mergeAll(baseLayer, renderer.layer, TelemetryClientTest)),
@@ -129,7 +129,7 @@ describe("Command trace identity", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const receiver = yield* localTracingCollector();
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         yield* withLocalTracing(
           runCommand(["token", "show", "--private-secret-flag"], false).pipe(
             Effect.exit,

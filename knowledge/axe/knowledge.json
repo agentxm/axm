@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@agentxm",
+  "name": "axe",
+  "version": "0.3.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Design and maintain skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs, and manage the workspaces that supply them",
+  "license": "CC-BY-4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm",
+    "directory": "knowledge/axe"
+  },
+  "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
+  "recommendedPacks": ["@agentxm/packs/axe"],
+  "standalone": true,
+  "publish": {
+    "exclude": ["/AGENTS.md"]
+  }
+}

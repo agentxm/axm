@@ -1,4 +1,4 @@
-Updating
+Update
   in this project · agents: claude-code,
   codex, cursor
 
@@ -9,8 +9,7 @@ Updating
      .claude/skills/triage
      codex: available at
      .agents/skills/triage
-     cursor: not updated —
-     project-scoped skills are
-     unsupported
+     cursor: not updated (project-scoped
+     skills are unsupported)
 
 Updated 1 extension

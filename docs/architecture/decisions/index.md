@@ -45,6 +45,10 @@ specifications, never in these records.
 - [CLI ledger grammar and application-owned prompts](cli-ledger-grammar-and-application-owned-prompts.md) —
   shared document grammar and application-owned interactions accumulate a
   stable transcript while one active region owns terminal updates
+- [CLI result shapes and one grammar](cli-result-shapes-and-one-grammar.md) —
+  human results take typed shapes with a fixed part order, the painter owns
+  separators, one grammar owns general wording, every view is a pure module the
+  gallery paints, and each frame update is one synchronized write
 - [MCP local names are connection identity, not source identity](mcp-local-connection-identity.md) —
   MCP local names identify connections and native projections, while source
   authority and published package identity define shared resolution.

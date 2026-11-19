@@ -110,7 +110,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -163,7 +162,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -211,7 +209,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -250,7 +247,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -285,7 +281,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -321,7 +316,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -356,7 +350,6 @@
             "@types/bun",
             "@types/semver",
             "@typescript/native",
-            "@xterm/headless",
             "effect",
             "fflate",
             "semver",
@@ -416,18 +409,6 @@
     },
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"
-    },
-    "gallery": {
-      "metadata": {
-        "description": "Paint terminal design gallery fixtures for review: --name <fixture>, --width <columns>, --rows <rows> (the height a live scene fits), --ascii, --plain."
-      },
-      "cache": false,
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun --conditions=axm-source scripts/paint-gallery.ts",
-        "cwd": "apps/cli",
-        "forwardAllArgs": true
-      }
     },
     "compile-darwin-arm64": {
       "cache": true,

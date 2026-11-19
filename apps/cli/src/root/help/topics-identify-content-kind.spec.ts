@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { rootCommand } from "../../app.js";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { HelpIndexResultSchema, HelpTopicResultSchema, handleHelpPath } from "./command.js";
 
 export const specification = defineSpecification({
@@ -25,7 +25,7 @@ export const specification = defineSpecification({
 describe("Machine topic content", () => {
   it.effect("every discovered topic returns the advertised representation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       yield* handleHelpPath([], rootCommand).pipe(Effect.provide(renderer.layer));
       const index = yield* Schema.decodeUnknownEffect(HelpIndexResultSchema)(
         renderer.state.results[0]?.data,
@@ -35,7 +35,7 @@ describe("Machine topic content", () => {
         new Set(["markdown", "json-schema"]),
       );
       for (const topic of index.topics) {
-        const output = TestRenderer.make();
+        const output = makeTestScreen();
         yield* handleHelpPath([topic.name], rootCommand).pipe(Effect.provide(output.layer));
         const result = yield* Schema.decodeUnknownEffect(HelpTopicResultSchema)(
           output.state.results[0]?.data,

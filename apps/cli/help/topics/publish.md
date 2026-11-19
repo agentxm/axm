@@ -100,6 +100,11 @@ deliberately different:
 | Canonical Registry installation | Exact contents extracted from the published archive                      |
 | Agent projection                | Type-specific runtime content, usually selected from `src/`              |
 
+Ship the resources an installed consumer needs to use the extension and follow
+its documented examples. Exclude files kept solely to maintain or evaluate the
+source package. A fixture used by the README walkthrough belongs in the archive.
+A fixture used only by the author's CI can stay in the repository.
+
 Use the type manifest to select Registry distribution files:
 
 ```jsonc

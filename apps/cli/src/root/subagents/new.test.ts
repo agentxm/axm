@@ -29,6 +29,7 @@ import type { NewExtensionArgs } from "../shared/create-extension-command.js";
 import { handleSubagentsNew } from "./new.js";
 
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
+import { ledgerRows } from "../../test-support/test-screen.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -139,7 +140,7 @@ describe("subagents-new.handler", () => {
 
           expect(logs.success).toEqual(["Created 1 subagent"]);
           expect(
-            rendererState.summaries.some((m) => m.includes("@acme/subagents/my-subagent")),
+            ledgerRows(rendererState).some((m) => m.includes("@acme/subagents/my-subagent")),
           ).toBe(true);
           expect(rendererState.suggestions).toEqual([
             {
@@ -161,7 +162,7 @@ describe("subagents-new.handler", () => {
 
           // Machine mode terminates at the emitted document — no human render.
           expect(logs.success).toEqual([]);
-          expect(rendererState.summaries).toEqual([]);
+          expect(ledgerRows(rendererState)).toEqual([]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New subagent",

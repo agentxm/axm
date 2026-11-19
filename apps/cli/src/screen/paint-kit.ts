@@ -1,5 +1,5 @@
-import { plain } from "./doc.js";
-import type { Mark, Span, Text, Tint, Tone } from "./doc.js";
+import { plain, spanLink, spanTint } from "./doc.js";
+import type { Mark, PaintSpan, PaintText, Tint, Tone } from "./doc.js";
 import { unicodeGlyphs, type Glyphs } from "./glyphs.js";
 import { displayWidth, truncateLine } from "./width.js";
 import { spansOf, truncateText, wrapText } from "./wrap-text.js";
@@ -85,35 +85,36 @@ const tintCodes: Readonly<Record<Tint, string>> = {
   cyan: `${ESC}36m`,
 };
 
-const colorCode = (span: Span): string =>
-  span.tone === undefined && span.tint !== undefined
-    ? tintCodes[span.tint]
+const colorCode = (span: PaintSpan): string => {
+  const tint = spanTint(span);
+  return span.tone === undefined && tint !== undefined
+    ? tintCodes[tint]
     : toneCodes[span.tone ?? "neutral"];
+};
 
-const styleSpan = (span: Span, colors: boolean): string => {
+const styleSpan = (span: PaintSpan, colors: boolean): string => {
   if (!colors) return span.text;
   const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${colorCode(span)}`;
+  const link = spanLink(span);
   const linked =
-    span.link === undefined
-      ? span.text
-      : `\u001b]8;;${span.link}\u001b\\${span.text}\u001b]8;;\u001b\\`;
+    link === undefined ? span.text : `\u001b]8;;${link}\u001b\\${span.text}\u001b]8;;\u001b\\`;
   return prefix.length === 0 ? linked : `${prefix}${linked}${RESET}`;
 };
 
 export const paintSpans = (
-  spans: ReadonlyArray<Span>,
+  spans: ReadonlyArray<PaintSpan>,
   style: ResolvedStyle,
   inherited?: Tone,
 ): string =>
   spans
     .map((span) => {
       // A tinted span keeps its own colour inside a toned line.
-      const tone = span.tone ?? (span.tint === undefined ? inherited : undefined);
+      const tone = span.tone ?? (spanTint(span) === undefined ? inherited : undefined);
       return styleSpan(tone === undefined ? span : { ...span, tone }, style.colors);
     })
     .join("");
 
-export const paintValue = (value: Text, style: ResolvedStyle, inherited?: Tone): string =>
+export const paintValue = (value: PaintText, style: ResolvedStyle, inherited?: Tone): string =>
   paintSpans(typeof value === "string" ? [{ text: value }] : value, style, inherited);
 
 /** Width left for content after `used` cells, never below one cell. */
@@ -125,7 +126,7 @@ export const fits = (width: PaintWidth, line: string): boolean =>
 
 /** Wrap and paint a value into lines without any indentation. */
 export const paintLines = (
-  value: Text,
+  value: PaintText,
   width: PaintWidth,
   style: ResolvedStyle,
   tone?: Tone,
@@ -142,7 +143,7 @@ export const spaces = (count: number): string => " ".repeat(Math.max(0, count));
  * (defaulting to blank space as wide as `first`).
  */
 export const paintPrefixed = (
-  value: Text,
+  value: PaintText,
   style: ResolvedStyle,
   options: {
     readonly indent: number;
@@ -184,15 +185,15 @@ export const gutter = (mark: string | undefined): string => {
 
 export const blankGutter = spaces(GUTTER_WIDTH);
 
-export const bold = (value: Text): ReadonlyArray<Span> =>
+export const bold = (value: PaintText): ReadonlyArray<PaintSpan> =>
   (typeof value === "string" ? [{ text: value }] : value).map((span) => ({ ...span, bold: true }));
 
 export const joinedParts = (
-  parts: ReadonlyArray<{ readonly text: Text }>,
+  parts: ReadonlyArray<{ readonly text: PaintText }>,
   glyphs: Glyphs,
-): ReadonlyArray<Span> =>
+): ReadonlyArray<PaintSpan> =>
   parts.flatMap((part, index) => [
-    ...(index === 0 ? [] : [{ text: glyphs.separator }]),
+    ...(index === 0 ? [] : [{ text: glyphs.separator, separator: true as const }]),
     ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
   ]);
 
@@ -202,12 +203,12 @@ export const joinedParts = (
  */
 export const withSupplement = (
   lines: ReadonlyArray<string>,
-  trailing: Text,
+  trailing: PaintText,
   style: ResolvedStyle,
   ownLineIndent: number,
   options?: {
     readonly gap?: string | ((last: string) => string);
-    readonly ownLine?: Text;
+    readonly ownLine?: PaintText;
   },
 ): ReadonlyArray<string> => {
   if (plain(trailing).length === 0) return lines;

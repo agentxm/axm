@@ -263,7 +263,7 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
       ok: false,
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Registry failed",
       metadata: {
         request: {
@@ -280,8 +280,7 @@ describe("JsonEnvelopeSchema", () => {
       },
       suggestions: [
         {
-          description:
-            "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+          description: "Report this bug, with the diagnostic ID if one is shown",
           url: "https://github.com/agentxm/axm/issues/new/choose",
         },
       ],
@@ -295,8 +294,7 @@ describe("JsonEnvelopeSchema", () => {
 
     expect(envelope.suggestions).toEqual([
       {
-        description:
-          "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+        description: "Report this bug, with the diagnostic ID if one is shown",
         url: "https://github.com/agentxm/axm/issues/new/choose",
       },
     ]);

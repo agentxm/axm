@@ -1,72 +1,121 @@
 import type { LocalCheckDocument } from "@agentxm/workspace-features/inspection";
-import { headlineDoc, paragraphDoc, tableDoc, type Doc } from "../../screen/index.js";
+import {
+  conditionDoc,
+  count,
+  NO_CHANGES_MADE,
+  operationResultDoc,
+  tableDoc,
+  titleDoc,
+  type CalloutNode,
+  type Doc,
+} from "../../screen/index.js";
 
-export const localCheckDoc = (result: LocalCheckDocument): Doc => [
-  ...headlineDoc(
-    result.verdict.ok ? "ok" : "warn",
-    result.verdict.ok ? "Selected checks satisfied" : "Selected checks require attention",
-  ),
-  ...paragraphDoc(`${result.scope.subjects.length} local subjects assessed; no changes applied.`),
-  ...tableDoc(result.scope.subjects, [
-    { header: "Subject", value: (row) => `${row.type}:${row.name}` },
-    {
-      header: "Included because",
-      value: (row) =>
-        row.requested
-          ? "Requested"
-          : row.includedBy.map((reason) => `${reason.kind}: ${reason.source}`).join("; "),
-    },
-  ]),
-  ...tableDoc(result.assessments, [
-    { header: "Check", value: (row) => row.kind },
-    { header: "Coverage", value: (row) => row.coverage.state },
-    { header: "Conclusion", value: (row) => row.conclusion },
-  ]),
-  ...result.assessments.flatMap((assessment) =>
+/** One condition naming every line it covers, or nothing where there are none. */
+const groupedCondition = (
+  tone: "warn" | "error" | "info",
+  title: string,
+  lines: ReadonlyArray<string>,
+): ReadonlyArray<CalloutNode> =>
+  lines.length === 0 ? [] : [conditionDoc({ tone, title, body: lines })];
+
+const coverageGaps = (result: LocalCheckDocument): ReadonlyArray<string> =>
+  result.assessments.flatMap((assessment) =>
     assessment.coverage.state === "incomplete"
-      ? assessment.coverage.reasons.flatMap((reason) =>
-          paragraphDoc(`${assessment.kind}: ${reason}`),
-        )
+      ? assessment.coverage.reasons.map((reason) => `${assessment.kind}: ${reason}`)
       : assessment.coverage.state === "not-applicable"
-        ? paragraphDoc(`${assessment.kind}: ${assessment.coverage.reason}`)
+        ? [`${assessment.kind}: ${assessment.coverage.reason}`]
         : [],
-  ),
-  ...result.selection.requests
+  );
+
+const unresolvedSelections = (result: LocalCheckDocument): ReadonlyArray<string> =>
+  result.selection.requests
     .filter((request) => request.resolution !== "resolved")
-    .flatMap((request) =>
-      paragraphDoc(`${request.input}: ${request.reason ?? request.resolution}`),
-    ),
-  ...result.findings.flatMap((finding) =>
-    paragraphDoc(`${finding.severity}: ${finding.ruleId}: ${finding.message}`),
-  ),
+    .map((request) => `${request.input}: ${request.reason ?? request.resolution}`);
+
+const compatibilityIssues = (result: LocalCheckDocument): ReadonlyArray<string> => [
   ...result.compatibility.flatMap((entry) => [
     ...(entry.constraint.status === "conflict"
-      ? paragraphDoc(
-          `${entry.type}:${entry.name}: conflicting constraints (${entry.constraint.contributors.map((contributor) => `${contributor.range} at ${contributor.location}`).join("; ")})`,
-        )
+      ? [
+          `${entry.type}:${entry.name} has conflicting constraints (${entry.constraint.contributors.map((contributor) => `${contributor.range} at ${contributor.location}`).join("; ")})`,
+        ]
       : []),
     ...(entry.observation !== undefined &&
     entry.observation.status !== "usable" &&
     entry.observation.status !== "not-applicable"
-      ? paragraphDoc(`${entry.type}:${entry.name}: ${entry.observation.status}`)
+      ? [`${entry.type}:${entry.name} is ${entry.observation.status}`]
       : []),
   ]),
   ...(result.checks.includes("compatibility")
     ? result.inspection.items.flatMap((item) =>
         item.agentOutcomes
           .filter((outcome) => outcome.outcome === "unsupported")
-          .flatMap((outcome) =>
-            paragraphDoc(`${item.identity.name} on ${outcome.agentId}: ${outcome.reason}`),
-          ),
+          .map((outcome) => `${item.identity.name} on ${outcome.agentId}: ${outcome.reason}`),
       )
     : []),
   ...(result.officialSkillCompatibility !== undefined &&
   result.officialSkillCompatibility.status !== "compatible"
-    ? paragraphDoc(
+    ? [
         `Official AXM skill: ${result.officialSkillCompatibility.detail ?? result.officialSkillCompatibility.reasonCode ?? "incompatible"}`,
-      )
+      ]
     : []),
-  ...result.reconciliation.flatMap((step) =>
-    paragraphDoc(`${step.label}: ${step.message ?? step.readiness}`),
-  ),
 ];
+
+/**
+ * `axm check` as a result: the subjects it assessed and how each check
+ * concluded, the conditions that need attention grouped by kind, and the
+ * verdict last, as every result closes.
+ */
+export const localCheckDoc = (result: LocalCheckDocument): Doc =>
+  operationResultDoc({
+    title: titleDoc("Check", {
+      facts: [count(result.scope.subjects.length, "local subject")],
+    }),
+    body: [
+      ...tableDoc(result.scope.subjects, [
+        { header: "Subject", role: "name", value: (row) => `${row.type}:${row.name}` },
+        {
+          header: "Included because",
+          value: (row) =>
+            row.requested
+              ? "requested"
+              : row.includedBy.map((reason) => `${reason.kind}: ${reason.source}`).join("; "),
+        },
+      ]),
+      ...tableDoc(result.assessments, [
+        { header: "Check", role: "name", value: (row) => row.kind },
+        { header: "Coverage", value: (row) => row.coverage.state },
+        { header: "Conclusion", value: (row) => row.conclusion },
+      ]),
+    ],
+    conditions: [
+      ...result.findings.map((finding) =>
+        conditionDoc({
+          tone:
+            finding.severity === "error"
+              ? "error"
+              : finding.severity === "warning"
+                ? "warn"
+                : "info",
+          title: finding.message,
+          facts: [finding.ruleId],
+        }),
+      ),
+      ...groupedCondition("warn", "Some checks could not cover everything", coverageGaps(result)),
+      ...groupedCondition("warn", "Some selections did not resolve", unresolvedSelections(result)),
+      ...groupedCondition("warn", "Compatibility needs attention", compatibilityIssues(result)),
+      ...groupedCondition(
+        "info",
+        "Sync would change the workspace",
+        result.reconciliation.map((step) => `${step.label}: ${step.message ?? step.readiness}`),
+      ),
+    ],
+    verdict: [
+      {
+        _tag: "headline",
+        verdict: true,
+        tone: result.verdict.ok ? "ok" : "warn",
+        text: result.verdict.ok ? "Selected checks satisfied" : "Selected checks need attention",
+        aside: [{ text: NO_CHANGES_MADE }],
+      },
+    ],
+  });

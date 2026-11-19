@@ -12,7 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { type WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -87,7 +87,7 @@ describe("packs list.handler", () => {
     readonly machine?: boolean;
     readonly wsOverrides?: Partial<WorkspaceStateOptions>;
   }) => {
-    const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+    const renderer = makeTestScreen({ machine: opts?.machine === true });
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(
@@ -164,7 +164,7 @@ describe("packs list.handler", () => {
           count: 0,
           items: [],
         });
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([{ _tag: "info", message: "No packs found" }]);
       }),
     );
   });

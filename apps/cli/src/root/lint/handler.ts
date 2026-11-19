@@ -10,6 +10,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { currentProjectName } from "../../project-name.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -67,6 +68,7 @@ const emitHumanOutput = (args: {
         fix: args.selection.fix && args.result.document.normalization === undefined,
         normalization: args.result.document.normalization?.changes,
         scope: args.selection.scope,
+        project: yield* currentProjectName,
         exitCode: args.exitCode,
         verbosity: verbosity.level,
       }),

@@ -8,7 +8,7 @@ import { ResolvePlanInteraction, type Plan } from "@agentxm/workspace-kernel/ope
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { handleDemote } from "../root/demote/command.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { writeAuthoredSkill } from "../test-support/publish-harness.js";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 import { snapshotTree } from "@agentxm/test-support";
@@ -42,7 +42,7 @@ const plan: Plan = {
 };
 
 const harness = () => {
-  const renderer = TestRenderer.make();
+  const renderer = makeTestScreen();
   const dependencies = Layer.merge(renderer.layer, TestFlagsLayer({ nonInteractive: false }));
   const layer = Layer.merge(
     dependencies,
@@ -124,7 +124,7 @@ describe("ResolvePlanInteractionLive", () => {
           .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu"), "");
         // The block is planning's own outcome with the route's recovery — the
         // same one a non-interactive invocation gets — not a late prompt failure.
-        expect(output).toContain("approval is required");
+        expect(output).toContain("Demote is blocked");
         expect(output).toContain("axm demote --yes @acme/skills/review");
         expect(output).not.toContain("Interactive prompt required");
         expect(output).not.toContain("Apply changes?");
@@ -134,7 +134,7 @@ describe("ResolvePlanInteractionLive", () => {
 
   it.effect("propagates failed plan and confirmation delivery as typed interaction failures", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
       const dependencies = Layer.merge(

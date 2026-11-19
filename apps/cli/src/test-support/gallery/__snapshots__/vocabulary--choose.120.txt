@@ -1,0 +1,9 @@
+ ✔   Instructions source           AGENTS.md
+     Scope                         this project
+ ?   Agents to set up
+     ↑ 2 more
+   ◉ Claude Code                   detected
+ ❯ ◪ Project agents                recommended
+   ◉   Codex                       detected · existing
+   ◯   Cursor
+     ↓ 1 more

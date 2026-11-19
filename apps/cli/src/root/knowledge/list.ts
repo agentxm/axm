@@ -19,7 +19,12 @@ const renderInstructionEntry = (
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleColumns = [
-  { header: "Bundle", priority: "required", value: (row: KnowledgeListRow) => row.name },
+  {
+    header: "Bundle",
+    role: "name",
+    priority: "required",
+    value: (row: KnowledgeListRow) => row.name,
+  },
   {
     header: "Management",
     value: (row: KnowledgeListRow) => inventoryLifecycle({ lifecycle: row.management }),
@@ -54,7 +59,7 @@ const { handler, command } = makePerTypeListCommand({
     ListKnowledge.query({ agents }).pipe(Effect.mapError(inspectionFailureToAppError)),
   schema: KnowledgeListQueryResultSchema,
   columns: BundleColumns,
-  summary: (_document, rows) => count(rows.length, "knowledge bundle"),
+  summary: (_document, rows) => [count(rows.length, "knowledge bundle")],
 });
 
 export const handleList = handler;

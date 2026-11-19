@@ -63,7 +63,7 @@ Actions flow in the [release runbook](devops/runbooks/release-cli.md).
 
 ## Guidance
 
-Before changing the AXM skill, CLI help, agent-extension-engineering packages,
+Before changing the AXM skill, CLI help, AXE packages,
 website docs, or their relationships, read
 [Agent extension enablement architecture](docs/architecture/extension-enablement.md).
 
@@ -73,7 +73,7 @@ and use the published Seq workflows for the pinned client.
 [Contributor guides](contributing/guides/README.md) own implementation
 procedures; [DevOps](devops/index.md) owns environments and operations.
 Shared extension terminology belongs to the
-[Agent Extension Glossary](knowledge/agent-extension-engineering/src/glossary.md).
+[Agent Extension Glossary](knowledge/axe/src/glossary.md).
 The AgentXM Knowledge bundle below owns deeper platform explanations and naming
 conventions. Keep the glossary authoritative across repositories; change definitions
 at their canonical owner and keep other documentation consistent with it. Do not
@@ -89,8 +89,8 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 | Bundle | Description |
 | --- | --- |
-| [agent-extension-engineering](knowledge/agent-extension-engineering/src/index.md) | Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs |
 | [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Public AgentXM product relationships, naming conventions, ecosystem foundations, and durable knowledge about identity, discovery, and publishing |
+| [axe](knowledge/axe/src/index.md) | Design and maintain skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs, and manage the workspaces that supply them |
 
 ### @craigsmitham
 

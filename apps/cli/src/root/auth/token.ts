@@ -114,7 +114,7 @@ interface TokenTableItem {
 }
 
 const TokenListColumns = [
-  { header: "ID", priority: "required", value: (row: TokenTableItem) => row.id },
+  { header: "ID", role: "name", priority: "required", value: (row: TokenTableItem) => row.id },
   { header: "Name", value: (row: TokenTableItem) => row.name },
   { header: "Type", value: (row: TokenTableItem) => row.type },
   { header: "Can do", value: (row: TokenTableItem) => row.canDo },
@@ -381,8 +381,8 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
           ...inventoryDoc({
             rows,
             columns: TokenListColumns,
-            summary: count(rows.length, "token"),
-            empty: "No tokens found",
+            summary: [count(rows.length, "token")],
+            empty: { statement: "No tokens found" },
           }),
           ...(continuation.length === 0 ? [] : [{ _tag: "next", actions: continuation } as const]),
         ];

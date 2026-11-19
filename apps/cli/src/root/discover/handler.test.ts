@@ -13,7 +13,7 @@ import {
   type RegistryClient,
 } from "@agentxm/registry-client";
 
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits, messages, tables } from "../../test-support/test-screen.js";
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-support/test-helpers.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -162,12 +162,10 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toEqual([]);
-          expect(rendererState.logs).toEqual([]);
-          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
-            _tag: "paragraph",
-            text: "No dependencies detected in this project.",
-          });
+          expect(tables(rendererState)).toEqual([]);
+          expect(messages(rendererState)).toEqual([
+            { _tag: "info", message: "No dependencies detected in this project" },
+          ]);
         }),
       ),
       Effect.ensuring(Effect.sync(project.cleanup)),
@@ -183,12 +181,18 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toEqual([]);
-          expect(rendererState.logs).toEqual([]);
+          expect(tables(rendererState)).toEqual([]);
+          expect(messages(rendererState)).toEqual([
+            {
+              _tag: "info",
+              message: "No companion extensions for the 1 package this project depends on",
+            },
+          ]);
           const doc = rendererState.docs.flatMap((entry) => entry.doc);
           expect(doc).toContainEqual({
-            _tag: "paragraph",
-            text: "No companion extensions for the 1 package this project depends on.",
+            _tag: "headline",
+            tone: "neutral",
+            text: "No companion extensions for the 1 package this project depends on",
           });
           expect(doc).not.toContainEqual(
             expect.objectContaining({
@@ -217,14 +221,15 @@ describe("discover handler", () => {
           expect(rendererState.docs).toHaveLength(1);
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
+              _tag: "callout",
+              tone: "warn",
+              title: "One or more registry sources did not answer",
+            }),
+          );
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+            expect.objectContaining({
               _tag: "summary",
-              parts: [
-                { text: "1 companion extension for 1 of 1 detected package" },
-                {
-                  text: [{ text: "One or more Registry sources unavailable", tone: "warn" }],
-                },
-                { text: [{ text: "axm view <extension> for details", tone: "dim" }] },
-              ],
+              parts: [{ text: "1 companion extension for 1 of 1 detected package" }],
             }),
           );
         }),

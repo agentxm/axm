@@ -1,16 +1,12 @@
-     Extension             Type         Management            Installed   Configured agents   Observed agents   Version
-     @acme/skills/         skill        managed by this       yes         -                   -                 1.4.0
-     code-review                        workspace
-     @acme/skills/triage   skill        managed by this       yes         -                   -                 2.0.1
-                                        workspace
-     @acme/subagents/      subagent     managed by this       yes         -                   -                 0.9.0
-     reviewer                           workspace
-     @acme/packs/          pack         managed by this       yes         -                   -                 2.1.0
-     review-kit                         workspace
-     github                mcp-server   managed by this       yes         -                   -                 1.0.0
-                                        workspace
- ▲   @legacy/skills/       skill        installed but no      yes         -                   -                 0.3.0
-     changelog                          longer selected
-     Not shown at this width: Source
+     Extension                  Type         State               Version   Source
+     @acme/skills/code-review   skill        managed             1.4.0     agentxm
+     @acme/skills/triage        skill        managed             2.0.1     agentxm
+     @acme/subagents/reviewer   subagent     managed             0.9.0     agentxm
+     @acme/packs/review-kit     pack         managed             2.1.0     agentxm
+     github                     mcp-server   managed, disabled   1.0.0     ./github
+ ▲   @legacy/skills/changelog   skill        leftover            0.3.0     agentxm
 
-6 extensions · 3 enabled · 1 needs attention · axm lint explains
+6 extensions · 3 enabled · no agents configured · 1 needs attention
+
+Next
+     axm lint   See what needs attention and how to fix it

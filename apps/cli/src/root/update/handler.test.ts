@@ -362,7 +362,7 @@ describe("root update handler", () => {
 
       expect(logs.warn).toContain("1 newer release is still in the 24h waiting period");
       expect(logs.info).toContain(
-        "@acme/skills/reviewer 2.0.0 was published 2026-08-11T12:00:00.000Z and becomes available 2026-08-12T12:00:00.000Z",
+        "@acme/skills/reviewer 2.0.0 was published 11 Aug 2026 12:00 UTC and becomes available 12 Aug 2026 12:00 UTC",
       );
       expect(logs.info.some((message) => message.includes("--ignore-release-age"))).toBe(true);
     }),

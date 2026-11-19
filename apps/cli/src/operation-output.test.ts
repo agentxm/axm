@@ -17,6 +17,7 @@ import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations"
 import {
   PlanResolutionResultSchema,
   operationResolutionSummary,
+  settledNextActions,
   toPlanResolutionResult,
 } from "./operation-output.js";
 
@@ -174,7 +175,10 @@ describe("toPlanResolutionResult", () => {
         units: [
           unit("a", "ready", { artifact }),
           unit("b", "ready", {
-            artifact: { ...artifact, members: [{ id: "member", changed: true, artifact }] },
+            artifact: {
+              ...artifact,
+              members: [{ id: "member", label: "member", changed: true, artifact }],
+            },
           }),
         ],
       }),
@@ -873,7 +877,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
-          title: "Internal Error",
+          title: "Internal error",
           message: "copy failed",
           causes: [{ _tag: "Error", message: "source missing" }],
         },
@@ -902,7 +906,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
-          title: "Internal Error",
+          title: "Internal error",
           message: "copy failed",
           causes: [
             {
@@ -1213,5 +1217,46 @@ describe("operationResolutionSummary", () => {
     });
     expect(mixed.subjectType).toBe("mixed");
     expect(mixed.sourceKind).toBe("workspace");
+  });
+});
+
+describe("settledNextActions", () => {
+  const inspect = { description: "Inspect installed extensions", cmd: "axm list" };
+  const signIn = { description: "Sign in", cmd: "axm login" };
+  const failedUnit = unit("reviewer", "failed", {
+    disposition: "restored",
+    message: "Not readable. (not_found)",
+    error: new StepFailure({
+      category: "not_found",
+      detail: "Not readable.",
+      suggestions: [signIn],
+    }),
+  });
+
+  it("leaves a general suggestion out of a failure that names a recovery", () => {
+    expect(settledNextActions(resolution({ units: [failedUnit] }), "failed", [inspect])).toEqual([
+      signIn,
+    ]);
+  });
+
+  it("puts a general suggestion after the recoveries where the outcome changed something", () => {
+    const partial = resolution({ units: [failedUnit, unit("triage", "committed")] });
+    expect(settledNextActions(partial, "partial", [inspect])).toEqual([signIn, inspect]);
+  });
+
+  it("keeps a general suggestion where a failure names no recovery", () => {
+    const bare = unit("reviewer", "failed", {
+      error: new StepFailure({ category: "internal", detail: "Broke." }),
+    });
+    expect(settledNextActions(resolution({ units: [bare] }), "failed", [inspect])).toEqual([
+      inspect,
+    ]);
+  });
+
+  it("puts suggestions an adapter derived from the outcome first", () => {
+    const retry = { description: "Retry", cmd: "axm update reviewer" };
+    expect(
+      settledNextActions(resolution({ units: [failedUnit] }), "failed", () => [retry]),
+    ).toEqual([retry, signIn]);
   });
 });

@@ -9,6 +9,6 @@ This file is repository maintainer guidance. Keep it outside `src/` and excluded
 from publication; shipped agent instructions belong in `src/SKILL.md` and its
 selected references.
 
-Use the [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
+Use the [Agent Extension Glossary](../../knowledge/axe/src/glossary.md)
 for shared meanings. Keep skill terminology consistent with the canonical
 knowledge concept and link to it rather than bundling a glossary copy.

@@ -13,7 +13,7 @@ import { rememberLatestRelease } from "@agentxm/cli-maintenance/self-update/appl
 import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { makeUpdateCheckCacheLayer } from "@agentxm/cli-maintenance/self-update/testing/native";
 
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import {
   isUpgradeCommand,
   notificationMessage,
@@ -100,7 +100,7 @@ describe("startup notification printing", () => {
       const updateCheckLayer = makeUpdateCheckCacheLayer(cachePath).pipe(
         Layer.provide(NodeServices.layer),
       );
-      const { layer: rendererLayer } = TestRenderer.make();
+      const { layer: rendererLayer } = makeTestScreen();
       const layer = Layer.mergeAll(
         NodeServices.layer,
         updateCheckLayer,

@@ -15,7 +15,7 @@ import {
 } from "@agentxm/test-support";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { WorkspaceInitializationInteractionLive } from "../../workspace-initialization-interaction-live.js";
 import { observeFirstInstallAgents, setUpFirstUse, withFirstUse } from "./first-use.js";
@@ -57,7 +57,7 @@ describe("first use where only the agents are open", () => {
 
   it.effect("asks which agents to configure and installs for the ones picked", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Pick", titles: ["Codex"] });
       const testContext = makeCliTestContext({ screenLayer: screen.layer });
 
@@ -77,7 +77,7 @@ describe("first use where only the agents are open", () => {
 
   it.effect("leaves no workspace behind when the question is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Cancel" });
       const testContext = makeCliTestContext({ screenLayer: screen.layer });
 
@@ -223,9 +223,13 @@ describe("first use settings observation", () => {
       return { agents, ...measure(context.recordings, settingsPath) };
     });
 
-  /** Answer setup's questions: no instruction sync, then approve the plan. */
+  /**
+   * Answer setup's questions: no instruction sync, then approve the plan. The
+   * screen states that a question can open, so the observation is the same
+   * whether a person, a coding agent, or CI runs the test.
+   */
   const answeringSetup = (instructions: boolean) => {
-    const screen = makeTestScreen();
+    const screen = makeTestScreen({ interactive: true });
     if (instructions) screen.state.script.answers.push({ _tag: "Confirm", key: "n" });
     screen.state.script.answers.push({ _tag: "Confirm", key: "y" });
     return screen;

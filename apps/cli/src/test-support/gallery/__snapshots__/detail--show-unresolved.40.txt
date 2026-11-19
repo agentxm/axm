@@ -1,0 +1,8 @@
+0 local subjects · coverage complete
+ ▲   Some requests did not resolve
+     @acme/skills/code-reveiw:
+     not-found. No installed extension
+     has that name
+Next
+     axm skills list
+       Inspect available local entries

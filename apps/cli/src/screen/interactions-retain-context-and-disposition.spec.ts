@@ -25,7 +25,7 @@ import {
   makeTerminalReplay,
   replayBytes,
   terminalTranscript,
-} from "../test-support/terminal-replay.js";
+} from "@agentxm/test-support/terminal-replay";
 
 export const specification = defineSpecification({
   requirement: "cli/interactions-retain-context-and-disposition",
@@ -189,7 +189,7 @@ describe("durable interactions", () => {
           yield* Queue.offer(h.keys, press("n"));
           expect(yield* Fiber.join(fiber)).toBe("declined");
           yield* screen.settle;
-          const terminal = yield* makeTerminalReplay(80, 4);
+          const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
           yield* replayBytes(terminal, h.streams.state.stderr.join(""));
           const text = terminalTranscript(terminal).replace(/\s+/gu, " ");
           expect(text).toContain("The authored source will be replaced.");
@@ -208,7 +208,7 @@ describe("durable interactions", () => {
             const h = yield* harness(quiet);
             yield* Effect.gen(function* () {
               const screen = yield* Screen;
-              const terminal = yield* makeTerminalReplay(80, 4);
+              const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
               yield* screen.instruction([
                 { _tag: "paragraph", text: "Reviewed candidate: @acme/skills/review" },
               ]);
@@ -288,7 +288,7 @@ describe("durable interactions", () => {
           yield* Fiber.await(second);
           yield* parent.settle("completed");
           yield* parent.drained.await;
-          const terminal = yield* makeTerminalReplay(80, 4);
+          const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
           yield* screen.settle;
           yield* replayBytes(terminal, h.streams.state.stderr.join(""));
           const text = terminalTranscript(terminal).replace(/\s+/gu, " ");
@@ -331,7 +331,7 @@ describe("durable interactions", () => {
               );
               yield* screen.note([{ _tag: "paragraph", text: "Next activity" }]);
               yield* screen.settle;
-              const terminal = yield* makeTerminalReplay(80, 4);
+              const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
               yield* replayBytes(terminal, h.streams.state.stderr.join(""));
               const text = terminalTranscript(terminal).replace(/\s+/gu, " ");
               expect(text).toContain("https://review.example/request-123");

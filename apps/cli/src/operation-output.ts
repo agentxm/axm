@@ -92,7 +92,9 @@ import {
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
-import { emitResult, count, type Doc } from "./screen/index.js";
+import { currentProjectName } from "./project-name.js";
+import { resolveUserHome } from "@agentxm/workspace-kernel/workspace-state";
+import { emitResult, count, moment, type CalloutNode } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v4";
@@ -959,13 +961,13 @@ const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
   const kept = record.selectedVersion ?? record.currentVersion;
   const candidate = `${record.candidateVersion}${releaseAgeRequiredBy(record)}`;
   return kept === undefined
-    ? `${record.target} ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`
-    : `${record.target}: using ${kept}; ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`;
+    ? `${record.target} ${candidate} was published ${moment(record.publishedAt)} and becomes available ${moment(record.eligibleAt)}`
+    : `${record.target}: using ${kept}; ${candidate} was published ${moment(record.publishedAt)} and becomes available ${moment(record.eligibleAt)}`;
 };
 
 const releaseAgeBypassLines = (record: ReleaseAgeRecordView): ReadonlyArray<string> => [
-  `${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} — published ${record.publishedAt}`,
-  `${releaseAgeExemption(record)}; otherwise held until ${record.eligibleAt}`,
+  `${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} was published ${moment(record.publishedAt)}`,
+  `${releaseAgeExemption(record)}; otherwise held until ${moment(record.eligibleAt)}`,
 ];
 
 const RELEASE_AGE_OVERRIDE = "--ignore-release-age";
@@ -1021,7 +1023,7 @@ export const releaseAgeDoc = (
   recovery: CommandInvocation | undefined,
   result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
   settled?: { readonly unsettled: ReadonlySet<string> },
-): Doc => {
+): ReadonlyArray<CalloutNode> => {
   const holdbacks = result.holdbacks ?? [];
   // A bypass says a newer release was let into the workspace. Where the unit
   // it names did not settle as planned, nothing was let in, and a callout
@@ -1150,14 +1152,17 @@ const sameAction = (left: FailureSuggestedAction, right: FailureSuggestedAction)
 
 /**
  * The one `Next` list of a settled operation, for the machine envelope and the
- * human render alike: what the adapter offers, then every failed unit's own
- * recovery (a reader of seven failures needs all of them), then what the
- * operation states for itself, its recovery actions, and the escape its block
- * names, each once. Scope is applied afterwards, at the emit boundary.
+ * human render alike: what the adapter offers for this outcome, then every
+ * failed unit's own recovery (a reader of seven failures needs all of them),
+ * then what the operation states for itself, its recovery actions, and the
+ * escape its block names, and last the adapter's general suggestions, which
+ * do not depend on the outcome and so never stand ahead of a recovery. Each
+ * appears once. Scope is applied afterwards, at the emit boundary.
  */
 export const operationNextActions = (
   settled: SettledRecoveries,
   offered: ReadonlyArray<FailureSuggestedAction>,
+  general: ReadonlyArray<FailureSuggestedAction> = [],
 ): ReadonlyArray<FailureSuggestedAction> => {
   const combined = [
     ...offered,
@@ -1165,10 +1170,37 @@ export const operationNextActions = (
     ...(settled.suggestions ?? []),
     ...(settled.recovery ?? []),
     ...(settled.escape === undefined ? [] : [settled.escape]),
+    ...general,
   ];
   return combined.filter(
     (suggestion, index) => combined.findIndex((other) => sameAction(other, suggestion)) === index,
   );
+};
+
+/**
+ * The `Next` list a settled operation emits for an adapter's suggestions. An
+ * adapter that derives its suggestions from the outcome offers ones that fit
+ * it, ahead of everything else; a fixed list is general, so it follows the
+ * recoveries, and a failure that changed nothing and names a recovery leaves
+ * it out.
+ */
+export const settledNextActions = (
+  resolution: OperationResolution<unknown>,
+  outcome: OperationOutcome,
+  suggestions: OperationSuggestions | undefined,
+): ReadonlyArray<FailureSuggestedAction> => {
+  const recoveries = resolutionRecoveries(resolution);
+  if (typeof suggestions === "function") {
+    return operationNextActions(
+      recoveries,
+      suggestions({ outcome, unsettled: unsettledUnits(resolution) }),
+    );
+  }
+  const general =
+    outcome === "failed" && operationNextActions(recoveries, []).length > 0
+      ? []
+      : (suggestions ?? []);
+  return operationNextActions(recoveries, [], general);
 };
 
 /**
@@ -1186,12 +1218,13 @@ export const emitOperationResolution = (
     const outcome = deriveOperationOutcome(resolution);
     const exitCode = operationExitCode(resolution, outcome);
 
-    const offered =
-      typeof options?.suggestions === "function"
-        ? options.suggestions({ outcome, unsettled: unsettledUnits(resolution) })
-        : (options?.suggestions ?? []);
-    const next = operationNextActions(resolutionRecoveries(resolution), offered);
+    const next = settledNextActions(resolution, outcome, options?.suggestions);
     const { scope, routes } = yield* currentWorkspaceScoping;
+    // The title names the project a command acted in by its directory, so a
+    // reader with several checkouts open sees which one changed.
+    const project = yield* currentProjectName;
+    // Paths under the user's home read from `~`, as a person types them.
+    const home = yield* resolveUserHome().pipe(Effect.orElseSucceed(() => undefined));
     const suggestions = next.length === 0 ? undefined : suggestionsForScope(next, scope, routes);
 
     const result = toPlanResolutionResult(resolution, {
@@ -1279,6 +1312,8 @@ export const emitOperationResolution = (
           // A condition the operation reports stands with the ledger it is
           // about, so `Next` stays the last thing a reader sees.
           callouts: releaseAgeDoc(options?.recovery, result, { unsettled }),
+          ...(project === undefined ? {} : { project }),
+          ...(home === undefined ? {} : { home }),
         });
       },
       {

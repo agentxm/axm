@@ -18,7 +18,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { getAppError, makeWorkspaceLifecycleTestContext } from "../../test-support/test-helpers.js";
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { handleInstall } from "./handler.js";
 
 describe("install argument grammar", () => {
@@ -73,7 +73,7 @@ describe("install argument grammar", () => {
         `---\nname: ${name}\ndescription: Example ${name} skill\n---\n# ${name}\n`,
       );
     }
-    const screen = makeTestScreen();
+    const screen = makeTestScreen({ interactive: true });
     screen.state.script.answers.push({ _tag: "Cancel" });
     const { provide } = makeWorkspaceLifecycleTestContext({
       wsOptions: { projectRoot: tempDir },

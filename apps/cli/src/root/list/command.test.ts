@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,11 +13,11 @@ import {
 } from "../../test-support/test-stubs.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
-import type { TestRendererState } from "../../test-support/presenter-test.js";
+import type { TestScreenState } from "../../test-support/test-screen.js";
 import { handleList } from "./command.js";
 
 /** What a person reads, painted without colour or width limits. */
-const painted = (state: TestRendererState): ReadonlyArray<string> =>
+const painted = (state: TestScreenState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
 const listAll = { types: [], outdated: false, deprecated: false, archived: false } as const;
@@ -77,7 +77,7 @@ describe("root list", () => {
       Effect.gen(function* () {
         yield* handleList(listAll);
         expect(painted(rendererState)).toEqual([
-          "No AXM workspace in this project.",
+          "No AXM workspace in this project",
           "Next",
           "     axm setup   Set up AXM in this project",
         ]);
@@ -92,7 +92,7 @@ describe("root list", () => {
       Effect.gen(function* () {
         yield* handleList(listAll);
         expect(painted(rendererState)).toEqual([
-          "No extensions installed in this project.",
+          "No extensions installed in this project",
           "Next",
           "     axm discover   Find recommended extensions",
         ]);
@@ -112,7 +112,8 @@ describe("root list", () => {
         expect(page.find((line) => line.includes("@acme/skills/review"))).toMatch(
           /^ ▲ {3}@acme\/skills\/review .* missing /u,
         );
-        expect(page.at(-1)).toBe("1 extension · 1 enabled · 1 needs attention · axm lint explains");
+        expect(page).toContain("1 extension · 1 enabled · 1 needs attention");
+        expect(page.at(-1)).toBe("     axm lint   See what needs attention and how to fix it");
       }),
     );
   });

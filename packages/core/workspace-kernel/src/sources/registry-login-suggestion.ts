@@ -1,10 +1,11 @@
 /**
- * The offline login hint an install refusal carries.
+ * The offline access hint an install refusal carries.
  *
  * When a registry lookup finds nothing, the extension may simply be private
- * to an account this invocation is not signed in to. Whether every consulted
- * Registry already has a credential is the `registry-access` capability's
- * decision; the wording of the hint is this module's.
+ * to an account this invocation is not signed in to, or to one other than
+ * the account it is signed in with. Whether every consulted Registry already
+ * has a credential is the `registry-access` capability's decision; the
+ * wording of the hint is this module's.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -22,8 +23,16 @@ const LOGIN_SUGGESTION: SuggestedAction = {
   cmd: "axm login",
 };
 
+const ACCOUNT_SUGGESTION: SuggestedAction = {
+  description: "See which account is signed in; a private extension needs one that can read it.",
+  cmd: "axm whoami",
+};
+
 /**
- * Suggest signing in when any consulted HTTP(S) Registry has no credential.
+ * Suggest signing in when any consulted HTTP(S) Registry has no credential,
+ * and checking the signed-in account when every one has: a lookup that finds
+ * nothing while signed in is as often an account without access as an
+ * extension that does not exist.
  *
  * The credential store and the Registry selection are optional: an invocation
  * composed without them offers no hint rather than failing, and a selection
@@ -41,5 +50,5 @@ export const registryLoginSuggestions = (
     const present = yield* hasCredentialsForAll(endpoints, defaultBound.value.endpoint).pipe(
       Effect.provideService(CredentialStore, store.value),
     );
-    return present ? [] : [LOGIN_SUGGESTION];
+    return present ? [ACCOUNT_SUGGESTION] : [LOGIN_SUGGESTION];
   });

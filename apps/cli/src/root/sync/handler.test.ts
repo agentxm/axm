@@ -7,7 +7,7 @@ import {
   LockfileSchema,
   parseLockfileToml,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { startedUnits, messages } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -718,7 +718,7 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ preview: false }));
 
-      expect(logs.success).toEqual(["Workspace materialization is up to date"]);
+      expect(logs.success).toEqual(["Nothing to sync"]);
       expect(startedUnits(rendererState)).toContain("workspace sync plan");
     }),
   );
@@ -735,7 +735,7 @@ describe("root sync handler", () => {
       expect(logs.success).toEqual([]);
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
     }),
   );
@@ -880,7 +880,7 @@ describe("root sync handler", () => {
 
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(configBefore);
       expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
@@ -918,7 +918,7 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: false }));
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
     }),
   );
@@ -1345,7 +1345,7 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: false }));
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
     }),
   );
@@ -1837,7 +1837,7 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: false }));
       expectNoOpPlanResult(rendererState.results[2]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
     }),
   );
@@ -2113,7 +2113,7 @@ describe("root sync handler", () => {
 
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
     }),
   );
@@ -2251,7 +2251,9 @@ describe("root sync handler", () => {
       expect(planResultUnits(result)).toMatchObject([
         { label: "instruction files", state: "ready" },
       ]);
-      const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
+      const rendered = messages(rendererState)
+        .map((entry) => entry.message)
+        .join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");
       expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
     }),
@@ -2336,7 +2338,7 @@ describe("root sync handler", () => {
 
       const result = expectNoOpPlanResult(second.rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
       expect(result).toMatchObject({ mode: "preview" });
       expect(second.rendererState.results[0]?.ok).toBe(true);
@@ -2387,7 +2389,7 @@ describe("root sync handler", () => {
         yield* converged.provide(handleSync({ preview: true }));
         const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
           planName: "Sync workspace",
-          message: "Workspace materialization is up to date",
+          message: "Nothing to sync",
         });
         expect(result).toMatchObject({ mode: "preview" });
       }),
@@ -2419,7 +2421,7 @@ describe("root sync handler", () => {
       yield* current.provide(handleSync({ preview: true }));
       expectNoOpPlanResult(current.rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        message: "Nothing to sync",
       });
       expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
       expect(fs.existsSync(path.join(tempDir, ".agents/skills/researcher/SKILL.md"))).toBe(false);

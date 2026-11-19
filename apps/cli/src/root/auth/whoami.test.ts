@@ -14,7 +14,7 @@ import {
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { handleWhoami } from "./whoami.js";
@@ -39,7 +39,7 @@ const makeLayers = (opts?: {
   machine?: boolean;
   allowsPersistedCredentials?: boolean;
 }) => {
-  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.machine === true });
   const rendererLayer = renderer.layer;
   const rendererState = renderer.state;
   const credStoreLayer = opts?.hasCredentials
@@ -127,7 +127,7 @@ describe("auth whoami handler", () => {
       Effect.gen(function* () {
         yield* handleWhoami();
 
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "message",
           message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nAuthority  everything your permissions allow\nExpires  unavailable\n`,
         });
@@ -149,7 +149,7 @@ describe("auth whoami handler", () => {
         expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.results[0]?.data).not.toHaveProperty("data");
         expect(rendererState.events[0]).toMatchObject({ _tag: "OperationStarted", mode: "query" });
-        expect(rendererState.logs).toHaveLength(0);
+        expect(messages(rendererState)).toHaveLength(0);
       }),
     );
   });

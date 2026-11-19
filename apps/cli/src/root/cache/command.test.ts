@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { messages, startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -31,7 +31,7 @@ describe("cache commands", () => {
   it.effect("reports liveness while loading human-readable status", () => {
     const context = makeCliTestContext();
     const provide = Effect.provide(context.baseLayer);
-    const { logs, rendererState } = context;
+    const { rendererState } = context;
 
     return provide(
       Effect.gen(function* () {
@@ -42,7 +42,7 @@ describe("cache commands", () => {
           _tag: "OperationSettled",
           outcome: "completed",
         });
-        expect(logs.message.join("")).toContain("Archive cache");
+        expect(messages(rendererState)).toContainEqual({ _tag: "info", message: "Archive cache" });
       }),
     );
   });
@@ -73,8 +73,8 @@ describe("cache commands", () => {
       yield* handleCacheVerify();
       yield* handleCachePrune();
       const stdout = streams.lines("stdout").join("\n");
-      expect(stdout).toContain("Verified 0 archive cache entries; 0 corrupt removed.");
-      expect(stdout).toContain("Pruned 0 archive cache entries (0 B); 0 remain (0 B).");
+      expect(stdout).toContain("Verified 0 archive cache entries   0 corrupt removed");
+      expect(stdout).toContain("Pruned 0 archive cache entries   0 B freed · 0 remain · 0 B kept");
     }).pipe(Effect.provide(context.baseLayer));
   });
 });

@@ -1,0 +1,110 @@
+---
+type: Guide
+title: "Verifying extension behavior"
+description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
+tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
+status: draft
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:08:32Z" }
+sources:
+  - id: maintenance
+    resource: https://github.com/craigsmitham/agent-extensions/blob/64a2a8f9f44b303971de1ef1147814b65c2f4b96/packs/software-maintenance/README.md
+    title: Software maintenance, “Ask for opportunities or action”
+  - id: trials
+    resource: https://github.com/agentxm/axm/blob/ff0f7380d4b75d02ebfa362c4b23ee3fc9ad1ad1/skills/axe/evals/2026-11-18/README.md
+    title: Skill discovery and execution trials
+  - id: eval
+    resource: https://developers.openai.com/blog/eval-skills
+    title: OpenAI skill evaluation guide
+  - id: reader
+    resource: https://github.com/anthropics/skills/blob/e4bb5d960d87126ff3b3a8af1a104b7db67560ba/skills/doc-coauthoring/SKILL.md
+    title: Anthropic doc-coauthoring skill
+---
+
+# Verifying extension behavior
+
+| Claim                                | What to inspect or exercise                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| The package is valid                 | Applicable schema and format checks                                                                  |
+| The release ships the intended files | Consumer workflows and file audiences compared with the candidate inventory or exact release archive |
+| The host received the extension      | The selected host's projection                                                                       |
+| Requests reach the intended skill    | Observed selection for direct requests, paraphrases, and a plausible neighboring task                |
+| The workflow works                   | The result of a representative task and any failure path the claim covers                            |
+| The change improves results          | The same tasks with the candidate and a prior, smaller, or absent extension                          |
+| The behavior is portable             | The claimed behavior in each supported host                                                          |
+
+Choose cases from the extension's promise. For this pack's router, “review this
+skill” and “fix this skill” should both reach the relevant craft guidance, but
+only the second asks for an edit. For a glossary router, try a definition request
+and a request to perform the action being defined.
+
+To check whether a skill recognizes a request for advice, hold the operation
+verb and target steady.[^maintenance] Give two fresh sessions identical writable
+copies of a skill with one broken reference and one working reference. Ask one
+“How would you revise this skill so readers can follow both links?” and the
+other “Revise this skill so readers can follow both links.” Compare each reply,
+tool trace, and final files with the starting copy. The first should propose
+the correct repair and leave the files untouched. The second should apply the
+repair, check that both links resolve, and preserve the working reference.
+
+For a comparison, hold the host, model, inputs, and available tools steady.
+Keep fresh cases for evaluation and repeat trials where selection varies.
+Record the revision and observed output. A shorter route can save tokens while
+producing a worse answer, so assess cost and task quality separately.
+
+Use an [invocation trial](../patterns/invocation-trial.md) to compare discovery
+with explicit selection. If a version-specific convention is easy to overlook,
+also try a short scoped pointer to the same guidance.
+
+Choose observable checks for the outcome, required process, presentation, and
+cost as applicable.[^eval] For a review, the correct finding and an accurate
+repair location are output evidence. Tool traces show how the reviewer got
+there. Report both when two routes produce the same finding at different costs.
+
+To exercise an extension reviewer, vary what it can actually inspect. Give it
+the same request in three fresh contexts: “Check whether this skill's
+migration guide is available to a consumer.”
+
+| Material supplied                                  | Expected review outcome                                                                             |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| A complete archive with a link to a missing guide  | Identify the broken reference and the workflow it blocks.                                           |
+| The same archive with the guide at the linked path | Report that the reference resolves. A clean result can close the review.                            |
+| Only the excerpt containing the link               | Leave availability unresolved and identify the archive or its file listing as the missing evidence. |
+
+To check whether the reviewer can use evidence in another form, supply the same
+link and a complete file listing from the candidate archive. It can settle the
+path question directly. A listing from the checkout alone leaves the shipped
+contents uncertain. Both cases exercise [Preserve agent judgment](../principles/preserve-agent-judgment.md).
+
+For an open review, give the reviewer an ordinary request without naming the
+defect. Include a valid case that resembles the defect and repeat with a
+narrower focus. One way to vary the release is to change [which files
+ship](lifecycle.md#choose-what-ships) while retaining a fixture used in an
+installed example. Judge the finding, its evidence, and respect for scope.
+Different inspection paths can support the same verdict.
+
+Record how the workflow went alongside the verdict. In the three archive-review
+cases above, the router was revised to let the reviewer stop once the review
+guide and the supplied evidence settled what it could conclude. Each recheck
+reached the expected verdict with one guide lookup, down from two. The trials
+recorded one ordinary run per case in each condition on one host.[^trials]
+
+## Try the artifact with a fresh reader
+
+Give a reader the completed artifact and the same resources its intended
+recipient will have. Withhold the authoring conversation. Anthropic's
+doc-coauthoring skill uses realistic reader questions in a fresh context to
+expose assumptions.[^reader] For a brief, ask what was decided, what remains
+open, and what the builder can act on. For a review handoff, ask the reader
+to locate the selected finding and explain what would make it stale.
+
+Compare the answers with the actual decisions and evidence. A plausible answer
+based on a guess exposes a missing cue. Revise that field and retry with a fresh
+case. Record whether the reader was a person or a model and what they could see.
+
+[^reader]: Anthropic, reader testing without the drafting conversation.
+
+[^eval]: OpenAI, Testing Agent Skills Systematically with Evals.
+
+[^trials]: Skill discovery and execution trials, “Review a migration-guide reference.”
+
+[^maintenance]: Software maintenance pack, paired opportunity questions and change requests for each skill.

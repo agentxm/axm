@@ -9,7 +9,7 @@ const result = await cruise(cycleRoots, {
   tsPreCompilationDeps: true,
   doNotFollow: { path: "node_modules" },
   exclude: {
-    path: "\\.(test|spec|shared-spec)\\.[cm]?[jt]sx?$|(^|/)(test-support|__fixtures__|testing)(/|$)|(^|/)(test-helpers|testing)\\.[cm]?[jt]sx?$",
+    path: "\\.(test|spec|shared-spec|gallery)\\.[cm]?[jt]sx?$|(^|/)(test-support|__fixtures__|testing)(/|$)|(^|/)(test-helpers|testing)\\.[cm]?[jt]sx?$",
   },
   enhancedResolveOptions: {
     conditionNames: ["axm-source", "import", "node", "default"],

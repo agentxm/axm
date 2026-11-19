@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaRepresentation from "effect/SchemaRepresentation";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import { handleSchemaPath } from "./command.js";
 import { schemaObject } from "./json-schema.js";
 
 const capture = (path: ReadonlyArray<string>, field?: string, json = false) =>
   Effect.gen(function* () {
-    const { layer, state } = json ? TestMachineRenderer.make() : TestRenderer.make();
+    const { layer, state } = makeTestScreen({ machine: json });
     yield* handleSchemaPath(path, field, json).pipe(Effect.provide(layer));
     expect(state.docs).toHaveLength(1);
     expect(state.docs[0]?.channel).toBe("stdout");
@@ -99,7 +99,7 @@ describe("passive command schema discovery", () => {
           ["token", "create"],
           ["lock", "export"],
         ]) {
-          const { layer, state } = TestMachineRenderer.make();
+          const { layer, state } = makeTestScreen({ machine: true });
           const error = yield* Effect.flip(
             handleSchemaPath(path, undefined, true).pipe(Effect.provide(layer)),
           );
@@ -115,7 +115,7 @@ describe("passive command schema discovery", () => {
     "returns bounded nearby field recovery without accepting data keys or schema keywords",
     () =>
       Effect.gen(function* () {
-        const { layer, state } = TestRenderer.make();
+        const { layer, state } = makeTestScreen();
         const error = yield* Effect.flip(
           handleSchemaPath(["publish"], "result.execution.outcomes[].missing", true).pipe(
             Effect.provide(layer),

@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { TestFlagsLayer } from "./cli-flags/index.js";
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
@@ -36,7 +36,7 @@ describe("withOperationLifecycle", () => {
   // declared atomicity.
   it.effect("an interrupted operation settles exactly once for every observer", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const started = yield* Deferred.make<void>();
       const fiber = yield* withLiveOperation(
         { name: "Install skill", mode: "apply" },
@@ -59,7 +59,7 @@ describe("withOperationLifecycle", () => {
 
   it.effect("provides the lifecycle to the body and settles success as completed", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const seen = yield* withLiveOperation(
         { name: "Inspect archive cache", mode: "query" },
         Effect.map(Effect.serviceOption(OperationLifecycle), (service) => service._tag === "Some"),
@@ -76,7 +76,7 @@ describe("withOperationLifecycle", () => {
 
   it.effect("publishes Registry retry waits within the outer operation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       yield* withLiveOperation(
         { name: "Update skill", mode: "apply" },
         Effect.gen(function* () {
@@ -110,7 +110,7 @@ describe("withOperationLifecycle", () => {
     Effect.gen(function* () {
       const workspaceDir = nodePath.join(tempDir, ".axm");
       const resolutionObserved = yield* Deferred.make<void>();
-      const renderer = TestRenderer.make({
+      const renderer = makeTestScreen({
         onEvent: (event) =>
           event._tag === "PhaseStarted" && event.phase === "resolution"
             ? Deferred.succeed(resolutionObserved, undefined).pipe(Effect.asVoid)
@@ -155,7 +155,7 @@ describe("withOperationLifecycle", () => {
   it.effect("does not hold the workspace transition before the body confirms", () =>
     Effect.gen(function* () {
       const workspaceDir = nodePath.join(tempDir, ".axm");
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       // Planning, registry acquisition, preview, and the confirmation
       // decision all run inside the body; holding the workspace transition
       // across them lets a slow download or an open prompt monopolize the

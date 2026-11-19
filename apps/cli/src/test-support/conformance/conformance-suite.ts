@@ -1,12 +1,13 @@
 /**
  * Renderer conformance suite — the checks any painter of the typed `Doc`
- * tree must pass, expressed as pure functions over painted lines so a test
- * file can register them for the production painter and for an alternative
- * behind the same seam. Every check returns the offending lines (empty when
- * the painter conforms) so a failure names the evidence.
+ * must pass, expressed as pure functions over painted lines and parameterized
+ * by `Painter`, so a test file registers each painter behind the seam. Every
+ * check returns the offending lines (empty when the painter conforms) so a
+ * failure names the evidence.
  */
 
-import { plain, type Doc, type DocNode, type Text, type TreeItem } from "../../screen/doc.js";
+import { isCopyableSpan, plain, type Doc, type DocNode, type Text } from "../../screen/doc.js";
+import { fragment } from "../../screen/grammar.js";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import type { PaintStyle } from "../../screen/paint-text.js";
 import { asciiGlyphs, isHintKeyToken, unicodeGlyphs } from "../../screen/glyphs.js";
@@ -30,13 +31,6 @@ const textOf = (value: Text): string => plain(value);
 const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void): void => {
   const pushText = (value: Text | undefined): void => {
     if (value !== undefined) visit(value, false);
-  };
-  const walkTree = (items: ReadonlyArray<TreeItem>): void => {
-    for (const item of items) {
-      pushText(item.text);
-      pushText(item.detail);
-      if (item.children !== undefined) walkTree(item.children);
-    }
   };
   const walk = (node: DocNode): void => {
     switch (node._tag) {
@@ -96,7 +90,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         return;
       case "callout":
         pushText(node.title);
-        pushText(node.aside);
+        node.aside?.forEach((part) => pushText(part.text));
         node.children?.forEach(walk);
         return;
       case "table":
@@ -110,14 +104,11 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
           pushText(field.value);
         });
         return;
-      case "tree":
-        walkTree(node.roots);
-        return;
       case "next":
         node.actions.forEach((action) => {
           // URL actions are intentionally only the URL; their prose label is
           // metadata for richer interfaces, not terminal output.
-          if (action.url === undefined) visit(action.description, false);
+          if (action.url === undefined) visit(fragment(action.description), false);
           // A next command or URL is copied and run: the painter marks it copyable.
           if (action.cmd !== undefined) visit(action.cmd, true);
           if (action.url !== undefined) visit(action.url, true);
@@ -155,7 +146,7 @@ export type SemanticFactKind =
   | "span.bold"
   | "span.link"
   | "span.copyable"
-  | "span.invert"
+  | "span.kind"
   | "headline.tone"
   | "headline.verdict"
   | "paragraph.tone"
@@ -192,7 +183,7 @@ export const semanticFactKinds: ReadonlyArray<SemanticFactKind> = [
   "span.bold",
   "span.link",
   "span.copyable",
-  "span.invert",
+  "span.kind",
   "headline.tone",
   "headline.verdict",
   "paragraph.tone",
@@ -237,15 +228,7 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       add("span.bold", at, span.bold);
       add("span.link", at, span.link);
       add("span.copyable", at, span.copyable);
-      add("span.invert", at, span.invert);
-    });
-  };
-  const walkTree = (items: ReadonlyArray<TreeItem>, path: string): void => {
-    items.forEach((item, index) => {
-      const at = `${path}[${String(index)}]`;
-      spans(item.text, `${at}.text`);
-      spans(item.detail, `${at}.detail`);
-      if (item.children !== undefined) walkTree(item.children, `${at}.children`);
+      add("span.kind", at, span.kind);
     });
   };
   const walk = (node: DocNode, path: string): void => {
@@ -319,7 +302,7 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       case "callout":
         add("callout.tone", path, node.tone);
         spans(node.title, `${path}.title`);
-        spans(node.aside, `${path}.aside`);
+        node.aside?.forEach((part, index) => spans(part.text, `${path}.aside[${String(index)}]`));
         node.children?.forEach((child, index) => walk(child, `${path}.children[${String(index)}]`));
         return;
       case "table":
@@ -343,9 +326,6 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
           spans(field.label, `${path}.fields[${String(index)}].label`);
           spans(field.value, `${path}.fields[${String(index)}].value`);
         });
-        return;
-      case "tree":
-        walkTree(node.roots, `${path}.roots`);
         return;
       case "next":
         node.actions.forEach((action, index) => {
@@ -387,13 +367,13 @@ export const copyableValues = (doc: Doc): ReadonlyArray<string> => {
       return;
     }
     if (typeof value === "string") return;
-    for (const span of value) if (span.copyable === true) values.push(span.text);
+    for (const span of value) if (isCopyableSpan(span)) values.push(span.text);
   });
   return values;
 };
 
 /** Lines a painter passes through verbatim: the content of `raw` and `markdown` nodes. */
-const verbatimLines = (doc: Doc): ReadonlySet<string> => {
+export const verbatimLines = (doc: Doc): ReadonlySet<string> => {
   const lines = new Set<string>();
   const walk = (node: DocNode): void => {
     if (node._tag === "markdown" || node._tag === "raw") {
@@ -510,7 +490,7 @@ export const determinismViolations = (
     : ["painting twice differs"];
 };
 
-/** Every node kind a painter must handle; the every-node fixture exercises them all. */
+/** Every node kind a painter must handle; the vocabulary fixtures exercise them all. */
 export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "headline",
   "paragraph",
@@ -521,7 +501,6 @@ export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "callout",
   "table",
   "fields",
-  "tree",
   "next",
   "summary",
   "section",

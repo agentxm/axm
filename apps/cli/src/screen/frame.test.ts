@@ -11,7 +11,7 @@ import {
   makeTerminalReplay,
   replayBytes,
   terminalTranscript,
-} from "../test-support/terminal-replay.js";
+} from "@agentxm/test-support/terminal-replay";
 
 const active = (text: string, kind: ActiveView["kind"] = "activity"): ActiveView => ({
   owner: Symbol(text),
@@ -41,7 +41,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves interleaved results and diagnostics above active controls", () => {
     const streams = makeRecordingStreams({ stdoutIsTTY: true, stderrIsTTY: true });
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       yield* frame.updateActive(active("Open question", "interaction"));
       yield* frame.stdout("Primary result one\n");
@@ -63,7 +63,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves committed history across replacement, logs and settlement", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       const first = active("Checking sources…");
       yield* frame.stderr("Updating extensions\n");
@@ -82,7 +82,7 @@ describe("Frame transcript ownership", () => {
   it.effect("does not let stale owners remove a newer question", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       const frame = yield* Frame;
       const old = active("old", "interaction");
       const current = active("Choose agents", "interaction");
@@ -99,7 +99,7 @@ describe("Frame transcript ownership", () => {
   it.effect("preserves a transcript longer than the viewport", () => {
     const h = harness();
     return Effect.gen(function* () {
-      const terminal = yield* makeTerminalReplay(80, 4);
+      const terminal = yield* makeTerminalReplay({ rows: 4, convertEol: true });
       const frame = yield* Frame;
       h.state.size = { columns: 80, rows: 4 };
       const history = Array.from({ length: 80 }, (_, i) => `Completed phase ${String(i)}`);
@@ -133,7 +133,7 @@ describe("Frame transcript ownership", () => {
     it.effect(`keeps questions usable with ${JSON.stringify(options)}`, () => {
       const h = harness(options);
       return Effect.gen(function* () {
-        const terminal = yield* makeTerminalReplay();
+        const terminal = yield* makeTerminalReplay({ convertEol: true });
         const frame = yield* Frame;
         yield* frame.updateActive(active("Hidden activity"));
         yield* frame.updateActive(active("Answer this question", "interaction"));
@@ -162,7 +162,7 @@ describe("Frame transcript ownership", () => {
         stderrIsTTY: true,
         resize: Stream.fromQueue(resizes),
       });
-      const terminal = yield* makeTerminalReplay();
+      const terminal = yield* makeTerminalReplay({ convertEol: true });
       yield* Effect.gen(function* () {
         const frame = yield* Frame;
         yield* frame.stderr("History must survive\n");
@@ -178,13 +178,44 @@ describe("Frame transcript ownership", () => {
         yield* frame.settle;
         yield* replayBytes(terminal, streams.state.stderr.slice(written).join(""));
         expect(terminalTranscript(terminal)).toContain("History must survive");
-        expect(streams.state.stderr[written]).toBe("\r\n");
+        // The frame after a resize abandons the old tail with a newline and
+        // never moves the cursor up into history.
+        const afterResize = streams.state.stderr[written] ?? "";
+        expect(afterResize.replace(`${String.fromCharCode(27)}[?2026h`, "")).toMatch(/^\r\n/u);
+        expect(afterResize).not.toMatch(new RegExp(`${String.fromCharCode(27)}\\[\\d+A`, "u"));
       }).pipe(
         Effect.provide(
           Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
         ),
         Effect.scoped,
       );
+    }).pipe(Effect.scoped),
+  );
+  it.effect("draws each repaint as one synchronized frame and clears taskbar progress", () =>
+    Effect.gen(function* () {
+      const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+      const ESC = String.fromCharCode(27);
+      yield* Effect.gen(function* () {
+        const frame = yield* Frame;
+        yield* frame.updateActive(active("Working", "activity"));
+        yield* frame.stderr("Committed milestone\n");
+        yield* frame.settle;
+      }).pipe(
+        Effect.provide(
+          Layer.provide(
+            FrameLive({ animate: true, quiet: false, colors: false, taskbarProgress: true }),
+            streams.layer,
+          ),
+        ),
+        Effect.scoped,
+      );
+      const writes = streams.state.stderr;
+      // The milestone, the erase before it, and the repaint after it are one write.
+      const milestone = writes.find((write) => write.includes("Committed milestone")) ?? "";
+      expect(milestone.startsWith(`${ESC}[?2026h`)).toBe(true);
+      expect(milestone.endsWith(`${ESC}[?2026l`)).toBe(true);
+      expect(writes.join("")).toContain(`${ESC}]9;4;3;0\u0007`);
+      expect(writes.join("").endsWith(`${ESC}]9;4;0;0\u0007${ESC}[?25h${ESC}[?2026l`)).toBe(true);
     }).pipe(Effect.scoped),
   );
 });

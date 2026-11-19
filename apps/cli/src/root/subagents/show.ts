@@ -9,7 +9,7 @@ import { processOutcome, withArgvTracking } from "../../cli-runtime/index.js";
 import { makeAppError, ExitCode } from "../../app-error/index.js";
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
-import { emitResult, headlineDoc, paragraphDoc, rawDoc } from "../../screen/index.js";
+import { conditionDoc, emitResult, recordDoc } from "../../screen/index.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { extensionNotInstalledToAppError } from "../inspection-errors.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -46,22 +46,27 @@ export const handleSubagentRender = Effect.fn("Subagents.render")(function* (
   yield* emitResult(
     result,
     SubagentRenderResultSchema,
-    () => [
-      ...headlineDoc(
-        supported ? "neutral" : "warn",
-        `${result.fqn} for ${result.agentId}: ${result.status}`,
-      ),
-      ...paragraphDoc(
-        result.status === "unsupported"
-          ? result.reason
-          : `Implementation: ${result.mode}; native name: ${result.nativeName}`,
-      ),
-      ...result.artifacts.flatMap((artifact) => [
-        ...paragraphDoc(artifact.path),
-        ...rawDoc(artifact.content),
-      ]),
-      ...result.qualifications.flatMap((qualification) => paragraphDoc(qualification)),
-    ],
+    () =>
+      recordDoc({
+        tone: supported ? "neutral" : "warn",
+        verdict: `${result.fqn} for ${result.agentId}`,
+        facts: [result.status],
+        ...(result.status === "unsupported"
+          ? { notes: [result.reason] }
+          : {
+              fields: [
+                { label: "Implementation", value: result.mode },
+                { label: "Native name", value: result.nativeName },
+              ],
+            }),
+        conditions: result.qualifications.map((qualification) =>
+          conditionDoc({ tone: "info", title: qualification }),
+        ),
+        sections: result.artifacts.map((artifact) => ({
+          title: artifact.path,
+          children: [{ _tag: "raw", content: artifact.content }],
+        })),
+      }),
     {
       completion: {
         mode: "query",

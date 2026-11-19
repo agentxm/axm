@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages, tables } from "../../test-support/test-screen.js";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -47,7 +47,7 @@ describe("agents list.handler", () => {
   });
 
   const makeLayers = () => {
-    const renderer = TestRenderer.make();
+    const renderer = makeTestScreen();
     const baseLayer = Layer.mergeAll(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       renderer.layer,
@@ -85,15 +85,18 @@ describe("agents list.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsList({ detected: false, available: false });
 
-        expect(rendererState.tables).toEqual([]);
-        expect(rendererState.logs).toEqual([]);
+        expect(tables(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No coding agents configured or detected" },
+        ]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
         });
         expect(rendererState.docs[0]?.doc).toContainEqual({
-          _tag: "paragraph",
-          text: "No coding agents configured or detected.",
+          _tag: "headline",
+          tone: "neutral",
+          text: "No coding agents configured or detected",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "Set up AXM in this workspace", cmd: "axm setup" },

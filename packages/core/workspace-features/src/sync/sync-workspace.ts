@@ -151,8 +151,6 @@ export interface SyncWorkspaceCandidate {
     readonly type: ExtensionType;
     readonly name: string;
   }>;
-  /** What the operator is told when the sweep turns out to change nothing. */
-  readonly upToDateMessage: string;
 }
 
 /** Every failure settling a reconciliation can surface. */
@@ -472,9 +470,8 @@ const prepareSyncWorkspace = (
     const planDescription = scoped
       ? `Scoped materialization for ${scopeLabel}`
       : SYNC_PLAN_DESCRIPTION;
-    const upToDateMessage = scoped
-      ? `${scopeLabel} materialization is up to date`
-      : "Workspace materialization is up to date";
+    // The words every command uses for an operation with nothing to do.
+    const upToDateMessage = scoped ? `Nothing to sync for ${scopeLabel}` : "Nothing to sync";
 
     const preflight = yield* observeUnit(
       { id: "sync-preflight", label: `${scopeLabel} sync plan` },
@@ -654,7 +651,6 @@ const prepareSyncWorkspace = (
       observedGraph: graph,
       projectionFacts,
       ...(projectionSubjects === undefined ? {} : { projectionSubjects }),
-      upToDateMessage,
     } satisfies SyncWorkspaceCandidate;
   }).pipe(Effect.withSpan("SyncWorkspace.prepare"));
 

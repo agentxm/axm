@@ -14,7 +14,7 @@ export const SerializedErrorCauseSchema = Schema.Struct({
   stack: Schema.optional(Schema.String),
 }).annotate({
   identifier: "ErrorCause",
-  title: "Error Cause",
+  title: "Error cause",
   description: "One serialized entry from a failure's cause chain.",
 });
 export type SerializedErrorCause = typeof SerializedErrorCauseSchema.Type;

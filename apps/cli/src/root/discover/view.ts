@@ -9,9 +9,12 @@ import {
 
 import {
   ABSENT,
+  conditionDoc,
   count,
   inventoryDoc,
+  type CalloutNode,
   type Doc,
+  type EmptyResult,
   type Text,
   type ViewColumn,
 } from "../../screen/index.js";
@@ -85,7 +88,12 @@ const trustText = (row: DiscoverTableRow): Text => {
 };
 
 const DiscoverColumns = [
-  { header: "Extension", priority: "required", value: (row: DiscoverTableRow) => row.extension },
+  {
+    header: "Extension",
+    role: "name",
+    priority: "required",
+    value: (row: DiscoverTableRow) => row.extension,
+  },
   {
     header: "Type",
     value: (row: DiscoverTableRow) =>
@@ -115,35 +123,36 @@ const toDiscoverTableRows = (result: DiscoverExtensionsResult): ReadonlyArray<Di
   );
 
 /** A Registry that did not answer leaves its recommendations unresolved. */
-const registryUnavailable: Text = [
-  { text: "One or more Registry sources unavailable", tone: "warn" },
-];
+const registryUnavailable = (result: DiscoverExtensionsResult): ReadonlyArray<CalloutNode> =>
+  result.registryAvailable
+    ? []
+    : [
+        conditionDoc({
+          tone: "warn",
+          title: "One or more registry sources did not answer",
+          body: ["Recommendations from those sources are missing from this list."],
+        }),
+      ];
 
 const discoverSummary = (
   result: DiscoverExtensionsResult,
   rowCount: number,
 ): ReadonlyArray<Text> => [
   `${count(rowCount, "companion extension")} for ${String(result.document.count)} of ${count(result.document.totalDetected, "detected package")}`,
-  ...(result.registryAvailable ? [] : [registryUnavailable]),
-  [{ text: "axm view <extension> for details", tone: "dim" }],
 ];
 
 /** Nothing to recommend: say what was looked at, so an empty answer is still an answer. */
-const emptyDiscoverDoc = (result: DiscoverExtensionsResult): Doc => [
-  {
-    _tag: "paragraph",
-    text:
-      result.document.totalDetected === 0
-        ? "No dependencies detected in this project."
-        : `No companion extensions for the ${count(result.document.totalDetected, "package")} this project depends on.`,
-  },
-  ...(result.registryAvailable ? [] : [{ _tag: "paragraph", text: registryUnavailable } as const]),
-];
+const emptyDiscover = (result: DiscoverExtensionsResult): EmptyResult => ({
+  statement:
+    result.document.totalDetected === 0
+      ? "No dependencies detected in this project"
+      : `No companion extensions for the ${count(result.document.totalDetected, "package")} this project depends on`,
+});
 
 /**
  * `axm discover` for a person: the recommended companions as a table with
- * their type and trust, the summary after it, or what was looked at when
- * nothing was found.
+ * their type and trust, the summary after it, and how to see one in detail —
+ * or what was looked at when nothing was found.
  */
 export const discoverDoc = (result: DiscoverExtensionsResult): Doc => {
   const rows = toDiscoverTableRows(result);
@@ -151,6 +160,8 @@ export const discoverDoc = (result: DiscoverExtensionsResult): Doc => {
     rows,
     columns: DiscoverColumns,
     summary: discoverSummary(result, rows.length),
-    empty: emptyDiscoverDoc(result),
+    conditions: registryUnavailable(result),
+    next: [{ description: "See an extension in detail", cmd: "axm view <extension>" }],
+    empty: emptyDiscover(result),
   });
 };

@@ -45,7 +45,7 @@ describe("structured output (--json)", () => {
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
         },
-        suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
+        suggestions: [{ description: "Sign in to this registry", cmd: "axm login" }],
       });
       // `axm logout` is a progress-liveness family (see the `logout` row in
       // apps/cli/src/machine-output-contracts.ts), so the sign-out crosses as
@@ -145,7 +145,7 @@ describe("structured output (--json)", () => {
       expect(document).toMatchObject({
         ok: false,
         code: "usage",
-        title: "Usage Error",
+        title: "Usage error",
         detail: "Unrecognized flag: --nonexistent-flag in command axm token",
       });
       expect(result.stderr).toContain("Unrecognized flag: --nonexistent-flag");

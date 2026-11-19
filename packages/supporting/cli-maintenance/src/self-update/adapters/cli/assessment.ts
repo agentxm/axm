@@ -215,15 +215,15 @@ const resultMessage = (
       }
       return result.localVersion === null
         ? `Would install AXM ${result.targetVersion ?? ""} via ${method}; current version could not be determined`
-        : `Would upgrade AXM ${result.localVersion} → ${result.targetVersion ?? ""} via ${method}`;
+        : `Would upgrade AXM ${result.localVersion} to ${result.targetVersion ?? ""} via ${method}`;
     case "upgraded":
       return result.localVersion === null
         ? `Upgraded AXM to ${result.reportedVersion ?? result.targetVersion ?? ""} via ${method}; previous version could not be determined`
-        : `Upgraded AXM ${result.localVersion} → ${result.reportedVersion ?? result.targetVersion ?? ""} via ${method}`;
+        : `Upgraded AXM ${result.localVersion} to ${result.reportedVersion ?? result.targetVersion ?? ""} via ${method}`;
     case "reinstalled":
       return `Reinstalled AXM ${result.reportedVersion ?? result.targetVersion ?? ""} via ${method}`;
     case "already-up-to-date":
-      return `AXM is already up to date · ${result.localVersion ?? result.targetVersion ?? ""} (${method})`;
+      return `AXM ${result.localVersion ?? result.targetVersion ?? ""} is already up to date (${method})`;
     case "local-newer":
       return `AXM ${result.localVersion ?? ""} is newer than latest release ${result.targetVersion ?? ""}; no changes made`;
     case "downgrade-refused":
@@ -235,7 +235,7 @@ const resultMessage = (
     case "rolled-back":
       return `AXM ${result.targetVersion ?? ""} failed verification; restored AXM ${result.reportedVersion ?? "the previous version"}`;
     case "upgrade-unverified":
-      return `${method} completed, but AXM could not verify the installed version · expected ${result.targetVersion ?? ""}`;
+      return `${method} completed, but AXM could not verify the installed version; expected ${result.targetVersion ?? ""}`;
     case "upgrade-incomplete":
       if (result.verification === "unchanged") {
         return `${method} ran, but AXM still reports ${result.reportedVersion ?? ""}; expected ${result.targetVersion ?? ""}`;

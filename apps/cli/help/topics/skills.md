@@ -83,7 +83,8 @@ entry-point, integrity, and ownership checks remain enabled independently.
 
 Within one skill, reference supporting files relative to the skill root (the
 package's `src/` directory). Use forward-slash paths that an agent can open
-directly:
+directly. For example, if validation depends on a policy bundled with the
+skill, the body might say
 
 ```markdown
 Read `references/policy.md`, then run `scripts/validate.sh`.
@@ -183,7 +184,8 @@ Name the pack(s) your skill is designed to ship with in `skill.json` `recommende
 
 When a pack lists this skill as a dependency and the skill lists that pack as recommended, the registry marks both sides of the relationship as **official**. Either side may declare alone; the badge appears only when both agree.
 
-Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
+Declare `recommendedPacks` when you want a pack you publish under the same
+owner to appear as official for this skill.
 
 Keep the skill self-contained. `recommendedPacks` does not install the pack or
 its members. If the skill requires another extension, name that sibling by its
@@ -193,10 +195,10 @@ never by file path. See `axm help packs` for pack composition.
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface
-- `axm help authoring` — writing the registry `description`, keywords, and README
+- `axm help authoring` — writing agent guidance and Registry metadata
 - `axm help packs` — bundling skill extensions with extension packs
 - `axm help workspace-state` — desired, accepted-resolution, and observed semantics
 
 For deeper authoring judgment and evaluation patterns, the optional
-`@agentxm/packs/agent-extension-engineering` collection supplies one routing
+`@agentxm/packs/axe` collection supplies one routing
 skill and its knowledge bundle. Basic skill creation and use do not require it.

@@ -5,7 +5,7 @@ import {
   LatestReleaseCheck,
 } from "@agentxm/cli-maintenance/self-update/application";
 import { withUpdateCheck } from "../update-check-startup.js";
-import { TestRenderer } from "../test-support/presenter-test.js";
+import { makeTestScreen } from "../test-support/test-screen.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { LocalTraceExporter, withLocalTracing } from "./local-tracing.js";
 import { NetworkDisabled } from "@agentxm/host-primitives";
@@ -161,7 +161,7 @@ it.effect("offline suppresses release checks before cache or transport work", ()
   }).pipe(
     Effect.provideService(UpdateCheckCache, { read: () => unexpected, write: () => unexpected }),
     Effect.provideService(LatestReleaseCheck, { check: () => unexpected }),
-    Effect.provide(TestRenderer.make().layer),
+    Effect.provide(makeTestScreen().layer),
     Effect.provideService(NetworkDisabled, true),
     Effect.map((value) => {
       expect(value).toBe("local result");

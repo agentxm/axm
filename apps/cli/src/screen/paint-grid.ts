@@ -8,7 +8,7 @@ import type {
   Mark,
   TableColumn,
   TableRow,
-  Text,
+  PaintText,
   Tone,
 } from "./doc.js";
 import {
@@ -40,7 +40,7 @@ import { longestWordWidth, spansOf, truncateText } from "./wrap-text.js";
  * value: a long label pushes its own value right instead.
  */
 export const paintFields = (
-  fields: ReadonlyArray<{ readonly label: Text; readonly value: Text }>,
+  fields: ReadonlyArray<{ readonly label: PaintText; readonly value: PaintText }>,
   style: ResolvedStyle,
   options: { readonly indent: number; readonly valueStart: number; readonly gap: number },
 ): ReadonlyArray<string> => {
@@ -75,14 +75,14 @@ export const paintFields = (
 
 interface GridSource {
   readonly columns: ReadonlyArray<LayoutColumn>;
-  readonly headers: ReadonlyArray<Text>;
-  readonly rows: ReadonlyArray<ReadonlyArray<Text>>;
+  readonly headers: ReadonlyArray<PaintText>;
+  readonly rows: ReadonlyArray<ReadonlyArray<PaintText>>;
 }
 
 const layoutColumn = (
   column: TableColumn | undefined,
-  header: Text,
-  cells: ReadonlyArray<Text>,
+  header: PaintText,
+  cells: ReadonlyArray<PaintText>,
 ): LayoutColumn => {
   const values = [header, ...cells];
   return {
@@ -96,10 +96,25 @@ const layoutColumn = (
   };
 };
 
-const cellAt = (row: ReadonlyArray<Text>, index: number): Text => row[index] ?? "";
+const cellAt = (row: ReadonlyArray<PaintText>, index: number): PaintText => row[index] ?? "";
+
+/** Narrowest a table's name column shortens to before the table stacks instead. */
+const TABLE_NAME_FLOOR = 20;
+
+/**
+ * A table's name column as the layout engine sees it: its cells are one word,
+ * so it keeps its natural width through every wrapping step and gives way
+ * only at the last resort, where its names shorten in the middle.
+ */
+const tableNameColumn = (laid: LayoutColumn): LayoutColumn => ({
+  ...laid,
+  wordWidth: laid.naturalWidth,
+  minWidth: Math.min(laid.naturalWidth, Math.max(laid.headerWidth, TABLE_NAME_FLOOR)),
+  priority: "required",
+});
 
 interface PaintedCell {
-  readonly text: Text;
+  readonly text: PaintText;
   readonly width: PaintWidth;
   readonly align: "left" | "right";
   /** Cells the content is indented by inside the column, on every line. */
@@ -135,13 +150,20 @@ const paintCells = (
 
 const gridCells = (
   layout: Extract<TableLayout, { _tag: "grid" }>,
-  cells: ReadonlyArray<Text>,
+  cells: ReadonlyArray<PaintText>,
+  shorten?: { readonly index: number; readonly ellipsis: string },
 ): ReadonlyArray<PaintedCell> =>
-  layout.columns.map((column) => ({
-    text: cellAt(cells, column.index),
-    width: column.width,
-    align: column.align,
-  }));
+  layout.columns.map((column) => {
+    const cell = cellAt(cells, column.index);
+    return {
+      text:
+        column.index === shorten?.index
+          ? truncateText(cell, column.width, "middle", shorten.ellipsis)
+          : cell,
+      width: column.width,
+      align: column.align,
+    };
+  });
 
 const hiddenColumnsNote = (
   source: GridSource,
@@ -151,11 +173,16 @@ const hiddenColumnsNote = (
 ): ReadonlyArray<string> => {
   if (layout.hidden.length === 0) return [];
   const names = layout.hidden.map((index) => plain(source.headers[index] ?? "")).join(", ");
-  return paintPrefixed(`Not shown at this width: ${names}`, style, {
-    indent,
-    first: "",
-    tone: "dim",
-  });
+  // Set apart from the rows so it never reads as one of them, and saying how
+  // to see what it left out.
+  return [
+    "",
+    ...paintPrefixed(
+      `Not shown at this width: ${names}. A wider terminal shows ${layout.hidden.length === 1 ? "it" : "them"}.`,
+      style,
+      { indent, first: "", tone: "dim" },
+    ),
+  ];
 };
 
 /**
@@ -175,19 +202,21 @@ export const paintTable = (
   const source: GridSource = {
     headers,
     rows: rows.map((row) => row.cells),
-    columns: columns.map((column, index) =>
-      layoutColumn(
+    columns: columns.map((column, index) => {
+      const laid = layoutColumn(
         column,
         column.header,
         rows.map((row) => cellAt(row.cells, index)),
-      ),
-    ),
+      );
+      return column.role === "name" ? tableNameColumn(laid) : laid;
+    }),
   };
   const layout = layoutTable({
     columns: source.columns,
     available: remaining(style.width, indent + GUTTER_WIDTH),
     gap: COLUMN_GAP,
     stackBelow: style.width === "unbounded" ? 0 : Math.max(0, 40 - indent - GUTTER_WIDTH),
+    optionalWhole: true,
   });
   if (layout._tag === "stacked") {
     const fieldsStart = indent + GUTTER_WIDTH;
@@ -215,15 +244,21 @@ export const paintTable = (
       ];
     });
   }
+  const nameIndex = columns.findIndex((column) => column.role === "name");
+  const shorten = nameIndex < 0 ? undefined : { index: nameIndex, ellipsis: style.glyphs.ellipsis };
+  const painted = rows.map((row) =>
+    paintCells(gridCells(layout, row.cells, shorten), style, { indent, first: rowGutter(row) }),
+  );
+  // Once a row wraps, its continuation lines look like rows of their own, so
+  // a blank line sets each row apart.
+  const wraps = painted.some((lines) => lines.length > 1);
   return [
     ...paintCells(gridCells(layout, headers), style, {
       indent,
       first: blankGutter,
       tone: "dim",
     }),
-    ...rows.flatMap((row) =>
-      paintCells(gridCells(layout, row.cells), style, { indent, first: rowGutter(row) }),
-    ),
+    ...painted.flatMap((lines, index) => (wraps && index > 0 ? ["", ...lines] : lines)),
     ...hiddenColumnsNote(source, layout, style, indent + GUTTER_WIDTH),
   ];
 };
@@ -246,7 +281,7 @@ const depthLead = (row: LedgerRow): number => Math.max(0, row.depth ?? 0) * DEPT
  */
 const ledgerColumn = (
   column: LedgerColumn,
-  cells: ReadonlyArray<Text>,
+  cells: ReadonlyArray<PaintText>,
   nameLaneWidth: number,
 ): LayoutColumn => {
   const laid = layoutColumn(
@@ -277,7 +312,9 @@ const ledgerColumn = (
 /**
  * The tone a reason takes: its own row's mark, so the line and the mark above
  * it make one claim. A row that simply never ran states a fact rather than a
- * failure, so it reads as an aside.
+ * failure, and a row undone because of another row's failure states a
+ * consequence of that cause, so both read as asides and leave the colour to
+ * the cause.
  */
 const reasonTone = (mark: Mark): Tone => {
   switch (mark) {
@@ -285,7 +322,6 @@ const reasonTone = (mark: Mark): Tone => {
     case "error":
       return "error";
     case "blocked":
-    case "rolled-back":
     case "warn":
       return "warn";
     default:
@@ -302,9 +338,9 @@ const reasonTone = (mark: Mark): Tone => {
 const relocatedText = (
   row: LedgerRow,
   hidden: ReadonlyArray<number>,
-  headers: ReadonlyArray<Text>,
+  headers: ReadonlyArray<PaintText>,
   glyphs: Glyphs,
-): Text => {
+): PaintText => {
   const shown = hidden.flatMap((index) => {
     const cell = cellAt(row.cells, index);
     return plain(cell).length === 0 ? [] : [{ header: plain(headers[index] ?? ""), cell }];
@@ -322,14 +358,19 @@ const relocatedText = (
 const paintRelocated = (
   row: LedgerRow,
   hidden: ReadonlyArray<number>,
-  headers: ReadonlyArray<Text>,
+  headers: ReadonlyArray<PaintText>,
   style: ResolvedStyle,
   indent: number,
 ): ReadonlyArray<string> => {
   const text = relocatedText(row, hidden, headers, style.glyphs);
+  // A nested row's values sit beneath its indented name, not its parent's.
   return plain(text).length === 0
     ? []
-    : paintPrefixed(text, style, { indent: indent + GUTTER_WIDTH, first: "", tone: "dim" });
+    : paintPrefixed(text, style, {
+        indent: indent + GUTTER_WIDTH + depthLead(row),
+        first: "",
+        tone: "dim",
+      });
 };
 
 /**
@@ -345,7 +386,7 @@ const paintReason = (
   row.reason === undefined || plain(row.reason).length === 0
     ? []
     : paintPrefixed(row.reason, style, {
-        indent: indent + GUTTER_WIDTH,
+        indent: indent + GUTTER_WIDTH + depthLead(row),
         first: "",
         tone: reasonTone(row.mark),
       });

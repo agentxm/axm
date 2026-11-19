@@ -27,9 +27,9 @@ describe("Primary results on stdout", () => {
         method: new Npm({ importUrl: "file:///npm/axm" }),
         human: true,
       });
-      expect(run.stdout).toContain("Install method: npm");
-      expect(run.stdout).toContain("Ran: npm install -g axm.sh@");
-      expect(run.stdout).toContain("Verified:");
+      expect(run.stdout).toMatch(/Install\smethod\s+npm/u);
+      expect(run.stdout).toMatch(/Ran\s+npm install -g axm\.sh@/u);
+      expect(run.stdout).toMatch(/Verified\s{2,}/u);
       expect(run.stdout).toContain(TARGET_VERSION);
     }),
   );
@@ -38,7 +38,7 @@ describe("Primary results on stdout", () => {
     Effect.gen(function* () {
       const run = yield* runUpgradeCommand({ human: true, preview: true });
       expect(run.stdout).toContain(TARGET_VERSION);
-      expect(run.stdout).toContain("Install method: Homebrew");
+      expect(run.stdout).toMatch(/Install\smethod\s+Homebrew/u);
       expect(run.installMetaWrites).toHaveLength(0);
     }),
   );

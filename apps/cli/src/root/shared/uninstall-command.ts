@@ -77,8 +77,8 @@ const noOpMessage = (
 ): string => {
   const { plural } = extensionTypePresentation(type).noun;
   return alreadyAbsent && !isGlobPattern(selector)
-    ? `No ${plural} uninstalled; ${selector} is not installed.`
-    : `No ${plural} uninstalled.`;
+    ? `No ${plural} uninstalled; ${selector} is not installed`
+    : `No ${plural} uninstalled`;
 };
 
 const body = (args: UninstallCommandArgs) =>

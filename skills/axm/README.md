@@ -28,7 +28,7 @@ for workspace setup and recovery.
 > AXM, and prepare the package for publication.
 
 AXM resolves package and lifecycle state, then routes basic authoring through
-CLI help. The optional `@agentxm/packs/agent-extension-engineering` collection
+CLI help. The optional `@agentxm/packs/axe` collection
 adds deeper design and review guidance; ordinary use does not require it.
 
 ## License
@@ -37,7 +37,7 @@ FSL-1.1-MIT. See the package [license](LICENSE) or the
 [canonical repository terms](https://github.com/agentxm/axm/blob/main/LICENSE).
 
 Shared definitions live in the authoritative
-[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md)
+[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/axe/src/glossary.md)
 in the engineering knowledge bundle.
 
 ## Behavioral evidence

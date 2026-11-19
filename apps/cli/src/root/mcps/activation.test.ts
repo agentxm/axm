@@ -15,6 +15,7 @@ import {
 } from "../../test-support/test-helpers.js";
 
 import { handleDisable, handleEnable } from "../activation-handler.js";
+import { ledgerRows } from "../../test-support/test-screen.js";
 
 const mcpEntry = (enabled: boolean) => ({
   connection: { transport: "streamable-http", url: "https://example.test/mcp", headers: {} },
@@ -72,7 +73,7 @@ describe("mcps enable/disable output", () => {
           name: "context",
           preview: false,
         });
-        rendererState.logs.length = 0;
+        rendererState.docs.length = 0;
         rendererState.results.length = 0;
 
         yield* handleEnable("mcp-server", {
@@ -131,7 +132,7 @@ describe("mcps enable/disable output", () => {
         });
 
         expect(logs.success).toEqual(["Enabled 1 MCP server"]);
-        expect(rendererState.summaries).toEqual(["context   updated   2 files, axm.json"]);
+        expect(ledgerRows(rendererState)).toEqual(["context   updated   2 files, axm.json"]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect installed MCP servers", cmd: "axm mcps list" },
           { description: "Undo", cmd: "axm mcps disable context" },

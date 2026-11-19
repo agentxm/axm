@@ -29,7 +29,7 @@ import {
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-access/testing";
 import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -58,7 +58,7 @@ const makeLayers = (opts?: {
   machine?: boolean;
   json?: boolean;
 }) => {
-  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const renderer = makeTestScreen({ machine: opts?.machine === true });
   const rendererLayer =
     opts?.canAsk === undefined
       ? renderer.layer
@@ -215,12 +215,12 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (entry) => entry._tag === "success" && entry.message.includes("Signed in to"),
           ),
         ).toBe(true);
         expect(
-          rendererState.logs.some((entry) => entry.message.includes("remote or headless")),
+          messages(rendererState).some((entry) => entry.message.includes("remote or headless")),
         ).toBe(false);
       }),
     );
@@ -316,7 +316,7 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (l) =>
               l._tag === "success" &&
               l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
@@ -413,7 +413,7 @@ describe("auth login handler", () => {
 
         // Machine output cannot ask, so the sign-in is handed to a person
         // without blocking on the poll, and the document carries the resume.
-        const instructions = rendererState.logs
+        const instructions = messages(rendererState)
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
         expect(instructions).not.toContain(
@@ -450,7 +450,7 @@ describe("auth login handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleLogin({ yes: false, deviceCode: true });
-          const instructions = rendererState.logs
+          const instructions = messages(rendererState)
             .filter((log) => log._tag === "info")
             .map((log) => log.message);
           expect(instructions).toEqual(
@@ -478,13 +478,13 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
-          rendererState.logs.some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          messages(rendererState).some(
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(true);
         expect(sessionReplacementPrompts).toEqual([true]);
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (l) =>
               l._tag === "success" &&
               l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
@@ -503,12 +503,12 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: true, deviceCode: true });
         expect(
-          rendererState.logs.some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          messages(rendererState).some(
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(true);
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (l) =>
               l._tag === "success" &&
               l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
@@ -551,18 +551,20 @@ describe("auth login handler", () => {
         Effect.gen(function* () {
           yield* handleLogin({ yes: true, deviceCode: true });
           expect(
-            rendererState.logs.filter(
-              (l) => l._tag === "success" && l.message.includes("Already logged in to"),
+            messages(rendererState).filter(
+              (l) => l._tag === "success" && l.message.includes("Already signed in to"),
             ),
           ).toEqual([]);
-          expect(rendererState.logs).toContainEqual({
+          expect(messages(rendererState)).toContainEqual({
             _tag: "info",
-            message: `Already logged in as ${ALICE}.`,
+            message: `Already signed in as ${ALICE}`,
           });
           // The non-interactive device flow hands the approval to a person
           // instead of blocking on the poll.
           expect(
-            rendererState.logs.some((l) => l._tag === "info" && l.message.includes("ABCD-1234")),
+            messages(rendererState).some(
+              (l) => l._tag === "info" && l.message.includes("ABCD-1234"),
+            ),
           ).toBe(true);
         }),
       );
@@ -577,9 +579,9 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "success",
-          message: "Already logged in to registry.agentxm.ai as @alice.",
+          message: "Already signed in to registry.agentxm.ai as @alice",
         });
         expect(rendererState.suggestions).toContainEqual({
           description: "Sign in again with a different account",
@@ -599,13 +601,13 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(sessionReplacementPrompts).toEqual([true]);
         expect(
-          rendererState.logs.filter(
+          messages(rendererState).filter(
             (l) => l._tag === "success" && l.message.includes("Signed in to"),
           ),
         ).toHaveLength(0);
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "success",
-          message: "Already logged in to registry.agentxm.ai as @alice.",
+          message: "Already signed in to registry.agentxm.ai as @alice",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "Check active account", cmd: "axm whoami" },
@@ -628,7 +630,7 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false, deviceCode: true });
 
         expect(
-          rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),
+          messages(rendererState).filter((log) => log._tag === "info" || log._tag === "success"),
         ).toEqual([]);
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
@@ -656,13 +658,13 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
-          rendererState.logs.some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          messages(rendererState).some(
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(false);
-        expect(rendererState.logs).toContainEqual({
+        expect(messages(rendererState)).toContainEqual({
           _tag: "info",
-          message: "Your saved credentials are no longer valid. Starting a new sign-in…",
+          message: "Saved credentials are no longer valid, so AXM is starting a new sign-in",
         });
       }),
     );
@@ -678,7 +680,7 @@ describe("auth login handler", () => {
         const error = yield* handleLogin({ yes: false, deviceCode: true }).pipe(Effect.flip);
         expect(error).toMatchObject({ _tag: "RegistryRequestFailed", category: "network" });
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (l) => l._tag === "info" && l.message.includes("no longer valid"),
           ),
         ).toBe(false);
@@ -712,7 +714,7 @@ describe("auth login handler", () => {
         ),
     });
 
-    const { layer: rendererLayer2, state: rendererState2 } = TestRenderer.make();
+    const { layer: rendererLayer2, state: rendererState2 } = makeTestScreen();
     const interactionLayer2 = AuthLoginInteractionTest().layer;
 
     const layer = Layer.mergeAll(
@@ -732,12 +734,12 @@ describe("auth login handler", () => {
       yield* handleLogin({ yes: false, deviceCode: true });
 
       expect(
-        rendererState2.logs.some(
+        messages(rendererState2).some(
           (l) => l._tag === "success" && l.message === "Signed in to registry.agentxm.ai",
         ),
       ).toBe(true);
       expect(
-        rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("as ")),
+        messages(rendererState2).some((l) => l._tag === "success" && l.message.includes("as ")),
       ).toBe(false);
 
       const credStore = yield* CredentialStore;

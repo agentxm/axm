@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 
 import { chooseUndetectedAgents, observeFirstInstallAgents } from "../shared/first-use.js";
 import { useFirstInstallProject } from "../../test-support/first-install-harness.js";
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 
 describe("first install without detected agents", () => {
   const { writeSource, install } = useFirstInstallProject();
@@ -33,7 +33,7 @@ describe("first install without detected agents", () => {
 
   it.effect("asks for agents after the selection and installs for the ones picked", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push(
         { _tag: "Pick", titles: ["review"] },
         { _tag: "Pick", titles: ["Codex"] },
@@ -52,7 +52,7 @@ describe("first install without detected agents", () => {
 
   it.effect("never asks for agents when the selection is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Cancel" });
 
       const failure = yield* firstInstall(writeSource(["review", "triage"]), screen).pipe(
@@ -67,7 +67,7 @@ describe("first install without detected agents", () => {
 
   it.effect("never asks for agents when the source holds nothing to install", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
 
       const failure = yield* firstInstall(writeSource([]), screen).pipe(Effect.flip);
 
@@ -79,7 +79,7 @@ describe("first install without detected agents", () => {
 
   it.effect("writes nothing when the agent question is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Pick", titles: ["review"] }, { _tag: "Cancel" });
 
       const failure = yield* firstInstall(writeSource(["review", "triage"]), screen).pipe(

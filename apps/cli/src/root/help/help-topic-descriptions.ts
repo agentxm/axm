@@ -14,8 +14,8 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "machine-output-schema":
     "Aggregate JSON Schema for complete command stdout, with route references",
   "machine-output": "JSON stdout documents, NDJSON stderr events, envelopes, and field nesting",
-  "git-hooks": "Run AXM against the exact Git index from common hook managers and CI",
-  authoring: "How to write registry-facing extension descriptions, keywords, and READMEs",
+  "git-hooks": "Validate staged commits and keep extensions in sync after Git branch changes",
+  authoring: "Write agent guidance, Registry descriptions, keywords, and READMEs",
   skills: "How skill extensions work and how AXM installs and manages them",
   "skill-schema": "JSON Schema for a skill extension manifest",
   subagents: "How subagent extensions work and how AXM installs and manages them",

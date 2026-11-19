@@ -32,7 +32,7 @@ describe("registry-access envelope projection", () => {
       }),
     );
     expect(error.code).toBe("auth_expired");
-    expect(error.title).toBe("Authentication Expired");
+    expect(error.title).toBe("Authentication expired");
     expect(error.detail).toBe("That code expired.");
     expect(error.suggestions).toEqual([{ description: "Run axm login to get a new one." }]);
   });

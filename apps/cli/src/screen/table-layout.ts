@@ -9,21 +9,25 @@ import type { TableColumnPriority } from "./doc.js";
  *
  * 1. The natural widths fit: show everything as is.
  * 2. Otherwise, when the available width is below the stacked threshold, stack.
- * 3. Shrink the widest shrinkable columns toward their soft floors: the wider
+ * 3. With `optionalWhole`, drop `optional` columns from the right while the
+ *    rest do not fit whole: a table shows an optional column at its natural
+ *    width or not at all, so it never wraps a cell to keep one.
+ * 4. Shrink the widest shrinkable columns toward their soft floors: the wider
  *    of the declared minimum (default: header width), the widest unbreakable
  *    word, and half the natural width (capped), so cells wrap between words
  *    onto a couple of lines at most.
- * 4. With `wrapBeforeDrop`, shrink to word floors before dropping anything:
+ * 5. With `wrapBeforeDrop`, shrink to word floors before dropping anything:
  *    a ledger would rather wrap a cell onto another line than move its value
- *    out of the column its header names.
- * 5. Drop the droppable priorities in turn, each from the right, refitting at
+ *    out of the column its header names, as long as no `optional` cell needs
+ *    more than three lines to fit.
+ * 6. Drop the droppable priorities in turn, each from the right, refitting at
  *    soft floors after every drop. A table drops `optional` columns and then
  *    `preferred` ones; a ledger drops only `optional` ones, and what it drops
  *    is repainted beneath each row rather than lost.
- * 6. Shrink the surviving columns to their word floors (wrapping onto more
+ * 7. Shrink the surviving columns to their word floors (wrapping onto more
  *    lines but never splitting a word), then to their declared minimums,
  *    splitting words as a last resort.
- * 7. Stack.
+ * 8. Stack.
  */
 
 export const STACKED_THRESHOLD = 40;
@@ -73,6 +77,12 @@ export interface LayoutTableArgs {
    * header names; dropping moves it out of the grid altogether.
    */
   readonly wrapBeforeDrop?: boolean;
+  /**
+   * Show an `optional` column only at its natural width. A table's optional
+   * columns are extras a reader can do without, so giving one up costs less
+   * than wrapping the cells a reader scans down.
+   */
+  readonly optionalWhole?: boolean;
 }
 
 const declaredFloor = (column: LayoutColumn): number =>
@@ -173,6 +183,29 @@ const dropLast = (
   return last === undefined ? undefined : active.filter((index) => index !== last);
 };
 
+/**
+ * The most lines wrapping before a drop may give an `optional` cell. Past it,
+ * a value stacked a word to a line in a narrow column is harder to read than
+ * the same value painted beneath its row, so the column drops instead.
+ */
+const MAX_WRAPPED_LINES = 3;
+
+const wrapsReadably = (
+  columns: ReadonlyArray<LayoutColumn>,
+  active: ReadonlyArray<number>,
+  widths: ReadonlyArray<number>,
+): boolean =>
+  active.every((index, position) => {
+    const column = columns[index];
+    const width = widths[position] ?? 0;
+    return (
+      column === undefined ||
+      column.priority !== "optional" ||
+      width <= 0 ||
+      Math.ceil(column.naturalWidth / width) <= MAX_WRAPPED_LINES
+    );
+  });
+
 export const layoutTable = (args: LayoutTableArgs): TableLayout => {
   const { columns, available, gap } = args;
   const all = columns.map((_, index) => index);
@@ -188,12 +221,31 @@ export const layoutTable = (args: LayoutTableArgs): TableLayout => {
   if (available < (args.stackBelow ?? STACKED_THRESHOLD)) return { _tag: "stacked" };
 
   let active: ReadonlyArray<number> = all;
+  if (args.optionalWhole === true) {
+    let next = dropLast(columns, active, "optional");
+    while (next !== undefined) {
+      active = next;
+      if (
+        gridWidth(
+          active.map((index) => natural[index] ?? 0),
+          gap,
+        ) <= available
+      )
+        return grid(
+          columns,
+          active,
+          active.map((index) => natural[index] ?? 0),
+        );
+      next = dropLast(columns, active, "optional");
+    }
+  }
   const fitted = fit(columns, active, available, gap, softFloor);
   if (fitted !== undefined) return grid(columns, active, fitted);
 
   if (args.wrapBeforeDrop === true) {
     const wrappedWhole = fit(columns, active, available, gap, wordFloor);
-    if (wrappedWhole !== undefined) return grid(columns, active, wrappedWhole);
+    if (wrappedWhole !== undefined && wrapsReadably(columns, active, wrappedWhole))
+      return grid(columns, active, wrappedWhole);
   }
 
   for (const priority of args.droppable ?? (["optional", "preferred"] as const)) {

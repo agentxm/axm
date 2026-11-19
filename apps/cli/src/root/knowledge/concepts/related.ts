@@ -13,7 +13,7 @@ import {
   KnowledgeDiscovery,
 } from "@agentxm/workspace-features/knowledge-query";
 
-import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { ABSENT, count, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -72,8 +72,8 @@ export const handleKnowledgeConceptRelated = Effect.fnUntraced(function* (
     return inventoryDoc({
       rows,
       columns: relatedColumns,
-      summary: `${rows.length} related concept${rows.length === 1 ? "" : "s"}`,
-      empty: "No related installed knowledge concepts were found",
+      summary: [count(rows.length, "related concept")],
+      empty: { statement: "No related installed knowledge concepts found" },
     });
   });
   return processOutcome(0);

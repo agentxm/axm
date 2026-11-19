@@ -12,7 +12,8 @@ import {
 } from "./__generated__/extension-type-matrix.js";
 import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { createTempDir, runCli } from "./e2e/utils.js";
-import { ptyIsSupported, runCliUnderPty } from "./pty.js";
+import { ptyIsSupported } from "@agentxm/test-support/pty";
+import { runCliUnderPty } from "./pty.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 /**
@@ -1046,7 +1047,10 @@ describe("HTTP registry transport", () => {
       expect(result.timedOut).toBe(false);
       expect(result.exitCode, result.transcript).toBe(0);
       expect(result.actions[0]?.matched).toBe(true);
-      expect(result.actions[0]?.emitted).toContain("check extension retry 2 of 3 after 2s");
+      // The active line may wrap at the pane's width; the words are what count.
+      expect(result.actions[0]?.emitted.replace(/\s+/gu, " ")).toContain(
+        "check extension retry 2 of 3 after 2s",
+      );
       expect(registry.requests.filter((request) => request.status === 503)).toHaveLength(1);
     } finally {
       await registry.close();

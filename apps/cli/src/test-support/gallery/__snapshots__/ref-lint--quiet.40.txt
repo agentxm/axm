@@ -1,2 +1,12 @@
+     Finding        Location     Fix
+ ✖   Lockfi…stale   axm.lock     fixable
+     2 entries do not match axm.json
+     (workspace/lockfile-valid)
+ ✖   Descri…ssing   skills/
+                    triage/
+                    SKILL.md
+     Agents choose skills by description
+     (skill/description-present)
+
 2 errors and 1 warning
   1 fixable · exit 1

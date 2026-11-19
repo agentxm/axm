@@ -17,6 +17,7 @@ import {
   property,
 } from "../../test-support/test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
+import { messages } from "../../test-support/test-screen.js";
 
 const writeWorkspace = (
   axmDir: string,
@@ -149,7 +150,7 @@ describe("agents remove.handler", () => {
         });
 
         expect(
-          rendererState.logs.some(
+          messages(rendererState).some(
             (entry) => entry._tag === "success" && entry.message.includes("Done"),
           ),
         ).toBe(false);

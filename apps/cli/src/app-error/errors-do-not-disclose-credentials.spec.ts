@@ -282,7 +282,7 @@ describe("Credential-safe error reports", () => {
         cause.stack = `Error: Exchange answered ${workload}\n at diagnostic ${refresh}`;
         const error = new AppError({
           code: "auth_required",
-          title: "Authentication Required",
+          title: "Authentication required",
           detail: `The Registry refused ${personal}`,
           cause,
           metadata: {

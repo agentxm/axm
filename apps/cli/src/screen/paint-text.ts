@@ -1,7 +1,8 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { plain } from "./doc.js";
-import type { Doc, DocNode, Span, Tone, TreeItem } from "./doc.js";
+import type { Doc, DocNode, Span, Tone } from "./doc.js";
+import { fragment } from "./grammar.js";
 import { displayWidth, padDisplay } from "./width.js";
 import { longestWordWidth } from "./wrap-text.js";
 import { paintFields, paintLedger, paintTable } from "./paint-grid.js";
@@ -33,28 +34,8 @@ export type { PaintStyle, PaintWidth } from "./paint-kit.js";
 
 const actionTarget = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
-const paintTreeItems = (
-  items: ReadonlyArray<TreeItem>,
-  style: ResolvedStyle,
-  prefix: string,
-): ReadonlyArray<string> =>
-  items.flatMap((item, index) => {
-    const last = index === items.length - 1;
-    const childPrefix = `${prefix}${last ? style.glyphs.tree.space : style.glyphs.tree.pipe}`;
-    const lines = paintPrefixed(item.text, style, {
-      indent: 0,
-      first: `${prefix}${last ? style.glyphs.tree.last : style.glyphs.tree.branch}`,
-      rest: childPrefix,
-    });
-    const detailed =
-      item.detail === undefined
-        ? lines
-        : withSupplement(lines, item.detail, style, displayWidth(childPrefix));
-    return [
-      ...detailed,
-      ...(item.children === undefined ? [] : paintTreeItems(item.children, style, childPrefix)),
-    ];
-  });
+/** How far a `Next` description that wraps onto its own line hangs beneath its command. */
+const HANGING_INDENT = 2;
 
 /**
  * Where a node paints: `mark` is the column its gutter starts at, and
@@ -151,7 +132,7 @@ const paintNode = (
       return [
         ...(node.aside === undefined
           ? title
-          : withSupplement(title, node.aside, style, style.valueColumn, {
+          : withSupplement(title, joinedParts(node.aside, glyphs), style, style.valueColumn, {
               gap: (last) => spaces(Math.max(COLUMN_GAP, style.valueColumn - displayWidth(last))),
             })),
         ...children,
@@ -171,14 +152,15 @@ const paintNode = (
         valueStart: style.valueColumn,
         gap: COLUMN_GAP,
       });
-    case "tree":
-      return paintTreeItems(node.roots, style, spaces(content));
     case "next":
       return [
         `${spaces(content)}${dim("Next", style)}`,
-        ...node.actions.flatMap((action) => {
+        ...node.actions.flatMap((suggested) => {
+          const action = { ...suggested, description: fragment(suggested.description) };
           const targetText = actionTarget(action);
-          const target: ReadonlyArray<Span> = [{ text: targetText, copyable: true }];
+          const target: ReadonlyArray<Span> = [
+            { text: targetText, kind: action.url === undefined ? "command" : "url" },
+          ];
           const actionStart = content + GUTTER_WIDTH;
           if (targetText.length === 0) {
             return paintPrefixed(action.description, style, {
@@ -188,8 +170,10 @@ const paintNode = (
             });
           }
           const lines = paintPrefixed(target, style, { indent: actionStart, first: "" });
-          if (action.url !== undefined || plain(action.description).length === 0) return lines;
-          return withSupplement(lines, action.description, style, actionStart, {
+          if (plain(action.description).length === 0) return lines;
+          // A description that cannot share its command's line hangs beneath
+          // it, so on a terminal without colour it is not read as a command.
+          return withSupplement(lines, action.description, style, actionStart + HANGING_INDENT, {
             gap: spaces(COLUMN_GAP),
             ownLine: action.description,
           });
@@ -220,11 +204,14 @@ const paintNodes = (
   content: number,
 ): ReadonlyArray<string> => {
   const firstHeadline = doc.find((node) => node._tag === "headline");
+  const isInset = (node: DocNode): boolean => node._tag === "paragraph" && node.inset === true;
+  // Guidance that sets a value apart, such as the brief a sign-in prints, is
+  // spaced like a structured result, so its `Next` stands apart from the prose.
   const structured = doc.some(
     (node) =>
       node._tag === "ledger" ||
       node._tag === "table" ||
-      node._tag === "tree" ||
+      isInset(node) ||
       (node._tag === "fields" &&
         firstHeadline?._tag === "headline" &&
         firstHeadline.tone === "neutral"),
@@ -235,7 +222,6 @@ const paintNodes = (
       case "ledger":
       case "table":
       case "fields":
-      case "tree":
       case "callout":
       case "next":
       case "prompt":
@@ -243,36 +229,67 @@ const paintNodes = (
         return true;
       case "answer":
         return previous?._tag !== "answer";
+      case "section":
+        // A titled group is a block of its own; an untitled one continues the prose before it.
+        return (
+          node.title !== undefined ||
+          previous?._tag === "ledger" ||
+          previous?._tag === "table" ||
+          previous?._tag === "fields"
+        );
       case "paragraph":
       case "summary":
-      case "section":
       case "markdown":
       case "raw":
         return (
-          previous?._tag === "ledger" ||
-          previous?._tag === "table" ||
-          previous?._tag === "fields" ||
-          previous?._tag === "tree"
+          previous?._tag === "ledger" || previous?._tag === "table" || previous?._tag === "fields"
         );
       case "blank":
         return false;
     }
   };
 
+  const setApart = (node: DocNode, previous: DocNode): boolean =>
+    (structured && startsBlock(node, previous)) ||
+    // `Next` closes a result, so anything a view puts after it starts anew.
+    previous._tag === "next" ||
+    // Sibling groups stand apart from each other.
+    (node._tag === "section" && previous._tag === "section") ||
+    // The one value a sentence asks a person to act on stands apart from the prose around it.
+    isInset(node) ||
+    isInset(previous);
+
+  // A marked headline's text starts past the gutter, so the prose that
+  // continues it starts there too rather than back at the margin.
+  const marked = (node: DocNode): boolean =>
+    node._tag === "headline" &&
+    node.verdict !== true &&
+    statusGlyph(node.tone, style.glyphs) !== undefined;
+  const continuation: Placement = { mark, content: Math.max(content, mark + GUTTER_WIDTH) };
+
   const lines: Array<string> = [];
   let previous: DocNode | undefined;
+  // Whether prose here continues a marked headline: blank lines between its
+  // paragraphs keep the run, and any other node ends it.
+  let continuing = false;
   for (const node of doc) {
+    continuing =
+      (previous !== undefined && marked(previous)) ||
+      (continuing && (previous?._tag === "paragraph" || previous?._tag === "blank"));
+    const placement =
+      continuing && node._tag === "paragraph" && node.inset !== true
+        ? continuation
+        : { mark, content };
     if (
-      structured &&
       node._tag !== "blank" &&
       previous !== undefined &&
       previous._tag !== "blank" &&
-      startsBlock(node, previous) &&
+      setApart(node, previous) &&
       lines.at(-1) !== ""
     ) {
       lines.push("");
     }
-    lines.push(...paintNode(node, style, { mark, content }));
+    lines.push(...paintNode(node, style, placement));
     previous = node;
   }
   return lines;

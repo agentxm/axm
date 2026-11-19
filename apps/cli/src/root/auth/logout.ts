@@ -4,7 +4,7 @@ import { Command } from "effect/cli";
 
 import { logout, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { coerceAuthFailure } from "../../feature-errors.js";
-import { emitResult, successDoc } from "../../screen/index.js";
+import { emitResult, successDoc, suggestionsDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -30,8 +30,8 @@ type LogoutStatus = LogoutResult["status"];
 
 const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction> =>
   status === "not-logged-in"
-    ? [{ description: "Log in to this registry", cmd: "axm login" }]
-    : [{ description: "Log in again", cmd: "axm login" }];
+    ? [{ description: "Sign in to this registry", cmd: "axm login" }]
+    : [{ description: "Sign in again", cmd: "axm login" }];
 
 export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
@@ -66,12 +66,30 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
       LogoutDocumentSchema,
       () => {
         const identity = result.handle === undefined ? "" : ` as ${result.handle}`;
+        if (status === "logged-out-local-only")
+          return [
+            {
+              _tag: "headline",
+              tone: "ok",
+              text: `Signed out of ${result.registryHost}${identity}`,
+            },
+            {
+              _tag: "callout",
+              tone: "warn",
+              title: "The registry did not revoke the token",
+              children: [
+                {
+                  _tag: "paragraph",
+                  text: "AXM removed it from this machine; the registry still accepts it until it expires.",
+                },
+              ],
+            },
+            ...suggestionsDoc(suggestions),
+          ];
         return successDoc(
           status === "not-logged-in"
-            ? `Not logged in to ${result.registryHost}.`
-            : status === "logged-out"
-              ? `Logged out of ${result.registryHost}${identity}.`
-              : `Logged out of ${result.registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
+            ? `Not signed in to ${result.registryHost}`
+            : `Signed out of ${result.registryHost}${identity}`,
           { suggestions },
         );
       },

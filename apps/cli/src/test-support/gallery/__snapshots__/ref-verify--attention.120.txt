@@ -1,0 +1,16 @@
+Verify  on agentxm (https://registry.agentxm.ai) · selected by --registry
+
+     Release                      Presence                     Identity       Archive
+     @acme/skills/review@1.0.0    satisfied                    not assessed   satisfied
+ ▲   @acme/skills/standup@1.0.0   attention: version-missing   not assessed   not assessed
+
+ ▲   What the registry reported
+     Identity not assessed for @acme/skills/review@1.0.0, @acme/skills/standup@1.0.0. No expected integrity was
+     supplied.
+     @acme/skills/standup@1.0.0: the extension is visible, but the Registry does not list version 1.0.0.
+     @acme/skills/standup@1.0.0: archive not assessed. The version is not listed.
+
+The selected 2 releases did not verify  2 requested · 2 distinct · no changes made
+
+Next
+     axm publish @acme/skills/standup   Publish the missing version

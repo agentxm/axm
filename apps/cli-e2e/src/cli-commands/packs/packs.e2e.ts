@@ -491,7 +491,7 @@ describe("axm packs install", () => {
         cwd: temp.path,
       });
       expect(blockedHuman.exitCode, blockedHuman.stdout + blockedHuman.stderr).toBe(6);
-      expect(blockedHuman.stdout + blockedHuman.stderr).toContain("Install is blocked - ");
+      expect(blockedHuman.stdout + blockedHuman.stderr).toContain("Install is blocked");
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lock);
       expect(fs.readFileSync(manifestPath, "utf8")).toBe(before.manifest);
@@ -1360,7 +1360,7 @@ describe("axm packs uninstall", () => {
         cwd: temp.path,
       });
       expect(human.exitCode, human.stdout + human.stderr).toBe(0);
-      expect(human.stdout + human.stderr).toContain("No packs uninstalled.");
+      expect(human.stdout + human.stderr).toContain("No packs uninstalled");
 
       const machine = await runCli(["packs", "uninstall", "missing-*", "--preview", "--json"], {
         cwd: temp.path,

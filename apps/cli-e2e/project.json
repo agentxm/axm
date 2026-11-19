@@ -21,18 +21,6 @@
         "cwd": "apps/cli-e2e"
       }
     },
-    "preview": {
-      "metadata": {
-        "description": "Run the source CLI under a pseudo-terminal and print the screen after a step script: --size <columns>x<rows>, --steps <script>, --frames, --workspace <dir>, --home <dir>, then -- <axm arguments>."
-      },
-      "cache": false,
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun src/pty-preview.ts",
-        "cwd": "apps/cli-e2e",
-        "forwardAllArgs": true
-      }
-    },
     "e2e-main": {
       "cache": false,
       "parallelism": false,

@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/cli";
 import type { HelpDoc } from "effect/cli/HelpDoc";
 
-import { TestRenderer } from "./test-support/presenter-test.js";
+import { makeTestScreen } from "./test-support/test-screen.js";
 import { toJsonHelpDoc } from "./cli-runtime/index.js";
 import { rootCommand } from "./app.js";
 import {
@@ -59,7 +59,7 @@ describe("axm help command conformance", () => {
   it.effect("returns every bundled topic with its full content", () =>
     Effect.gen(function* () {
       for (const topic of HELP_TOPIC_NAMES) {
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         yield* handleHelpPath([topic], rootCommand).pipe(Effect.provide(renderer.layer));
         const result = Schema.decodeUnknownSync(HelpTopicResultSchema)(
           renderer.state.results[0]?.data,
@@ -226,7 +226,7 @@ describe("axm help command conformance", () => {
         expect(HELP_TOPIC_KINDS[topic], topic).toBe("markdown");
         expect(HELP_TOPICS[topic], topic).toContain(`axm ${topic} --help`);
 
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         yield* handleHelpPath([topic], rootCommand).pipe(Effect.provide(renderer.layer));
         expect(renderer.state.results[0]?.data, topic).toEqual({
           topic,
@@ -240,7 +240,7 @@ describe("axm help command conformance", () => {
   it.effect("uses one not-found policy for unknown root and nested paths", () =>
     Effect.gen(function* () {
       for (const path of [["not-a-topic"], ["skills", "not-a-command"], ["publish", "bogus"]]) {
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
         const error = yield* Effect.flip(
           handleHelpPath(path, rootCommand).pipe(Effect.provide(renderer.layer)),
         );
@@ -267,7 +267,7 @@ describe("axm help command conformance", () => {
     "runs topic and command routing without workspace, auth, registry, or network layers",
     () =>
       Effect.gen(function* () {
-        const renderer = TestRenderer.make();
+        const renderer = makeTestScreen();
 
         yield* handleHelpPath(["basic-usage"], rootCommand).pipe(Effect.provide(renderer.layer));
         const commandSignal = yield* Effect.flip(

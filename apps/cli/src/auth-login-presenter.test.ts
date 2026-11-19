@@ -17,12 +17,7 @@ import {
   type DeviceLoginPendingResult,
   type HumanHandoff,
 } from "@agentxm/registry-access/authentication";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-  startedUnits,
-} from "./test-support/presenter-test.js";
+import { makeTestScreen, logsByTag, startedUnits } from "./test-support/test-screen.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
 import { emitLoginOutcome as emitOutcome } from "./root/auth/login.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
@@ -113,7 +108,7 @@ const loginSuccessSuggestions = [
 ];
 
 const makeHuman = () => {
-  const renderer = TestRenderer.make();
+  const renderer = makeTestScreen();
   const copied: Array<string> = [];
   const dependencies = Layer.merge(
     renderer.layer,
@@ -135,7 +130,7 @@ const makeHuman = () => {
 };
 
 const makeMachine = () => {
-  const renderer = TestMachineRenderer.make();
+  const renderer = makeTestScreen({ machine: true });
   const dependencies = Layer.merge(
     renderer.layer,
     Layer.succeed(DeviceLoginInteraction, noInteraction),
@@ -189,7 +184,7 @@ describe("AuthLoginPresenterLive", () => {
 
   it.effect("propagates a failed pending document as a typed output failure", () =>
     Effect.gen(function* () {
-      const renderer = TestMachineRenderer.make();
+      const renderer = makeTestScreen({ machine: true });
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" });
       const dependencies = Layer.merge(
@@ -206,7 +201,7 @@ describe("AuthLoginPresenterLive", () => {
 
   it.effect("distinguishes failed session-replacement output from prompt cancellation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
       const dependencies = Layer.merge(
@@ -222,7 +217,7 @@ describe("AuthLoginPresenterLive", () => {
   );
   it.effect("keeps unavailable interaction configuration distinct from cancellation", () =>
     Effect.gen(function* () {
-      const renderer = TestRenderer.make();
+      const renderer = makeTestScreen();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const sourceError = new ConfigProvider.SourceError({ message: "private source detail" });
       const configError = yield* Config.String("CI").pipe(
@@ -274,22 +269,19 @@ describe("AuthLoginPresenterLive", () => {
     const view = handoffWaitView(deviceHandoff);
     expect(view.brief).toEqual([
       { _tag: "paragraph", text: "To sign in, open this link in a browser:" },
-      { _tag: "blank" },
       {
         _tag: "paragraph",
         inset: true,
-        text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
+        text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", kind: "url" }],
       },
-      { _tag: "blank" },
       {
         _tag: "paragraph",
         text: [
           { text: "Make sure it shows the code " },
-          { text: "ABCD-1234", bold: true },
+          { text: "ABCD-1234", kind: "identifier", bold: true },
           { text: "." },
         ],
       },
-      { _tag: "blank" },
       { _tag: "next", actions: [codeEntryPage] },
     ]);
   });
@@ -520,11 +512,14 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.awaitHuman(loopbackHandoff, Effect.void);
 
       expect(logs.info).toEqual([
-        "Authorize AXM in the browser that just opened.",
-        "Sign-in returns to http://127.0.0.1:3999/callback. On a remote or headless machine, run `axm login --device-code`.",
+        "To sign in, finish in the browser that opened, or open this link:",
+        "https://agentxm.ai/oauth/authorize?state=s1",
       ]);
       expect(state.suggestions).toEqual([
-        { description: "Authorize AXM", url: "https://agentxm.ai/oauth/authorize?state=s1" },
+        {
+          description: "Sign in with a code instead, on a remote or headless machine",
+          cmd: "axm login --device-code",
+        },
       ]);
     }).pipe(Effect.provide(layer));
   });
@@ -535,7 +530,7 @@ describe("AuthLoginPresenterLive", () => {
       const presenter = yield* AuthLoginPresenter;
       yield* presenter.awaitHuman({ ...loopbackHandoff, browserOpened: false }, Effect.void);
 
-      expect(logs.info[0]).toBe("Authorize AXM in a browser.");
+      expect(logs.info[0]).toBe("To sign in, open this link in a browser:");
     }).pipe(Effect.provide(layer));
   });
 });

@@ -16,6 +16,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleList } from "./list.js";
+import { messages } from "../../test-support/test-screen.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -116,7 +117,7 @@ describe("subagents list.handler", () => {
           items: [],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([]);
         expect(rendererState.suggestions).toEqual([]);
       }),
     );
@@ -269,7 +270,9 @@ describe("subagents list.handler", () => {
           count: 0,
           items: [],
         });
-        expect(rendererState.logs).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No subagents match the selected agents" },
+        ]);
       }),
     );
   });

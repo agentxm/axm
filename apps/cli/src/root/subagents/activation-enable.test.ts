@@ -183,7 +183,7 @@ describe("subagents enable.handler", () => {
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.
           expect(logs.success).toEqual([]);
-          expect(logs.error).toContain("Failed to enable 1 subagent");
+          expect(logs.error).toContain("Nothing enabled");
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
               _tag: "ledger",
@@ -194,8 +194,7 @@ describe("subagents enable.handler", () => {
                   cells: expect.arrayContaining(["my-agent"]),
                   // The refusal is why the unit did not settle, so it stands on
                   // the row's reason line rather than in a droppable cell.
-                  reason:
-                    'Accepted subagent content for "my-agent" is not usable (not_found) Effects were restored.',
+                  reason: 'Accepted subagent content for "my-agent" is not usable',
                 }),
               ]),
             }),

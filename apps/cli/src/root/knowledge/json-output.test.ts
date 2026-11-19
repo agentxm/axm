@@ -1,4 +1,4 @@
-import { startedUnits } from "../../test-support/presenter-test.js";
+import { ledgerRows, startedUnits } from "../../test-support/test-screen.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -153,7 +153,7 @@ describe("knowledge JSON output", () => {
   );
 
   it.effect("lint human output renders malformed-frontmatter coordinates once", () => {
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     const packageRoot = path.join(tempDir, "pkg");
     writeAuthoredBundle(packageRoot, { valid: true });
@@ -166,10 +166,10 @@ describe("knowledge JSON output", () => {
       Effect.gen(function* () {
         yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
-        expect(logs.error).toContain(
-          "platform/auth.md:5:1: Invalid YAML frontmatter: Missing closing quote (OKF conformance)",
-        );
-        expect(logs.error.join("\n")).not.toContain("auth.md: auth.md");
+        const rows = ledgerRows(rendererState).join("\n");
+        expect(rows).toContain("Invalid YAML frontmatter: Missing closing quote");
+        expect(rows).toContain("platform/auth.md:5:1");
+        expect(rows).not.toContain("auth.md: auth.md");
       }),
     );
   });
@@ -269,7 +269,7 @@ describe("knowledge JSON output", () => {
       Effect.gen(function* () {
         yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
-        expect(logs.error).toContain("1 knowledge validation error");
+        expect(logs.error).toContain("1 error and 1 warning");
       }),
     );
   });

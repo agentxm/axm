@@ -1,6 +1,6 @@
- ●   Updating
+ ●   Update extensions
  ✖   @acme/knowledge/agent-engineering: failed
      The registry did not answer within 30s while resolving @acme/knowledge/agent-engineering. The
      request was retried three times and the workspace was left as it was.
- ◒   Applying changes: Updating    5.2s
+ ◒   Applying changes: Update extensions   5.2s
      6 of 12 work items finished, 1 did not complete as planned

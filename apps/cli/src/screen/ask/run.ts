@@ -17,6 +17,7 @@ import type * as Terminal from "effect/Terminal";
 
 import type { Ask, AskKind } from "./ask.js";
 import { makeInteractionKeyReader, type InteractionSurface } from "../interaction.js";
+import type { SceneFacts } from "../scene.js";
 import { chooseKind } from "./choose.js";
 import { confirmKind } from "./confirm.js";
 import { inputKind } from "./input.js";
@@ -45,10 +46,27 @@ export const withAskKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => 
   }
 };
 
+/**
+ * The question's view as the live region shows it. The full question and its
+ * note are committed to the transcript first, so the prompt keeps only its
+ * controls and a short identity that stays with them when new output scrolls
+ * the committed question out of the viewport.
+ */
+export const liveAskView =
+  <S, A>(ask: Ask<A>, kind: AskKind<S, A>) =>
+  (state: S, facts: SceneFacts): Doc => {
+    const label: Text = ask.context === undefined ? (ask.label ?? ask.question) : ask.question;
+    return kind.view(state, facts).map((node) => {
+      if (node._tag !== "prompt") return node;
+      const { question: _question, note: _note, ...controls } = node;
+      return { ...controls, question: label };
+    });
+  };
+
 /** Read keys into one kind until it settles; raw mode lasts as long as the scope. */
 const runKind = <S, A>(
   kind: AskKind<S, A>,
-  label: Text,
+  view: (state: S, facts: SceneFacts) => Doc,
   terminal: Terminal.Terminal,
   surface: AskSurface,
 ): Effect.Effect<A, QuestionCancelled | OutputWriteFailed, Scope.Scope> =>
@@ -59,16 +77,7 @@ const runKind = <S, A>(
     const nextKey = yield* makeInteractionKeyReader(terminal, cancelled);
     // The view is handed the space the scene gives it on every paint, so a
     // list sized to the terminal follows a resize without a key being pressed.
-    const show = (state: S) =>
-      surface.showInteraction((facts) =>
-        kind.view(state, facts).map((node) => {
-          if (node._tag !== "prompt") return node;
-          const { question: _question, note: _note, ...controls } = node;
-          // A short identity stays with controls when new output scrolls the
-          // full, committed question out of the viewport.
-          return { ...controls, question: label };
-        }),
-      );
+    const show = (state: S) => surface.showInteraction((facts) => view(state, facts));
     const loop = (state: S): Effect.Effect<A, QuestionCancelled | OutputWriteFailed, Scope.Scope> =>
       Effect.flatMap(nextKey, (key) => {
         const action = kind.reduce(state, key);
@@ -101,12 +110,7 @@ export const runAsk = <A>(
         : [{ _tag: "paragraph", text: ask.context }];
     yield* surface.transcript(context);
     return yield* withAskKind(ask, (kind) =>
-      runKind(
-        kind,
-        ask.context === undefined ? (ask.label ?? ask.question) : ask.question,
-        terminal,
-        surface,
-      ),
+      runKind(kind, liveAskView(ask, kind), terminal, surface),
     ).pipe(
       Effect.onExit((exit) =>
         Exit.isFailure(exit)

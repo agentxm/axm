@@ -132,6 +132,49 @@ describe("production source boundary lint rules", () => {
     expect(await violations('const erase = "\\u001b[2J";', OUTPUT_BOUNDARY)).toEqual([]);
   });
 
+  it("leaves vertical spacing to the painter, allowing a blank only between prose paragraphs", async () => {
+    const VIEW = "apps/cli/src/root/auth/view.ts";
+    const prose =
+      'const doc = [{ _tag: "paragraph", text: "a" }, { _tag: "blank" }, { _tag: "paragraph", text: "b" }];';
+    expect(await violations(prose, VIEW)).toEqual([]);
+    expect(
+      await violations(
+        'const doc = [{ _tag: "paragraph", text: "a" }, { _tag: "blank" }, { _tag: "next", actions: [] }];',
+        VIEW,
+      ),
+    ).toEqual([
+      "axm-policy/no-layout-blank: The painter owns vertical spacing: a blank node only separates two paragraphs of authored prose, never result blocks. Use a section, an inset paragraph, or teach the painter the rule.",
+    ]);
+    expect(
+      await violations(
+        'const join = (groups) => groups.flatMap((group, index) => (index === 0 ? group : [{ _tag: "blank" }, ...group]));',
+        "apps/cli/src/root/help/command-help-view.ts",
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations('const gap = [...(more ? [{ _tag: "blank" } as const] : [])];', VIEW),
+    ).toHaveLength(1);
+    expect(
+      await violations('const gap = [...(more ? [{ _tag: "blank" as const }] : [])];', VIEW),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'const doc = [{ _tag: "paragraph" as const, text: "a" }, { _tag: "blank" as const }, { _tag: "paragraph" satisfies string, text: "b" }];',
+        VIEW,
+      ),
+    ).toEqual([]);
+    expect(
+      await violations('const doc = [{ _tag: "blank" }];', "apps/cli/src/branding/index.ts"),
+    ).toHaveLength(1);
+    // Gallery fixtures compose several documents into one picture.
+    expect(
+      await violations(
+        'const doc = [{ _tag: "blank" }];',
+        "apps/cli/src/test-support/gallery/wait-open.gallery.ts",
+      ),
+    ).toEqual([]);
+  });
+
   it("reports the streaming result shape in code position", async () => {
     expect(await violations("renderer.resultStream(stream, schema);", PRODUCTION_SOURCE)).toEqual([
       "axm-policy/no-result-stream: Ordinary --json output is one document; streaming requires a future explicit output mode.",

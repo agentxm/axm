@@ -101,15 +101,17 @@
     },
     "apps/cli": {
       "includeEntryExports": false,
-      // Explicit roots for source-conditioned Bun launchers and compiler-only tests.
+      // Explicit roots for source-conditioned Bun launchers, compiler-only
+      // tests, and the gallery fixture modules the gallery discovers by name.
       "entry": [
         "src/main.ts",
         "src/**/*.type-test.ts",
+        "src/**/*.gallery.ts",
         "scripts/generate-agent-catalog.ts",
         "scripts/generate-cli-reference.ts",
         "scripts/generate-schemas.ts",
         "scripts/generate-type-enumerations.ts",
-        "scripts/paint-gallery.ts",
+        "scripts/lab/main.ts",
       ],
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],

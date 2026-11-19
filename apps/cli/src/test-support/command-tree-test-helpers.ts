@@ -15,7 +15,7 @@ import * as ServiceMap from "effect/Context";
 import { CliOutput, Command } from "effect/cli";
 import type { HelpDoc } from "effect/cli/HelpDoc";
 
-import { TestRenderer } from "./presenter-test.js";
+import { makeTestScreen } from "./test-screen.js";
 import { rootCommand } from "../app.js";
 import { toJsonHelpDoc } from "../cli-runtime/index.js";
 import { LearnMore } from "../formatter.js";
@@ -36,7 +36,7 @@ export const captureHelpDocForArgs = (
 ): Effect.Effect<HelpDoc, unknown, never> =>
   Effect.gen(function* () {
     const files: Array<HelpDoc> = [];
-    const renderer = TestRenderer.make();
+    const renderer = makeTestScreen();
     const formatter: CliOutput.Formatter = {
       ...CliOutput.defaultFormatter({ colors: false }),
       formatHelpDoc: (doc) => {

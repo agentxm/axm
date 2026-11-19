@@ -16,12 +16,25 @@
     "./auth-server": {
       "types": "./src/device-auth-server.ts",
       "default": "./src/device-auth-server.ts"
+    },
+    "./terminal-replay": {
+      "types": "./src/terminal-replay.ts",
+      "default": "./src/terminal-replay.ts"
+    },
+    "./key-steps": {
+      "types": "./src/key-steps.ts",
+      "default": "./src/key-steps.ts"
+    },
+    "./pty": {
+      "types": "./src/pty.ts",
+      "default": "./src/pty.ts"
     }
   },
   "nx": {
     "includedScripts": []
   },
   "dependencies": {
+    "@xterm/headless": "6.0.0",
     "effect": "catalog:",
     "memfs": "^4.80.0",
     "vitest": "catalog:"
@@ -30,6 +43,7 @@
     "@agentxm/test-reporting": "workspace:*",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:"
   }

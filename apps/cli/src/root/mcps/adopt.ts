@@ -79,7 +79,7 @@ const handleMcpsAdoptBody = Effect.fn("Mcps.adopt")(function* (args: McpsAdoptAr
     recovery,
     suggestions,
     ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
-      ? { message: "No unmanaged MCP servers adopted." }
+      ? { message: "No unmanaged MCP servers adopted" }
       : {}),
     adoptions: {
       adopted: appliedCount,

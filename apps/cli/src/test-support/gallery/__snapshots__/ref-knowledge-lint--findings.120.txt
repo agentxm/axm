@@ -1,0 +1,9 @@
+Lint knowledge  3 bundles
+
+     Finding                                           Location
+ ✖   Invalid YAML frontmatter: Missing closing quote   platform/auth.md:5:1
+     OKF conformance
+ ▲   Description is longer than 200 characters         platform/index.md
+     AgentXM profile
+
+1 error and 1 warning  exit 1

@@ -1,0 +1,9 @@
+ ✔   Share 2 extensions            origin available
+     Origin                        https://github.com/acme/platform-services
+npm: package.json
+     "agentExtensions": [
+       { "ref": "github:acme/platform-services" }
+     ]
+Next
+     axm install github:acme/platform-services --all
+       Install these extensions in another project

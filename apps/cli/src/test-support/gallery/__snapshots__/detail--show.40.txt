@@ -1,0 +1,36 @@
+1 local subject · coverage complete
+@acme/skills/code-review
+     Local name     code-review
+     Type           skill
+     Scope          project
+     Source authority
+       registry
+     Source         https://
+                    registry.agentxm.ai
+     Configured agents
+       claude-code, codex
+     Native locations
+       no native location established
+     Native coverage
+       partial: Native locations were
+       not observed
+     Edit owner     unavailable
+     Desired        reached
+     Accepted       present (1.4.0)
+     Observed       present:
+                    agent_extensions/
+                    registry.agentxm.ai/
+                    @acme/skills/
+                    code-review
+     Observed version
+       1.4.0
+     Retained because
+       Declared directly in axm.json
+     Runtime        not-checked
+     Discovery      no duplicate
+                    discovery
+                    established
+     Coverage       Desired: complete;
+                    Accepted: complete;
+                    Observed: complete;
+                    Retention: complete

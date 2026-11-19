@@ -13,6 +13,7 @@ export const InteractiveScreen = (options?: { readonly outputPolicy?: CliOutputP
       quiet: outputPolicy.quiet,
       colors: outputPolicy.stderrColors,
       glyphs,
+      taskbarProgress: outputPolicy.taskbarProgress,
     }),
     OutputStreamsLive,
   );

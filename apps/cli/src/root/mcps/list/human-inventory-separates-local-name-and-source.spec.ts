@@ -10,6 +10,7 @@ import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { acceptExecutionChangesFlag } from "../../../cli-flags/index.js";
 import { handleInstall } from "../../install/handler.js";
 import { handleList } from "../list.js";
+import { tables } from "../../../test-support/test-screen.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/list/human-inventory-separates-local-name-and-source",
@@ -57,7 +58,7 @@ describe("List locally named MCP connections for a person", () => {
           Effect.provide(workspace.layer),
         );
       }
-      workspace.rendererState.tables.length = 0;
+      workspace.rendererState.docs.length = 0;
       return workspace;
     });
 
@@ -67,17 +68,17 @@ describe("List locally named MCP connections for a person", () => {
 
       yield* handleList().pipe(Effect.provide(workspace.layer));
 
-      expect(workspace.rendererState.tables[0]?.items).toEqual(
+      expect(tables(workspace.rendererState)[0]?.rows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            localName: "work-context",
-            source: "test:@acme/mcps/context",
-            version: "1.0.0",
+            "Local name": "work-context",
+            Source: "test:@acme/mcps/context",
+            Version: "1.0.0",
           }),
           expect.objectContaining({
-            localName: "personal-context",
-            source: "test:@acme/mcps/context",
-            version: "1.0.0",
+            "Local name": "personal-context",
+            Source: "test:@acme/mcps/context",
+            Version: "1.0.0",
           }),
         ]),
       );

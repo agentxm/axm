@@ -72,7 +72,7 @@ describe("axm token show", () => {
     });
     expect(result.exitCode).toBe(13);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("auth_required, exit 13");
+    expect(result.stderr).toMatch(/auth_required [·-] exit 13/u);
     expect(result.stderr).toContain("axm login --device-code --json");
   });
 

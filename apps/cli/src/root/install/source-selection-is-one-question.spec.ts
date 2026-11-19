@@ -12,7 +12,7 @@ import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 
 import { paintText } from "../../screen/paint-text.js";
-import { makeTestScreen } from "../../test-support/screen-test.js";
+import { makeTestScreen } from "../../test-support/test-screen.js";
 import {
   cliTestBuiltInSources,
   makeWorkspaceLifecycleTestContext,
@@ -167,7 +167,7 @@ describe("Choosing what to install from a source", () => {
 
   it.effect("states what the source offers, then asks once across every type", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Pick", titles: ["kit"] });
 
       yield* install(writeSource(tempDir), screen);
@@ -191,7 +191,7 @@ describe("Choosing what to install from a source", () => {
 
   it.effect("shows what a picked Pack brings as included, and installs it through the Pack", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Pick", titles: ["kit"] });
 
       yield* install(writeSource(tempDir), screen);
@@ -214,7 +214,7 @@ describe("Choosing what to install from a source", () => {
 
   it.effect("changes nothing when the question is cancelled", () =>
     Effect.gen(function* () {
-      const screen = makeTestScreen();
+      const screen = makeTestScreen({ interactive: true });
       screen.state.script.answers.push({ _tag: "Cancel" });
       const before = fs.readFileSync("axm.json", "utf8");
 

@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document.",
+        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document.",
       retirementCondition:
         "Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.",
     },
@@ -90,15 +90,6 @@ const document = [
   },
   { _tag: "wait", status: "Waiting", chips: [{ key: "esc", word: "stop" }] },
   { _tag: "answer", label: "Continue?", value: "yes", mark: "ok" },
-  {
-    _tag: "tree",
-    roots: [
-      {
-        text: "root",
-        children: [{ text: content, children: [{ text: "leaf" }] }, { text: "sibling" }],
-      },
-    ],
-  },
   { _tag: "next", actions: [{ description: "Inspect", cmd: `axm view ${content}` }] },
   { _tag: "summary", parts: [{ text: "finished" }, { text: content }] },
   { _tag: "section", title: "section", children: [{ _tag: "paragraph", text: content }] },
@@ -168,9 +159,6 @@ describe("Human display symbols", () => {
             "grouped",
             "attention",
             "inventory",
-            "root",
-            "leaf",
-            "sibling",
             "Inspect",
             "finished",
             "section",
@@ -179,9 +167,9 @@ describe("Human display symbols", () => {
           ]) {
             expect(output, `${channel}: ${label}`).toContain(label);
           }
-          // All 12 independently supplied content occurrences must survive;
+          // All 11 independently supplied content occurrences must survive;
           // stripping them cannot make dropped or transliterated content pass.
-          expect(output.split(content)).toHaveLength(13);
+          expect(output.split(content)).toHaveLength(12);
           const symbolsAndAsciiText = output.split(content).join("");
           expect(/^[\x20-\x7e\n]*$/u.test(symbolsAndAsciiText)).toBe(row.ascii);
         }

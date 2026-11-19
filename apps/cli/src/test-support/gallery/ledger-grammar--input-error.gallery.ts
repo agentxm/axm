@@ -1,0 +1,19 @@
+import type { Doc } from "../../screen/doc.js";
+import { inputDoc } from "../../screen/ask/input.js";
+import { instructionFileName } from "./samples/instruction-source-asks.js";
+import { galleryModule } from "./fixture.js";
+
+/**
+ * A typed line its question refused: what was typed stays behind the caret,
+ * and the reason stands beneath it in the attention mark until the next edit.
+ */
+const ledgerGrammarInputError: Doc = inputDoc(instructionFileName, {
+  raw: "/etc/AGENTS.md",
+  problem: "Enter a path relative to the project root.",
+});
+
+export default galleryModule({
+  _tag: "document",
+  name: "ledger-grammar--input-error",
+  doc: ledgerGrammarInputError,
+});

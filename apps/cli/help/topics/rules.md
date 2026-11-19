@@ -19,7 +19,7 @@ Global instruction-file propagation is a separate workspace capability. Use
 
 ## Install and manage Rules
 
-Install, inspect, activate, and remove Rules through the `axm rules` group:
+Each example below shows a separate Rule management operation.
 
 ```bash
 axm rules install @owner/rules/<name>

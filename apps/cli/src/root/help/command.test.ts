@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/cli";
 
-import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
+import { makeTestScreen, messages, markdown, tables } from "../../test-support/test-screen.js";
 import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 import { HELP_TOPICS } from "../../__generated__/help-topics.js";
 import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./command.js";
@@ -25,33 +25,33 @@ const nonPackExtensionHelpTopics = extensionTypePluralSegments.filter((topic) =>
 describe("help topic command", () => {
   it.effect("renders the interactive help index as a structured table", () =>
     Effect.gen(function* () {
-      const { layer, state } = TestRenderer.make();
+      const { layer, state } = makeTestScreen();
 
       yield* handleHelpPath([], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.results).toHaveLength(1);
-      expect(state.markdown).toEqual([]);
-      expect(state.tables).toHaveLength(1);
+      expect(markdown(state)).toEqual([]);
+      expect(tables(state)).toHaveLength(1);
 
-      const table = state.tables[0];
+      const table = tables(state)[0];
       expect(table?.caption).toBeUndefined();
-      expect(table?.items).toEqual(
-        ORDERED_TOPIC_NAMES.map((topic) => ({ topic, description: expect.any(String) })),
+      expect(table?.rows).toEqual(
+        ORDERED_TOPIC_NAMES.map((topic) => ({ Topic: topic, Description: expect.any(String) })),
       );
 
-      expect(state.logs).toEqual([]);
+      expect(messages(state)).toEqual([]);
       expect(state.suggestions).toEqual(helpIndexSuggestions);
     }),
   );
 
   it.effect("keeps machine help index structured with suggestions", () =>
     Effect.gen(function* () {
-      const { layer, state } = TestMachineRenderer.make();
+      const { layer, state } = makeTestScreen({ machine: true });
 
       yield* handleHelpPath([], testRootCommand).pipe(Effect.provide(layer));
 
-      expect(state.tables).toEqual([]);
-      expect(state.logs).toEqual([]);
+      expect(tables(state)).toEqual([]);
+      expect(messages(state)).toEqual([]);
 
       expect(state.suggestions).toEqual(helpIndexSuggestions);
     }),
@@ -59,41 +59,41 @@ describe("help topic command", () => {
 
   it.effect("records markdown for interactive topic pages", () =>
     Effect.gen(function* () {
-      const { layer, state } = TestRenderer.make();
+      const { layer, state } = makeTestScreen();
 
       yield* handleHelpPath(["basic-usage"], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.results).toHaveLength(1);
-      expect(state.markdown).toEqual([HELP_TOPICS["basic-usage"]]);
+      expect(markdown(state)).toEqual([HELP_TOPICS["basic-usage"]]);
     }),
   );
 
   it.effect("exposes self-containment guidance from every non-pack extension topic", () =>
     Effect.gen(function* () {
       for (const topic of nonPackExtensionHelpTopics) {
-        const { layer, state } = TestRenderer.make();
+        const { layer, state } = makeTestScreen();
 
         yield* handleHelpPath([topic], testRootCommand).pipe(Effect.provide(layer));
 
-        expect(state.markdown[0]).toContain("self-contained");
-        expect(state.markdown[0]).toContain("axm help packs");
+        expect(markdown(state)[0]).toContain("self-contained");
+        expect(markdown(state)[0]).toContain("axm help packs");
       }
     }),
   );
 
   it.effect("documents pack composition without a cross-extension path convention", () =>
     Effect.gen(function* () {
-      const { layer, state } = TestRenderer.make();
+      const { layer, state } = makeTestScreen();
 
       yield* handleHelpPath(["packs"], testRootCommand).pipe(Effect.provide(layer));
 
-      expect(state.markdown[0]).toContain("## Cross-extension dependencies and references");
-      expect(state.markdown[0]).toMatch(/direct dependencies of the\s+same pack/);
-      expect(state.markdown[0]).toContain("does not install the pack or its members");
-      expect(state.markdown[0]).toContain("never references another extension's files by path");
-      expect(state.markdown[0]).toContain("Name the required sibling by its extension identity");
-      expect(state.markdown[0]).not.toContain("```text\nagent_extensions/<source-name>");
-      expect(state.markdown[0]).not.toMatch(/reference the target's canonical path/);
+      expect(markdown(state)[0]).toContain("## Cross-extension dependencies and references");
+      expect(markdown(state)[0]).toMatch(/direct dependencies of the\s+same pack/);
+      expect(markdown(state)[0]).toContain("does not install the pack or its members");
+      expect(markdown(state)[0]).toContain("never references another extension's files by path");
+      expect(markdown(state)[0]).toContain("Name the required sibling by its extension identity");
+      expect(markdown(state)[0]).not.toContain("```text\nagent_extensions/<source-name>");
+      expect(markdown(state)[0]).not.toMatch(/reference the target's canonical path/);
     }),
   );
 });

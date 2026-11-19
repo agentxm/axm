@@ -1,4 +1,4 @@
-Linting  in this project
+Lint  in this project
 
      Finding                       Location                 Fix
  ✖   Lockfile is stale             axm.lock                 fixable

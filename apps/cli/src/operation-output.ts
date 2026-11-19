@@ -92,9 +92,9 @@ import {
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
-import { emitResult, count, moment, type Doc } from "./screen/index.js";
+import { currentProjectName } from "./project-name.js";
+import { emitResult, count, moment, type CalloutNode } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v4";
 
@@ -1022,7 +1022,7 @@ export const releaseAgeDoc = (
   recovery: CommandInvocation | undefined,
   result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
   settled?: { readonly unsettled: ReadonlySet<string> },
-): Doc => {
+): ReadonlyArray<CalloutNode> => {
   const holdbacks = result.holdbacks ?? [];
   // A bypass says a newer release was let into the workspace. Where the unit
   // it names did not settle as planned, nothing was let in, and a callout
@@ -1176,15 +1176,6 @@ export const operationNextActions = (
   );
 };
 
-/** The last segment of a project root, as the title line names the project. */
-const projectDirectoryName = (baseDir: string): string | undefined => {
-  const name = baseDir
-    .replace(/[/\\]+$/u, "")
-    .split(/[/\\]/u)
-    .at(-1);
-  return name === undefined || name.length === 0 ? undefined : name;
-};
-
 /**
  * The `Next` list a settled operation emits for an adapter's suggestions. An
  * adapter that derives its suggestions from the outcome offers ones that fit
@@ -1230,11 +1221,7 @@ export const emitOperationResolution = (
     const { scope, routes } = yield* currentWorkspaceScoping;
     // The title names the project a command acted in by its directory, so a
     // reader with several checkouts open sees which one changed.
-    const project = Option.match(yield* Effect.serviceOption(WorkspaceLocation), {
-      onNone: () => undefined,
-      onSome: (location) =>
-        location.scope === "project" ? projectDirectoryName(location.baseDir) : undefined,
-    });
+    const project = yield* currentProjectName;
     const suggestions = next.length === 0 ? undefined : suggestionsForScope(next, scope, routes);
 
     const result = toPlanResolutionResult(resolution, {

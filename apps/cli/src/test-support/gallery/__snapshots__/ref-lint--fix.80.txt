@@ -1,4 +1,4 @@
-Fixing  in this project
+Fix  in this project
 
      Finding                       Location                 Fix
  ~   Lockfile is stale             axm.lock                 fixed

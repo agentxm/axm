@@ -332,7 +332,7 @@ describe("axm lint handler", () => {
         yield* lint({}).pipe(Effect.exit);
         const stdout = printed(rendererState, "stdout");
         expect(printed(rendererState, "stderr")).toBe("");
-        expect(stdout).toContain("Linting");
+        expect(stdout).toMatch(/^Lint {2}in /);
         expect(stdout).toMatch(/Finding\s+Location\s+Fix/);
         expect(stdout).toContain("workspace/lockfile-valid");
         // The skill's missing resolution is one fact; its absent agent
@@ -356,7 +356,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("quiet mode prints only the verdict", () => {
+  it.effect("quiet mode keeps the errors and the verdict", () => {
     const { provide, rendererState } = makeLayers({ quiet: true });
     writeSettings({
       agents: ["claude-code"],
@@ -367,9 +367,10 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const stdout = printed(rendererState, "stdout");
-        expect(stdout.split("\n")).toHaveLength(1);
-        expect(stdout).toContain("error");
-        expect(stdout).toContain("exit 1");
+        expect(stdout).not.toMatch(/^Lint/);
+        expect(stdout).toContain("workspace/lockfile-valid");
+        expect(stdout).not.toContain("workspace/axm-skill-declared");
+        expect(stdout.trimEnd().split("\n").at(-1)).toContain("exit 1");
         expect(printed(rendererState, "stderr")).toBe("");
       }),
     );
@@ -393,7 +394,7 @@ describe("axm lint handler", () => {
       const fix = makeLayers();
       yield* fix.provide(lint({ fix: true })).pipe(Effect.exit);
       const after = printed(fix.rendererState, "stdout");
-      expect(after).toContain("Fixing");
+      expect(after).toMatch(/^Fix {2}in /);
       expect(after).toMatch(
         /~ {3}The Claude Code instruction file is missing\s+\S*CLAUDE\.md\s+fixed/,
       );

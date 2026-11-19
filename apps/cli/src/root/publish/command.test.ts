@@ -492,7 +492,7 @@ describe("root publish", () => {
           yield* handleRootPublish(args(registry, { preview: false }));
 
           expect(painted(rendererState)).toEqual([
-            "Publishing  as @acme - to publication",
+            "Publish  as @acme - to publication",
             "",
             "     Extension                     Version   Status      Detail",
             " +   @acme/skills/review           1.0.0     published",
@@ -627,19 +627,26 @@ describe("root publish", () => {
       ],
     });
 
-    it.effect("prints the registry page as a copyable line beneath the verdict", () => {
+    it.effect("offers the registry page as the first next step after the verdict", () => {
       const { provide, rendererState } = makeContext(false);
 
       return provide(
         Effect.gen(function* () {
           yield* emitPublishResult(publishedReview, { elapsedMs: 1_200 });
 
-          expect(painted(rendererState).slice(-2)).toEqual([
+          expect(painted(rendererState).slice(-4)).toEqual([
             "Published 1 extension  public - 1.2s",
-            "https://agentxm.ai/acme/skills/review",
+            "",
+            "Next",
+            "     https://agentxm.ai/acme/skills/review   View @acme/skills/review in the registry",
           ]);
-          // The page is already on screen, so the next steps do not repeat it.
-          expect(rendererState.suggestions).toEqual([]);
+          // The page leads `Next` once; no other suggestion repeats it.
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View @acme/skills/review in the registry",
+              url: "https://agentxm.ai/acme/skills/review",
+            },
+          ]);
         }),
       );
     });
@@ -711,7 +718,7 @@ describe("root publish", () => {
           );
 
           expect(painted(rendererState)).toEqual([
-            "Publishing  as @acme - to unknown",
+            "Publish  as @acme - to unknown",
             "",
             "     Extension                     Version   Status   Detail",
             " xx  @acme/skills/review           1.0.0     failed   upload failed, retryable",

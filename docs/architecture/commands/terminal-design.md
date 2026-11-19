@@ -78,6 +78,15 @@ shape happens to fit the terminal.
 | Group related nodes, optionally under a dim title            | `section`; the painter sets sibling sections apart                                                    |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
+A result takes one of a few shapes, and `apps/cli/src/screen/templates.ts`
+defines each as a type whose parts come in a fixed order: an operation
+result (title line, ledger and what it carries, conditions, verdict, `Next`),
+an empty result (one statement and `Next`), and a record (a verdict, its
+fields, notes, conditions, sections, and `Next`). Conditions are callouts by
+type, so they stand between the rows and the verdict by construction, and
+`Next` closes every shape. A view chooses the shape its result means and fills
+it; it does not arrange nodes itself.
+
 Every command whose result carries a ledger opens with the same title line:
 what it is doing, where it acts, and which agents it covers, stated once so no
 row repeats it. A plan says what the command is doing; a settled result names
@@ -95,8 +104,7 @@ waiting where an unchanged retry can change their outcome, or what the
 producers of those failures themselves suggested. Where no command would
 change the outcome, it offers no retry. A command's general suggestions, which
 do not depend on the outcome, follow every recovery, and a failure that
-changed nothing and names a recovery leaves them out. No command prints a logo or a phase
-strip; setup opens like every other command.
+changed nothing and names a recovery leaves them out. No result prints a logo or a phase strip, and setup opens like every other command; root help alone carries the brand mark, because it introduces the tool rather than recording work.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.

@@ -1,4 +1,4 @@
-Publishing  as @acme · to agentxm
+Publish  as @acme · to agentxm
 
      Extension       Version   Status
  ▲   @acme/…review   1.4.0     blocked

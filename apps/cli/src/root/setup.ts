@@ -226,7 +226,7 @@ export interface HandleSetupArgs {
 
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetupArgs) {
   return yield* withLiveOperation(
-    { name: "Configure AXM workspace", mode: args.preview === true ? "preview" : "apply" },
+    { name: "Set up AXM", mode: args.preview === true ? "preview" : "apply" },
     Effect.gen(function* () {
       const screen = yield* Screen;
       const path = yield* Path.Path;

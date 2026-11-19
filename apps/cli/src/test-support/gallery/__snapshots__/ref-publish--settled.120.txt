@@ -1,4 +1,4 @@
-Publishing  as @acme · to agentxm
+Publish  as @acme · to agentxm
 
      Extension                     Version   Status              Detail
  +   @acme/skills/code-review      1.4.0     published
@@ -7,4 +7,6 @@ Publishing  as @acme · to agentxm
  +   @acme/packs/review-kit        2.1.0     published
 
 Published 3 extensions  public · 42s
-https://agentxm.ai/@acme/packs/review-kit
+
+Next
+     https://agentxm.ai/@acme/packs/review-kit   View @acme/packs/review-kit in the registry

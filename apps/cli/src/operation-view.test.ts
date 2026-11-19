@@ -77,10 +77,9 @@ it.each([40, 80, 120, 200])(
     expect(compactText(text)).toContain(
       compactText("A remaining consumer still requires this entry"),
     );
+    expect(compactText(text)).toContain(compactText("AXM preserved 1 original file"));
     expect(compactText(text)).toContain(
-      compactText(
-        "Preserved original for /workspace/native.json: /workspace/.axm-retired-id/native.json",
-      ),
+      compactText("/workspace/native.json /workspace/.axm-retired-id/native.json"),
     );
     for (const line of text.split("\n"))
       expect(displayWidth(line), line).toBeLessThanOrEqual(columns);

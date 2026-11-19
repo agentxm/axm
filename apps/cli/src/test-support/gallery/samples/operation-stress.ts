@@ -317,7 +317,7 @@ const liveUpdateLog: ReadonlyArray<OperationEvent> = [
     seq: 1,
     atMs: STARTED_AT,
     operationId: "update-1",
-    name: "Updating",
+    name: "Update extensions",
     mode: "apply",
   },
   { _tag: "PhaseStarted", seq: 2, atMs: STARTED_AT + 1, phase: "apply" },

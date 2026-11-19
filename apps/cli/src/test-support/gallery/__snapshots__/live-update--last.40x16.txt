@@ -1,4 +1,4 @@
- ●   Updating
+ ●   Update extensions
  ✖   @acme/knowledge/agent-engineering:
      failed
      The registry did not answer within
@@ -51,5 +51,5 @@
      @acme/rules/typescript still
      resolves to the version already
      installed.
- ◒   Applying changes: Updating   10.6s
+ ◒   Applying changes: Update extensio…
      @acme/skills/incident-review, 11 …

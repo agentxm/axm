@@ -1592,12 +1592,8 @@ describe("setup.handler", () => {
             {
               _tag: "headline",
               tone: "neutral",
-              text: [
-                {
-                  text: `Setting up AXM in ${fs.realpathSync(tempDir)} for this project`,
-                  bold: true,
-                },
-              ],
+              text: [{ text: "Setting up AXM", bold: true }],
+              aside: [{ text: `in ${path.basename(fs.realpathSync(tempDir))}` }],
             },
           ]);
         }),
@@ -1648,7 +1644,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(messages(rendererState)[0]?.message).toMatch(/^Setting up AXM in /);
+          expect(messages(rendererState)[0]?.message).toBe("Setting up AXM");
           expect(ledgerRows(rendererState)).toContainEqual("axm.json   created   ");
           expect(messages(rendererState)).toContainEqual({
             _tag: "success",

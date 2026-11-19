@@ -14,12 +14,15 @@ import {
   type Span,
   type Text,
   type Tone,
+  type CalloutNode,
+  conditionDoc,
   count,
   exitPhrase,
   factParts,
   ledgerViewPolicy,
+  operationResultDoc,
   scopePhrase,
-  suggestionsDoc,
+  titleDoc,
 } from "../../screen/index.js";
 
 /**
@@ -45,6 +48,8 @@ export interface LintViewInput {
   readonly driftBanner: ReadonlyArray<string>;
   readonly fix: boolean;
   readonly scope: WorkspaceScope;
+  /** The project directory's name, which the title line says lint looked in. */
+  readonly project?: string | undefined;
   readonly exitCode: number;
   readonly verbosity: VerbosityLevel;
 }
@@ -217,16 +222,15 @@ const fixVerdict = (input: LintViewInput): DocNode => {
   };
 };
 
-const driftCallout = (ruleIds: ReadonlyArray<string>): Doc =>
+const driftCallout = (ruleIds: ReadonlyArray<string>): ReadonlyArray<CalloutNode> =>
   ruleIds.length === 0
     ? []
     : [
-        {
-          _tag: "callout",
+        conditionDoc({
           tone: "warn",
           title: "The registry will still block publish on these rules",
           children: ruleIds.map((id) => ({ _tag: "paragraph", tone: "dim", text: id }) as const),
-        },
+        }),
       ];
 
 /**
@@ -239,41 +243,58 @@ const driftCallout = (ruleIds: ReadonlyArray<string>): Doc =>
  */
 export const lintDoc = (input: LintViewInput): Doc => {
   const { detailed, quiet } = ledgerViewPolicy(input.verbosity);
-  const remaining = findingRows(input.findings, detailed);
-  const rows = [...input.repaired.map(fixedRow), ...remaining.rows];
+  // Quiet keeps what a person must act on: the errors, with where they are.
+  const shown = quiet
+    ? input.findings.filter((finding) => finding.severity === "error")
+    : input.findings;
+  const remaining = findingRows(shown, detailed);
+  const rows = [...(quiet ? [] : input.repaired.map(fixedRow)), ...remaining.rows];
   const fixable = input.findings.filter((finding) => finding.fixable).length;
+  const where = {
+    scope: input.scope,
+    ...(input.project === undefined ? {} : { project: input.project }),
+  };
 
-  const normalization: Doc =
-    input.normalization === undefined
-      ? []
-      : [
-          {
-            _tag: "headline",
-            tone: "info",
-            text: `Would normalize ${count(input.normalization.length, "instruction alias")}`,
-          },
-          ...(quiet
-            ? []
-            : input.normalization.map((change): DocNode => ({
-                _tag: "paragraph",
-                text: `${change.change}: ${change.path}`,
-              }))),
-        ];
+  const conditions: ReadonlyArray<CalloutNode> = quiet
+    ? []
+    : [
+        ...(input.normalization === undefined
+          ? []
+          : [
+              conditionDoc({
+                tone: "info",
+                title: `Would normalize ${count(input.normalization.length, "instruction alias", "instruction aliases")}`,
+                children: [
+                  {
+                    _tag: "fields",
+                    fields: input.normalization.map((change) => ({
+                      label: change.change,
+                      value: change.path,
+                    })),
+                  },
+                ],
+              }),
+            ]),
+        ...driftCallout(input.driftBanner),
+      ];
 
   if (rows.length === 0) {
-    const verdict: DocNode = {
-      _tag: "headline",
-      tone: "ok",
-      text: input.driftBanner.length === 0 ? "No findings" : "No other findings",
-      aside: factParts([scopePhrase(input.scope)]),
-    };
-    return quiet
-      ? [...normalization, verdict]
-      : [...normalization, ...driftCallout(input.driftBanner), verdict];
+    return operationResultDoc({
+      body: [],
+      conditions,
+      verdict: [
+        {
+          _tag: "headline",
+          tone: "ok",
+          text: input.driftBanner.length === 0 ? "No findings" : "No other findings",
+          aside: factParts([scopePhrase(where.scope, where.project)]),
+        },
+      ],
+    });
   }
 
   const aside = factParts([
-    remaining.folded ? `in ${count(uniquePaths(input.findings).length, "location")}` : undefined,
+    remaining.folded ? `in ${count(uniquePaths(shown).length, "location")}` : undefined,
     fixable === 0 || input.fix ? undefined : `${String(fixable)} fixable`,
     exitPart(input.exitCode),
   ]);
@@ -286,21 +307,17 @@ export const lintDoc = (input: LintViewInput): Doc => {
         text: severityCounts(input.counts),
         ...(aside.length === 0 ? {} : { aside }),
       };
-  if (quiet) return [...normalization, verdict];
 
-  const drift = driftCallout(input.driftBanner);
-  return [
-    ...normalization,
-    {
-      _tag: "headline",
-      tone: "neutral",
-      text: [{ text: input.fix ? "Fixing" : "Linting", bold: true }],
-      aside: factParts([scopePhrase(input.scope)]),
-    },
-    ...drift,
-    { _tag: "ledger", columns, rows },
-    verdict,
-    ...(remaining.folded ? [{ _tag: "paragraph", tone: "dim", text: FOLD_HINT } as const] : []),
-    ...(fixable === 0 || input.fix ? [] : suggestionsDoc([fixSuggestion(fixable)])),
-  ];
+  return operationResultDoc({
+    title: quiet ? [] : titleDoc(input.fix ? "Fix" : "Lint", where),
+    body: [
+      { _tag: "ledger", columns, rows },
+      ...(remaining.folded && !quiet
+        ? [{ _tag: "paragraph", tone: "dim", text: FOLD_HINT } as const]
+        : []),
+    ],
+    conditions,
+    verdict: [verdict],
+    ...(fixable === 0 || input.fix || quiet ? {} : { next: [fixSuggestion(fixable)] }),
+  });
 };

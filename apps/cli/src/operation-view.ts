@@ -61,7 +61,11 @@ import {
   planVerdict,
   plannedArtifactChange,
   resultLedgerColumns,
-  scopePhrase,
+  conditionDoc,
+  NO_CHANGES_MADE,
+  operationResultDoc,
+  titleDoc,
+  type CalloutNode,
   sharedDispositionStatement,
   verdictFacts,
   type VerdictPhrase,
@@ -827,7 +831,7 @@ const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone 
 const groupedWarnings = (
   units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: OperationResolution<unknown>["mode"],
-): Doc => {
+): ReadonlyArray<CalloutNode> => {
   const groups = new Map<string, Array<string>>();
   for (const unit of units) {
     if (owesReason(settlementOf(unit, mode))) continue;
@@ -859,7 +863,7 @@ const referenceOf = (unit: ResolvedUnit<unknown>): ReadonlyArray<JobStepArtifact
 const untouchedPaths = (
   units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: "preview" | "apply",
-): Doc => {
+): ReadonlyArray<CalloutNode> => {
   const references = units.flatMap(referenceOf);
   if (references.length === 0) return [];
   return [
@@ -913,31 +917,6 @@ export const resolutionAgentCoverage = (
  * by are stated once and never repeated in the rows. A document with no
  * ledger has nothing to orient, and its verdict stands alone.
  */
-const titleLine = (
-  title: string,
-  where: {
-    readonly ledger: boolean;
-    readonly scope?: "project" | "user";
-    readonly project?: string;
-    readonly agents?: ReadonlyArray<string>;
-  },
-): Doc => {
-  if (!where.ledger) return [];
-  const aside = factParts([
-    where.scope === undefined ? undefined : scopePhrase(where.scope, where.project),
-    where.agents === undefined || where.agents.length === 0
-      ? undefined
-      : `agents: ${where.agents.join(", ")}`,
-  ]);
-  return [
-    {
-      _tag: "headline",
-      tone: "neutral",
-      text: emphatic(title),
-      ...(aside.length === 0 ? {} : { aside }),
-    },
-  ];
-};
 
 /** The word a result row's status column says for a unit, whatever its settlement. */
 const statusWord = (settlement: Settlement): string => {
@@ -1093,7 +1072,7 @@ export interface OperationDocOptions {
    * decision. They stand between the rows and the verdict, so `Next` is the
    * last thing a reader sees.
    */
-  readonly callouts?: Doc;
+  readonly callouts?: ReadonlyArray<CalloutNode>;
   /** The project directory's name, which the title line says the command acted in. */
   readonly project?: string;
 }
@@ -1218,46 +1197,60 @@ export const operationDoc = (
     operationExitCode(resolution, outcome),
   );
 
-  return [
+  const title =
+    ledger.length > 0 && !quiet
+      ? titleDoc(
+          resolution.mode === "preview"
+            ? operationTitle(presentation, resolution.mode)
+            : settledTitle(presentation),
+          {
+            ...titleCoverage(resolution.units),
+            ...(options.project === undefined ? {} : { project: options.project }),
+          },
+        )
+      : [];
+  const recoveries = resolution.recovery?.entries ?? [];
+
+  return operationResultDoc({
     // Quiet keeps the outcome and drops the narration around it, so the
     // title line the operation opened with does not survive the filter.
-    ...titleLine(
-      resolution.mode === "preview"
-        ? operationTitle(presentation, resolution.mode)
-        : settledTitle(presentation),
-      {
-        ledger: ledger.length > 0 && !quiet,
-        ...titleCoverage(resolution.units),
-        ...(options.project === undefined ? {} : { project: options.project }),
-      },
-    ),
-    ...ledger,
-    ...nativeLocationsDoc(nativeLocations, detailed, resolution.mode === "preview", destinations),
-    ...groupedWarnings(resolution.units, resolution.mode),
-    ...untouchedPaths(resolution.units, resolution.mode),
-    ...(options.callouts ?? []),
-    ...(resolution.recovery?.entries ?? []).map(
-      (entry) =>
-        ({
-          _tag: "paragraph",
-          tone: "warn",
-          text: `Preserved original for ${redactCredentialText(entry.originalPath)}: ${redactCredentialText(entry.recoveryPath)}`,
-        }) as const,
-    ),
-    ...(coverage === undefined || coverage.agents.length > 0
-      ? []
-      : [
-          {
-            _tag: "callout",
-            tone: "warn",
-            title:
-              resolution.mode === "preview"
-                ? "No coding agents would receive this change"
-                : "No coding agents received this change",
-            children: [
-              {
-                _tag: "paragraph",
-                text: [
+    title,
+    body: [
+      ...ledger,
+      ...nativeLocationsDoc(nativeLocations, detailed, resolution.mode === "preview", destinations),
+    ],
+    conditions: [
+      ...groupedWarnings(resolution.units, resolution.mode),
+      ...untouchedPaths(resolution.units, resolution.mode),
+      ...(options.callouts ?? []),
+      ...(recoveries.length === 0
+        ? []
+        : [
+            conditionDoc({
+              tone: "warn",
+              title: `AXM preserved ${count(recoveries.length, "original file")}`,
+              children: [
+                {
+                  _tag: "fields",
+                  fields: recoveries.map((entry) => ({
+                    label: redactCredentialText(entry.originalPath),
+                    value: redactCredentialText(entry.recoveryPath),
+                  })),
+                },
+              ],
+            }),
+          ]),
+      ...(coverage === undefined || coverage.agents.length > 0
+        ? []
+        : [
+            conditionDoc({
+              tone: "warn",
+              title:
+                resolution.mode === "preview"
+                  ? "No coding agents would receive this change"
+                  : "No coding agents received this change",
+              body: [
+                [
                   { text: "Run " },
                   ...invocation(
                     renderCommandInvocation(
@@ -1273,11 +1266,11 @@ export const operationDoc = (
                   ),
                   { text: ", then run this command again." },
                 ],
-              },
-            ],
-          } as const,
-        ]),
-    ...verdictDoc({
+              ],
+            }),
+          ]),
+    ],
+    verdict: verdictDoc({
       ledger: ledger.length > 0,
       tone: headlineTone(outcome),
       verdict: verdict.claim,
@@ -1299,8 +1292,8 @@ export const operationDoc = (
             blocked: true,
           }),
     }),
-    ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
-  ];
+    next,
+  });
 };
 
 /**
@@ -1363,7 +1356,7 @@ export const planDoc = (
     unchanged === 0 ? undefined : `${String(unchanged)} ${unitState("unchanged")}`,
     warnings === 0 ? undefined : count(warnings, "warning"),
     errors === 0 ? undefined : count(errors, "error"),
-    options.mode === "preview" ? "no changes made" : undefined,
+    options.mode === "preview" ? NO_CHANGES_MADE : undefined,
   ]);
   const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
   const agents = [...new Set(steps.flatMap((step) => step.artifact?.agents ?? []))];
@@ -1373,36 +1366,45 @@ export const planDoc = (
     detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
   );
 
-  return [
-    ...titleLine(operationTitle(presentation, options.mode), {
-      ledger: ledger.length > 0,
-      ...(scope === undefined ? {} : { scope }),
-      ...(agents.length === 0 ? {} : { agents }),
-    }),
-    ...Option.match(plan.description, {
-      onNone: (): Doc => [],
-      onSome: (description): Doc => [{ _tag: "paragraph", text: description }],
-    }),
-    ...ledger,
-    ...nativeLocationsDoc(
-      combineNativeLocationOutcomes(steps.flatMap((step) => step.artifact?.nativeLocations ?? [])),
-      detailed,
-      true,
-    ),
-    ...risks.map((risk) => ({ _tag: "callout", tone: "warn", title: risk.detail }) as const),
-    {
-      _tag: "headline",
-      tone: "neutral",
-      verdict: true,
-      text: emphatic(planVerdict(presentation, options.mode, changing.length)),
-      ...(aside.length === 0 ? {} : { aside }),
-    },
+  return operationResultDoc({
+    title:
+      ledger.length === 0
+        ? []
+        : titleDoc(operationTitle(presentation, options.mode), {
+            ...(scope === undefined ? {} : { scope }),
+            ...(agents.length === 0 ? {} : { agents }),
+          }),
+    body: [
+      ...Option.match(plan.description, {
+        onNone: (): Doc => [],
+        onSome: (description): Doc => [{ _tag: "paragraph", text: description }],
+      }),
+      ...ledger,
+      ...nativeLocationsDoc(
+        combineNativeLocationOutcomes(
+          steps.flatMap((step) => step.artifact?.nativeLocations ?? []),
+        ),
+        detailed,
+        true,
+      ),
+    ],
+    conditions: risks.map((risk) => conditionDoc({ tone: "warn", title: risk.detail })),
+    verdict: [
+      {
+        _tag: "headline",
+        tone: "neutral",
+        verdict: true,
+        text: emphatic(planVerdict(presentation, options.mode, changing.length)),
+        ...(aside.length === 0 ? {} : { aside }),
+      },
+    ],
     // Where no gate opens there is nothing to answer, so the hint is the only
     // way a reader learns the details are one flag away.
-    ...(gated || detailed || unchanged > 0 || !detailAwaitsVerbose(steps)
-      ? []
-      : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT } as const]),
-  ];
+    after:
+      gated || detailed || unchanged > 0 || !detailAwaitsVerbose(steps)
+        ? []
+        : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT }],
+  });
 };
 
 /** Paint the planning-time orientation through the application-owned screen. */

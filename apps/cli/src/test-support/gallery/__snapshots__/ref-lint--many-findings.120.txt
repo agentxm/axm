@@ -1,4 +1,4 @@
-Linting  in this project
+Lint  in this project
 
      Finding                           Location       Fix
  ✖   Description is missing            12 locations
@@ -10,8 +10,9 @@ Linting  in this project
  ▲   Member version floats             3 locations
      packs/review-kit, packs/ops, and 1 more (pack/member-pinned)
 
-13 errors and 10 warnings  in 23 locations · 1 fixable · exit 1
 --verbose lists every location
+
+13 errors and 10 warnings  in 23 locations · 1 fixable · exit 1
 
 Next
      axm lint --fix   Apply the available automatic fix

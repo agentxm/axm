@@ -68,7 +68,7 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
     args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
   ) {
     const { document, rows } = yield* withLiveOperation(
-      { name: `Inspect ${noun.plural}`, mode: "query" },
+      { name: `List ${noun.plural}`, mode: "query" },
       definition.query(args.agents),
     );
     const common: ReadonlyArray<ViewColumn<Row>> = [

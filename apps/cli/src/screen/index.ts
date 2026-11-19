@@ -1,4 +1,5 @@
 export type {
+  CalloutNode,
   Doc,
   DocNode,
   Field,
@@ -115,6 +116,17 @@ export {
   successDoc,
   suggestionsDoc,
 } from "./docs.js";
+export {
+  conditionDoc,
+  emptyDoc,
+  operationResultDoc,
+  recordDoc,
+  titleDoc,
+  type EmptyResult,
+  type OperationResult,
+  type RecordResult,
+  type TitleWhere,
+} from "./templates.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";
 export { resolveCliOutputPolicy } from "./output-policy.js";

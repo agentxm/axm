@@ -58,7 +58,7 @@ const AgentListColumns = [
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
   const inventory = yield* withLiveOperation(
-    { name: "Inspect coding agents", mode: "query" },
+    { name: "List coding agents", mode: "query" },
     ConfigureAgents.list({
       detected: args.detected,
       available: args.available,

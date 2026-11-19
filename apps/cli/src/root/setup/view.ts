@@ -21,8 +21,10 @@ import {
   ledgerViewPolicy,
   NO_CHANGES_MADE,
   suggestionsDoc,
+  titleDoc,
 } from "../../screen/index.js";
 import { verdictDoc } from "../../operation-view.js";
+import { projectDirectoryName } from "../../project-name.js";
 
 /**
  * The title line setup opens with, like every command whose result carries a
@@ -30,17 +32,16 @@ import { verdictDoc } from "../../operation-view.js";
  */
 export const setupTitleDoc = (args: {
   readonly preview: boolean;
+  /** The directory setup acts in; the title names a project by its last segment. */
   readonly where: string;
   readonly scope: WorkspaceScope;
-}): Doc => [
-  {
-    _tag: "headline",
-    tone: "neutral",
-    text: emphatic(
-      `${args.preview ? "Previewing setup" : "Setting up AXM"} in ${args.where} for this ${args.scope}`,
-    ),
-  },
-];
+}): Doc => {
+  const project = args.scope === "project" ? projectDirectoryName(args.where) : undefined;
+  return titleDoc(args.preview ? "Previewing setup" : "Setting up AXM", {
+    scope: args.scope,
+    ...(project === undefined ? {} : { project }),
+  });
+};
 
 /**
  * What the scan found, as the first line of the record: it reads like the

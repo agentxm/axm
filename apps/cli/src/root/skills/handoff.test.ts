@@ -125,7 +125,7 @@ describe("skills handoff handler", () => {
         const detail = `Workspace settings at ${settingsPath} are not valid JSON`;
         const suggestion = "Fix the JSON syntax in the settings file, then re-run.";
         const rendered = classifyError(failure, "text", options);
-        expect(rendered.stderr.map((entry) => entry.replace(/\s+/gu, " ").trim())).toEqual([
+        expect(rendered.stderr?.map((entry) => entry.replace(/\s+/gu, " ").trim())).toEqual([
           `✖ Invalid request validation · exit 9 ${detail} --debug shows the cause. Next ${suggestion.slice(0, -1)}`,
         ]);
         expect(rendered).toMatchObject({

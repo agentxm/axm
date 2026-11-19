@@ -19,6 +19,13 @@ sources:
 
 # Reviewing and remediating extensions
 
+Honor the caller's focus. For an open review, use the extension's purpose, the
+change under review, and the available evidence to choose what deserves
+inspection. Following one promised task through an installation can expose a
+missing dependency. A change to a data destination can take you directly to
+[the operation and its authority](trust-and-authority.md). State what you
+examined so the reader knows where the verdict applies.
+
 ## Review checklist
 
 1. Identify the target, revision, requested focus, and a representative user request. Trace it to the result or the point where the evidence runs out.
@@ -36,7 +43,10 @@ Start with the claim the supplied material lets you examine. A skill description
 that promises “every writing task” and a body limited to editing release notes
 are enough to identify a scope mismatch. Predicting how often the host will
 choose the wrong skill takes [routing evidence](verification.md). A snippet can
-also omit a resource that the full package contains.
+also omit a resource that the full package contains. When reviewing [what a
+release ships](lifecycle.md#choose-what-ships), check a suspected omission or
+unintended inclusion against the candidate preview or the exact release
+archive and the purpose of the file.
 
 Tie each finding to the inspected revision or excerpt, the request that exposes
 the problem, and its consequence. Identify who owns the correction. Treat

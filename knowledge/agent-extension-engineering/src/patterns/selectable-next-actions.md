@@ -49,7 +49,6 @@ keeps the displayed numbers bound to their findings. “Inspect 2” shows the
 evidence for that finding. “Apply 2” applies its recommendation within the
 user's authority. “Done” ends the review.
 
-
 Try one choice through the picker and its text equivalent on separate copies
 of the same fixture. Delay the reply and inspect the visible exchange while
 the choice is pending. The result appears once, the choice is last, and the

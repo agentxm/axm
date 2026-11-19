@@ -1,0 +1,210 @@
+[
+  {
+    "variant": "baseline",
+    "case": "corrected",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Guide 1.0.0 · Clean review.** Using Axe’s `guides/reviewing-extensions`, I checked the authored skill against the complete [candidate Registry archive](evidence/candidate.zip).\n\n- **The documented example resolves to `east`.** The archive includes the [README’s example](sample/README.md), its [fixture](sample/fixtures/label.txt) containing `B-44`, and the [zone table](sample/src/assets/zones.md) at the path the [skill](sample/src/SKILL.md) reads. The table maps prefix `B` to `east`.\n- **The maintainer handoff is excluded.** The [authored manifest](sample/skill.json) excludes `/workbench/`, and the archive contains no entries under that directory. This satisfies the [handoff’s release instruction](sample/workbench/handoff.md).\n\nThis verdict covers the candidate’s contents and the documented lookup. Installation and live host invocation were untested."
+  },
+  {
+    "variant": "baseline",
+    "case": "defect",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Guide 1.0.0 · Registry candidate · 2 findings**\n\n**1 · The README example cannot look up the zone for `B-44`**  \nThe candidate includes the example label `B-44` but omits the table that maps its prefix to the east zone.  \n**Recommendation** — Remove `/src/assets/zones.md` from `publish.exclude` in the authored manifest.  \n**Evidence** — The skill requires `assets/zones.md` beside `src/SKILL.md`. The manifest excludes that exact path, and the complete archive lacks it. [Skill instruction](./sample/src/SKILL.md:6) · [Zone mapping](./sample/src/assets/zones.md:3) · [Manifest exclusion](./sample/skill.json:10) · [Candidate archive](./evidence/candidate.zip)\n\n**2 · The candidate ships a maintainer-only handoff**  \nAnyone receiving the archive can read `workbench/handoff.md`, despite its explicit instruction to keep it out of customer releases.  \n**Recommendation** — Add `/workbench/handoff.md` to `publish.exclude` in the authored manifest.  \n**Evidence** — The archive contains the handoff at that path, including its audience restriction and internal maintenance instructions. [Authored handoff](./sample/workbench/handoff.md:3) · [Candidate archive](./evidence/candidate.zip)"
+  },
+  {
+    "variant": "baseline",
+    "case": "excerpt",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Inconclusive.** The candidate README excerpt directs readers to `src/assets/zones.md` to classify a parcel. The candidate archive’s file listing would establish whether the code table ships at that exact path. [README excerpt, line 3](./sample/README-excerpt.md:3)\n\nAxe route used: `guides/reviewing-extensions`."
+  },
+  {
+    "variant": "baseline",
+    "case": "hook-wording",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**1 · “Ticket notice” leaves the trigger unclear.** A reader scanning the title can tell the hook concerns tickets, but has to read the first sentence to learn which event prompts a notice.\n\n**Recommendation** — Use **“New ticket notifications”** so readers can identify the trigger from the title alone.\n\n**Evidence** — The opening sentence specifies “one notification per newly opened ticket.” [README.md](./sample/README.md:3)"
+  },
+  {
+    "variant": "baseline",
+    "case": "pack-wording",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 5,
+    "answer": "**Parcel Desk 1.0.0 README review · 1 finding**\n\n**1 · The example omits a prerequisite for returning a shipping zone.** The pack permits `zone-tables` 1.0.0, so a reader can follow the install instructions and still lack the lookup the example requires.\n\n**Recommendation** — Lead with the task and name the release that supplies the lookup. Suggested wording for the [README](./sample/README.md:3):\n\n> Parcel Desk looks up a parcel’s shipping zone from its label prefix. Install it with `axm install @example/packs/parcel-desk`. With `zone-tables` 2.0.0 installed, ask “Classify the parcel in fixtures/label.txt.” The classifier returns the shipping zone for the label’s prefix.\n\n**Evidence** — The classifier requests `zones/current`. The pack permits both recorded `zone-tables` releases, but only 2.0.0 lists that concept. The records establish the prerequisite. The example was not run. [Pack manifest](./sample/pack.json) · [Classifier instructions](./evidence/classify-1.0.0/SKILL.md) · [1.0.0 concepts](./evidence/zone-tables-1.0.0/concepts.json) · [2.0.0 concepts](./evidence/zone-tables-2.0.0/concepts.json)"
+  },
+  {
+    "variant": "baseline",
+    "case": "pack",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Desk 1.0.0 · 1 finding**\n\n**1 · The dependency range permits a release that breaks the README example.** When asked to classify `B-44`, the classifier retrieves `zones/current`. The pack allows zone-tables 1.0.0, which lacks that concept, so an installation using that release cannot complete the lookup.\n\n**Recommendation** — Pin `@example/knowledge/zone-tables` to `2.0.0` in the pack manifest. That release lists the required concept. The supplied records contain no zone values, so the expected result for `B-44` remains unverified.\n\n**Evidence** — [Pack dependency](./sample/pack.json:10) · [Classifier lookup](./evidence/classify-1.0.0/SKILL.md:6) · [1.0.0 concept list](./evidence/zone-tables-1.0.0/concepts.json:1) · [2.0.0 concept list](./evidence/zone-tables-2.0.0/concepts.json:3)"
+  },
+  {
+    "variant": "baseline",
+    "case": "wording",
+    "reviewGuideSha256": "4e81086a26805061fa1bbe084870f076c02fd37a4aea0037df2484f45e011059",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Guide · README wording · 1 finding**\n\n**1 · The first-use example promises a zone the candidate cannot look up.** The README invites readers to classify `fixtures/label.txt` immediately after installation. The candidate includes the label but omits the zone table required to classify it.\n\n**Recommendation** — Open with “Parcel Guide classifies parcel labels by shipping zone.” For this revision, replace the result claim with “The sample lookup requires a zone table that this candidate omits.” Once the table ships, use the concrete result: “For `B-44`, Parcel Guide returns the east zone.”\n\n**Evidence** — The result claim appears on [README line 3](./sample/README.md:3). The [skill instructions](./sample/src/SKILL.md:6) require `assets/zones.md` beside `SKILL.md`. The [authored table](./sample/src/assets/zones.md:3) maps prefix B to the east zone, but the [complete candidate archive](./evidence/candidate.zip) omits it."
+  },
+  {
+    "variant": "wording-specific",
+    "case": "corrected",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 4,
+    "answer": "**Parcel Guide 1.0.0 · Candidate archive review · No findings**\n\nThe README’s example can be followed using the shipped files. The archive contains `fixtures/label.txt` with label `B-44`. The skill’s relative reference resolves to `src/assets/zones.md`, where prefix `B` maps to the **east zone**. [Candidate archive](./evidence/candidate.zip)\n\nThe archive also honors the authored `/workbench/` exclusion. Its five entries omit the maintainer-only `workbench/handoff.md`. [Publish configuration](./sample/skill.json:8) · [Handoff audience](./sample/workbench/handoff.md:3)\n\nVerification covered the authored files and complete candidate archive. Registry installation and live invocation remain untested."
+  },
+  {
+    "variant": "wording-specific",
+    "case": "defect",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 4,
+    "answer": "**Parcel Guide 1.0.0 · Registry candidate review · 2 findings**\n\n**1 · The README example cannot resolve its shipping zone**  \nThe example label is `B-44`. The authored zone table maps `B` to the east zone, but the candidate archive omits the table required by the skill’s lookup.  \n**Recommendation** — Remove `/src/assets/zones.md` from `publish.exclude`. Verify that the rebuilt package classifies `B-44` as east.  \n**Evidence** — The [lookup instruction](./sample/src/SKILL.md:6) points to the [authored mapping](./sample/src/assets/zones.md:3). The [manifest](./sample/skill.json:10) excludes that exact path. The [candidate archive](./evidence/candidate.zip) contains the skill and fixture but omits `src/assets/zones.md`.\n\n**2 · The candidate includes a maintainer-only handoff**  \nCustomers receive an internal note whose author explicitly directs maintainers to keep it out of every customer release.  \n**Recommendation** — Add `/workbench/handoff.md` to `publish.exclude` and verify its absence from the rebuilt archive.  \n**Evidence** — The [handoff](./sample/workbench/handoff.md:3) identifies its audience and release restriction. The [candidate archive](./evidence/candidate.zip) contains that note at `workbench/handoff.md`."
+  },
+  {
+    "variant": "wording-specific",
+    "case": "excerpt",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 2,
+    "answer": "**Inconclusive — code table inclusion.** The README excerpt directs readers to classify a parcel using an included code table at `src/assets/zones.md`. [README excerpt, line 3](./sample/README-excerpt.md:3)\n\nOnly the excerpt was available for the axe extension review. A package preview or file listing from the exact candidate archive would establish whether the table ships at the documented path."
+  },
+  {
+    "variant": "wording-specific",
+    "case": "hook",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Ticket notice hook · `./sample` review snapshot · 2 findings**\n\n**1 · Opening a ticket discloses its body to the delivery service**  \nThe README promises that only the ticket number goes to the service. Every call also sends the body, exposing any details the reporter entered.  \n**Recommendation** — Send `{\"ticket\": ticket.id}` as the complete payload.  \n**Evidence** — The hook includes `\"body\": ticket.body` in its call to `delivery.send`. [Implementation](./sample/delivery.py:2) · [README promise](./sample/README.md:3)\n\n**2 · A retry can notify subscribers twice for the same ticket**  \nIf the first send succeeds and the host redelivers the event after a timeout, the hook sends a second notification. This breaks the one-notification-per-ticket promise.  \n**Recommendation** — Have the delivery service deduplicate sends by ticket ID, with the hook supplying the same ID on every retry. If the service contract must stay as supplied, document that subscribers can receive duplicates.  \n**Evidence** — The host can redeliver the same ticket ID, the hook calls `send` unconditionally, and each call creates a separate notification. [Host contract](./sample/host-contract.txt:1) · [Implementation](./sample/delivery.py:2)\n\nThe read-only axe review used `guides/reviewing-extensions` and static inspection of the supplied snapshot."
+  },
+  {
+    "variant": "wording-specific",
+    "case": "pack-wording",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 6,
+    "answer": "**Parcel Desk 1.0.0 · README wording · 1 finding**\n\n**1 · The example promises a shipping zone for every permitted installation.** The request is clear, but a reader who follows it with zone-tables 1.0.0 will reach a lookup that the installed tables cannot satisfy.\n\n**Recommendation** — Qualify the README’s final sentence for the supplied release: “With zone-tables 2.0.0 installed, the classifier returns the shipping zone for the parcel’s prefix.” Keeping the unconditional promise would require the pack maintainer to narrow the dependency range.\n\n**Evidence** — The pack permits zone-tables 1.0.0 and 2.0.0. The classifier requests `zones/current`, which appears only in the 2.0.0 release record. The records establish that prerequisite. The example was not run. [README wording](./sample/README.md#L3) · [Pack manifest](./sample/pack.json) · [Classifier instruction](./evidence/classify-1.0.0/SKILL.md#L6) · [1.0.0 concepts](./evidence/zone-tables-1.0.0/concepts.json) · [2.0.0 concepts](./evidence/zone-tables-2.0.0/concepts.json)"
+  },
+  {
+    "variant": "wording-specific",
+    "case": "pack",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Desk 1.0.0 · 1 finding**\n\n**1 · The dependency range permits a broken classifier lookup.** The README asks users to classify the fixture `B-44`. If the pack resolves `zone-tables` to 1.0.0, the classifier cannot retrieve `zones/current`, so the example fails before it can return a shipping zone. [README](./sample/README.md:3) · [Fixture](./sample/fixtures/label.txt:1)\n\n**Recommendation** — The pack maintainer should change the `zone-tables` range from `>=1.0.0 <3.0.0` to `>=2.0.0 <3.0.0`. Version 2.0.0 is the first supplied release that provides the required concept. [Pack manifest](./sample/pack.json:10)\n\n**Evidence** — `classify` 1.0.0 explicitly requests `zones/current`. The 1.0.0 table index lists only `prefixes`, while the 2.0.0 index also lists `zones/current`. The supplied indexes establish concept availability. Verifying the zone for `B-44` would require the concept contents. [Classifier](./evidence/classify-1.0.0/SKILL.md:6) · [1.0.0 index](./evidence/zone-tables-1.0.0/concepts.json:2) · [2.0.0 index](./evidence/zone-tables-2.0.0/concepts.json:3)"
+  },
+  {
+    "variant": "wording-specific",
+    "case": "scope",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Invoice glossary rule · `./sample` snapshot · 1 finding**\n\n**1 · The invoice glossary loads in payroll.** The README limits ledger terminology to invoices, but the supported host loaded `invoice-glossary` in both `invoices` and `payroll`. That exposes payroll work to the invoice terminology instruction. The recording shows rule loading only; its effect on document wording is unknown.\n\n**Recommendation** — The rule maintainer should narrow the host’s loading scope to `invoices`, then repeat both checks to confirm the rule loads in `invoices` and stays unloaded in `payroll`. The snapshot omits the configuration responsible for loading.\n\n**Evidence** — [Project boundary](./sample/README.md:3) · [Terminology instruction](./sample/rule.md:1) · [Recorded host behavior](./sample/host-observations.json:3)"
+  },
+  {
+    "variant": "wording-specific",
+    "case": "upgrade",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Ledger writer 2 · replacement lifecycle review · 1 finding**\n\n**1 · Upgrading a direct install leaves the old writer active**\n\nThe release note promises that the new writer is the only active editor after upgrade. A clean install offers only `ledger-writer-2`, but upgrading from a direct install leaves both versions advertising “Draft a ledger entry.” The inventory establishes that both editors are available. Which one handles an actual request remains unverified.\n\n**Recommendation** — The release maintainer should retire `ledger-writer-1` as part of the direct-install upgrade. If users must disable it themselves, document that step before the first ledger request. Verify that the upgraded host offers only `ledger-writer-2`, as it does after a clean install.\n\n**Evidence** — The release note makes the promise on line 3. The inventory records both installation outcomes on lines 2–8 and the identical task descriptions on lines 9–12. [Release note](./sample/README.md:3) · [Host inventory](./sample/host-observations.json:2)"
+  },
+  {
+    "variant": "wording-specific",
+    "case": "wording",
+    "reviewGuideSha256": "d516e95fa075584f788f6a6cf5a2aa826c953fb04f9f5af569a5badf59c110e0",
+    "guideBodyObserved": true,
+    "shellCommands": 4,
+    "answer": "**Parcel Guide · README wording review · 1 finding**\n\n**1 · Lead with what Parcel Guide does.** The install command comes first, so readers reach the end of the paragraph before learning whether the skill answers their question.\n\n**Recommendation** — Move the result into the opening sentence and make “its prefix” more specific. The paragraph could read:\n\n> Parcel Guide uses the prefix on a parcel label to identify its zone. Install with `axm install @example/skills/parcel-guide`. Try “Classify the parcel in fixtures/label.txt.”\n\n**Evidence** — The current paragraph opens with “Install with” and closes with “The skill returns the zone for its prefix.” [README.md, line 3](./sample/README.md:3)"
+  },
+  {
+    "variant": "final",
+    "case": "corrected",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 2,
+    "answer": "**Parcel Guide 1.0.0 · Registry candidate · No findings**\n\nThe README’s example resolves from the files in the candidate archive. The fixture contains `B-44`, the skill directs the reader to `assets/zones.md` relative to `src/SKILL.md`, and the table at that path maps prefix `B` to **east**. [Candidate archive](./evidence/candidate.zip)\n\nThe archive also honors the release exclusion. The authored manifest excludes `/workbench/`, and the archive contains no `workbench/` entries. The maintainer handoff stays out of the customer package. [Authored manifest](./sample/skill.json) · [Handoff](./sample/workbench/handoff.md)\n\nI applied Axe’s extension-review guide and traced the example directly through the archive. Host installation and live invocation were outside this static check."
+  },
+  {
+    "variant": "final",
+    "case": "defect",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Guide 1.0.0 · Registry candidate · 2 findings**\n\n**1 · The documented example ships without its zone table**  \nThe README asks users to classify `B-44`. The authored table maps prefix `B` to the east zone, but the candidate lacks the file the skill needs to perform that lookup.  \n**Recommendation** — Remove `/src/assets/zones.md` from `publish.exclude`. Rebuild the candidate and verify that the packaged example resolves to the east zone.  \n**Evidence** — The candidate contains `fixtures/label.txt` and `src/SKILL.md` but omits `src/assets/zones.md`. [Lookup instruction](./sample/src/SKILL.md:6) · [Zone mapping](./sample/src/assets/zones.md:3) · [Publish exclusion](./sample/skill.json:10)\n\n**2 · The candidate ships a maintainer-only handoff**  \nThe archive includes `workbench/handoff.md`. The handoff explicitly directs maintainers to keep it out of every customer release.  \n**Recommendation** — Add `/workbench/handoff.md` to `publish.exclude` and verify its absence from the rebuilt candidate.  \n**Evidence** — The archived handoff contains the same release restriction as the authored copy. [Handoff instruction](./sample/workbench/handoff.md:3) · [Candidate archive](./evidence/candidate.zip)\n\nI used the axe extension review guide to compare the authored files with the complete candidate archive. Verification was static."
+  },
+  {
+    "variant": "final",
+    "case": "excerpt",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 4,
+    "answer": "**Inconclusive · Candidate README excerpt**\n\nUsing the axe extension review guide, I checked the claim that the release includes a code table for classifying parcels. The excerpt names `src/assets/zones.md` as the table’s location. [README excerpt, line 3](./sample/README-excerpt.md:3)\n\nA file listing from the candidate package preview or exact release archive would establish whether the table ships at that path. The excerpt alone leaves that question open."
+  },
+  {
+    "variant": "final",
+    "case": "hook-wording",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 2,
+    "answer": "**1 · “Ticket notice” leaves the trigger unclear.** A reader scanning the title could reasonably expect notifications about any ticket update.\n\n**Recommendation** — Use **New ticket notification hook**. It identifies the component and the event that triggers it.\n\n**Evidence** — The opening sentence says subscribers receive one notification per newly opened ticket. [README.md](./sample/README.md:3)"
+  },
+  {
+    "variant": "final",
+    "case": "hook",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 6,
+    "answer": "**Ticket notification hook · 2 findings**  \nRead-only review of the supplied `./sample` snapshot using `guides/reviewing-extensions`. Both findings follow from the source and the supplied host contract.\n\n**1 · The hook sends the ticket body to the delivery service**  \nEvery opened event discloses the full ticket body, although the README promises that only the ticket number leaves the hook.  \n**Recommendation** — The hook maintainer should send only `{\"ticket\": ticket.id}`.  \n**Evidence** — The outgoing payload explicitly includes `ticket.body`. [delivery.py, line 2](./sample/delivery.py:2) · [README, line 3](./sample/README.md:3)\n\n**2 · A retry can notify subscribers twice for one ticket**  \nIf the first send succeeds and the host redelivers the opened event after a timeout, the handler sends again. Subscribers receive two notifications for the same ticket.  \n**Recommendation** — The hook and delivery maintainers should use the ticket identifier as an idempotency key and enforce uniqueness where the delivery service creates the notification. This covers a retry after a lost acknowledgment.  \n**Evidence** — The handler calls `send` on every invocation. The contract permits redelivery with the same identifier and specifies that each call sends a separate notification. [delivery.py, line 2](./sample/delivery.py:2) · [host contract, line 1](./sample/host-contract.txt:1) · [README, line 3](./sample/README.md:3)"
+  },
+  {
+    "variant": "final",
+    "case": "pack-wording",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Desk 1.0.0 · README wording · 1 finding**\n\n**1 · The first-use example omits a version requirement.** The README says the classifier returns a shipping zone. If the pack resolves to zone-tables 1.0.0, the classifier cannot complete that lookup. [README, line 3](./sample/README.md#L3)\n\n**Recommendation** — Open with the pack’s purpose and qualify the example with the table version that supplies the lookup. Suggested wording for the README maintainer:\n\n> Parcel Desk finds the shipping zone for a parcel label’s prefix. Install it with `axm install @example/packs/parcel-desk`. With zone-tables 2.0.0 installed, ask “Classify the parcel in fixtures/label.txt.” The classifier returns the matching shipping zone.\n\n**Evidence** — The pack permits both supplied table releases. The classifier requests `zones/current`. Version 1.0.0 lists only `prefixes`, while 2.0.0 also lists `zones/current`. The review checked the README against the release records without running an installation. [Pack manifest](./sample/pack.json#L10) · [Classifier instruction](./evidence/classify-1.0.0/SKILL.md#L6) · [1.0.0 catalog](./evidence/zone-tables-1.0.0/concepts.json) · [2.0.0 catalog](./evidence/zone-tables-2.0.0/concepts.json)"
+  },
+  {
+    "variant": "final",
+    "case": "pack",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 3,
+    "answer": "**Parcel Desk 1.0.0 · 1 finding**\n\n**1 · The pack accepts a zone-table release that breaks the README example.** When `zone-tables` resolves to 1.0.0, asking the classifier to classify `B-44` triggers a lookup for `zones/current`. That concept is absent, so the documented lookup cannot return a shipping zone.\n\n**Recommendation** — Pin `@example/knowledge/zone-tables` to `2.0.0` in the pack manifest. It is the supplied release that exposes the required concept.\n\n**Evidence** — The [pack manifest](./sample/pack.json#L10) admits both supplied versions. The [classifier](./evidence/classify-1.0.0/SKILL.md#L6) requires `zones/current`. The [1.0.0 index](./evidence/zone-tables-1.0.0/concepts.json) lists only `prefixes`, and the [2.0.0 index](./evidence/zone-tables-2.0.0/concepts.json) lists both concepts.\n\nThe review verified the dependency mismatch from the release records. The actual zone for `B-44` remains unverified because those records list concept names only."
+  },
+  {
+    "variant": "final",
+    "case": "scope",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 4,
+    "answer": "**Invoice glossary review · `./sample` snapshot · 1 finding**\n\n**1 · The invoice glossary loads in payroll.** Starting work in `payroll` loads a rule that directs edits to use ledger terminology, even though payroll has its own terminology. The host record establishes which rule loaded. Its effect on document wording remains unverified.\n\n**Recommendation** — The rule maintainer should narrow the host’s loading scope to `invoices`, then repeat both recorded checks. The glossary should load in `invoices` and be absent in `payroll`.\n\n**Evidence** — The README defines the invoices-only boundary. The rule relies on that boundary when it says “every document in scope.” The supported host recorded `invoice-glossary` in both directories. [README](./sample/README.md:3) · [Rule](./sample/rule.md:1) · [Invoices observation](./sample/host-observations.json:3) · [Payroll observation](./sample/host-observations.json:9)"
+  },
+  {
+    "variant": "final",
+    "case": "upgrade",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 5,
+    "answer": "**Ledger writer 2 · replacement review · 1 finding**\n\n**1 · A direct-install upgrade leaves both writers available**\n\nAfter upgrading from a direct install, a request to draft a ledger entry matches both `ledger-writer-1` and `ledger-writer-2`. This contradicts the release note’s promise that the new writer is the only active editor. Which writer the host selects remains unverified.\n\n**Recommendation** — The release maintainer should document how to deactivate `ledger-writer-1` during this upgrade. Verify the migration by checking that the host offers only `ledger-writer-2`, then asking it to draft a ledger entry.\n\n**Evidence** — The clean install lists only version 2. The direct-install upgrade lists both versions, and both advertise “Draft a ledger entry.” [Activation inventory](./sample/host-observations.json:5) · [Release note](./sample/README.md:3)"
+  },
+  {
+    "variant": "final",
+    "case": "wording",
+    "reviewGuideSha256": "099995efbef649bf01dee326190da3114c26174b41bcf446422ea8a04a5534c2",
+    "guideBodyObserved": true,
+    "shellCommands": 6,
+    "answer": "**Parcel Guide · README wording · 1 finding**\n\n**1 · The first-use example needs a checkable result.** After asking readers to classify the sample label, the README says only that the skill “returns the zone for its prefix.” Readers need the zone name to check their answer. The wording also implies the example works with this candidate, whose archive omits the required lookup table.\n\n**Recommendation** — Open with “Parcel Guide classifies parcel labels by shipping zone.” Keep the install command and sample request. Close with “The sample label is `B-44`. Its expected result is `east zone`. This revision omits the lookup table needed to run the example.”\n\n**Evidence** — The [README example](./sample/README.md:3) uses the [sample label](./sample/fixtures/label.txt:1). The [authored table](./sample/src/assets/zones.md:3) maps `B` to the east zone. The [skill instruction](./sample/src/SKILL.md:6) requires that table, and the [complete candidate archive](./evidence/candidate.zip) omits it."
+  }
+]

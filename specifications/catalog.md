@@ -1469,6 +1469,19 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 #### Human factors
 
+##### Authors can decide which files a release needs
+
+- Requirement: `cli/help/publish-guidance-explains-file-selection`
+- Owner: `cli`
+- Statement: AXM authoring help shall lead authors to publication guidance that explains how a consumer workflow and the purpose of a file inform its inclusion in the candidate archive.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The bundled authoring and publish topics expose the documented decision and the preview command; a reader's file choices require separate observation.
+- Methods: example
+- Source: [`apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts`](../apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts)
+
 ##### Axe reviews show the evidence behind their verdict
 
 - Requirement: `extension-engineering/review-coverage`
@@ -1496,6 +1509,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: static, review
 - Assumptions: The engineering pack's skill and knowledge bundle are available together.
 - Source: [`scripts/axe-review-guidance.spec.ts`](../scripts/axe-review-guidance.spec.ts)
+
+##### Extension reviews follow the caller's focus and available evidence
+
+- Requirement: `extension-engineering/review-scope`
+- Owner: `axm`
+- Statement: Axe review guidance shall preserve the caller's focus and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The shipped review guide expresses the decision. The host trials recorded in skills/axe/evals/2026-11-18/review-scope.md separately assess open and focused reviews.
+- Methods: static, review
+- Assumptions: The reviewer has access to the engineering knowledge bundle.
+- Source: [`scripts/axe-review-scope.spec.ts`](../scripts/axe-review-scope.spec.ts)
 
 ### Goal: extension-adoption
 

@@ -2,6 +2,8 @@
 
 The [decision-review trials](review-decisions.md) compare the three review lenses on a skill and a hook and exercise **Apply selected**.
 
+The [open and focused review trials](review-scope.md) compare scope selection on the same target, including a corrected release and an excerpt.
+
 The [review follow-up trials](review-follow-up.md) cover finding selection,
 prompt replies, and the resulting edits. The discovery trials below ask
 whether an ordinary authoring request reaches the applicable

@@ -14,6 +14,8 @@
 
 - Added an evidence-backed coverage checklist to the [review report](guides/reviewing-extensions.md#report-the-review) for actionable, clean, and inconclusive results.
 
+- Added a [release file selection example](guides/lifecycle.md#choose-what-ships) and guidance for [choosing a review focus](guides/reviewing-extensions.md) and [evaluating open and focused reviews](guides/verification.md).
+
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.
 
 - Added six [argument patterns](patterns/index.md#how-does-the-caller-specify-the-work), guidance on writing invocation signatures, and [trials for argument interpretation](patterns/invocation-trial.md#check-argument-interpretation).

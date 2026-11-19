@@ -1,7 +1,7 @@
 # Authoring extensions
 
 Use this topic when writing agent guidance or preparing the manifest and README
-that readers will see in Registry listings. For archive selection, including
+that readers will see in Registry listings. For choosing which files ship, inspecting the candidate archive, and configuring
 `publish.include` and `publish.exclude`, see `axm help publish`.
 
 Keep every non-pack extension self-contained. If it requires another extension,
@@ -27,6 +27,9 @@ Use `axm lint --json` to check structure, `axm sync --preview --json` to see
 proposed projection changes, or a representative request in the intended host
 to see how the agent applies the guidance. Choose the check that answers the
 question at hand.
+
+For a worked example of choosing release files, see
+`@agentxm/knowledge/agent-extension-engineering#guides/lifecycle` in the optional engineering pack.
 
 The writing examples below are recommendations unless a schema or an explicit
 AXM convention says otherwise.

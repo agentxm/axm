@@ -23,13 +23,13 @@ Accept a named invocation or an ordinary request. Use the same operation, target
 and focus for equivalent wording. In `$axe [operation] [target or brief]`,
 the operation sets the deliverable.
 
-| Operation | Deliverable                                                                                                            |
-| --------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `design`  | Recommend an extension type and a concrete design from the brief.                                                      |
-| `create`  | Author a usable draft in its canonical workspace location.                                                             |
+| Operation | Deliverable                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `design`  | Recommend an extension type and a concrete design from the brief.                                                       |
+| `create`  | Author a usable draft in its canonical workspace location.                                                              |
 | `review`  | Report the verdict, evidence-backed coverage, and numbered issues, improvements, or pruning opportunities within scope. |
-| `revise`  | Apply the requested change and check the original case and a nearby valid case.                                        |
-| `verify`  | Test the stated claim against the target. Report observed behavior and what the available evidence leaves open.        |
+| `revise`  | Apply the requested change and check the original case and a nearby valid case.                                         |
+| `verify`  | Test the stated claim against the target. Report observed behavior and what the available evidence leaves open.         |
 
 A target alone requests read-only review. For work on an existing extension,
 resolve the target before announcing which artifact you will inspect or opening
@@ -96,9 +96,11 @@ scaffolding, workspace state, projections, and distribution. With AXM, compose
 with the `axm` skill and current CLI help for those operations.
 
 Report the selected routes, evidence, and material limits briefly. For an
-actionable review, label each finding's Recommendation and Evidence. Order the applicable actions as the review guide describes. When the evidence
-favors one, put it first and label it `(Recommended)`. Keep labels, order, and
-short replies consistent across picker and text. Deliver the report once and end with one choice. Use a native picker if it can remain
-the last visible item while awaiting input. Otherwise end the final report
-with the labeled prompt replies. Bind the choice to the displayed finding numbers and
-wait for the reply before applying the selected recommendations.
+actionable review, label each finding's Recommendation and Evidence. Order the
+applicable actions as the review guide describes. When the evidence favors
+one, put it first and label it `(Recommended)`. Keep labels, order, and short
+replies consistent across picker and text. Deliver the report once and end
+with one choice. Use a native picker if it can remain the last visible item
+while awaiting input. Otherwise end the final report with the labeled prompt
+replies. Bind the choice to the displayed finding numbers and wait for the
+reply before applying the selected recommendations.

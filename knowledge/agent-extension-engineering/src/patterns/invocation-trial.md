@@ -1,7 +1,7 @@
 ---
 type: Pattern
 title: "Invocation trial"
-description: "When a skill misses a task or appears on the wrong one, observe selection and task outcome separately."
+description: "Check which skill was selected, how it interpreted the request, and what work it performed."
 tags:
   ["skills", "evaluation", "explicit invocation", "implicit invocation", "paraphrase", "near miss"]
 status: draft
@@ -46,6 +46,43 @@ broken reference, a healthy one, and an excerpt. An extra lookup appeared in
 each run. After the router gained a stopping condition, the three ordinary
 rechecks reached the same conclusions with one concept lookup apiece.[^trials]
 Those fixtures exercised selection and execution on one host.
+
+## Check argument interpretation
+
+Use a fixture with known identities and materially different outcomes. For
+example, suppose a package auditor defaults to the current package, checks
+links and metadata by default, and accepts repeated focus options. Make
+`./store/checkout` current and give `./admin/checkout` the same short label.
+These are example expectations for this auditor.
+
+| Request                                                          | Expected interpretation                                                     |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `/package audit ./admin/checkout --focus links`                  | Audit links in admin checkout and report findings.                          |
+| “Check the admin checkout package for broken links.”             | Same operation, target, coverage, and read-only effect.                     |
+| `/package audit`                                                 | Inspect the current store checkout package for both aspects.                |
+| `/package audit ./missing`                                       | Report that the explicit path could not be resolved. No package is audited. |
+| `/package audit checkout`                                        | Offer the two qualified packages and wait for the missing distinction.      |
+| `/package audit ./admin/checkout --focus links --focus metadata` | Inspect both aspects on admin checkout.                                     |
+
+Record the operation selected, target resolved, filters applied, and effect
+requested. Compare those with the target actually inspected and the effect
+observed. A report about the current package can look convincing even when
+the caller supplied a different path. Keep skill selection as a separate
+observation when comparing a named invocation with its paraphrase.
+
+### Try a name shared by different extension types
+
+Use a workspace with a skill, a knowledge bundle, and a pack all named
+`docs`. Start with `$axe review docs`. Inspect the opening message and the
+order of the tool calls. The agent may look up identities. It should present
+all three qualified candidates and wait before naming one as the review
+target or reading its contents.
+
+Reply “the knowledge bundle.” Check that the agent resumes the review on that
+exact identity without asking for the task again. In a fresh session, try
+`$axe review the docs skill`. With one matching skill, it should proceed
+directly. Record premature selection on the ambiguous case and unnecessary
+clarification on the qualified case separately.
 
 [^descriptions]: Agent Skills, testing descriptions against realistic requests.
 

@@ -8,6 +8,15 @@ Choose the decision you are making. Patterns from different groups can be used t
 - [Trigger cues](trigger-cues.md) — Describe the evidence a model can recognize when deciding whether to select a skill.
 - [Neighboring intent](neighboring-intent.md) — When requests share vocabulary, use the smallest difference in outcome, destination, or authority to choose the skill.
 
+## How does the caller specify the work?
+
+- [Operation selector](operation-selector.md) — Give callers a short verb when choosing a workflow changes the deliverable or its effects.
+- [Scope selector](scope-selector.md) — Let the caller identify the object or boundary of an operation and resolve it to an exact target.
+- [Contextual default](contextual-default.md) — When an argument is omitted, use the operation and available evidence to decide whether its value can be inferred.
+- [Focus filter](focus-filter.md) — When an operation has several applicable aspects, let the caller choose which ones to examine within the selected scope.
+- [Named option](named-option.md) — Give an optional control a name when its value would be unclear by position or callers need to set it precisely.
+- [Free-form brief](free-form-brief.md) — Accept a natural-language brief when the caller needs to express intent, preferences, or constraints that fixed arguments would obscure.
+
 ## What guidance should be available, and where?
 
 - [Scoped instructions](scoped-instructions.md) — When a direction applies to only part of a workspace, place it where the host loads it for that work.
@@ -34,4 +43,4 @@ Choose the decision you are making. Patterns from different groups can be used t
 
 ## How do we know it worked?
 
-- [Invocation trial](invocation-trial.md) — When a skill misses a task or appears on the wrong one, observe selection and task outcome separately.
+- [Invocation trial](invocation-trial.md) — Check which skill was selected, how it interpreted the request, and what work it performed.

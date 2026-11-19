@@ -51,6 +51,11 @@ and “extract the totals from these PDFs” share the noun. Only the latter nee
 the extraction procedure. Try a paraphrase and a [neighboring intent](neighboring-intent.md)
 to see which cue carries the distinction.
 
+The same word can serve two roles. “Evaluate triage accuracy” can help a model
+select a quality skill. In `/quality evaluate Triage Accuracy`, the explicit
+name selects the skill and `evaluate` is an [operation selector](operation-selector.md).
+Compare the operation and target reached through both entry points.
+
 Keep prerequisites where they can be checked. The request to implement a Figma
 design can select the right skill before anyone checks whether its connection
 works.[^figma] A tool failure at that point concerns execution. A choice among

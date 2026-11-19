@@ -4,6 +4,8 @@
 
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.
 
+- Added six [argument patterns](patterns/index.md#how-does-the-caller-specify-the-work), guidance on writing invocation signatures, and [trials for argument interpretation](patterns/invocation-trial.md#check-argument-interpretation).
+
 - Added five [workflow patterns](patterns/index.md) for presenting results, collecting corrections, selecting findings, comparing variants, and handing work forward. Expanded guidance on bare invocation, when to load references, independent assessments, and fresh-reader checks.
 
 - Organized the [pattern library](patterns/index.md) by authoring decision. Added patterns for invocation policy, trigger cues, neighboring intent, routing after inspection, and invocation trials.

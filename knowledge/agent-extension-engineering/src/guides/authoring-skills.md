@@ -6,6 +6,12 @@ tags: ["skills", "skill.md", "author", "revise", "routing", "progressive-disclos
 status: draft
 generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
 sources:
+  - id: arguments
+    resource: https://code.claude.com/docs/en/skills#pass-arguments-to-skills
+    title: Claude Code skill arguments
+  - id: specification
+    resource: https://agentskills.io/specification
+    title: Agent Skills specification
   - id: writing
     resource: https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-skills/SKILL.md
     title: Superpowers writing skills
@@ -41,6 +47,39 @@ wrong result. Give exact steps when order matters and link a specialized
 reference at the step that needs it. Try an [invocation trial](../patterns/invocation-trial.md)
 when selection is uncertain.
 
+## Write the invocation signature
+
+Describe the work in terms the caller can supply. For a package reviewer, the
+short form might be `/package [operation] [scope]`. Brackets mark optional
+inputs in this guide. Use `<scope>` when the caller must supply a target.
+Show actual requests alongside the notation.
+
+For a target that names an existing object, say which kinds of object it can
+denote, which inventory resolves it, and how the caller can qualify it. Put
+the zero-, one-, and multiple-match decisions in the skill body where it
+first interprets the request. This lets the agent resolve the target before
+it promises a particular review or opens a target-specific guide. A proposed
+name in a creation brief has a different role.
+
+- `/package` offers orientation. `/package ./checkout` inspects checkout.
+  `/package audit ./checkout` produces a findings report. Choose an
+  [operation selector](../patterns/operation-selector.md) for the verb and a
+  [scope selector](../patterns/scope-selector.md) for the target. Define the
+  [contextual default](../patterns/contextual-default.md) for each omission.
+- `/package audit ./checkout --focus links` asks the same question as
+  “audit the checkout package for broken links.” A [focus filter](../patterns/focus-filter.md)
+  narrows coverage. A [named option](../patterns/named-option.md) makes the
+  control explicit. A [free-form brief](../patterns/free-form-brief.md) can
+  carry constraints such as “include the link text so the editor can find it.”
+
+Use positional arguments when their roles and order are easy to remember.
+Claude Code illustrates this with `/migrate-component SearchBar JavaScript TypeScript`:
+component, source language, destination language. In Claude Code,
+`argument-hint` advertises a signature during completion. The skill body can
+receive the argument text through `$ARGUMENTS` or address positions such as
+`$0`. These are host conventions. Document the meaning of the inputs in the
+portable skill body and check binding on each host that the skill supports.[^arguments][^specification]
+
 ## Design and revise the result
 
 Decide what the reader must do with the result. An archive review can use a
@@ -72,6 +111,10 @@ link is broken” gives the editor a symptom. “In the authored `SKILL.md`, cha
 `migration.md` to the shipped filename `migrations.md`” gives the editor a
 place to act. Retry the original task and a fresh variant to see whether
 the revision fixes that omission.
+
+[^arguments]: Claude Code, argument hints and positional substitution.
+
+[^specification]: Agent Skills, portable skill metadata and body.
 
 [^writing]: Superpowers writing skills, selecting guidance for the observed failure.
 

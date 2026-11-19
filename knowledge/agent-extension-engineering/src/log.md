@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-19
+
+- Added the candidate [Review the decisions an artifact makes](patterns/review-the-decisions-an-artifact-makes.md) and a [review checklist](guides/reviewing-extensions.md#review-checklist) for finding issues, improvements, and pruning opportunities. Reviewers can apply selected recommendations by number.
+
 ## 2026-11-18
 
 - Added [Preserve agent judgment](principles/preserve-agent-judgment.md) and applied it to skill authoring, scoped instructions, and extension review.

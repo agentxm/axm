@@ -41,6 +41,10 @@ Choose the decision you are making. Patterns from different groups can be used t
 
 - [Workflow handoff artifact](workflow-handoff-artifact.md) — When work continues in another workflow or session, record the decisions and evidence the next participant needs to resume.
 
+## How do we review an existing design?
+
+- [Review the decisions an artifact makes](review-the-decisions-an-artifact-makes.md) — When reviewing a working extension, use its decisions and the applicable design guidance to discover issues, improvements, and pruning opportunities.
+
 ## How do we know it worked?
 
 - [Invocation trial](invocation-trial.md) — Check which skill was selected, how it interpreted the request, and what work it performed.

@@ -1467,6 +1467,22 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `apps/cli/src/root/version/command.ts`
 - Source: [`packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts`](../packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts)
 
+#### Human factors
+
+##### Axe guides extension reviews across issues, improvements, and pruning
+
+- Requirement: `extension-engineering/review-guidance`
+- Owner: `axm`
+- Statement: Axe shall guide reviewers to use applicable guides and patterns to identify grounded issues, improvement opportunities, and pruning opportunities within the requested focus, leaving changes for the user's selection.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored skill and sibling knowledge bundle supply the review route and checklist. Host trials separately observe the resulting findings, scope, and selected edits.
+- Methods: static, review
+- Assumptions: The engineering pack's skill and knowledge bundle are available together.
+- Source: [`scripts/axe-review-guidance.spec.ts`](../scripts/axe-review-guidance.spec.ts)
+
 ### Goal: extension-adoption
 
 People and agents can find, install, update, and remove reusable extensions across coding agents through dependable product surfaces.

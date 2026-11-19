@@ -46,8 +46,9 @@ selection before acting.
 When an action also needs a target, let the user select it in the control
 or supply both in one reply. For reviews, [Select from findings](select-from-findings.md)
 keeps the displayed numbers bound to their findings. “Inspect 2” shows the
-evidence for that finding. “Fix 2” applies its recommendation within the
+evidence for that finding. “Apply 2” applies its recommendation within the
 user's authority. “Done” ends the review.
+
 
 Try one choice through the picker and its text equivalent on separate copies
 of the same fixture. Delay the reply and inspect the visible exchange while

@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: "Reviewing and remediating extensions"
-description: "Turn a suspected extension defect into a finding and verify an authorized fix against the original case."
+description: "Review an extension for issues, improvements, and pruning opportunities, then verify the changes the user selects."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
 generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
@@ -15,6 +15,19 @@ sources:
 ---
 
 # Reviewing and remediating extensions
+
+## Review checklist
+
+1. Identify the target, revision, requested focus, and a representative user request. Trace it to the result or the point where the evidence runs out.
+2. Locate the decisions that shape that request. For an open-ended review, consult the [guide index](index.md) by extension type or task and the [pattern index](../patterns/index.md) by decision. Use the relevant guidance to discover findings across all three lenses. [Review the decisions an artifact makes](../patterns/review-the-decisions-an-artifact-makes.md) illustrates how one decision can lead to different findings.
+3. For each decision within scope, ask the three questions below. Keep one numbered finding per distinct change. A lens can yield none.
+4. Report what the material supports and identify any missing evidence that matters. A focused review can finish when its question is settled.
+
+| Lens        | Question                                                                                           | Evidence to retain                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Issue       | When does the extension deliver a wrong result, stop early, or exceed its authority?               | The triggering request, expected behavior, and failure or consequence.                          |
+| Improvement | Even when the request succeeds, where must someone guess, repeat work, or reconstruct information? | The point of friction, expected benefit, and how to check it.                                   |
+| Pruning     | Which step, instruction, dependency, or lookup could be removed or narrowed?                       | Its current job and cost, what would preserve the outcome, and the case most likely to regress. |
 
 Start with the claim the supplied material lets you examine. A skill description
 that promises “every writing task” and a body limited to editing release notes
@@ -35,38 +48,38 @@ label it as an example. Try a nearby case in which the agent already has the
 evidence or the user has already made the decision.
 [Preserve agent judgment](../principles/preserve-agent-judgment.md).
 
-For an authorized fix, keep the original failing case. Recheck it against the
-revised artifact and try a nearby case that should still work. For the editor,
-a request to polish release notes should still reach it. Report what the
-recheck establishes and any unresolved findings.
+For an authorized change, recheck the original request and a nearby valid case.
+For an improvement, compare the original friction with the revised experience.
+For pruning, exercise the case the removed step might have protected. Report what the recheck establishes and any unresolved findings.
 
 ## Report the review
 
 Use this [display template](../patterns/display-template.md) for an actionable
 review. Identify the target and revision or supplied material once. Give each
-finding a stable number and a short title, adding severity when the review
-uses a severity scale. Describe the trigger and consequence, label the
+finding a stable number, one primary label (Issue, Improvement, or Pruning),
+and a short title. Add severity when the review uses a severity scale. Describe the trigger and consequence, label the
 **Recommendation**, then put the location and supporting **Evidence** on
-their own line. Where two remedies have materially different consequences,
+their own line. Name the guide or pattern that informed the judgment when applicable.
+Distinguish observed effects from expected benefits. Where two remedies have materially different consequences,
 give the preferred remedy and the tradeoff of the alternative.
 
 For example, a review of a release-note skill archive might read as follows.
 
 > **Release-note skill · candidate archive · 2 findings**
 >
-> **1 · Breaking-change notes cannot open the migration guide**\
+> **1 · Issue · Breaking-change notes cannot open the migration guide**\
 > The skill opens a missing path when a release contains a breaking change.\
 > **Recommendation** — Update the link in the authored skill to the shipped filename.\
 > **Evidence** — `src/SKILL.md:18` links to `migration.md`. The archive contains `migrations.md`.
 >
-> **2 · Draft requests publish a release note**\
-> Asking for a draft reaches the upload step before the author can read it.\
-> **Recommendation** — End the draft workflow after rendering. Reserve upload for an explicit publication request.\
-> **Evidence** — `src/SKILL.md:26` instructs the agent to upload every rendered draft.
+> **2 · Pruning · Exact paths trigger a second file choice**\
+> After the author supplies the release-note path, the skill asks them to choose that file again.\
+> **Recommendation** — Open the supplied path directly. Check that two matches for a short name still prompt.\
+> **Evidence** — `src/SKILL.md:26` opens the picker for every input. [Scope selector](../patterns/scope-selector.md) distinguishes exact paths from ambiguous names.
 >
 > **Next action**\
-> **A · Fix selected** (`A 2` or `fix 2`)\
-> **B · Fix all** (`B` or `fix all`)\
+> **A · Apply selected** (`A 2` or `apply 2`)\
+> **B · Apply all** (`B` or `apply all`)\
 > **C · Inspect evidence** (`C 1` or `inspect 1`)\
 > **D · Finish review** (`D` or `done`)
 
@@ -93,9 +106,9 @@ requires a separate final response after the picker, or supports only text,
 put the report and labeled choices together in that final response. Leave
 the question last until the reader responds.
 Keep the action labels usable as prompt replies wherever text input is available.
-When **Fix selected** or **Inspect evidence** needs a target, list finding
+When **Apply selected** or **Inspect evidence** needs a target, list finding
 numbers and titles. A reply such as “fix the second one” supplies both choices.
-Keep inspection read-only. Apply a repair only to the selected findings and
+Keep inspection read-only. Apply only the selected recommendations and
 respect the scope of any repair the user already requested.
 
 For a clean review, give the scope, verdict, and evidence. For example,
@@ -103,7 +116,7 @@ For a clean review, give the scope, verdict, and evidence. For example,
 End with that verdict when there is no meaningful follow-up.
 For an inconclusive review, identify the missing evidence and what it would
 settle, for example, “The excerpt names the guide. The archive listing would
-establish whether it ships.” Offer a repair only for a grounded defect.
+establish whether it ships.” Offer a change once the evidence supports a specific recommendation.
 
 ## Decide who owns each assessment
 

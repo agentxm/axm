@@ -54,6 +54,11 @@ export type Text = string | ReadonlyArray<Span>;
  */
 export interface PaintSpan extends Span {
   readonly invert?: true;
+  /**
+   * The painter's own separator between two facts. Wrapping keeps it on the
+   * line of the fact before it, so a wrapped aside never opens with one.
+   */
+  readonly separator?: true;
 }
 
 export type PaintText = string | ReadonlyArray<PaintSpan>;
@@ -270,8 +275,11 @@ export interface CalloutNode {
   readonly _tag: "callout";
   readonly tone: Tone;
   readonly title: Text;
-  /** A dim aside, such as a stable code, painted at the value column. */
-  readonly aside?: Text;
+  /**
+   * Dim facts at the value column, such as a stable code and an exit code,
+   * which the painter joins with the active glyph set's separator.
+   */
+  readonly aside?: ReadonlyArray<SummaryPart>;
   readonly children?: Doc;
 }
 

@@ -3,7 +3,7 @@ import { withParameterDefault, withParameterDescription } from "../cli-parameter
 import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import { withArgvTracking } from "../cli-runtime/index.js";
-import { emitResult, inventoryDoc, type ViewColumn } from "../screen/index.js";
+import { count, emitResult, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import {
   InstructionsStatusSchema,
   ManageInstructions,
@@ -61,7 +61,10 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
       return inventoryDoc({
         rows: [],
         columns: InstructionsColumns,
-        empty: "Instruction-file management is disabled.",
+        empty: {
+          statement: "Instruction-file management is disabled",
+          next: [{ description: "Turn it on", cmd: "axm instructions enable" }],
+        },
       });
     }
 
@@ -71,11 +74,8 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
     return inventoryDoc({
       rows,
       columns: InstructionsColumns,
-      summary:
-        rows.length === 0
-          ? ""
-          : `${String(rows.length)} instruction ${rows.length === 1 ? "file" : "files"}`,
-      empty: "No configured agents need instruction-file propagation.",
+      summary: [count(rows.length, "instruction file")],
+      empty: { statement: "No configured agents need instruction files" },
     });
   });
 });

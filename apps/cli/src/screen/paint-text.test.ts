@@ -540,7 +540,7 @@ describe("paintText", () => {
         _tag: "callout",
         tone: "error",
         title: "Invalid skill name",
-        aside: "validation · exit 9",
+        aside: [{ text: "validation" }, { text: "exit 9" }],
         children: [
           {
             _tag: "fields",
@@ -929,7 +929,7 @@ describe("paintText", () => {
       expect(plain(doc, 60)).toEqual(["Run", command]);
     });
 
-    it("gives a next command a line of its own rather than cut it", () => {
+    it("gives a next command a line of its own rather than cut it, its description hanging beneath", () => {
       const doc: Doc = [
         {
           _tag: "next",
@@ -944,7 +944,7 @@ describe("paintText", () => {
       expect(plain(doc, 60)).toEqual([
         "Next",
         "     axm install @acme-enterprise/skills/soc2-evidence-review --yes",
-        "     Install the reviewed extension",
+        "       Install the reviewed extension",
       ]);
     });
 
@@ -956,7 +956,7 @@ describe("paintText", () => {
         },
       ];
       expect(plain(doc, 80)).toEqual(["Next", "     https://axm.sh/docs   Read the guide"]);
-      expect(plain(doc, 30)).toEqual(["Next", "     https://axm.sh/docs", "     Read the guide"]);
+      expect(plain(doc, 30)).toEqual(["Next", "     https://axm.sh/docs", "       Read the guide"]);
     });
 
     it("still joins a next command that fits", () => {

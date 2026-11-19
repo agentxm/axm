@@ -127,14 +127,14 @@ describe("skills handoff handler", () => {
         expect(classifyError(failure, "text", options)).toEqual({
           exitCode: 9,
           stderr: [
-            ` ✖   Invalid Request               validation, exit 9\n     ${detail}\n     --debug shows the cause.\nNext\n     ${suggestion}`,
+            ` ✖   Invalid request               validation · exit 9\n     ${detail}\n     --debug shows the cause.\nNext\n     ${suggestion.slice(0, -1)}`,
           ],
           stderrDoc: [
             {
               _tag: "callout",
               tone: "error",
-              title: "Invalid Request",
-              aside: "validation, exit 9",
+              title: "Invalid request",
+              aside: [{ text: "validation" }, { text: "exit 9" }],
               children: [
                 { _tag: "paragraph", text: detail },
                 { _tag: "paragraph", tone: "dim", text: "--debug shows the cause." },
@@ -152,7 +152,7 @@ describe("skills handoff handler", () => {
           stdout: `${JSON.stringify({
             ok: false,
             code: "validation",
-            title: "Invalid Request",
+            title: "Invalid request",
             detail,
             suggestions: [{ description: suggestion }],
           })}\n`,

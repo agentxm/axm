@@ -6,13 +6,8 @@
 
 import * as Effect from "effect/Effect";
 
-import {
-  emitResult,
-  paragraphDoc,
-  successDoc,
-  tableDoc,
-  type ViewColumn,
-} from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
+import { visibilityChangeDoc, visibilityEvaluationDoc } from "./view.js";
 import {
   VisibilityEvaluationSchema,
   type VisibilityMutationResult,
@@ -26,33 +21,11 @@ import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/exte
 import { failureToAppError } from "../../app-error/conversions.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 
-interface VisibilityRow {
-  readonly field: string;
-  readonly value: string;
-}
-
-const visibilityColumns: ReadonlyArray<ViewColumn<VisibilityRow>> = [
-  { header: "Field", value: (row) => row.field },
-  { header: "Value", value: (row) => row.value },
-];
-
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
-    yield* emitResult(evaluation, VisibilityEvaluationSchema, () => [
-      ...tableDoc(
-        [
-          { field: "Extension", value: evaluation.target },
-          { field: "Intended", value: evaluation.intent?.value ?? "not configured" },
-          { field: "Actual", value: evaluation.actual?.value ?? "not established" },
-          { field: "Comparison", value: evaluation.comparison },
-          { field: "Source", value: evaluation.intent?.source ?? "-" },
-        ],
-        visibilityColumns,
-      ),
-      ...evaluation.findings.flatMap((finding) =>
-        paragraphDoc(`${finding.severity.toUpperCase()}: ${finding.message}`),
-      ),
-    ]);
+    yield* emitResult(evaluation, VisibilityEvaluationSchema, () =>
+      visibilityEvaluationDoc(evaluation),
+    );
   });
 
 const emitMutation = (
@@ -72,18 +45,11 @@ const emitMutation = (
         revision: result.revision,
         message:
           result.result === "already-satisfied"
-            ? `${result.target} is already ${result.after}.`
-            : `Changed ${result.target} from ${result.before} to ${result.after}.`,
+            ? `${result.target} is already ${result.after}`
+            : `Changed ${result.target} from ${result.before} to ${result.after}`,
       }),
       RegistryTransitionSchema,
-      () => [
-        ...successDoc(
-          result.result === "already-satisfied"
-            ? `${result.target} is already ${result.after}.`
-            : `Changed ${result.target} from ${result.before} to ${result.after}.`,
-        ),
-        ...paragraphDoc(`Revision: ${result.revision}`),
-      ],
+      () => visibilityChangeDoc(result),
       {
         completion: {
           mode: "apply",

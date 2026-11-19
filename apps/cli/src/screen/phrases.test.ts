@@ -1,28 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  interruptionPhrase,
-  publishDisposition,
-  publishParticipation,
-  publishReason,
-  remainingTime,
-} from "./phrases.js";
+import { bytes, day, list, moment, remainingTime } from "./grammar.js";
+import { interruptionPhrase, verdictFacts } from "./phrases.js";
 
 describe("human vocabulary", () => {
-  it("uses human phrases for publish decisions", () => {
-    expect(publishParticipation("verified-existing")).toBe("skip");
-    expect(publishDisposition("not-authored")).toBe("not authored here");
-    expect(publishReason("version_already_published")).toBe("version already published");
-    expect(publishReason("unmatched_selector")).toBe("selector did not match");
-    expect(publishReason("archived")).toBe("extension is archived");
-    expect(publishReason("settlement_unresolved")).toBe(
-      "registry settlement could not be verified",
-    );
-  });
-
-  it("keeps interruption outcomes distinct", () => {
-    expect(interruptionPhrase("SIGINT", "restored")).toBe("Interrupted - changes rolled back");
-    expect(interruptionPhrase("SIGTERM", "retained")).toBe("Terminated - partial work retained");
+  it("keeps interruption outcomes distinct, with the consequence apart from the claim", () => {
+    expect(interruptionPhrase("SIGINT", "restored")).toEqual({
+      claim: "Interrupted",
+      consequence: "changes rolled back",
+    });
+    expect(interruptionPhrase("SIGTERM", "retained")).toEqual({
+      claim: "Terminated",
+      consequence: "partial work kept",
+    });
+    expect(verdictFacts(interruptionPhrase("SIGINT", "untouched"), ["exit 130"])).toEqual([
+      "no changes made",
+      "exit 130",
+    ]);
   });
 
   it("says how long is left as minutes and zero-padded seconds", () => {
@@ -31,5 +25,16 @@ describe("human vocabulary", () => {
     expect(remainingTime(45_000)).toBe("0:45 left");
     expect(remainingTime(1)).toBe("0:01 left");
     expect(remainingTime(0)).toBe("expired");
+  });
+
+  it("states sizes, lists, and dates in one form each", () => {
+    expect(bytes(999)).toBe("999 B");
+    expect(bytes(96_000)).toBe("96 KB");
+    expect(bytes(2_500_000_000)).toBe("2.5 GB");
+    expect(list(["a"])).toBe("a");
+    expect(list(["a", "b"])).toBe("a and b");
+    expect(list(["a", "b", "c"])).toBe("a, b, and c");
+    expect(day("2026-09-21T16:44:17.865Z")).toBe("21 Sep 2026");
+    expect(moment("2026-09-21T16:44:17.865Z")).toBe("21 Sep 2026 16:44 UTC");
   });
 });

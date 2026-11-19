@@ -54,7 +54,7 @@ export const makeCliUpgradeExecutionObserver = () =>
             label: "AXM installation method",
             resolvedLabel: (result: InspectedInstallation) =>
               result.method._tag === "Unknown"
-                ? "AXM installation method - undetermined"
+                ? "AXM installation method is undetermined"
                 : `AXM installed with ${methodLabel(methodName(result.method))}`,
           },
           inspection.pipe(
@@ -74,7 +74,7 @@ export const makeCliUpgradeExecutionObserver = () =>
                 id: "resolve-release",
                 label: "AXM latest release",
                 resolvedLabel: (selected: SelectedRelease) =>
-                  `AXM latest release - ${selected.targetVersion}`,
+                  `AXM latest release is ${selected.targetVersion}`,
               }
             : { id: "resolve-version", label: `AXM ${version}` },
           selection.pipe(

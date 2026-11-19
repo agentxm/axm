@@ -4,7 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
-import { emitResult, headlineDoc, successDoc } from "../../screen/index.js";
+import { emitResult, recordDoc } from "../../screen/index.js";
+import { archivalDoc, deprecationDoc } from "./view.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   directWriteCapabilities,
@@ -41,13 +42,18 @@ const categoryValues = ["broken", "security", "accidental", "other"] as const;
  */
 const emitRegistryTransition = (transition: RegistryTransition) =>
   Effect.gen(function* () {
-    yield* emitResult(transition, RegistryTransitionSchema, () => successDoc(transition.message), {
-      completion: {
-        mode: "apply",
-        outcome: transition.disposition === "already-current" ? "no-op" : "applied",
-        exitCode: 0,
+    yield* emitResult(
+      transition,
+      RegistryTransitionSchema,
+      () => recordDoc({ tone: "ok", verdict: transition.message }),
+      {
+        completion: {
+          mode: "apply",
+          outcome: transition.disposition === "already-current" ? "no-op" : "applied",
+          exitCode: 0,
+        },
       },
-    });
+    );
   });
 
 export const handleYank = Effect.fn("Yank.handle")(
@@ -114,47 +120,11 @@ const emitDeprecationTransition = (
       revision: transition.revision,
       message:
         transition.disposition === "unchanged"
-          ? `Guidance for ${transition.target} is already current.`
-          : `Updated guidance for ${transition.target}.`,
+          ? `Guidance for ${transition.target} is already current`
+          : `Updated guidance for ${transition.target}`,
     }),
     RegistryTransitionSchema,
-    () => {
-      const verb =
-        transition.disposition === "created"
-          ? "Deprecated"
-          : transition.disposition === "edited"
-            ? "Updated deprecation for"
-            : transition.disposition === "restored"
-              ? "Restored"
-              : transition.after === null
-                ? "Already active"
-                : "Deprecation already current for";
-      const replacement = transition.after?.replacement;
-      return [
-        ...successDoc(`${verb} ${transition.target}.`),
-        ...headlineDoc(
-          "info",
-          `State: ${transition.before === null ? "active" : "deprecated"} to ${transition.after === null ? "active" : "deprecated"}`,
-        ),
-        ...headlineDoc("info", `Revision: ${transition.revision}`),
-        ...(transition.after === null
-          ? []
-          : headlineDoc("info", `Reason: ${transition.after.reason}`)),
-        ...(transition.after?.message === undefined
-          ? []
-          : headlineDoc("info", `Message: ${transition.after.message}`)),
-        ...(replacement === undefined
-          ? []
-          : headlineDoc(
-              "info",
-              replacement.status === "available"
-                ? `Replacement: ${replacement.fqn}`
-                : replacement.fqn === undefined
-                  ? "Replacement: unavailable or not visible"
-                  : `Replacement: ${replacement.fqn} (unavailable)`,
-            )),
-      ];
-    },
+    () => deprecationDoc(transition),
     {
       completion: {
         mode: "apply",
@@ -221,33 +191,11 @@ const emitArchivalTransition = (
       revision: transition.revision,
       message:
         transition.disposition === "unchanged"
-          ? `${transition.target} is already current.`
-          : `Updated archival of ${transition.target}.`,
+          ? `${transition.target} is already current`
+          : `Updated archival of ${transition.target}`,
     }),
     RegistryTransitionSchema,
-    () => {
-      const verb =
-        transition.disposition === "created"
-          ? "Archived"
-          : transition.disposition === "edited"
-            ? "Updated archive message for"
-            : transition.disposition === "restored"
-              ? "Unarchived"
-              : transition.after === null
-                ? "Already active"
-                : "Already archived";
-      return [
-        ...successDoc(`${verb} ${transition.target}.`),
-        ...headlineDoc(
-          "info",
-          `State: ${transition.before === null ? "active" : "archived"} to ${transition.after === null ? "active" : "archived"}`,
-        ),
-        ...headlineDoc("info", `Revision: ${transition.revision}`),
-        ...(transition.after?.message === undefined
-          ? []
-          : headlineDoc("info", `Message: ${transition.after.message}`)),
-      ];
-    },
+    () => archivalDoc(transition),
     {
       completion: {
         mode: "apply",

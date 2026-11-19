@@ -75,6 +75,24 @@ const tokenize = (spans: ReadonlyArray<PaintSpan>): ReadonlyArray<ReadonlyArray<
   };
   for (const span of spans) {
     const attributes = attributesOf(span);
+    if (span.separator === true) {
+      // Glued to the fact before it, so a line may end after the mark but
+      // never begin with one.
+      const mark = span.text.trim();
+      if (mark.length === 0) continue;
+      const line = currentLine();
+      const last = line[line.length - 1];
+      if (word.length > 0) {
+        word.push({ text: ` ${mark}`, attributes });
+        flushWord();
+      } else if (last !== undefined) {
+        line[line.length - 1] = [...last, { text: ` ${mark}`, attributes }];
+      } else {
+        word.push({ text: mark, attributes });
+        flushWord();
+      }
+      continue;
+    }
     if (span.copyable === true) {
       // Whole and unbroken, its own spaces included, so it stays copyable.
       flushWord();

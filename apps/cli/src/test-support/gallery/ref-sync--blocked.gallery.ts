@@ -10,6 +10,7 @@ import { galleryModule, stressWidths } from "./fixture.js";
  */
 const refSyncBlocked = operationDoc(blockedSync, {
   verbosity: "normal",
+  project: "platform-services",
   suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
 });
 

@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/human-inventory-states-each-row",
   title: "A person's inventory states each row's local state in one column",
   statement:
-    "When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and a summary over a row that `axm lint` explains shall name `axm lint` as a command to run.",
+    "When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and an inventory with a row that `axm lint` explains shall offer `axm lint` as its next command.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -89,12 +89,9 @@ describe("A person's inventory states each row", () => {
     ]);
   });
 
-  it("names axm lint as a command to run", () => {
-    const parts = summary(doc);
-    const last = parts.at(-1);
-    expect(plain(last ?? "")).toBe("run axm lint");
-    expect(typeof last === "string" ? [] : last?.filter((span) => span.copyable === true)).toEqual([
-      expect.objectContaining({ text: "axm lint" }),
-    ]);
+  it("offers axm lint as the next command", () => {
+    const next = doc.flatMap((node) => (node._tag === "next" ? node.actions : []));
+    expect(next.map((action) => action.cmd)).toEqual(["axm lint"]);
+    expect(summary(doc).map((part) => plain(part))).not.toContain("run axm lint");
   });
 });

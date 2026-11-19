@@ -7,6 +7,7 @@
  */
 
 import { plain, type Doc, type DocNode, type Text } from "../../screen/doc.js";
+import { fragment } from "../../screen/grammar.js";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import type { PaintStyle } from "../../screen/paint-text.js";
 import { asciiGlyphs, isHintKeyToken, unicodeGlyphs } from "../../screen/glyphs.js";
@@ -89,7 +90,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         return;
       case "callout":
         pushText(node.title);
-        pushText(node.aside);
+        node.aside?.forEach((part) => pushText(part.text));
         node.children?.forEach(walk);
         return;
       case "table":
@@ -107,7 +108,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         node.actions.forEach((action) => {
           // URL actions are intentionally only the URL; their prose label is
           // metadata for richer interfaces, not terminal output.
-          if (action.url === undefined) visit(action.description, false);
+          if (action.url === undefined) visit(fragment(action.description), false);
           // A next command or URL is copied and run: the painter marks it copyable.
           if (action.cmd !== undefined) visit(action.cmd, true);
           if (action.url !== undefined) visit(action.url, true);
@@ -298,7 +299,7 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       case "callout":
         add("callout.tone", path, node.tone);
         spans(node.title, `${path}.title`);
-        spans(node.aside, `${path}.aside`);
+        node.aside?.forEach((part, index) => spans(part.text, `${path}.aside[${String(index)}]`));
         node.children?.forEach((child, index) => walk(child, `${path}.children[${String(index)}]`));
         return;
       case "table":

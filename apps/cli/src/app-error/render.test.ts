@@ -13,7 +13,7 @@ describe("renderAppError", () => {
   it("renders caller-supplied suggestions as a Next block", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Workspace state not initialized",
       suggestions: [{ description: "Create a workspace to continue." }],
       cause: undefined,
@@ -23,10 +23,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        titleLine("Internal Error", "internal, exit 10"),
+        titleLine("Internal error", "internal · exit 10"),
         "     Workspace state not initialized",
         "Next",
-        "     Create a workspace to continue.",
+        "     Create a workspace to continue",
       ].join("\n"),
     );
   });
@@ -34,11 +34,11 @@ describe("renderAppError", () => {
   it("renders suggestion cmd and url inline", () => {
     const error = new AppError({
       code: "network",
-      title: "Network Error",
+      title: "Network error",
       detail: "Remote registry is unreachable",
       suggestions: [
-        { description: "Sign in again.", cmd: "axm login" },
-        { description: "See the docs.", url: "https://axm.sh/docs" },
+        { description: "Sign in again", cmd: "axm login" },
+        { description: "See the docs", url: "https://axm.sh/docs" },
       ],
       cause: undefined,
     });
@@ -47,11 +47,11 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        titleLine("Network Error", "network, exit 8"),
+        titleLine("Network error", "network · exit 8"),
         "     Remote registry is unreachable",
         "Next",
-        "     axm login   Sign in again.",
-        "     https://axm.sh/docs   See the docs.",
+        "     axm login   Sign in again",
+        "     https://axm.sh/docs   See the docs",
       ].join("\n"),
     );
   });
@@ -59,7 +59,7 @@ describe("renderAppError", () => {
   it("falls back to the default suggestions for the error code when none are supplied", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Installation failed",
       cause: undefined,
     });
@@ -68,10 +68,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        titleLine("Internal Error", "internal, exit 10"),
+        titleLine("Internal error", "internal · exit 10"),
         "     Installation failed",
         "Next",
-        "     https://github.com/agentxm/axm/issues/new/choose   This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+        "     https://github.com/agentxm/axm/issues/new/choose   Report this bug, with the diagnostic ID if one is shown",
       ].join("\n"),
     );
   });
@@ -79,7 +79,7 @@ describe("renderAppError", () => {
   it("renders no Next block when the error code has no default suggestions", () => {
     const error = new AppError({
       code: "not_found",
-      title: "Not Found",
+      title: "Not found",
       detail: "Resource missing",
       cause: undefined,
     });
@@ -87,14 +87,14 @@ describe("renderAppError", () => {
     const result = renderAppError(error);
 
     expect(result).toBe(
-      [titleLine("Not Found", "not_found, exit 3"), "     Resource missing"].join("\n"),
+      [titleLine("Not found", "not_found · exit 3"), "     Resource missing"].join("\n"),
     );
   });
 
   it("formats error with no optional fields", () => {
     const error = new AppError({
       code: "not_found",
-      title: "Not Found",
+      title: "Not found",
       detail: "Something went wrong",
       cause: undefined,
     });
@@ -102,14 +102,14 @@ describe("renderAppError", () => {
     const result = renderAppError(error);
 
     expect(result).toBe(
-      [titleLine("Not Found", "not_found, exit 3"), "     Something went wrong"].join("\n"),
+      [titleLine("Not found", "not_found · exit 3"), "     Something went wrong"].join("\n"),
     );
   });
 
   it("renders registry origin in normal mode", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "The registry returned a server error",
       metadata: {
         request: {
@@ -136,7 +136,7 @@ describe("renderAppError", () => {
   it("renders registry request and normalized request ID in verbose mode", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "The registry returned a server error",
       metadata: {
         request: {
@@ -166,7 +166,7 @@ describe("renderAppError", () => {
   it("formats error with multiple detail lines", () => {
     const error = new AppError({
       code: "validation",
-      title: "Invalid Request",
+      title: "Invalid request",
       detail: "Could not resolve source",
       suggestions: [{ description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
@@ -176,10 +176,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        titleLine("Invalid Request", "validation, exit 9"),
+        titleLine("Invalid request", "validation · exit 9"),
         "     Could not resolve source",
         "Next",
-        "     Try a local path or GitHub shorthand.",
+        "     Try a local path or GitHub shorthand",
       ].join("\n"),
     );
   });
@@ -196,7 +196,7 @@ describe("renderAppError", () => {
 
     expect(renderAppError(error)).toBe(
       [
-        titleLine("Invalid skill name", "validation, exit 9"),
+        titleLine("Invalid skill name", "validation · exit 9"),
         '     Name                          "Code Review!"',
         "Next",
         "     Choose a name matching /^[a-z0-9-]+$/ (max 64 chars)",
@@ -230,7 +230,7 @@ describe("renderAppError", () => {
   it("includes cause message in verbose mode", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Installation failed",
       cause: new Error("permission denied"),
     });
@@ -239,11 +239,11 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        titleLine("Internal Error", "internal, exit 10"),
+        titleLine("Internal error", "internal · exit 10"),
         "     Installation failed",
         "     Cause: Error: permission denied",
         "Next",
-        "     https://github.com/agentxm/axm/issues/new/choose   This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+        "     https://github.com/agentxm/axm/issues/new/choose   Report this bug, with the diagnostic ID if one is shown",
       ].join("\n"),
     );
   });
@@ -251,7 +251,7 @@ describe("renderAppError", () => {
   it("includes a debug hint in normal mode when a cause is attached", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Installation failed",
       cause: new Error("permission denied"),
     });
@@ -267,7 +267,7 @@ describe("renderAppError", () => {
     cause.stack = "Error: permission denied\n at test";
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Installation failed",
       cause,
     });
@@ -282,14 +282,14 @@ describe("renderAppError", () => {
   it("renders nested AppError cause in verbose mode", () => {
     const nested = new AppError({
       code: "network",
-      title: "Network Error",
+      title: "Network error",
       detail: "Remote registry is unreachable",
       cause: undefined,
     });
 
     const error = new AppError({
       code: "network",
-      title: "Network Error",
+      title: "Network error",
       detail: 'Failed to publish to registry "local-registry"',
       cause: nested,
     });

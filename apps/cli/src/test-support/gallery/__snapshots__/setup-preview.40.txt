@@ -1,5 +1,4 @@
-Previewing setup in ~/code/storefront
-for this project
+Previewing setup  in storefront
 
  ✔   Checked for coding agents
                     found 4 agents
@@ -25,4 +24,4 @@ Would set up AXM for 3 agents
 
 Next
      axm setup --yes --scope project --agent claude-code --agent codex --agent cursor
-     Apply setup
+       Apply setup

@@ -77,7 +77,7 @@ describe("root list", () => {
       Effect.gen(function* () {
         yield* handleList(listAll);
         expect(painted(rendererState)).toEqual([
-          "No AXM workspace in this project.",
+          "No AXM workspace in this project",
           "Next",
           "     axm setup   Set up AXM in this project",
         ]);
@@ -92,7 +92,7 @@ describe("root list", () => {
       Effect.gen(function* () {
         yield* handleList(listAll);
         expect(painted(rendererState)).toEqual([
-          "No extensions installed in this project.",
+          "No extensions installed in this project",
           "Next",
           "     axm discover   Find recommended extensions",
         ]);
@@ -112,7 +112,8 @@ describe("root list", () => {
         expect(page.find((line) => line.includes("@acme/skills/review"))).toMatch(
           /^ ▲ {3}@acme\/skills\/review .* missing /u,
         );
-        expect(page.at(-1)).toBe("1 extension · 1 enabled · 1 needs attention · run axm lint");
+        expect(page).toContain("1 extension · 1 enabled · 1 needs attention");
+        expect(page.at(-1)).toBe("     axm lint   See what needs attention and how to fix it");
       }),
     );
   });

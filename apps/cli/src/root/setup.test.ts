@@ -1200,8 +1200,8 @@ describe("setup.handler", () => {
           }).pipe(Effect.catchCause(() => Effect.void));
 
           expect(messages(rendererState)).toContainEqual({
-            _tag: "error",
-            message: "Approval required — no changes applied",
+            _tag: "warn",
+            message: "Setup is blocked",
           });
           expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
@@ -1307,7 +1307,7 @@ describe("setup.handler", () => {
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
           expect(messages(rendererState)).toContainEqual({
             _tag: "warn",
-            message: "Setup cancelled",
+            message: "Cancelled",
           });
           expect(rendererState.results[0]?.completion).toEqual({
             mode: "apply",
@@ -1592,12 +1592,8 @@ describe("setup.handler", () => {
             {
               _tag: "headline",
               tone: "neutral",
-              text: [
-                {
-                  text: `Setting up AXM in ${fs.realpathSync(tempDir)} for this project`,
-                  bold: true,
-                },
-              ],
+              text: [{ text: "Setting up AXM", bold: true }],
+              aside: [{ text: `in ${path.basename(fs.realpathSync(tempDir))}` }],
             },
           ]);
         }),
@@ -1648,7 +1644,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(messages(rendererState)[0]?.message).toMatch(/^Setting up AXM in /);
+          expect(messages(rendererState)[0]?.message).toBe("Setting up AXM");
           expect(ledgerRows(rendererState)).toContainEqual("axm.json   created   ");
           expect(messages(rendererState)).toContainEqual({
             _tag: "success",

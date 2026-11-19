@@ -18,7 +18,8 @@ import type { TableColumnPriority } from "./doc.js";
  *    onto a couple of lines at most.
  * 5. With `wrapBeforeDrop`, shrink to word floors before dropping anything:
  *    a ledger would rather wrap a cell onto another line than move its value
- *    out of the column its header names.
+ *    out of the column its header names, as long as no `optional` cell needs
+ *    more than three lines to fit.
  * 6. Drop the droppable priorities in turn, each from the right, refitting at
  *    soft floors after every drop. A table drops `optional` columns and then
  *    `preferred` ones; a ledger drops only `optional` ones, and what it drops
@@ -182,6 +183,29 @@ const dropLast = (
   return last === undefined ? undefined : active.filter((index) => index !== last);
 };
 
+/**
+ * The most lines wrapping before a drop may give an `optional` cell. Past it,
+ * a value stacked a word to a line in a narrow column is harder to read than
+ * the same value painted beneath its row, so the column drops instead.
+ */
+const MAX_WRAPPED_LINES = 3;
+
+const wrapsReadably = (
+  columns: ReadonlyArray<LayoutColumn>,
+  active: ReadonlyArray<number>,
+  widths: ReadonlyArray<number>,
+): boolean =>
+  active.every((index, position) => {
+    const column = columns[index];
+    const width = widths[position] ?? 0;
+    return (
+      column === undefined ||
+      column.priority !== "optional" ||
+      width <= 0 ||
+      Math.ceil(column.naturalWidth / width) <= MAX_WRAPPED_LINES
+    );
+  });
+
 export const layoutTable = (args: LayoutTableArgs): TableLayout => {
   const { columns, available, gap } = args;
   const all = columns.map((_, index) => index);
@@ -220,7 +244,8 @@ export const layoutTable = (args: LayoutTableArgs): TableLayout => {
 
   if (args.wrapBeforeDrop === true) {
     const wrappedWhole = fit(columns, active, available, gap, wordFloor);
-    if (wrappedWhole !== undefined) return grid(columns, active, wrappedWhole);
+    if (wrappedWhole !== undefined && wrapsReadably(columns, active, wrappedWhole))
+      return grid(columns, active, wrappedWhole);
   }
 
   for (const priority of args.droppable ?? (["optional", "preferred"] as const)) {

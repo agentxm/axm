@@ -2,6 +2,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { plain } from "./doc.js";
 import type { Doc, DocNode, Span, Tone } from "./doc.js";
+import { fragment } from "./grammar.js";
 import { displayWidth, padDisplay } from "./width.js";
 import { longestWordWidth } from "./wrap-text.js";
 import { paintFields, paintLedger, paintTable } from "./paint-grid.js";
@@ -32,6 +33,9 @@ export type { PaintStyle, PaintWidth } from "./paint-kit.js";
 // ---------------------------------------------------------------------------
 
 const actionTarget = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
+
+/** How far a `Next` description that wraps onto its own line hangs beneath its command. */
+const HANGING_INDENT = 2;
 
 /**
  * Where a node paints: `mark` is the column its gutter starts at, and
@@ -128,7 +132,7 @@ const paintNode = (
       return [
         ...(node.aside === undefined
           ? title
-          : withSupplement(title, node.aside, style, style.valueColumn, {
+          : withSupplement(title, joinedParts(node.aside, glyphs), style, style.valueColumn, {
               gap: (last) => spaces(Math.max(COLUMN_GAP, style.valueColumn - displayWidth(last))),
             })),
         ...children,
@@ -151,7 +155,8 @@ const paintNode = (
     case "next":
       return [
         `${spaces(content)}${dim("Next", style)}`,
-        ...node.actions.flatMap((action) => {
+        ...node.actions.flatMap((suggested) => {
+          const action = { ...suggested, description: fragment(suggested.description) };
           const targetText = actionTarget(action);
           const target: ReadonlyArray<Span> = [{ text: targetText, copyable: true }];
           const actionStart = content + GUTTER_WIDTH;
@@ -164,7 +169,9 @@ const paintNode = (
           }
           const lines = paintPrefixed(target, style, { indent: actionStart, first: "" });
           if (plain(action.description).length === 0) return lines;
-          return withSupplement(lines, action.description, style, actionStart, {
+          // A description that cannot share its command's line hangs beneath
+          // it, so on a terminal without colour it is not read as a command.
+          return withSupplement(lines, action.description, style, actionStart + HANGING_INDENT, {
             gap: spaces(COLUMN_GAP),
             ownLine: action.description,
           });

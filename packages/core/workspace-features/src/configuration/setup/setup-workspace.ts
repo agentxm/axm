@@ -819,7 +819,7 @@ const reportSetupWorkspace = (
     const membershipRequested = (request.candidate.request.agents?.length ?? 0) > 0;
     const agentNames = agents.map((agent) => agent.name).join(", ");
     const message = cancelled
-      ? "Setup cancelled — no changes applied"
+      ? "Setup cancelled; no changes made"
       : wouldInitialize
         ? blockedCount > 0
           ? "Setup plan blocked"

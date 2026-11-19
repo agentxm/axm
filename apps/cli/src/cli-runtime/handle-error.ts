@@ -178,7 +178,7 @@ export const classifyError = (
             JSON.stringify(
               makeJsonErrorEnvelope({
                 code: "usage",
-                title: "Usage Error",
+                title: "Usage error",
                 detail: message,
               }),
               null,
@@ -210,7 +210,7 @@ export const classifyError = (
           JSON.stringify(
             makeJsonErrorEnvelope({
               code: "usage",
-              title: "Usage Error",
+              title: "Usage error",
               detail: message,
             }),
             null,

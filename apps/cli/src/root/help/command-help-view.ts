@@ -18,6 +18,7 @@ import type {
 } from "../../cli-runtime/index.js";
 import { learnMoreRows } from "../../formatter.js";
 import {
+  commandSpan,
   invocation,
   type Doc,
   type DocNode,
@@ -31,7 +32,7 @@ const heading = (title: string): Text => [{ text: title, bold: true, tone: "neut
 const section = (title: string, children: Doc): Doc =>
   children.length === 0 ? [] : [{ _tag: "section", title: heading(title), children }];
 
-const commandName = (name: string): Span => ({ text: name, tint: "cyan" });
+const commandName = (name: string): Span => commandSpan(name);
 
 const flagName = (name: string): Span => ({ text: name, tint: "green" });
 

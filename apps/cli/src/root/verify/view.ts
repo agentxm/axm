@@ -1,14 +1,16 @@
-import * as DateTime from "effect/DateTime";
-
 import type { ReleaseVerificationDocument } from "@agentxm/workspace-features/publishing";
 import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import {
-  headlineDoc,
-  paragraphDoc,
-  suggestionsDoc,
+  capitalized,
+  conditionDoc,
+  moment,
+  NO_CHANGES_MADE,
+  operationResultDoc,
   tableDoc,
+  titleDoc,
   type Doc,
+  type DocNode,
 } from "../../screen/index.js";
 
 type Release = ReleaseVerificationDocument["releases"][number];
@@ -56,17 +58,25 @@ const needsAttention = (release: Release): boolean =>
     return assessment.conclusion === "attention-required" || assessment.conclusion === "unknown";
   });
 
-const headline = (document: ReleaseVerificationDocument): Doc => {
+const verdict = (document: ReleaseVerificationDocument): DocNode => {
   const count = document.releases.length;
   const subject = count === 1 ? "release" : `${String(count)} releases`;
-  if (document.verdict.ok) return headlineDoc("ok", `Verified the selected ${subject}`);
   const attention = document.verdict.reasons.some((reason) => reason.code === "attention-required");
-  return headlineDoc(
-    "warn",
-    attention
-      ? `The selected ${subject} did not verify`
-      : `Verification of the selected ${subject} is incomplete`,
-  );
+  return {
+    _tag: "headline",
+    verdict: true,
+    tone: document.verdict.ok ? "ok" : "warn",
+    text: document.verdict.ok
+      ? `Verified the selected ${subject}`
+      : attention
+        ? `The selected ${subject} did not verify`
+        : `Verification of the selected ${subject} is incomplete`,
+    aside: [
+      { text: `${String(document.selection.requests.length)} requested` },
+      { text: `${String(document.releases.length)} distinct` },
+      { text: NO_CHANGES_MADE },
+    ],
+  };
 };
 
 /** What a finding means, stated with the facts that decided it. */
@@ -141,14 +151,14 @@ const coverageNote = (
     ids.length <= LISTED_RELEASES || !rowsDistinct
       ? ids.join(", ")
       : `${String(ids.length)} releases`;
-  return `${fact.verb.charAt(0).toUpperCase()}${fact.verb.slice(1)} for ${subject}. ${fact.reason}`;
+  return `${capitalized(fact.verb)} for ${subject}. ${fact.reason}`;
 };
 
 const yankNote = (release: Release): string | undefined => {
   const observed = release.observed;
   if (observed?.yanked !== true) return undefined;
   const facts = [
-    observed.yankedAt === undefined ? undefined : `at ${DateTime.formatIso(observed.yankedAt)}`,
+    observed.yankedAt === undefined ? undefined : `at ${moment(observed.yankedAt)}`,
     observed.yankCategory === undefined ? undefined : `as ${observed.yankCategory}`,
     observed.yankMessage === undefined ? undefined : `(${observed.yankMessage})`,
   ].filter((fact) => fact !== undefined);
@@ -198,28 +208,45 @@ const notes = (releases: ReadonlyArray<Release>): ReadonlyArray<string> => {
 };
 
 /**
- * The human answer: whether the selected releases verified, which Registry
- * answered, one row per distinct release, then what each finding means and
- * what was not established.
+ * The human answer: which Registry answered, one row per distinct release,
+ * what each finding means and what was not established, then whether the
+ * selected releases verified.
  */
 export const releaseVerificationDoc = (
   document: ReleaseVerificationDocument,
   suggestions: ReadonlyArray<FailureSuggestedAction> = [],
-): Doc => [
-  ...headline(document),
-  ...paragraphDoc(
-    `Registry ${document.registry.name} (${document.registry.endpoint}), ${SELECTED_BY[document.registry.selectedBy]}; ${String(document.selection.requests.length)} requested, ${String(document.releases.length)} distinct; no changes applied.`,
-  ),
-  ...tableDoc(
-    document.releases,
-    [
-      { header: "Release", value: (release) => release.id },
-      { header: "Presence", value: (release) => cell(release.presence) },
-      { header: "Identity", value: (release) => cell(release.identity) },
-      { header: "Archive", value: (release) => cell(release.archive) },
+): Doc => {
+  const explained = notes(document.releases);
+  return operationResultDoc({
+    title: titleDoc("Verify", {
+      facts: [
+        `on ${document.registry.name} (${document.registry.endpoint})`,
+        SELECTED_BY[document.registry.selectedBy],
+      ],
+    }),
+    body: [
+      ...tableDoc(
+        document.releases,
+        [
+          { header: "Release", role: "name", value: (release) => release.id },
+          { header: "Presence", value: (release) => cell(release.presence) },
+          { header: "Identity", value: (release) => cell(release.identity) },
+          { header: "Archive", value: (release) => cell(release.archive) },
+        ],
+        { mark: (release) => (needsAttention(release) ? "warn" : undefined) },
+      ),
     ],
-    { mark: (release) => (needsAttention(release) ? "warn" : undefined) },
-  ),
-  ...notes(document.releases).flatMap(paragraphDoc),
-  ...suggestionsDoc(suggestions),
-];
+    conditions:
+      explained.length === 0
+        ? []
+        : [
+            conditionDoc({
+              tone: document.verdict.ok ? "info" : "warn",
+              title: "What the registry reported",
+              body: explained,
+            }),
+          ],
+    verdict: [verdict(document)],
+    next: suggestions,
+  });
+};

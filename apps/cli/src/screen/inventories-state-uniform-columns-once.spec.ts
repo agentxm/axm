@@ -45,7 +45,7 @@ const inventory = (rows: ReadonlyArray<Row>): Doc =>
     columns: COLUMNS,
     summary: [`${String(rows.length)} skills`],
     summaryTail: ["1 needs attention"],
-    empty: "No skills.",
+    empty: { statement: "No skills" },
   });
 
 const tableHeaders = (doc: Doc): ReadonlyArray<string> =>

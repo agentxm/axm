@@ -1,18 +1,17 @@
- ✖   Invalid skill name            validation, exit 9
+ ✖   Invalid skill name            validation · exit 9
      Name                          "Code Review!"
      --debug shows the cause.
 Next
      Choose a name of lowercase letters, numbers, and hyphens that does not
      start or end with a hyphen (max 64 chars)
 
- ✖   Unrecognized flag --staged    usage, exit 2
+ ✖   Unrecognized flag --staged    usage · exit 2
 Next
      axm list --help   See the flags the command takes
 
- ✖   Internal Error                internal, exit 10
+ ✖   Internal error                internal · exit 10
      Cannot read properties of undefined (reading 'agents')
      --debug shows the cause.
 Next
      https://github.com/agentxm/axm/issues/new/choose
-     This looks like a bug. Please report it and include the Diagnostic ID if
-     one is shown.
+       Report this bug, with the diagnostic ID if one is shown

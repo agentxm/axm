@@ -1,0 +1,7 @@
+ ✔   Deprecated @acme/skills/review
+     State                         active to deprecated
+     Revision                      rev-2026-09-19-01
+     Reason                        superseded
+     Message                       Move review workflows to the reviewer
+                                   subagent
+     Replacement                   @acme/skills/reviewer

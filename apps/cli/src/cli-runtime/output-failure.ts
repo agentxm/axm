@@ -11,7 +11,7 @@ export const isClosedOutputPipe = (failure: OutputWriteFailed): boolean =>
 export const outputFailureToAppError = (failure: OutputWriteFailed) =>
   makeAppError({
     code: "internal",
-    title: "Output Failed",
+    title: "Output failed",
     detail: `Could not write ${failure.channel} (${failure.reason}).`,
     cause: failure,
     diagnostic: {

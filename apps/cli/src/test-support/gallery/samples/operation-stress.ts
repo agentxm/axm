@@ -5,8 +5,9 @@
  * choose between information and columns: names fit the key lane, reasons fit
  * a cell, and no unit fails. A real workspace operation is none of those
  * things, so this set carries what one actually holds — qualified names
- * across every extension type, a scope too long for its lane, absolute paths,
- * reasons that run to several sentences, and a command a reader copies out —
+ * across every extension type, a scope too long for its lane, long acquired
+ * paths, reasons that run to several sentences and name absolute paths, and a
+ * command a reader copies out —
  * and the fixtures built from it are where the shared ledger has to keep all
  * of it.
  */
@@ -16,6 +17,7 @@ import {
   aChangedUnit,
   aFailedUnit,
   aFailure,
+  aPackMember,
   aPlannedUnit,
   aUnit,
   anArtifact,
@@ -134,46 +136,92 @@ export const partialUpdateReleaseAge = {
   ],
 } as const;
 
+const unreadableMember =
+  "@acme-enterprise/subagents/incident-commander 2.0.3, a member of this pack, could not be fetched: the registry has no content for it that this account can read.";
+
+const unreadableMemberFailure = aFailure({
+  category: "not_found",
+  detail: unreadableMember,
+  // What the kernel's access hint offers a lookup that finds nothing while
+  // every consulted registry has a credential.
+  suggestions: [
+    {
+      description:
+        "See which account is signed in; a private extension needs one that can read it.",
+      cmd: "axm whoami",
+    },
+  ],
+});
+
 /**
- * An install that failed outright and rolled every closure back: one unit
- * failed on a dependency it could not resolve, and the two behind it were
- * never tried because the operation stopped.
+ * A pack install whose closure failed while applying and rolled itself back,
+ * as the kernel settles one: a pack plans one unit whose closure holds its
+ * members, so the member that could not be fetched is named in the pack's own
+ * reason, and the operation-level failure is that unit's sentence again. A
+ * member that does not resolve at all blocks the plan before anything is
+ * written, so it is not this fixture.
  */
 export const failedRolledBackInstall = anOperation({
   name: "Install extensions",
   verb: installVerb,
   units: [
     aUnit("@acme/packs/review-kit", {
-      state: "rolled-back",
-      disposition: "restored",
-      message: "The pack's members were written and then removed again when a later member failed.",
-      artifact: anArtifact("@acme/packs/review-kit", "created", { version: "2.1.0" }),
-    }),
-    aUnit("@acme-enterprise/subagents/incident-commander", {
       state: "failed",
       disposition: "restored",
-      message:
-        "The registry has no version of @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which @acme/packs/review-kit requires. Nothing was installed. (not_found)",
-      error: aFailure({
-        category: "not_found",
-        detail:
-          "The registry has no version of @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which @acme/packs/review-kit requires. Nothing was installed.",
-        suggestions: [
-          {
-            description: "Install the pack at a version whose members resolve",
-            cmd: "axm install @acme/packs/review-kit@1.9.0",
-          },
-        ],
+      message: `${unreadableMember} (not_found)`,
+      error: unreadableMemberFailure,
+      artifact: anArtifact("@acme/packs/review-kit", "created", {
+        agents: ["claude-code", "codex"],
       }),
-      artifact: anArtifact("@acme-enterprise/subagents/incident-commander", "created"),
     }),
-    aPlannedUnit("@acme/skills/incident-review", "created", { version: "2.0.0" }),
-    aPlannedUnit("@acme/knowledge/runbooks", "created", { version: "5.2.0" }),
   ],
   failure: aFailure({
     category: "not_found",
-    detail: "One extension could not be resolved, so the install was rolled back.",
+    detail: `${unreadableMember} (not_found)`,
+    suggestions: unreadableMemberFailure.suggestions,
   }),
+});
+
+/**
+ * A pack install that committed, as the kernel settles one: one unit for the
+ * pack, whose closure reports each child it settled. Its members land beside
+ * it, one was already current, and the closure's projection step names no
+ * extension of its own.
+ */
+export const packInstall = anOperation({
+  name: "Install extensions",
+  verb: installVerb,
+  units: [
+    aUnit("@acme/packs/review-kit", {
+      state: "committed",
+      message: "Installed @acme/packs/review-kit and 3 pack members",
+      artifact: {
+        ...anArtifact("@acme/packs/review-kit", "created", {
+          version: "2.1.0",
+          agents: ["claude-code", "codex"],
+        }),
+        path: "pack graph",
+        fileCount: 4,
+        members: [
+          aPackMember("pack:@acme/review-kit", "@acme/packs/review-kit", "created", "2.1.0"),
+          aPackMember(
+            "subagent:incident-commander",
+            "@acme-enterprise/subagents/incident-commander",
+            "created",
+            "2.0.3",
+          ),
+          aPackMember("skill:incident-review", "@acme/skills/incident-review", "created", "2.0.0"),
+          aPackMember("knowledge:runbooks", "@acme/knowledge/runbooks", "unchanged", "5.2.0"),
+          {
+            id: "projection:instructions",
+            label: "instruction files",
+            changed: true,
+            artifact: { path: "AGENTS.md", scope: "project", change: "updated" },
+          },
+        ],
+      },
+    }),
+  ],
 });
 
 const versionConflict =
@@ -269,7 +317,7 @@ const liveUpdateLog: ReadonlyArray<OperationEvent> = [
     seq: 1,
     atMs: STARTED_AT,
     operationId: "update-1",
-    name: "Updating",
+    name: "Update extensions",
     mode: "apply",
   },
   { _tag: "PhaseStarted", seq: 2, atMs: STARTED_AT + 1, phase: "apply" },

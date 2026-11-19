@@ -377,13 +377,14 @@ describe("auth token handler", () => {
         yield* handleListTokens({});
 
         expect(tables(rendererState)).toEqual([]);
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([{ _tag: "info", message: "No tokens found" }]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
         });
         expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
-          _tag: "paragraph",
+          _tag: "headline",
+          tone: "neutral",
           text: "No tokens found",
         });
       }),

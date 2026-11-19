@@ -1,0 +1,28 @@
+Install
+  in platform-services · agents:
+  claude-code, codex
+
+ +   @acme/packs/review-kit
+     2.1.0 · created
+ +     @ac…/subagents/incident-commander
+       2.0.3 · created · 3 files,
+       agent_extensions/
+       registry.agentxm.ai/
+       @acme-enterprise/subagents/
+       incident-commander
+ +     @acme/skills/incident-review
+       2.0.0 · created · 3 files,
+       agent_extensions/
+       registry.agentxm.ai/@acme/skills/
+       incident-review
+ =     @acme/knowledge/runbooks
+       5.2.0 · already current · 3
+       files, agent_extensions/
+       registry.agentxm.ai/@acme/
+       knowledge/runbooks
+
+Installed 3 extensions
+
+Next
+     axm list
+       Inspect installed extensions

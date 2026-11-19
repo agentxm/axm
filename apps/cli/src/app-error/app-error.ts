@@ -118,7 +118,7 @@ export const ExitCodeDefinitions = [
   },
   {
     code: ExitCode.Internal,
-    meaning: "Unexpected internal error. Likely a bug — please report it.",
+    meaning: "Unexpected internal error. This is likely a bug, so please report it.",
   },
   {
     code: ExitCode.Unavailable,
@@ -198,20 +198,20 @@ export type AppErrorAction = FailureAction;
 const DefaultTitleByAppErrorCode: Readonly<Record<ErrorCode, string>> = {
   auth: "Unauthorized",
   forbidden: "Forbidden",
-  not_found: "Not Found",
+  not_found: "Not found",
   conflict: "Conflict",
-  rate_limit: "Too Many Requests",
-  validation: "Invalid Request",
-  network: "Network Error",
-  unavailable: "Service Unavailable",
-  quota: "Quota Exceeded",
-  internal: "Internal Error",
-  usage: "Usage Error",
-  issues: "Issues Found",
-  auth_required: "Authentication Required",
-  auth_expired: "Authentication Expired",
-  auth_denied: "Authentication Denied",
-  timeout: "Timed Out",
+  rate_limit: "Too many requests",
+  validation: "Invalid request",
+  network: "Network error",
+  unavailable: "Service unavailable",
+  quota: "Quota exceeded",
+  internal: "Internal error",
+  usage: "Usage error",
+  issues: "Issues found",
+  auth_required: "Authentication required",
+  auth_expired: "Authentication expired",
+  auth_denied: "Authentication denied",
+  timeout: "Timed out",
 };
 
 export const defaultTitleFor = (code: ErrorCode): string => DefaultTitleByAppErrorCode[code];
@@ -226,13 +226,12 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
 > = {
   internal: [
     {
-      description:
-        "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+      description: "Report this bug, with the diagnostic ID if one is shown",
       url: "https://github.com/agentxm/axm/issues/new/choose",
     },
   ],
-  network: [{ description: "Check your network connection and the registry URL, then retry." }],
-  unavailable: [{ description: "The service is temporarily unavailable. Retry in a few moments." }],
+  network: [{ description: "Check your network connection and the registry URL, then retry" }],
+  unavailable: [{ description: "Retry in a few moments; the service is temporarily unavailable" }],
   auth: [],
   forbidden: [],
   not_found: [],

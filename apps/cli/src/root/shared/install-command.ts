@@ -41,7 +41,7 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { Screen, headlineDoc } from "../../screen/index.js";
+import { Screen, conditionDoc, headlineDoc } from "../../screen/index.js";
 import {
   makeInstallPlanInvocation,
   withUnrecordedOutputRecovery,
@@ -86,10 +86,13 @@ const showDiagnostics = (candidate: InstallExtensionsCandidate) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     if (candidate.diagnostics.companionPackages.length > 0) {
-      yield* screen.note(headlineDoc("info", "Compatible packages:"));
-      for (const item of candidate.diagnostics.companionPackages) {
-        yield* screen.note(headlineDoc("info", `  ${item}`));
-      }
+      yield* screen.note([
+        conditionDoc({
+          tone: "info",
+          title: "Compatible packages",
+          body: candidate.diagnostics.companionPackages,
+        }),
+      ]);
     }
     const verbosity = yield* Effect.serviceOption(Verbosity);
     const verbose = Option.match(verbosity, {

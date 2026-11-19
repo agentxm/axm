@@ -416,7 +416,7 @@ describe("root command parser output", () => {
     expect(stdoutDoc).toMatchObject({
       ok: false,
       code: "usage",
-      title: "Usage Error",
+      title: "Usage error",
       detail: "Missing required argument: name",
     });
     expect(stdoutWrites.join("")).not.toContain('"type":"help"');

@@ -207,7 +207,7 @@ export const handleInstall = <R = never>(
           invocation: { command: ["lint"], arguments: [] },
         },
       ],
-      noOpMessage: "No extensions installed.",
+      noOpMessage: "No extensions installed",
       ...(firstInstall === undefined ? {} : { firstInstall }),
     });
   });

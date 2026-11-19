@@ -39,6 +39,35 @@ const axmPolicyPlugin = {
         };
       },
     },
+    "no-spelled-separator": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          painter:
+            "The painter owns the separator between facts (docs/architecture/commands/terminal-design.md): pass the facts as summary parts, or write the clause as prose.",
+        },
+      },
+      // A middle dot or a spaced dash between two facts is the glyph set's
+      // separator; spelling it in a view bypasses ASCII mode and the wrap
+      // rule that keeps a separator on the line of the fact before it.
+      create(context) {
+        const spelled = / \u00b7 | \u2014 | \u2013 | - /u;
+        const check = (node, value) => {
+          if (typeof value === "string" && spelled.test(value)) {
+            context.report({ node, messageId: "painter" });
+          }
+        };
+        return {
+          Literal(node) {
+            check(node, node.value);
+          },
+          TemplateElement(node) {
+            check(node, node.value.cooked);
+          },
+        };
+      },
+    },
     "no-layout-blank": {
       meta: {
         type: "problem",
@@ -1304,6 +1333,20 @@ export default [
       "axm-policy": axmPolicyPlugin,
     },
     rules: { "axm-policy/no-layout-blank": "error" },
+  },
+  {
+    // Facts beside a claim are summary parts the painter joins; only the
+    // glyph sets spell the separator.
+    files: ["apps/cli/src/**/*.ts"],
+    ignores: [
+      ...testPurposeFiles,
+      "apps/cli/src/screen/glyphs.ts",
+      "apps/cli/src/__generated__/**",
+    ],
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
+    rules: { "axm-policy/no-spelled-separator": "error" },
   },
   {
     files: cliHandlerBoundaryExceptions,

@@ -192,7 +192,7 @@ export const joinedParts = (
   glyphs: Glyphs,
 ): ReadonlyArray<PaintSpan> =>
   parts.flatMap((part, index) => [
-    ...(index === 0 ? [] : [{ text: glyphs.separator }]),
+    ...(index === 0 ? [] : [{ text: glyphs.separator, separator: true as const }]),
     ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
   ]);
 

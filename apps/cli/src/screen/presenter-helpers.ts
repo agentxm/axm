@@ -25,11 +25,17 @@ export const joined = (parts: ReadonlyArray<string | undefined>): string =>
     .join(PROSE_SEPARATOR);
 
 /**
- * A command a person types, as help and summaries show one: tinted, and
+ * A command name, in the one tint every command shows in: help, prose, and
+ * records alike.
+ */
+export const commandSpan = (value: string): Span => ({ text: value, tint: "cyan" });
+
+/**
+ * A command a person types, as prose and records show one: a command span,
  * copyable so the painter never breaks it.
  */
 export const invocation = (value: string): ReadonlyArray<Span> => [
-  { text: value, tint: "cyan", copyable: true },
+  { ...commandSpan(value), copyable: true },
 ];
 
 /** A title or verdict with the common emphatic treatment. */

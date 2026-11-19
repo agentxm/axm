@@ -96,7 +96,7 @@ export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
       { result },
       LoginNoOpDocumentSchema,
       () =>
-        successDoc(`Already logged in to ${result.registryHost} as ${result.handle}.`, {
+        successDoc(`Already signed in to ${result.registryHost} as ${result.handle}`, {
           suggestions: LoginNoOpSuggestions,
         }),
       {

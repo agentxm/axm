@@ -93,9 +93,9 @@ describe("auth logout handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
-        expect(logs.success).toContain(`Not logged in to ${REGISTRY_HOST}.`);
+        expect(logs.success).toContain(`Not signed in to ${REGISTRY_HOST}`);
         expect(rendererState.suggestions).toEqual([
-          { description: "Log in to this registry", cmd: "axm login" },
+          { description: "Sign in to this registry", cmd: "axm login" },
         ]);
       }),
     );
@@ -116,7 +116,7 @@ describe("auth logout handler", () => {
           registryHost: REGISTRY_HOST,
         });
         expect(rendererState.suggestions).toEqual([
-          { description: "Log in to this registry", cmd: "axm login" },
+          { description: "Sign in to this registry", cmd: "axm login" },
         ]);
       }),
     );
@@ -137,7 +137,7 @@ describe("auth logout handler", () => {
           ),
         ).toBe(true);
         expect(rendererState.suggestions).toEqual([
-          { description: "Log in again", cmd: "axm login" },
+          { description: "Sign in again", cmd: "axm login" },
         ]);
       }),
     );
@@ -153,15 +153,12 @@ describe("auth logout handler", () => {
         yield* handleLogout();
         expect(
           logs.success.some(
-            (message) =>
-              message.includes(REGISTRY_HOST) &&
-              message.includes(ALICE) &&
-              message.includes("token will expire automatically"),
+            (message) => message.includes(REGISTRY_HOST) && message.includes(ALICE),
           ),
         ).toBe(true);
-        expect(logs.warn).toEqual([]);
+        expect(logs.warn).toEqual(["The registry did not revoke the token"]);
         expect(rendererState.suggestions).toEqual([
-          { description: "Log in again", cmd: "axm login" },
+          { description: "Sign in again", cmd: "axm login" },
         ]);
       }),
     );
@@ -187,7 +184,7 @@ describe("auth logout handler", () => {
           handle: ALICE,
         });
         expect(rendererState.suggestions).toEqual([
-          { description: "Log in again", cmd: "axm login" },
+          { description: "Sign in again", cmd: "axm login" },
         ]);
       }),
     );

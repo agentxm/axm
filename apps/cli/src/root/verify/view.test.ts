@@ -86,10 +86,8 @@ describe("release verification human document", () => {
   it("answers directly for a verified release, naming the Registry and what was not assessed", () => {
     const text = painted(documentOf([release("review", { observed })], "flag"));
     expect(text).toContain("Verified the selected release");
-    expect(text).toContain(
-      "Registry agentxm (https://registry.agentxm.ai), selected by --registry",
-    );
-    expect(text).toContain("no changes applied");
+    expect(text).toContain("on agentxm (https://registry.agentxm.ai) · selected by --registry");
+    expect(text).toContain("no changes made");
     expect(text).toMatch(/@acme\/skills\/review@1\.0\.0\s+satisfied\s+not assessed\s+satisfied/u);
     expect(text).toContain(
       "@acme/skills/review@1.0.0: identity not assessed. No expected integrity was supplied.",
@@ -216,7 +214,7 @@ describe("release verification human document", () => {
     );
     expect(text).toContain("Verified the selected release");
     expect(text).toContain(
-      "@acme/skills/withdrawn@1.0.0: yanked at 2026-11-14T11:00:00.000Z as other (Withdrawn.); a yanked version is still present.",
+      "@acme/skills/withdrawn@1.0.0: yanked at 14 Nov 2026 11:00 UTC as other (Withdrawn.); a yanked version is still present.",
     );
   });
 
@@ -228,7 +226,7 @@ describe("release verification human document", () => {
         2,
       ),
     );
-    expect(text).toContain("2 requested, 1 distinct");
+    expect(text).toContain("2 requested · 1 distinct");
     expect(text.match(/@acme\/skills\/review@1\.0\.0\s+satisfied/gu)).toHaveLength(1);
   });
 
@@ -346,7 +344,9 @@ describe("release verification human document", () => {
   it("sets the headline tone by the verdict and marks only the rows that need attention", () => {
     const blocks = (document: ReleaseVerificationDocument) => releaseVerificationDoc(document);
     const headlineTone = (document: ReleaseVerificationDocument) =>
-      blocks(document).flatMap((block) => (block._tag === "headline" ? [block.tone] : []));
+      blocks(document).flatMap((block) =>
+        block._tag === "headline" && block.verdict === true ? [block.tone] : [],
+      );
     const rowMarks = (document: ReleaseVerificationDocument) =>
       blocks(document).flatMap((block) =>
         block._tag === "table" ? block.rows.map((row) => row.mark) : [],

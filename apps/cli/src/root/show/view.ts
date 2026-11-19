@@ -2,13 +2,20 @@ import type { LocalInspectionDocument } from "@agentxm/workspace-features/inspec
 import type { NativeLocationRecord } from "@agentxm/workspace-kernel/locations";
 import {
   ABSENT,
+  conditionDoc,
+  count,
+  emptyDoc,
   fieldsDoc,
-  headlineDoc,
-  paragraphDoc,
   tableDoc,
   suggestionsDoc,
+  type CalloutNode,
   type Doc,
+  type DocNode,
+  type Text,
 } from "../../screen/index.js";
+
+/** A titled group of a detail page; the painter sets sibling groups apart. */
+const group = (title: Text, children: Doc): DocNode => ({ _tag: "section", title, children });
 
 const nativeAddress = (location: NativeLocationRecord): string => {
   const address = location.address;
@@ -26,54 +33,58 @@ const nativeAddress = (location: NativeLocationRecord): string => {
 };
 
 const nativeDoc = (result: LocalInspectionDocument): Doc => [
-  ...result.nativeReaderDeclarations.flatMap((declaration) => [
-    ...headlineDoc("neutral", `Native reader declaration ${declaration.id}`),
-    ...fieldsDoc(declaration, [
-      { label: "Potential readers", value: (row) => row.potentialReaders.join(", ") || ABSENT },
-      {
-        label: "Availability default",
-        value: (row) =>
-          row.availabilityDefault === undefined
-            ? "No shared observation declaration"
-            : `${row.availabilityDefault.state} for ${row.availabilityDefault.appliesTo === "potential-readers" ? "declared potential readers" : row.availabilityDefault.appliesTo.join(", ")}${row.availabilityDefault.reason === undefined ? "" : `: ${row.availabilityDefault.reason}`}`,
-      },
-    ]),
-  ]),
-  ...result.nativeLocations.flatMap((location) => [
-    ...headlineDoc("neutral", `Native location ${location.id}`),
-    ...fieldsDoc(location, [
-      { label: "Address", value: nativeAddress },
-      { label: "Scope", value: (row) => row.scope },
-      { label: "Evidence phase", value: (row) => row.phase },
-      { label: "Aliases", value: (row) => row.aliases.join(", ") || ABSENT },
-      {
-        label: "Ownership",
-        value: (row) => `${row.ownership}${row.proof === undefined ? "" : `: ${row.proof}`}`,
-      },
-      { label: "State", value: (row) => row.state },
-      { label: "Mechanism", value: (row) => row.mechanism ?? ABSENT },
-      {
-        label: "Configured consumers",
-        value: (row) => row.configuredConsumers.join(", ") || ABSENT,
-      },
-      {
-        label: "Reader declaration",
-        value: (row) => `${row.readerDeclarationRef}; availability is not implied`,
-      },
-      {
-        label: "Availability",
-        value: (row) =>
-          [
-            ...row.availability.observations.map(
-              (observation) =>
-                `${observation.agentId}: ${observation.state}${observation.reason === undefined ? "" : ` (${observation.reason})`}`,
-            ),
-          ].join("; ") || "No explicit availability observations",
-      },
-      { label: "Policy", value: (row) => row.policyReasons.join("; ") || ABSENT },
-      { label: "Reason", value: (row) => row.reason ?? ABSENT },
-    ]),
-  ]),
+  ...result.nativeReaderDeclarations.map((declaration) =>
+    group(
+      `Native reader declaration ${declaration.id}`,
+      fieldsDoc(declaration, [
+        { label: "Potential readers", value: (row) => row.potentialReaders.join(", ") || ABSENT },
+        {
+          label: "Availability default",
+          value: (row) =>
+            row.availabilityDefault === undefined
+              ? "no shared observation declaration"
+              : `${row.availabilityDefault.state} for ${row.availabilityDefault.appliesTo === "potential-readers" ? "declared potential readers" : row.availabilityDefault.appliesTo.join(", ")}${row.availabilityDefault.reason === undefined ? "" : `: ${row.availabilityDefault.reason}`}`,
+        },
+      ]),
+    ),
+  ),
+  ...result.nativeLocations.map((location) =>
+    group(
+      `Native location ${location.id}`,
+      fieldsDoc(location, [
+        { label: "Address", value: nativeAddress },
+        { label: "Scope", value: (row) => row.scope },
+        { label: "Evidence phase", value: (row) => row.phase },
+        { label: "Aliases", value: (row) => row.aliases.join(", ") || ABSENT },
+        {
+          label: "Ownership",
+          value: (row) => `${row.ownership}${row.proof === undefined ? "" : `: ${row.proof}`}`,
+        },
+        { label: "State", value: (row) => row.state },
+        { label: "Mechanism", value: (row) => row.mechanism ?? ABSENT },
+        {
+          label: "Configured consumers",
+          value: (row) => row.configuredConsumers.join(", ") || ABSENT,
+        },
+        {
+          label: "Reader declaration",
+          value: (row) => `${row.readerDeclarationRef}; availability is not implied`,
+        },
+        {
+          label: "Availability",
+          value: (row) =>
+            [
+              ...row.availability.observations.map(
+                (observation) =>
+                  `${observation.agentId}: ${observation.state}${observation.reason === undefined ? "" : ` (${observation.reason})`}`,
+              ),
+            ].join("; ") || "no explicit availability observations",
+        },
+        { label: "Policy", value: (row) => row.policyReasons.join("; ") || ABSENT },
+        { label: "Reason", value: (row) => row.reason ?? ABSENT },
+      ]),
+    ),
+  ),
 ];
 
 const packDoc = (
@@ -121,221 +132,255 @@ const packDoc = (
   ];
 };
 
-export const localInspectionDoc = (result: LocalInspectionDocument): Doc => [
-  ...paragraphDoc(
-    `Inspection coverage: ${result.coverage.state}${result.coverage.reasons.length === 0 ? "" : `; ${result.coverage.reasons.join("; ")}`}`,
-  ),
-  ...(result.items.length === 0 && result.requests.every((request) => request.code === 0)
-    ? paragraphDoc("No local subjects found.")
-    : []),
-  ...result.items.flatMap((item) => [
-    ...headlineDoc("neutral", item.identity.fqn ?? item.identity.name),
-    ...fieldsDoc(item, [
-      { label: "Local name", value: (value) => value.identity.name },
-      { label: "Type", value: (value) => value.identity.type ?? "unmanaged" },
-      { label: "Scope", value: (value) => value.identity.scope },
-      { label: "Source authority", value: (value) => value.identity.source.authority },
-      {
-        label: "Source",
-        value: (value) => value.identity.source.locator ?? value.identity.source.endpoint ?? ABSENT,
-      },
-      {
-        label: "Configured agents",
-        value: (value) => value.agents.configured.join(", ") || ABSENT,
-      },
-      {
-        label: "Native locations",
-        value: (value) =>
-          value.nativeLocationRefs
-            .map(
-              (id) =>
-                result.nativeLocations.find((location) => location.id === id)?.address.path ?? id,
-            )
-            .join(", ") || "No native location established",
-      },
-      {
-        label: "Native coverage",
-        value: (value) =>
-          `${value.nativeCoverage.state}${value.nativeCoverage.reasons.length === 0 ? "" : `: ${value.nativeCoverage.reasons.join("; ")}`}`,
-      },
-      {
-        label: "Edit owner",
-        value: (value) =>
-          `${value.editing.kind}${value.editing.address === undefined ? "" : `: ${value.editing.address.path}${value.editing.address.keys === undefined ? "" : ` (${value.editing.address.keys.join(" → ")})`}`}`,
-      },
-      { label: "Desired", value: (value) => value.desired.state },
-      {
-        label: "Accepted",
-        value: (value) =>
-          `${value.accepted.state}${value.accepted.version === undefined ? "" : ` (${value.accepted.version})`}`,
-      },
-      {
-        label: "Observed",
-        value: (value) =>
-          `${value.observed.state}${value.observed.path === undefined ? "" : `: ${value.observed.path}`}`,
-      },
-      { label: "Observed version", value: (value) => value.observed.manifestVersion ?? ABSENT },
-      {
-        label: "Retained because",
-        value: (value) =>
-          value.retention.reasons.map((reason) => reason.detail).join("; ") ||
-          "No independent reason established by this inspection",
-      },
-      { label: "Runtime", value: (value) => value.runtime.state },
-      {
-        label: "Discovery",
-        value: (value) =>
-          value.duplicateDiscoveries
-            .map(
-              (duplicate) =>
-                `${duplicate.agentId} already discovers ${duplicate.nativeLocationRefs.length} native locations`,
-            )
-            .join("; ") || "No duplicate discovery established",
-      },
-      {
-        label: "Coverage",
-        value: (value) =>
-          [
-            { label: "Desired", coverage: value.desired.coverage },
-            { label: "Accepted", coverage: value.accepted.coverage },
-            { label: "Observed", coverage: value.observed.coverage },
-            { label: "Retention", coverage: value.retention.coverage },
-          ]
-            .map(
-              ({ label, coverage }) =>
-                `${label}: ${coverage.state}${coverage.reasons.length === 0 ? "" : ` (${coverage.reasons.join("; ")})`}`,
-            )
-            .join("; "),
-      },
-    ]),
-    ...packDoc(item, result),
-    ...(item.knowledge === undefined
+/** Requests that did not resolve and observations AXM could not make, as conditions. */
+const inspectionConditions = (result: LocalInspectionDocument): ReadonlyArray<CalloutNode> => {
+  const unresolved = result.requests
+    .filter((request) => request.code !== 0)
+    .map((request) => `${request.input}: ${request.resolution}. ${request.reason ?? ""}`.trimEnd());
+  const diagnostics = result.observationDiagnostics.map((diagnostic) => diagnostic.message);
+  return [
+    ...(unresolved.length === 0
       ? []
-      : fieldsDoc(item.knowledge, [
-          { label: "Concepts", value: (knowledge) => String(knowledge.concepts) },
-          { label: "Knowledge diagnostics", value: (knowledge) => String(knowledge.diagnostics) },
-        ])),
-    ...(item.mcp === undefined
+      : [conditionDoc({ tone: "warn", title: "Some requests did not resolve", body: unresolved })]),
+    ...(diagnostics.length === 0
       ? []
       : [
-          ...fieldsDoc(item.mcp, [
-            { label: "Source version locked", value: (mcp) => String(mcp.sourceVersionLocked) },
-            {
-              label: "Runtime artifact pinned",
-              value: (mcp) =>
-                mcp.runtimeArtifactPinned === null
-                  ? "not established"
-                  : String(mcp.runtimeArtifactPinned),
-            },
-            { label: "Working directory", value: (mcp) => mcp.cwd },
-          ]),
-          ...tableDoc(item.mcp.distributions, [
-            { header: "Distribution", value: (distribution) => distribution.id },
-            { header: "Kind", value: (distribution) => distribution.kind },
-            { header: "Transport", value: (distribution) => distribution.transport },
-            { header: "Destination", value: (distribution) => distribution.destination },
-            { header: "Selected", value: (distribution) => String(distribution.selected) },
-            {
-              header: "Support",
-              value: (distribution) =>
-                distribution.supported ? "supported" : (distribution.reason ?? "unsupported"),
-            },
-          ]),
-          ...item.mcp.distributions.flatMap((distribution) =>
-            tableDoc(
-              distribution.inputs,
-              [
-                { header: "Input", value: (input) => input.id },
-                { header: "Required", value: (input) => String(input.required) },
-                { header: "Secret", value: (input) => String(input.secret) },
-                { header: "Repeated", value: (input) => String(input.repeated) },
-                { header: "Default", value: (input) => (input.hasDefault ? "declared" : ABSENT) },
-              ],
-              { caption: distribution.id },
-            ),
-          ),
+          conditionDoc({
+            tone: "warn",
+            title: "Part of this inspection could not be observed",
+            body: diagnostics,
+          }),
         ]),
-    ...tableDoc(item.agentOutcomes, [
-      { header: "Agent", value: (outcome) => outcome.agentId },
-      { header: "Outcome", value: (outcome) => outcome.outcome },
-      { header: "Reason", value: (outcome) => outcome.reason },
-    ]),
-    ...item.agentOutcomes.flatMap((agent) => {
-      const hook = agent.hook;
-      if (hook === undefined) return [];
-      return [
-        ...headlineDoc("neutral", `${agent.agentId}: ${hook.implementationId}`),
-        ...fieldsDoc(
-          {
-            protocol: hook.protocol,
-            runtime: hook.runtimeAvailability,
-            invocation: hook.nativeInvocation,
-            conditions: hook.conditions.join("; ") || ABSENT,
-            evidence: `${hook.fixtureEvidence.state}: ${hook.fixtureEvidence.reason}`,
-          },
-          [
-            { label: "Protocol", value: (row) => row.protocol },
-            { label: "Runtime availability", value: (row) => row.runtime },
-            { label: "Native invocation", value: (row) => row.invocation },
-            { label: "Conditions", value: (row) => row.conditions },
-            { label: "Fixture evidence", value: (row) => row.evidence },
-          ],
-        ),
-        ...tableDoc(hook.bindings, [
-          { header: "Binding", value: (row) => row.id },
-          { header: "Event", value: (row) => row.event },
-          { header: "Matcher", value: (row) => row.matcher ?? ABSENT },
-          { header: "Runtime", value: (row) => row.runtime },
-          { header: "Entrypoint", value: (row) => row.entrypoint },
-          {
-            header: "Required outcomes",
-            value: (row) => row.requiredOutcomes.join(", ") || ABSENT,
-          },
-          {
-            header: "Required operations",
-            value: (row) => row.requiredOperations.join(", ") || ABSENT,
-          },
-        ]),
-        ...fieldsDoc(hook.configuration, [{ label: "Configuration", value: (row) => row.status }]),
-        ...tableDoc(hook.configuration.fields, [
-          { header: "Setting", value: (row) => row.key },
-          { header: "Source", value: (row) => row.source },
-          {
-            header: "Value",
-            value: (row) =>
-              row.redacted ? "[redacted]" : row.value === null ? ABSENT : JSON.stringify(row.value),
-          },
-        ]),
-        ...tableDoc(hook.configuration.issues, [
-          { header: "Setting", value: (row) => row.key },
-          { header: "Issue", value: (row) => row.message },
-        ]),
-        ...(hook.fixtureEvidence.receipt === undefined
-          ? []
-          : tableDoc(
-              hook.fixtureEvidence.receipt.fixtures,
-              [
-                { header: "Fixture", value: (row) => row.fixture },
-                { header: "Implementation", value: (row) => row.implementation },
-                { header: "Result", value: (row) => row.outcome },
-                { header: "Detail", value: (row) => row.detail },
-              ],
-              { caption: "Recorded fixture execution; native invocation was not observed" },
-            )),
-      ];
-    }),
-  ]),
-  ...nativeDoc(result),
-  ...result.requests
-    .filter((request) => request.code !== 0)
-    .flatMap((request) =>
-      paragraphDoc(`${request.input}: ${request.resolution}. ${request.reason ?? ""}`),
-    ),
-  ...result.observationDiagnostics.flatMap((diagnostic) => paragraphDoc(diagnostic.message)),
-  ...suggestionsDoc(
+  ];
+};
+
+export const localInspectionDoc = (result: LocalInspectionDocument): Doc => {
+  const next = suggestionsDoc(
     [...new Set(result.requests.flatMap((request) => request.navigation ?? []))].map((cmd) => ({
       description: "Inspect available local entries",
       cmd,
     })),
+  );
+  const coverage = `coverage ${result.coverage.state}${result.coverage.reasons.length === 0 ? "" : `: ${result.coverage.reasons.join("; ")}`}`;
+  if (result.items.length === 0 && result.requests.every((request) => request.code === 0))
+    return [...emptyDoc({ statement: "No local subjects found", facts: [coverage] }), ...next];
+  return [
+    {
+      _tag: "summary",
+      parts: [{ text: count(result.items.length, "local subject") }, { text: coverage }],
+    },
+    ...localInspectionGroups(result),
+    ...inspectionConditions(result),
+    ...next,
+  ];
+};
+
+const localInspectionGroups = (result: LocalInspectionDocument): Doc => [
+  ...result.items.map((item) =>
+    group(item.identity.fqn ?? item.identity.name, [
+      ...fieldsDoc(item, [
+        { label: "Local name", value: (value) => value.identity.name },
+        { label: "Type", value: (value) => value.identity.type ?? "unmanaged" },
+        { label: "Scope", value: (value) => value.identity.scope },
+        { label: "Source authority", value: (value) => value.identity.source.authority },
+        {
+          label: "Source",
+          value: (value) =>
+            value.identity.source.locator ?? value.identity.source.endpoint ?? ABSENT,
+        },
+        {
+          label: "Configured agents",
+          value: (value) => value.agents.configured.join(", ") || ABSENT,
+        },
+        {
+          label: "Native locations",
+          value: (value) =>
+            value.nativeLocationRefs
+              .map(
+                (id) =>
+                  result.nativeLocations.find((location) => location.id === id)?.address.path ?? id,
+              )
+              .join(", ") || "no native location established",
+        },
+        {
+          label: "Native coverage",
+          value: (value) =>
+            `${value.nativeCoverage.state}${value.nativeCoverage.reasons.length === 0 ? "" : `: ${value.nativeCoverage.reasons.join("; ")}`}`,
+        },
+        {
+          label: "Edit owner",
+          value: (value) =>
+            `${value.editing.kind}${value.editing.address === undefined ? "" : `: ${value.editing.address.path}${value.editing.address.keys === undefined ? "" : ` (${value.editing.address.keys.join(" → ")})`}`}`,
+        },
+        { label: "Desired", value: (value) => value.desired.state },
+        {
+          label: "Accepted",
+          value: (value) =>
+            `${value.accepted.state}${value.accepted.version === undefined ? "" : ` (${value.accepted.version})`}`,
+        },
+        {
+          label: "Observed",
+          value: (value) =>
+            `${value.observed.state}${value.observed.path === undefined ? "" : `: ${value.observed.path}`}`,
+        },
+        { label: "Observed version", value: (value) => value.observed.manifestVersion ?? ABSENT },
+        {
+          label: "Retained because",
+          value: (value) =>
+            value.retention.reasons.map((reason) => reason.detail).join("; ") ||
+            "no independent reason established by this inspection",
+        },
+        { label: "Runtime", value: (value) => value.runtime.state },
+        {
+          label: "Discovery",
+          value: (value) =>
+            value.duplicateDiscoveries
+              .map(
+                (duplicate) =>
+                  `${duplicate.agentId} already discovers ${duplicate.nativeLocationRefs.length} native locations`,
+              )
+              .join("; ") || "no duplicate discovery established",
+        },
+        {
+          label: "Coverage",
+          value: (value) =>
+            [
+              { label: "Desired", coverage: value.desired.coverage },
+              { label: "Accepted", coverage: value.accepted.coverage },
+              { label: "Observed", coverage: value.observed.coverage },
+              { label: "Retention", coverage: value.retention.coverage },
+            ]
+              .map(
+                ({ label, coverage }) =>
+                  `${label}: ${coverage.state}${coverage.reasons.length === 0 ? "" : ` (${coverage.reasons.join("; ")})`}`,
+              )
+              .join("; "),
+        },
+      ]),
+      ...packDoc(item, result),
+      ...(item.knowledge === undefined
+        ? []
+        : fieldsDoc(item.knowledge, [
+            { label: "Concepts", value: (knowledge) => String(knowledge.concepts) },
+            { label: "Knowledge diagnostics", value: (knowledge) => String(knowledge.diagnostics) },
+          ])),
+      ...(item.mcp === undefined
+        ? []
+        : [
+            ...fieldsDoc(item.mcp, [
+              { label: "Source version locked", value: (mcp) => String(mcp.sourceVersionLocked) },
+              {
+                label: "Runtime artifact pinned",
+                value: (mcp) =>
+                  mcp.runtimeArtifactPinned === null
+                    ? "not established"
+                    : String(mcp.runtimeArtifactPinned),
+              },
+              { label: "Working directory", value: (mcp) => mcp.cwd },
+            ]),
+            ...tableDoc(item.mcp.distributions, [
+              { header: "Distribution", value: (distribution) => distribution.id },
+              { header: "Kind", value: (distribution) => distribution.kind },
+              { header: "Transport", value: (distribution) => distribution.transport },
+              { header: "Destination", value: (distribution) => distribution.destination },
+              { header: "Selected", value: (distribution) => String(distribution.selected) },
+              {
+                header: "Support",
+                value: (distribution) =>
+                  distribution.supported ? "supported" : (distribution.reason ?? "unsupported"),
+              },
+            ]),
+            ...item.mcp.distributions.flatMap((distribution) =>
+              tableDoc(
+                distribution.inputs,
+                [
+                  { header: "Input", value: (input) => input.id },
+                  { header: "Required", value: (input) => String(input.required) },
+                  { header: "Secret", value: (input) => String(input.secret) },
+                  { header: "Repeated", value: (input) => String(input.repeated) },
+                  { header: "Default", value: (input) => (input.hasDefault ? "declared" : ABSENT) },
+                ],
+                { caption: distribution.id },
+              ),
+            ),
+          ]),
+      ...tableDoc(item.agentOutcomes, [
+        { header: "Agent", value: (outcome) => outcome.agentId },
+        { header: "Outcome", value: (outcome) => outcome.outcome },
+        { header: "Reason", value: (outcome) => outcome.reason },
+      ]),
+      ...item.agentOutcomes.flatMap((agent) => {
+        const hook = agent.hook;
+        if (hook === undefined) return [];
+        return [
+          group(`${agent.agentId}: ${hook.implementationId}`, [
+            ...fieldsDoc(
+              {
+                protocol: hook.protocol,
+                runtime: hook.runtimeAvailability,
+                invocation: hook.nativeInvocation,
+                conditions: hook.conditions.join("; ") || ABSENT,
+                evidence: `${hook.fixtureEvidence.state}: ${hook.fixtureEvidence.reason}`,
+              },
+              [
+                { label: "Protocol", value: (row) => row.protocol },
+                { label: "Runtime availability", value: (row) => row.runtime },
+                { label: "Native invocation", value: (row) => row.invocation },
+                { label: "Conditions", value: (row) => row.conditions },
+                { label: "Fixture evidence", value: (row) => row.evidence },
+              ],
+            ),
+            ...tableDoc(hook.bindings, [
+              { header: "Binding", value: (row) => row.id },
+              { header: "Event", value: (row) => row.event },
+              { header: "Matcher", value: (row) => row.matcher ?? ABSENT },
+              { header: "Runtime", value: (row) => row.runtime },
+              { header: "Entrypoint", value: (row) => row.entrypoint },
+              {
+                header: "Required outcomes",
+                value: (row) => row.requiredOutcomes.join(", ") || ABSENT,
+              },
+              {
+                header: "Required operations",
+                value: (row) => row.requiredOperations.join(", ") || ABSENT,
+              },
+            ]),
+            ...fieldsDoc(hook.configuration, [
+              { label: "Configuration", value: (row) => row.status },
+            ]),
+            ...tableDoc(hook.configuration.fields, [
+              { header: "Setting", value: (row) => row.key },
+              { header: "Source", value: (row) => row.source },
+              {
+                header: "Value",
+                value: (row) =>
+                  row.redacted
+                    ? "[redacted]"
+                    : row.value === null
+                      ? ABSENT
+                      : JSON.stringify(row.value),
+              },
+            ]),
+            ...tableDoc(hook.configuration.issues, [
+              { header: "Setting", value: (row) => row.key },
+              { header: "Issue", value: (row) => row.message },
+            ]),
+            ...(hook.fixtureEvidence.receipt === undefined
+              ? []
+              : tableDoc(
+                  hook.fixtureEvidence.receipt.fixtures,
+                  [
+                    { header: "Fixture", value: (row) => row.fixture },
+                    { header: "Implementation", value: (row) => row.implementation },
+                    { header: "Result", value: (row) => row.outcome },
+                    { header: "Detail", value: (row) => row.detail },
+                  ],
+                  { caption: "Recorded fixture execution; native invocation was not observed" },
+                )),
+          ]),
+        ];
+      }),
+    ]),
   ),
+  ...nativeDoc(result),
 ];

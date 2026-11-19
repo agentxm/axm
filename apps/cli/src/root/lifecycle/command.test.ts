@@ -92,7 +92,7 @@ describe("Registry lifecycle human output", () => {
             const stdout = streams.lines("stdout").join("\n");
             expect(stdout).toContain(target);
             expect(stdout).toContain("revision-after-write");
-            expect(stdout).toContain(removing ? "to active" : "State: active to");
+            expect(stdout).toMatch(removing ? /to active/u : /State\s+active to/u);
             if (action === "archive") expect(stdout).toContain(archived.message);
             if (action === "deprecate") {
               expect(stdout).toContain(deprecated.message);

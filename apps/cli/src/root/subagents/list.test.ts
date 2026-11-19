@@ -270,7 +270,9 @@ describe("subagents list.handler", () => {
           count: 0,
           items: [],
         });
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No subagents match the selected agents" },
+        ]);
       }),
     );
   });

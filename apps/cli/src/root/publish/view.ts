@@ -7,19 +7,9 @@ import type {
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import { verdictDoc } from "../../operation-view.js";
 import {
-  ALREADY_PUBLISHED,
   NOT_TRIED,
   bytes,
   count,
-  factParts,
-  publishDisposition,
-  publishOutcome,
-  publishParticipation,
-  publishPhase,
-  publishReason,
-  publishSourceDifferences,
-  publishSourceState,
-  publishVisibilityOrigin,
   suggestionsDoc,
   ABSENT,
   PROSE_SEPARATOR,
@@ -33,7 +23,22 @@ import {
   type LedgerColumn,
   type LedgerRow,
   type Mark,
+  type CalloutNode,
+  conditionDoc,
+  operationResultDoc,
+  titleDoc,
 } from "../../screen/index.js";
+import {
+  ALREADY_PUBLISHED,
+  publishDisposition,
+  publishOutcome,
+  publishParticipation,
+  publishPhase,
+  publishReason,
+  publishSourceDifferences,
+  publishSourceState,
+  publishVisibilityOrigin,
+} from "./phrases.js";
 import {
   distinct,
   publishIdentity as identity,
@@ -424,7 +429,7 @@ const planFields = (placed: ReadonlyArray<Placed>): Doc => {
  * preconditions, advisory findings, and archive warnings, each stated once
  * with the extensions it concerns.
  */
-const attentionDoc = (result: PublishResult): Doc => {
+const attentionDoc = (result: PublishResult): ReadonlyArray<CalloutNode> => {
   const warnings = new Map<string, Array<string>>();
   const note = (message: string, subject: string | undefined) => {
     const subjects = warnings.get(message) ?? [];
@@ -446,28 +451,26 @@ const attentionDoc = (result: PublishResult): Doc => {
     if (finding.severity === "warning") note(finding.message, finding.targetId);
   }
   return [
-    ...(result.execution.preconditions ?? []).flatMap((precondition): Doc =>
+    ...(result.execution.preconditions ?? []).flatMap((precondition) =>
       precondition.status === "met"
         ? []
         : [
-            {
-              _tag: "callout",
+            conditionDoc({
               tone: "warn",
               title: precondition.label,
               children: [dim(precondition.detail ?? "Required before apply")],
-            },
+            }),
           ],
     ),
-    ...[...warnings].map(([message, subjects]): DocNode => ({
-      _tag: "callout",
-      tone: "warn",
-      title: message,
-      ...(subjects.length === 0 ? {} : { children: [dim(subjects.join(PROSE_SEPARATOR))] }),
-    })),
-    ...result.publicationSet.findings.flatMap((finding): Doc =>
-      finding.severity === "error"
-        ? [{ _tag: "callout", tone: "error", title: finding.message }]
-        : [],
+    ...[...warnings].map(([message, subjects]) =>
+      conditionDoc({
+        tone: "warn",
+        title: message,
+        ...(subjects.length === 0 ? {} : { children: [dim(subjects.join(PROSE_SEPARATOR))] }),
+      }),
+    ),
+    ...result.publicationSet.findings.flatMap((finding) =>
+      finding.severity === "error" ? [conditionDoc({ tone: "error", title: finding.message })] : [],
     ),
   ];
 };
@@ -477,39 +480,32 @@ const attentionDoc = (result: PublishResult): Doc => {
  * other published extension contains, so a pack names itself rather than
  * every member it brought along.
  */
-const publishedLinks = (placed: ReadonlyArray<Placed>): Doc => {
+const publishedLinks = (placed: ReadonlyArray<Placed>): ReadonlyArray<SuggestedAction> => {
   const published = placed.filter((entry) => entry.standing === "published");
   const contained = new Set(published.flatMap((entry) => entry.setItem?.dependencyIds ?? []));
-  return published.flatMap(({ item }): Doc =>
+  return published.flatMap(({ item }): ReadonlyArray<SuggestedAction> =>
     item.links === undefined || contained.has(item.id)
       ? []
-      : [
-          {
-            _tag: "paragraph",
-            text: [{ text: item.links.html, link: item.links.html, copyable: true }],
-          },
-        ],
+      : [{ description: `View ${identity(item)} in the registry`, url: item.links.html }],
   );
 };
 
 const ownersOf = (result: PublishResult): ReadonlyArray<string> =>
   distinct([...result.selection.owners, ...result.execution.outcomes.map((item) => item.owner)]);
 
-/** The title line: what the command is doing, as whom, and to which registry. */
-const titleDoc = (result: PublishResult): Doc => {
+/**
+ * The title line: what the command did, or is previewing, as whom, and to
+ * which registry. A settled publish names the command in the imperative,
+ * as every settled result does.
+ */
+const publishTitleDoc = (result: PublishResult): Doc => {
   const owners = ownersOf(result);
-  const aside = factParts([
-    owners.length === 0 ? undefined : `as ${owners.join(PROSE_SEPARATOR)}`,
-    `to ${result.selection.registry}`,
-  ]);
-  return [
-    {
-      _tag: "headline",
-      tone: "neutral",
-      text: [{ text: result.mode === "preview" ? "Previewing publish" : "Publishing", bold: true }],
-      aside,
-    },
-  ];
+  return titleDoc(result.mode === "preview" ? "Previewing publish" : "Publish", {
+    facts: [
+      owners.length === 0 ? undefined : `as ${owners.join(PROSE_SEPARATOR)}`,
+      `to ${result.selection.registry}`,
+    ],
+  });
 };
 
 export interface PublishDocOptions {
@@ -544,20 +540,24 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
   const omitted = result.selection.decisions.filter(
     (decision) => decision.disposition !== "included" && !taken.has(decision.id),
   );
+  const pages = publishedLinks(placed);
   const links = new Set(
     result.execution.outcomes.flatMap((item) =>
       item.links === undefined ? [] : [item.links.html],
     ),
   );
-  // Each published page is already a copyable line under the verdict.
-  const next = suggestionsDoc(
-    options.suggestions.filter(
-      (suggestion) => suggestion.url === undefined || !links.has(suggestion.url),
-    ),
-    options.withoutSuggestions === undefined
-      ? undefined
-      : { withoutSuggestions: options.withoutSuggestions },
-  );
+  // Each published page leads `Next`, so a suggestion for the same page is
+  // not offered twice.
+  const nextActions: ReadonlyArray<SuggestedAction> =
+    options.withoutSuggestions === true
+      ? []
+      : [
+          ...pages,
+          ...options.suggestions.filter(
+            (suggestion) => suggestion.url === undefined || !links.has(suggestion.url),
+          ),
+        ];
+  const next = suggestionsDoc(nextActions);
 
   const verdict = verdictOf(result, placed, options);
   const ledger =
@@ -565,17 +565,14 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
       ? []
       : publishLedger(placed, omitted, result.mode, detailed);
   const preview = result.mode === "preview";
-  const settled = [
-    ...verdictDoc({
-      ledger: ledger.length > 0,
-      tone: verdict.tone,
-      verdict: verdict.verdict,
-      aside: verdict.aside,
-      ...(verdict.reason === undefined ? {} : { reason: verdict.reason }),
-      ...(verdict.blocked === undefined ? {} : { blocked: verdict.blocked }),
-    }),
-    ...publishedLinks(placed),
-  ];
+  const settled = verdictDoc({
+    ledger: ledger.length > 0,
+    tone: verdict.tone,
+    verdict: verdict.verdict,
+    aside: verdict.aside,
+    ...(verdict.reason === undefined ? {} : { reason: verdict.reason }),
+    ...(verdict.blocked === undefined ? {} : { blocked: verdict.blocked }),
+  });
   if (quiet) {
     const noChange =
       placed.length > 0 && placed.every((entry) => entry.standing === "already-published");
@@ -609,15 +606,13 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
           ...(needsAttention ? next : []),
         ];
   }
-  return [
-    ...(ledger.length === 0 ? [] : titleDoc(result)),
-    ...ledger,
-    ...(preview && ledger.length > 0 ? planFields(placed) : []),
-    ...attentionDoc(result),
-    ...settled,
-    ...(preview && !detailed && ledger.length > 0 && omitted.length === 0
-      ? [dim(DETAIL_HINT)]
-      : []),
-    ...next,
-  ];
+  return operationResultDoc({
+    title: ledger.length === 0 ? [] : publishTitleDoc(result),
+    body: [...ledger, ...(preview && ledger.length > 0 ? planFields(placed) : [])],
+    conditions: attentionDoc(result),
+    verdict: settled,
+    after:
+      preview && !detailed && ledger.length > 0 && omitted.length === 0 ? [dim(DETAIL_HINT)] : [],
+    next: nextActions,
+  });
 };

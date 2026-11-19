@@ -312,7 +312,9 @@ const ledgerColumn = (
 /**
  * The tone a reason takes: its own row's mark, so the line and the mark above
  * it make one claim. A row that simply never ran states a fact rather than a
- * failure, so it reads as an aside.
+ * failure, and a row undone because of another row's failure states a
+ * consequence of that cause, so both read as asides and leave the colour to
+ * the cause.
  */
 const reasonTone = (mark: Mark): Tone => {
   switch (mark) {
@@ -320,7 +322,6 @@ const reasonTone = (mark: Mark): Tone => {
     case "error":
       return "error";
     case "blocked":
-    case "rolled-back":
     case "warn":
       return "warn";
     default:
@@ -362,9 +363,14 @@ const paintRelocated = (
   indent: number,
 ): ReadonlyArray<string> => {
   const text = relocatedText(row, hidden, headers, style.glyphs);
+  // A nested row's values sit beneath its indented name, not its parent's.
   return plain(text).length === 0
     ? []
-    : paintPrefixed(text, style, { indent: indent + GUTTER_WIDTH, first: "", tone: "dim" });
+    : paintPrefixed(text, style, {
+        indent: indent + GUTTER_WIDTH + depthLead(row),
+        first: "",
+        tone: "dim",
+      });
 };
 
 /**
@@ -380,7 +386,7 @@ const paintReason = (
   row.reason === undefined || plain(row.reason).length === 0
     ? []
     : paintPrefixed(row.reason, style, {
-        indent: indent + GUTTER_WIDTH,
+        indent: indent + GUTTER_WIDTH + depthLead(row),
         first: "",
         tone: reasonTone(row.mark),
       });

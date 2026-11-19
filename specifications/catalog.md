@@ -678,7 +678,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/unsettled-units-state-their-reason`
 - Owner: `cli`
-- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
+- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity — the producer's sentence, without the category code the machine output carries as a field — and shall state whether the unit's prior state was kept, restored, or left incomplete, beneath its row or once for every unit that shares it, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, except that where another unit's reason or the operation's interruption already states what stopped the operation, such units may be counted together at quiet and normal detail and shall be named with their reasons at verbose detail; and a unit whose producer supplied no reason shall state that rather than showing nothing.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
@@ -706,7 +706,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/usage-errors-render-once`
 - Owner: `cli-e2e`
-- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage Error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
+- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -4875,7 +4875,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/human-inventory-states-each-row`
 - Owner: `cli`
-- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and a summary over a row that `axm lint` explains shall name `axm lint` as a command to run.
+- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and an inventory with a row that `axm lint` explains shall offer `axm lint` as its next command.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

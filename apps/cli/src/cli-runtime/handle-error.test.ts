@@ -81,7 +81,7 @@ describe("classifyError — ShowHelp", () => {
     expect(parsed).toMatchObject({
       ok: false,
       code: "usage",
-      title: "Usage Error",
+      title: "Usage error",
       detail: "Missing required flag: --name",
     });
   });
@@ -223,7 +223,7 @@ describe("classifyError — generic errors", () => {
 
     expect(result.exitCode).toBe(ExitCode.Internal);
     expect(result.stdout).toBeUndefined();
-    expect(result.stderr?.[0]).toContain(" ✖   Internal Error                internal, exit 10");
+    expect(result.stderr?.[0]).toContain(" ✖   Internal error                internal · exit 10");
     expect(result.stderr?.[0]).toContain("     boom");
     expect(result.stderr?.[0]).toContain("     --debug shows the cause.");
     expect(result.stderr?.[0]).not.toContain("✗");
@@ -237,7 +237,7 @@ describe("classifyError — generic errors", () => {
     expect(parsed).toMatchObject({
       ok: false,
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "boom",
     });
     expect(stderrEvents(result.stderr)).toContainEqual({

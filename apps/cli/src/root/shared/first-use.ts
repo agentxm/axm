@@ -89,9 +89,7 @@ export const chooseUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetec
     if (Option.isNone(screen) || Option.isNone(interaction) || !(yield* canAskUndetectedAgents)) {
       return yield* undetectedAgentsRefusal();
     }
-    yield* screen.value.note(
-      headlineDoc("info", "No coding agents were detected in this project."),
-    );
+    yield* screen.value.note(headlineDoc("info", "No coding agents were detected in this project"));
     const agents = configurableAgents(
       yield* interaction.value.selectAgents(undetectedAgentOffer(detections)),
     );

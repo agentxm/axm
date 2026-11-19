@@ -1,5 +1,4 @@
-Setting up AXM in ~/code/storefront for
-this project
+Setting up AXM  in storefront
 
  ✔   Checked for coding agents
                     found 4 agents
@@ -27,16 +26,16 @@ this project
  +   .curs…/skills/axm   created
      Cursor
 
-Set up AXM for 3 agents
-  8 created, 1 updated
-
  ●   Some extension types are limited
      for this project
      Hook: AXM cannot write Cursor hooks
      yet.
 
+Set up AXM for 3 agents
+  8 created · 1 updated
+
 Next
      axm discover
-     Discover recommended extensions
+       Discover recommended extensions
      axm sync --preview
-     Preview workspace reconciliation
+       Preview workspace reconciliation

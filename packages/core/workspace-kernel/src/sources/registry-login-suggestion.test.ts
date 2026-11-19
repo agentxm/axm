@@ -71,12 +71,20 @@ describe("registryLoginSuggestions", () => {
     ),
   );
 
-  it.effect("suppresses login when every consulted registry origin has credentials", () =>
-    Effect.gen(function* () {
-      const suggestions = yield* registryLoginSuggestions([defaultEndpoint, secondEndpoint]);
+  it.effect(
+    "suggests checking the signed-in account when every consulted origin has credentials",
+    () =>
+      Effect.gen(function* () {
+        const suggestions = yield* registryLoginSuggestions([defaultEndpoint, secondEndpoint]);
 
-      expect(suggestions).toEqual([]);
-    }).pipe(Effect.provide(makeLayer(() => Effect.succeed(Option.some(storedCredentials))))),
+        expect(suggestions).toEqual([
+          {
+            description:
+              "See which account is signed in; a private extension needs one that can read it.",
+            cmd: "axm whoami",
+          },
+        ]);
+      }).pipe(Effect.provide(makeLayer(() => Effect.succeed(Option.some(storedCredentials))))),
   );
 
   it.effect("treats an unreadable credential store as unauthenticated", () =>

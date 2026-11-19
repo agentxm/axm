@@ -6,4 +6,7 @@
      github                     mcp-server   managed, disabled   1.0.0     ./github
  ▲   @legacy/skills/changelog   skill        leftover            0.3.0     agentxm
 
-6 extensions · 3 enabled · no agents configured · 1 needs attention · run axm lint
+6 extensions · 3 enabled · no agents configured · 1 needs attention
+
+Next
+     axm lint   See what needs attention and how to fix it

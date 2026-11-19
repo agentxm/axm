@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/unsettled-units-state-their-reason",
   title: "A unit that did not settle as planned says why, and what it was left in",
   statement:
-    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.",
+    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity — the producer's sentence, without the category code the machine output carries as a field — and shall state whether the unit's prior state was kept, restored, or left incomplete, beneath its row or once for every unit that shares it, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, except that where another unit's reason or the operation's interruption already states what stopped the operation, such units may be counted together at quiet and normal detail and shall be named with their reasons at verbose detail; and a unit whose producer supplied no reason shall state that rather than showing nothing.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -169,7 +169,7 @@ const cases: ReadonlyArray<{
       state: "planned",
       artifact: artifact("0.9.0"),
     },
-    reason: "the operation stopped before this extension",
+    reason: "The operation stopped before this extension.",
   },
   {
     name: "a unit blocked by the operation stopping states the condition it names",
@@ -208,13 +208,16 @@ describe("An unsettled unit states its reason", () => {
   });
 
   it("states every reason of a realistic partial operation at every width", () => {
+    // The producer's sentence is the failure's detail; the message it settled
+    // the unit with appends the category code, which is the machine's.
     const reasons = partialUpdate.units.flatMap((unit) =>
-      unit.state === "failed" && unit.message !== undefined ? [unit.message] : [],
+      unit.state === "failed" && unit.error !== undefined ? [unit.error.detail] : [],
     );
     expect(reasons.length).toBeGreaterThan(1);
     everywhere(partialUpdate, (painted, where) => {
       for (const reason of reasons)
         expect(painted, `${where}: ${reason}`).toContain(compact(reason));
+      expect(painted, where).not.toContain(compact("(timeout)"));
     });
   });
 
@@ -222,11 +225,56 @@ describe("An unsettled unit states its reason", () => {
     const resolution = resolutionOf([
       { ...cases[0]?.unit, id: "a", label: "a" } as ResolvedUnit<unknown>,
       { ...cases[0]?.unit, id: "b", label: "b" } as ResolvedUnit<unknown>,
+      {
+        id: "c",
+        label: "c",
+        state: "committed",
+        artifact: { ...artifact("0.9.0"), version: "1.0.0" },
+      },
     ]);
     everywhere(resolution, (painted, where) => {
-      expect(painted, where).toContain(compact("Every extension that did not settle:"));
-      expect(painted.split(compact("effects were restored")), where).toHaveLength(2);
+      expect(painted, where).toContain(compact("Extensions that did not settle were restored."));
+      expect(painted, where).not.toContain(compact("effects were restored"));
     });
+  });
+
+  it("lets a verdict that says nothing changed state what every unit was left in", () => {
+    const resolution = resolutionOf([
+      { ...cases[0]?.unit, id: "a", label: "a" } as ResolvedUnit<unknown>,
+      { ...cases[0]?.unit, id: "b", label: "b" } as ResolvedUnit<unknown>,
+    ]);
+    everywhere(resolution, (painted, where) => {
+      expect(painted, where).toContain(compact("Nothing updated  all changes rolled back"));
+      expect(painted, where).not.toContain(compact("effects were restored"));
+    });
+  });
+
+  it("counts the units the operation never reached where another row says what stopped it", () => {
+    const resolution = resolutionOf([
+      { ...cases[0]?.unit, id: "a", label: "a" } as ResolvedUnit<unknown>,
+      { ...cases[4]?.unit, id: "b", label: "@acme/skills/b" } as ResolvedUnit<unknown>,
+      { ...cases[4]?.unit, id: "c", label: "@acme/skills/c" } as ResolvedUnit<unknown>,
+    ]);
+    for (const width of WIDTHS) {
+      for (const verbosity of ["quiet", "normal"] as const) {
+        const painted = paintedAt(resolution, width, verbosity);
+        expect(painted, `${String(width)} ${verbosity}`).toContain(compact(REGISTRY_REFUSED));
+        expect(painted, `${String(width)} ${verbosity}`).toContain(
+          compact("2 extensions not tried"),
+        );
+        expect(painted, `${String(width)} ${verbosity}`).not.toContain(compact("@acme/skills/b"));
+      }
+      // Verbose names each of them with its own reason; a narrow terminal
+      // shortens the names, so they are read whole from the unbounded stream.
+      const verbose = paintedAt(resolution, width, "verbose");
+      expect(
+        verbose.split(compact("The operation stopped before this extension.")),
+        `${String(width)} verbose`,
+      ).toHaveLength(3);
+    }
+    const unbounded = paintedAt(resolution, "unbounded", "verbose");
+    for (const name of ["@acme/skills/b", "@acme/skills/c"])
+      expect(unbounded).toContain(compact(name));
   });
 
   it("says it on each row when unsettled units were left in different states", () => {

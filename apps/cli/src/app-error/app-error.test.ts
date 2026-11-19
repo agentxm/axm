@@ -68,7 +68,7 @@ describe("AppError", () => {
   it("constructs with all fields", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Workspace state not initialized",
       suggestions: [{ description: "Create a workspace.", cmd: "axm setup" }],
       cause: new Error("original"),
@@ -87,7 +87,7 @@ describe("AppError", () => {
   it("constructs with no suggestions", () => {
     const error = new AppError({
       code: "internal",
-      title: "Internal Error",
+      title: "Internal error",
       detail: "Installation failed",
       cause: undefined,
     });

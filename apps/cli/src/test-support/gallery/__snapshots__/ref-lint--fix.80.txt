@@ -1,10 +1,10 @@
-Fixing  in this project
+Fix  in this project
 
      Finding                       Location                 Fix
  ~   Lockfile is stale             axm.lock                 fixed
  ✖   Description is missing        skills/triage/SKILL.md
-     skill/description-present — Agents choose skills by description
+     Agents choose skills by description (skill/description-present)
  ▲   Member version floats         packs/review-kit
-     pack/member-pinned — Pin @acme/skills/triage for repeatable installs
+     Pin @acme/skills/triage for repeatable installs (pack/member-pinned)
 
 Fixed 1 finding; 1 error and 1 warning remain  exit 1

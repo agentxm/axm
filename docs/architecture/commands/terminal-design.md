@@ -7,6 +7,7 @@ depends-on:
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
   - ../decisions/cli-live-event-contract.md
   - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
+  - ../decisions/cli-result-shapes-and-one-grammar.md
 ---
 
 # Terminal design
@@ -78,9 +79,23 @@ shape happens to fit the terminal.
 | Group related nodes, optionally under a dim title            | `section`; the painter sets sibling sections apart                                                    |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
+A result takes one of a few shapes, and `apps/cli/src/screen/templates.ts`
+defines each as a type whose parts come in a fixed order: an operation
+result (title line, ledger and what it carries, conditions, verdict, `Next`),
+an empty result (one statement and `Next`), and a record (a verdict, its
+fields, notes, conditions, sections, and `Next`). Conditions are callouts by
+type, so they stand between the rows and the verdict by construction, and
+`Next` closes every shape. A view chooses the shape its result means and fills
+it; it does not arrange nodes itself.
+
 Every command whose result carries a ledger opens with the same title line:
 what it is doing, where it acts, and which agents it covers, stated once so no
-row repeats it. A condition the operation reports about its units — a
+row repeats it. A plan says what the command is doing; a settled result names
+the command it records in the imperative, because the work is over. Where it
+acts names a project by its directory, so a reader with several checkouts open
+sees which one changed, and the user workspace as `for this user`. Which agents
+come from every unit the command planned, settled or not, since they describe
+the command rather than its outcome. A condition the operation reports about its units — a
 release-age decision, a warning several units share — stands between the rows
 and the verdict, and states nothing a row contradicts: an annotation naming a
 unit that did not settle as planned yields to that unit's own reason. `Next` is
@@ -88,8 +103,9 @@ the last thing a reader sees, and on a result that did not succeed it names a
 recovery that fits: the emitting command again, narrowed to the units still
 waiting where an unchanged retry can change their outcome, or what the
 producers of those failures themselves suggested. Where no command would
-change the outcome, it offers no retry. No command prints a logo or a phase
-strip; setup opens like every other command.
+change the outcome, it offers no retry. A command's general suggestions, which
+do not depend on the outcome, follow every recovery, and a failure that
+changed nothing and names a recovery leaves them out. No result prints a logo or a phase strip, and setup opens like every other command; root help alone carries the brand mark, because it introduces the tool rather than recording work.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
@@ -98,18 +114,39 @@ outcome, and a detail — and differ in their marks and in the outcome column, a
 plan's `Plan` against a result's `Status`. A version column states the move a
 unit made where both ends are known, the version still installed
 for a unit that did not settle, and that its target is not resolved yet where
-a plan has not resolved one. A ledger folds rows that repeat one outcome, such
-as unchanged units, into one fold line with a mark, a count, a noun, and the
+a plan has not resolved one. A committed closure that settled other
+extensions with its own, such as a pack and its members, nests one row per
+member beneath its row, each with its version, change, and path; the parent row
+then names no paths, the verdict counts the nested rows it claims, and a
+member that changed nothing waits for verbose level. A ledger folds rows that
+repeat one outcome, such as unchanged units, into one fold line with a mark, a count, a noun, and the
 flag that reveals them. A row that did not settle as planned carries its
-reason: one line beneath the row, at the content column, toned as the row's
-own mark, painted at every width and every level of detail because a reason
-has nowhere else to appear. Row children carry per-agent outcomes and details,
+reason: one line beneath the row, at the content column, painted at every
+width and every level of detail because a reason has nowhere else to appear.
+The reason is its producer's sentence without the category code, which
+machine output carries as a field. It is toned as the row's own mark, except
+that a rolled-back or not-tried row states a consequence of a cause another
+row or the verdict names, so its reason reads as a dim aside. Such a row
+wrote nothing a path could point at, so it has no detail; a ledger drops a
+column no row has a value for. Where another row's reason or the operation's
+interruption already says what stopped the operation, the units it never
+reached fold into one `· n not tried` line, and verbose level names each with
+its reason. What an unsettled unit was left in follows its reason, unless the
+verdict already states it for every such unit. Row children carry per-agent outcomes and details,
 aligned to the same column and shown at verbose level. A ledger takes any
-columns: lint's are finding, location, and fix, with the rule identifier and
-help as a dim child line, and a rule that repeats folds into one row with a
-location count. The separator between semantic parts of an aside or summary
-belongs to the painter; a view supplies parts and never spells it. Prose
-within a single ledger cell remains prose.
+columns: lint's are finding, location, and fix, with the rule's help and its
+identifier in parentheses as a dim child line, and a rule that repeats folds
+into one row with a location count.
+
+The separator between facts belongs to the painter. A headline's aside, a
+callout's aside, and a summary are lists of parts the painter joins with the
+glyph set's separator; a view supplies parts and never spells one, and the
+`axm-policy/no-spelled-separator` lint rule holds CLI sources to that. A
+verdict is a claim and the facts beside it: a consequence such as `all changes
+rolled back` or `no changes made` is the aside's first fact, never a dash
+inside the claim. Where an aside wraps, the separator stays on the line of the
+fact before it, so no line opens with one. Prose within a single ledger cell
+or reason remains prose, joined with commas and parentheses as a sentence is.
 
 The painter owns vertical spacing, so a view never spaces result blocks
 itself: `blank` separates only two paragraphs of authored prose, and the
@@ -128,12 +165,38 @@ painter's vertical-spacing tests in `apps/cli/src/screen/paint-text.test.ts`
 hold these rules.
 
 When nothing changed there is no ledger and no title line: the verdict stands
-alone, and it keeps its own status glyph because no row above it carries one. A
+alone, and it keeps its own status glyph because no row above it carries one.
+An empty read is the empty result shape: one neutral statement at the margin,
+such as `No extensions installed in this project`, facts beside it, and `Next`
+where one command moves on; it says what is true and is not an outcome, so it
+carries no glyph. A
 headline states what happened; its aside states how much. A callout is
 subordinate to a headline and never replaces it. A table describes an
 inventory, so an inventory that changed nothing is a table. A detail page is a
 headline with a dim aside, a paragraph, fields, and a `next` command, and a
 single requested field prints raw.
+
+## Wording
+
+Every human sentence shares one grammar, and each kind of fact has one form.
+`apps/cli/src/screen/grammar.ts` owns the general forms: counts and plurals,
+prose lists with a serial comma, decimal sizes, durations, the open-wait
+clock, sentence case, and dates — a day as `21 Sep 2026` and a moment as
+`21 Sep 2026 16:44 UTC`, both in UTC. `apps/cli/src/screen/phrases.ts` owns the
+operation vocabulary every plan-family command shares: titles, verdicts, unit
+states, dispositions, and blocking conditions. Wording that only one command
+speaks lives with that command, as publish's does in
+`apps/cli/src/root/publish/phrases.ts`. A command name is a command span,
+`commandSpan` or the copyable `invocation`, so help, prose, and records tint it
+alike, and a version move is `versionMove`, `1.9.4 to 2.0.1`.
+
+A headline, verdict, title, label, empty state, and `Next` description is a
+phrase: it opens with a capital, states no closing stop, and never ends in an
+ellipsis. Reasons, callout bodies, and paragraphs are prose and punctuate as
+sentences. Problem titles are sentence case. One idea takes one term: a
+person signs in and signs out, a command that left the workspace as it found
+it made `no changes`, and a unit the workspace already matches is `already
+current`.
 
 ## Tone and glyphs
 
@@ -156,10 +219,11 @@ Where a glyph goes is fixed. A row carries its own mark. A verdict that follows
 a ledger has no glyph, because the rows already carry status; it is bold and
 toned. A problem with no ledger above it leads with its glyph in the gutter. A
 callout always has one. A blocked verdict is the one callout that states an
-outcome: the operation is waiting on a person, so it keeps the attention mark
-and carries its reason beneath it.
+outcome: the operation is waiting on a person, so it keeps the attention mark,
+claims only that the command is blocked, and carries the condition beneath it
+as its reason.
 
-A problem reads the same for every error kind: a title naming the category,
+A problem reads the same for every error kind: a sentence-case title naming the category,
 with the stable code and the process exit code as a dim aside at the value
 column; the reason beneath it; identifiers as fields, where validation failures
 list the inputs they rejected in place of a sentence; and every recovery as a
@@ -168,7 +232,11 @@ is the report link. Blocked, partial, and interrupted outcomes reuse the ledger
 rather than a bespoke layout: a unit blocked by its own condition is ▲, a unit
 the operation stopped before is · not tried, and a unit in flight when a
 restoring operation stopped is ↶ rolled back. Their verdict's aside ends with
-the exit code.
+the exit code. A failure that committed nothing, and whose units are each
+known to be restored or untouched, never counts the units it did not change:
+its verdict says `Nothing installed`, with `all changes rolled back` as the
+first fact of its aside where it restored something, which states once what
+every row was left in.
 
 Glyph width is measured, not trusted. Every glyph counts as one cell, as
 terminals draw East Asian Ambiguous characters outside East Asian contexts.
@@ -203,7 +271,8 @@ pipe (`cli/non-tty-output-is-plain-and-unpadded`). `NO_COLOR`, `FORCE_COLOR=0`,
 `TERM=dumb`, and `CI` turn color off on every stream, though `FORCE_COLOR`
 restores it under `CI` on a terminal — a precedence that specification leaves
 open. Animation also needs a stderr terminal, and forced color never implies
-one. Color only styles: stripped of its styling, colored output is the plain
+one; `AXM_NO_ANIMATION=1` turns it off for a person who wants less motion,
+such as with a screen reader, and progress then reads as static milestones. Color only styles: stripped of its styling, colored output is the plain
 output.
 
 Only the eight standard colors and the dim attribute are used, never
@@ -237,7 +306,9 @@ is its widest segment rather than the whole list.
 
 A ledger would rather wrap than drop: it shrinks every column to its word
 floors before it gives one up, because wrapping keeps a value in the column
-whose header names it. Width then moves what a ledger carries and never
+whose header names it. The exception is an `optional` cell that would need
+more than three lines: stacked a word to a line it is harder to read than the
+same value beneath its row, so the column drops instead. Width then moves what a ledger carries and never
 removes it (`cli/ledger-width-relocates-values`). A dropped `optional` column
 is repainted beneath each row that has a value for it, dim, at the content
 column: the bare value when one column was dropped, and `Header  value` pairs
@@ -260,8 +331,7 @@ from its rows that says a wider terminal shows them, and stacks below forty
 columns, which suits wide inventories. An inventory states a value every row
 shares once: a column whose view gives that value a summary form leaves the
 table and the form joins the summary, after the inventory's own facts and
-before what needs attention (`cli/inventories-state-uniform-columns-once`). A
-command a summary names is a copyable, tinted invocation, as help shows one.
+before what needs attention (`cli/inventories-state-uniform-columns-once`). A summary states facts only; the command that acts on them is the inventory's `Next`, as it is every result's.
 
 A protected column is laid out at its natural width even where a width hint
 would keep the columns after it on a shared lane: alignment is worth having
@@ -280,7 +350,10 @@ identifier — is never cut, truncated, or hyphenated; when it does not fit it
 moves to its own line, in a ledger cell as anywhere else. Apart from `raw` and
 `markdown` content passed through verbatim, it is the only content allowed to
 overflow the width. A `Next` action, whether a command or a link, carries its
-description beside the target where both fit and beneath it where they do not.
+description beside the target where both fit and beneath it where they do not,
+hanging two columns in so that without colour it is not read as another
+command. A description is a fragment, so the painter drops the closing stop of
+a single sentence.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;
@@ -352,6 +425,19 @@ newline instead of moving upward into history; a terminal may still reflow its
 own scrollback. CI, pipes, and terminals without animation receive the same
 eligible milestones as static text.
 
+Each update the `Frame` makes is one write per stream. Where it moves the
+cursor — an erase, a repaint, or durable text inserted above the active
+region — its stderr bytes open and close one DEC 2026 synchronized frame, so a
+terminal that supports the mode draws the erase, the inserted text, and the
+repaint as one picture, and a terminal that does not ignores the markers.
+Plain transcript text on a pipe or an idle terminal carries no markers. On a
+terminal known to draw OSC 9;4 progress — Windows Terminal, ConEmu, and
+Ghostty, never through tmux or screen, and never quiet or without animation —
+the taskbar shows indeterminate progress while the active region holds
+anything and is cleared when it empties or the `Frame` settles. No terminal
+answers a query for either feature, so detection is an allowlist in
+`apps/cli/src/screen/output-policy.ts`.
+
 ## Gallery
 
 The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
@@ -360,7 +446,11 @@ command results, plans, failures with recovery, waits in their open, static,
 and settled forms, each prompt kind in its initial, filtered, error, narrow,
 and answered states, transcript checkpoints, and the painter's vocabulary. A
 fixture that shows a command's output is that command's own view applied to
-sample data, so the gallery reviews what the command paints; only fixtures that
+sample data, so the gallery reviews what the command paints. A command's view
+is a pure module of its own — a `view.ts` or `*-view.ts` under `root/` — never a
+closure inside its handler, and
+`apps/cli/src/test-support/gallery/views-have-fixtures.test.ts` fails on a view
+module no fixture or sample imports unless it names why; only fixtures that
 exercise the painter itself, such as the vocabulary and the width and prompt
 primitives, build a document by hand. The `vocabulary--` fixtures split the
 node kinds across screens a person could meet — a settled result, a read,

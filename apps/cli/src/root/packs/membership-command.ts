@@ -68,7 +68,7 @@ const body = (args: PackMembershipCommandArgs) =>
             ? `Add extensions to ${candidate.pack}`
             : `Remove extensions from ${candidate.pack}`,
         message:
-          change === "add" ? "No extensions added to pack." : "No extensions removed from pack.",
+          change === "add" ? "No extensions added to pack" : "No extensions removed from pack",
       });
       return;
     }

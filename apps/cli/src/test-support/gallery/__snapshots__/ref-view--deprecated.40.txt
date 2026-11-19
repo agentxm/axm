@@ -16,4 +16,4 @@
 
 Next
      axm migrate --preview @legacy/skills/changelog
-     Preview migration
+       Preview migration

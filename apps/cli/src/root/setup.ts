@@ -14,7 +14,7 @@ import {
   type SetupOutcome,
 } from "@agentxm/workspace-features/configuration";
 import { agentFlag, jsonFlag, replaceUnrecordedFlag, Verbosity } from "../cli-flags/index.js";
-import { emitResult, Screen, errorDoc } from "../screen/index.js";
+import { emitResult, Screen, suggestionsDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
 
 import type { TelemetryMode } from "../telemetry/index.js";
@@ -45,7 +45,7 @@ import {
   withCommandCapabilities,
   type CommandCapabilities,
 } from "./shared/command-capabilities.js";
-import { setupResultDoc, setupTitleDoc } from "./setup/view.js";
+import { setupApprovalRequiredDoc, setupResultDoc, setupTitleDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
 import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 import { installBundledAxmSkill } from "@agentxm/extension-kinds/skills";
@@ -226,7 +226,7 @@ export interface HandleSetupArgs {
 
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetupArgs) {
   return yield* withLiveOperation(
-    { name: "Configure AXM workspace", mode: args.preview === true ? "preview" : "apply" },
+    { name: "Set up AXM", mode: args.preview === true ? "preview" : "apply" },
     Effect.gen(function* () {
       const screen = yield* Screen;
       const path = yield* Path.Path;
@@ -272,7 +272,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
         yield* emitResult(
           { result: prepared.outcome },
           SetupDocumentSchema,
-          () => errorDoc("Approval required — no changes applied", { suggestions }),
+          () => [...setupApprovalRequiredDoc(), ...suggestionsDoc(suggestions)],
           {
             suggestions,
             completion: {

@@ -5,17 +5,17 @@ import type {
   ExtensionListFilter,
 } from "@agentxm/workspace-features/inspection";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
-import * as DateTime from "effect/DateTime";
+import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import {
   ABSENT,
   PROSE_SEPARATOR,
   count,
+  day,
   inventoryDoc,
-  invocation,
-  paragraphDoc,
-  suggestionsDoc,
+  type CalloutNode,
   type Doc,
+  type EmptyResult,
   type Span,
   type Text,
   type ViewColumn,
@@ -143,7 +143,7 @@ const guidanceFor = (item: ListItem): string => {
       ...(archival === undefined
         ? []
         : [
-            `Archived on ${DateTime.formatIso(archival.archivedAt)}${archival.message === undefined ? "" : `: ${archival.message}`}`,
+            `Archived on ${day(archival.archivedAt)}${archival.message === undefined ? "" : `: ${archival.message}`}`,
           ]),
       ...(deprecation === undefined ? [] : [formatDeprecationWarning(itemRef(item), deprecation)]),
     ].join("; ") || ABSENT
@@ -205,57 +205,62 @@ const inventorySentence = (rows: ReadonlyArray<ListTableRow>): ReadonlyArray<Tex
  */
 const attentionSentence = (rows: ReadonlyArray<ListTableRow>): ReadonlyArray<Text> => {
   const flagged = rows.filter(needsAttention).length;
-  return [
-    ...(flagged === 0
-      ? []
-      : [
-          [
-            {
-              text: `${String(flagged)} ${flagged === 1 ? "needs" : "need"} attention`,
-              tone: "warn",
-            },
-          ] satisfies Text,
-        ]),
-    ...(rows.some(lintExplains)
-      ? [[{ text: "run " }, ...invocation("axm lint")] satisfies Text]
-      : []),
-  ];
+  return flagged === 0
+    ? []
+    : [
+        [
+          {
+            text: `${String(flagged)} ${flagged === 1 ? "needs" : "need"} attention`,
+            tone: "warn",
+          },
+        ] satisfies Text,
+      ];
 };
+
+/** Where a flagged row is one lint explains, lint is the next step. */
+const lintNext = (rows: ReadonlyArray<ListTableRow>): ReadonlyArray<FailureSuggestedAction> =>
+  rows.some(lintExplains)
+    ? [{ description: "See what needs attention and how to fix it", cmd: "axm lint" }]
+    : [];
 
 /** Where an inventory with nothing in it stands, which decides what it says next. */
 export type EmptyInventory = "no-workspace" | "empty-project" | "empty-user";
 
 /** An empty inventory says what is true, then the one command that moves on. */
-export const emptyInventoryDoc = (state: EmptyInventory): Doc => {
+export const emptyInventory = (state: EmptyInventory): EmptyResult => {
   switch (state) {
     case "no-workspace":
-      return [
-        ...paragraphDoc("No AXM workspace in this project."),
-        ...suggestionsDoc([
+      return {
+        statement: "No AXM workspace in this project",
+        next: [
           {
             description: "Set up AXM in this project",
             invocation: { command: ["setup"], arguments: [] },
           },
-        ]),
-      ];
+        ],
+      };
     case "empty-project":
-      return [
-        ...paragraphDoc("No extensions installed in this project."),
-        ...suggestionsDoc([{ description: "Find recommended extensions", cmd: "axm discover" }]),
-      ];
+      return {
+        statement: "No extensions installed in this project",
+        next: [{ description: "Find recommended extensions", cmd: "axm discover" }],
+      };
     case "empty-user":
-      return paragraphDoc("No extensions installed for this user.");
+      return { statement: "No extensions installed for this user" };
   }
 };
 
 /** A filtered empty state distinguishes no matches from incomplete assessment. */
-const emptyFilteredInventoryDoc = (
+const emptyFilteredInventory = (
   filter: Exclude<ExtensionListFilter, "all">,
   coverage: ExtensionListDocument["coverage"] | undefined,
-): Doc =>
-  paragraphDoc(
-    `No ${filter === "lifecycle" ? "deprecated or archived" : filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${String(coverage.unknown)} could not be assessed` : ""}`,
-  );
+): EmptyResult => ({
+  statement: `No ${filter === "lifecycle" ? "deprecated or archived" : filter} extensions found`,
+  facts: [
+    coverage !== undefined && coverage.unknown > 0
+      ? `${String(coverage.unknown)} could not be assessed`
+      : undefined,
+  ],
+});
 
 /**
  * `axm list` for a person: one table whose rows that need attention carry a
@@ -267,13 +272,15 @@ export const listDoc = (options: {
   /** How much of the inventory a filtered listing could assess. */
   readonly coverage?: ExtensionListDocument["coverage"];
   readonly emptyState?: EmptyInventory;
+  /** Conditions about the inventory, such as observations it could not make. */
+  readonly conditions?: ReadonlyArray<CalloutNode>;
 }): Doc => {
   const rows = options.items.map(toRow);
   const coverage = options.coverage;
   const empty =
     options.filter === "all"
-      ? emptyInventoryDoc(options.emptyState ?? "empty-project")
-      : emptyFilteredInventoryDoc(options.filter, coverage);
+      ? emptyInventory(options.emptyState ?? "empty-project")
+      : emptyFilteredInventory(options.filter, coverage);
   return inventoryDoc({
     rows,
     columns:
@@ -295,6 +302,8 @@ export const listDoc = (options: {
             `${String(coverage.unknown)} unknown`,
           ],
     mark: (row) => (needsAttention(row) ? "warn" : undefined),
+    ...(options.conditions === undefined ? {} : { conditions: options.conditions }),
+    next: coverage === undefined ? lintNext(rows) : [],
     empty,
   });
 };

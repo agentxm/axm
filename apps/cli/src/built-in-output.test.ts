@@ -67,7 +67,7 @@ describe("built-in output", () => {
       expect(streams.lines("stdout")).toEqual([]);
       const stderr = streams.lines("stderr").join("\n");
       expect(stderr).toContain("USAGE");
-      expect(stderr).not.toContain("Usage Error");
+      expect(stderr).not.toContain("Usage error");
       expect(stderr).not.toContain("Unrecognized flag: --bogus");
       expect(stderr).not.toContain(ESCAPE);
     }).pipe(Effect.provide(humanScreenLayer(streams)));

@@ -124,7 +124,7 @@ describe("ResolvePlanInteractionLive", () => {
           .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu"), "");
         // The block is planning's own outcome with the route's recovery — the
         // same one a non-interactive invocation gets — not a late prompt failure.
-        expect(output).toContain("approval is required");
+        expect(output).toContain("Demote is blocked");
         expect(output).toContain("axm demote --yes @acme/skills/review");
         expect(output).not.toContain("Interactive prompt required");
         expect(output).not.toContain("Apply changes?");

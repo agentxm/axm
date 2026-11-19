@@ -1,4 +1,5 @@
 export type {
+  CalloutNode,
   Doc,
   DocNode,
   Field,
@@ -65,14 +66,14 @@ export {
   artifactChange,
   artifactChangeMark,
   blockingClass,
-  bytes,
-  count,
   disposition,
   dispositionStatement,
-  duration,
   interruptionPhrase,
   notTriedReason,
+  nothingChangedVerdict,
   operationTitle,
+  rolledBackVerdict,
+  settledTitle,
   outcomeHeadline,
   planVerdict,
   plannedArtifactChange,
@@ -81,23 +82,30 @@ export {
   subjectHeader,
   subjectNoun,
   ABSENT,
-  ALREADY_PUBLISHED,
   NOT_TRIED,
   INTERRUPTED_IN_FLIGHT,
   PENDING_VERSION,
   UNREPORTED_REASON,
   exitPhrase,
-  publishDisposition,
-  publishOutcome,
-  publishParticipation,
-  publishPhase,
-  publishReason,
-  publishSourceDifferences,
-  publishSourceState,
-  publishVisibilityOrigin,
   unitState,
   unitStateChange,
+  NO_CHANGES_MADE,
+  verdictFacts,
+  type VerdictPhrase,
 } from "./phrases.js";
+export {
+  bytes,
+  capitalized,
+  count,
+  day,
+  duration,
+  fragment,
+  list,
+  moment,
+  plural,
+  remainingTime,
+  versionMove,
+} from "./grammar.js";
 export { displayWidth, stripTerminalFormatting } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
@@ -110,6 +118,17 @@ export {
   successDoc,
   suggestionsDoc,
 } from "./docs.js";
+export {
+  conditionDoc,
+  emptyDoc,
+  operationResultDoc,
+  recordDoc,
+  titleDoc,
+  type EmptyResult,
+  type OperationResult,
+  type RecordResult,
+  type TitleWhere,
+} from "./templates.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";
 export { resolveCliOutputPolicy } from "./output-policy.js";
@@ -117,6 +136,7 @@ export {
   PROSE_SEPARATOR,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
+  commandSpan,
   emphatic,
   invocation,
   joined,

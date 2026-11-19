@@ -183,6 +183,8 @@ export interface JobStepArtifact {
   /** Settled children of a committed reconciliation closure, keyed by planned unit. */
   readonly members?: ReadonlyArray<{
     readonly id: string;
+    /** The child's display label, as its own row would name it. */
+    readonly label: string;
     readonly changed: boolean;
     readonly artifact: JobStepArtifact;
   }>;

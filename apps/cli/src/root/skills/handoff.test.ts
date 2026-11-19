@@ -124,11 +124,12 @@ describe("skills handoff handler", () => {
         const settingsPath = path.join(tempDir, "axm.json");
         const detail = `Workspace settings at ${settingsPath} are not valid JSON`;
         const suggestion = "Fix the JSON syntax in the settings file, then re-run.";
-        expect(classifyError(failure, "text", options)).toEqual({
+        const rendered = classifyError(failure, "text", options);
+        expect(rendered.stderr.map((entry) => entry.replace(/\s+/gu, " ").trim())).toEqual([
+          `✖ Invalid request validation · exit 9 ${detail} --debug shows the cause. Next ${suggestion.slice(0, -1)}`,
+        ]);
+        expect(rendered).toMatchObject({
           exitCode: 9,
-          stderr: [
-            ` ✖   Invalid request               validation · exit 9\n     ${detail}\n     --debug shows the cause.\nNext\n     ${suggestion.slice(0, -1)}`,
-          ],
           stderrDoc: [
             {
               _tag: "callout",

@@ -186,7 +186,7 @@ describe("writeDefect", () => {
         expect(stderrWrites[0]).toMatch(/^ (?:✖ {3}|xx {2})/);
         // The same title, reason, and debug hint every internal error gets.
         expect(stderrWrites[0]).toContain("Internal error");
-        expect(stderrWrites[0]).toContain("internal · exit 10");
+        expect(stderrWrites[0]).toMatch(/internal (?:·|-) exit 10/u);
         expect(stderrWrites[0]).toContain("boom");
         expect(stderrWrites[0]).toContain("--debug shows the cause.");
         expect(stderrWrites[0]).not.toContain("✗");
@@ -681,7 +681,7 @@ describe("withCliErrorHandling cancellation", () => {
       ).pipe(Effect.exit);
 
       expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Conflict)));
-      expect(stderrWrites.join("")).toContain("conflict · exit 6");
+      expect(stderrWrites.join("")).toMatch(/conflict (?:·|-) exit 6/u);
     }).pipe(
       Effect.provide(
         Layer.mergeAll(

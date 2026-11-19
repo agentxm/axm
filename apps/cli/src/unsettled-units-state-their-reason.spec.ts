@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/unsettled-units-state-their-reason",
   title: "A unit that did not settle as planned says why, and what it was left in",
   statement:
-    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity — the producer's sentence, without the category code the machine output carries as a field — and shall state whether the unit's prior state was kept, restored, or left incomplete, beneath its row or once for every unit that shares it, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, except that where another unit's reason or the operation's interruption already states what stopped the operation, such units may be counted together at quiet and normal detail and shall be named with their reasons at verbose detail; and a unit whose producer supplied no reason shall state that rather than showing nothing.",
+    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity — the producer's sentence, naming its own unit as this unit because the row already identifies it, and without the category code the machine output carries as a field — and shall state whether the unit's prior state was kept, restored, or left incomplete, beneath its row or once for every unit that shares it, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, except that where another unit's reason or the operation's interruption already states what stopped the operation, such units may be counted together at quiet and normal detail and shall be named with their reasons at verbose detail; and a unit whose producer supplied no reason shall state that rather than showing nothing.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -96,6 +96,14 @@ const everywhere = (
   }
 };
 
+/**
+ * A reason as a row states it: its producer's sentence, naming its own unit as
+ * `this extension` beneath the row, or `each extension` where several units
+ * share it and it is stated once.
+ */
+const asStated = (reason: string, label: string, form: "this" | "each" = "this"): string =>
+  reason.replaceAll(label, `${form} extension`);
+
 const REGISTRY_REFUSED =
   "The registry refused the request while resolving @acme/subagents/reviewer, and the installed version is still in place.";
 
@@ -118,7 +126,7 @@ const cases: ReadonlyArray<{
       message: REGISTRY_REFUSED,
       artifact: artifact("0.9.0"),
     },
-    reason: REGISTRY_REFUSED,
+    reason: asStated(REGISTRY_REFUSED, "@acme/subagents/reviewer"),
   },
   {
     name: "a blocked unit states the condition that holds it",
@@ -211,12 +219,20 @@ describe("An unsettled unit states its reason", () => {
     // The producer's sentence is the failure's detail; the message it settled
     // the unit with appends the category code, which is the machine's.
     const reasons = partialUpdate.units.flatMap((unit) =>
-      unit.state === "failed" && unit.error !== undefined ? [unit.error.detail] : [],
+      unit.state === "failed" && unit.error !== undefined
+        ? [{ reason: unit.error.detail, label: unit.label }]
+        : [],
     );
     expect(reasons.length).toBeGreaterThan(1);
     everywhere(partialUpdate, (painted, where) => {
-      for (const reason of reasons)
-        expect(painted, `${where}: ${reason}`).toContain(compact(reason));
+      for (const { reason, label } of reasons) {
+        // Beneath its own row, or once for every unit that shares it.
+        const stated = [asStated(reason, label), asStated(reason, label, "each")].map(compact);
+        expect(
+          stated.some((form) => painted.includes(form)),
+          `${where}: ${reason}`,
+        ).toBe(true);
+      }
       expect(painted, where).not.toContain(compact("(timeout)"));
     });
   });
@@ -258,6 +274,7 @@ describe("An unsettled unit states its reason", () => {
     for (const width of WIDTHS) {
       for (const verbosity of ["quiet", "normal"] as const) {
         const painted = paintedAt(resolution, width, verbosity);
+        // The row is labelled `a`, which is no identity, so its reason keeps the name it gives.
         expect(painted, `${String(width)} ${verbosity}`).toContain(compact(REGISTRY_REFUSED));
         expect(painted, `${String(width)} ${verbosity}`).toContain(
           compact("2 extensions not tried"),

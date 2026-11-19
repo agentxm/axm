@@ -657,11 +657,11 @@ describe("problem outcomes", () => {
         { verbosity: "normal" },
       ),
     );
-    // The row states its producer's sentence without the machine's code and
-    // without what the verdict already says, and the operation-level failure
-    // that repeats it is not painted again.
+    // The row states its producer's sentence, naming its own unit as this
+    // extension, without the machine's code or what the verdict already says,
+    // and the operation-level failure that repeats it is not painted again.
     expect(text).toMatch(
-      /x{2} {2}@acme\/packs\/review-kit\s+failed\n\s+@acme\/packs\/review-kit could not be fetched\.\n/,
+      /x{2} {2}@acme\/packs\/review-kit\s+failed\n\s+This extension could not be fetched\.\n/,
     );
     expect(text).not.toContain("(not_found)");
     expect(text).not.toContain("Effects were restored");

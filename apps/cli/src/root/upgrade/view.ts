@@ -10,6 +10,7 @@ import {
   capitalized,
   conditionDoc,
   invocation,
+  pathSpan,
   recordDoc,
   type CalloutNode,
   type Doc,
@@ -135,7 +136,7 @@ const auditSection = (upgrade: UpgradeAssessmentResult): Doc => [
       })),
       ...(upgrade.recovery.backupPath === null
         ? []
-        : [{ label: "Recoverable backup", value: upgrade.recovery.backupPath }]),
+        : [{ label: "Recoverable backup", value: [pathSpan(upgrade.recovery.backupPath)] }]),
       ...(upgrade.details.observedFormulaVersion === null
         ? []
         : [{ label: "Homebrew formula", value: upgrade.details.observedFormulaVersion }]),

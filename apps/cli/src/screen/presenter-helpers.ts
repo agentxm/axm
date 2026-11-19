@@ -25,18 +25,37 @@ export const joined = (parts: ReadonlyArray<string | undefined>): string =>
     .join(PROSE_SEPARATOR);
 
 /**
- * A command name, in the one tint every command shows in: help, prose, and
- * records alike.
+ * A command name as help lists one: the command tint, but free to share its
+ * line, because a name in a list is read rather than copied.
  */
 export const commandSpan = (value: string): Span => ({ text: value, tint: "cyan" });
 
-/**
- * A command a person types, as prose and records show one: a command span,
- * copyable so the painter never breaks it.
- */
+/** A command a person runs, as prose, records, and `Next` show one. */
 export const invocation = (value: string): ReadonlyArray<Span> => [
-  { ...commandSpan(value), copyable: true },
+  { text: value, kind: "command" },
 ];
+
+/** A URL a person opens: never broken, and a terminal hyperlink where colour is on. */
+export const urlSpan = (value: string): Span => ({ text: value, kind: "url" });
+
+/** A value a person copies exactly, such as a one-time code or a request ID. */
+export const identifierSpan = (value: string, options?: { readonly bold?: true }): Span => ({
+  text: value,
+  kind: "identifier",
+  ...(options?.bold === undefined ? {} : { bold: true }),
+});
+
+/**
+ * A path as a person reads it: under their home directory it starts at `~`,
+ * and it wraps at its separators.
+ */
+export const pathSpan = (value: string, home?: string): Span => ({
+  text:
+    home !== undefined && home.length > 1 && (value === home || value.startsWith(`${home}/`))
+      ? `~${value.slice(home.length)}`
+      : value,
+  kind: "path",
+});
 
 /** A title or verdict with the common emphatic treatment. */
 export const emphatic = (value: string): ReadonlyArray<Span> => [{ text: value, bold: true }];

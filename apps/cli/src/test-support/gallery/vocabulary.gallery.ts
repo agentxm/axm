@@ -92,6 +92,16 @@ const read: Doc = [
     fields: [
       { label: "Owner", value: [{ text: "@acme", link: "https://axm.sh/@acme" }] },
       {
+        label: "Page",
+        value: [{ text: "https://agentxm.ai/@acme/packs/review-kit", kind: "url" }],
+      },
+      {
+        label: "Location",
+        value: [{ text: "~/code/storefront/agent_extensions/review-kit", kind: "path" }],
+      },
+      { label: "Update", value: [{ text: "axm update @acme/packs/review-kit", kind: "command" }] },
+      { label: "Request", value: [{ text: "req_01J8ZQ4M7T", kind: "identifier" }] },
+      {
         label: "Description",
         value: "A field whose value is long enough to need wrapping at narrow widths",
       },

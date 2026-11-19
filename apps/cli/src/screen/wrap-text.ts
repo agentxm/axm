@@ -1,4 +1,4 @@
-import { plain, type PaintSpan, type PaintText } from "./doc.js";
+import { isCopyableSpan, plain, type PaintSpan, type PaintText } from "./doc.js";
 import {
   displayWidth,
   takeDisplayEnd,
@@ -35,7 +35,8 @@ const attributesOf = (span: PaintSpan): Attributes => ({
   ...(span.tint === undefined ? {} : { tint: span.tint }),
   ...(span.bold === undefined ? {} : { bold: span.bold }),
   ...(span.link === undefined ? {} : { link: span.link }),
-  ...(span.copyable === undefined ? {} : { copyable: span.copyable }),
+  ...(isCopyableSpan(span) ? { copyable: true as const } : {}),
+  ...(span.kind === undefined ? {} : { kind: span.kind }),
   ...(span.invert === undefined ? {} : { invert: span.invert }),
 });
 
@@ -45,6 +46,7 @@ const sameAttributes = (left: Attributes, right: Attributes): boolean =>
   left.bold === right.bold &&
   left.link === right.link &&
   left.copyable === right.copyable &&
+  left.kind === right.kind &&
   left.invert === right.invert;
 
 /** A copyable word is one unbreakable unit: it is never split, even at a space. */
@@ -93,7 +95,7 @@ const tokenize = (spans: ReadonlyArray<PaintSpan>): ReadonlyArray<ReadonlyArray<
       }
       continue;
     }
-    if (span.copyable === true) {
+    if (isCopyableSpan(span)) {
       // Whole and unbroken, its own spaces included, so it stays copyable.
       flushWord();
       if (span.text.length > 0) currentLine().push([{ text: span.text, attributes }]);
@@ -322,7 +324,7 @@ export const truncateText = (
   ellipsis = "…",
 ): PaintText => {
   const spans = spansOf(value);
-  if (spans.some((span) => span.copyable === true)) return value;
+  if (spans.some(isCopyableSpan)) return value;
   const rendered = plain(value);
   if (displayWidth(rendered) <= width || width <= 0) return value;
   const shortened = truncateDisplay(rendered, width, mode, ellipsis);

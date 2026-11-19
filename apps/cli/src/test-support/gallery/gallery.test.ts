@@ -8,7 +8,7 @@ import { stripTerminalFormatting } from "../../screen/width.js";
 import { paintText } from "../../screen/paint-text.js";
 import { asciiGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
-import { copyableValues } from "../conformance/conformance-suite.js";
+import { copyableValues, verbatimLines } from "../conformance/conformance-suite.js";
 import { loadGallery } from "./discover.js";
 import {
   checkWidthsOf,
@@ -56,9 +56,12 @@ describe("terminal design gallery", () => {
           `${label} cut a copyable value: ${value}`,
         ).toBe(true);
       }
+      // Content passed through verbatim, such as a command's own output, is
+      // never wrapped, so its lines may overflow too.
+      const verbatim = verbatimLines(history);
       for (const [index, line] of lines.entries()) {
         const width = index < historyLines ? terminal.columns : terminal.columns - 1;
-        if (!copyable.some((value) => line.includes(value))) {
+        if (!copyable.some((value) => line.includes(value)) && !verbatim.has(line.trim())) {
           expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
         }
         expect(line, `${label} trailing whitespace: ${JSON.stringify(line)}`).not.toMatch(/\s$/u);

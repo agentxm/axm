@@ -272,13 +272,13 @@ describe("AuthLoginPresenterLive", () => {
       {
         _tag: "paragraph",
         inset: true,
-        text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
+        text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", kind: "url" }],
       },
       {
         _tag: "paragraph",
         text: [
           { text: "Make sure it shows the code " },
-          { text: "ABCD-1234", bold: true },
+          { text: "ABCD-1234", kind: "identifier", bold: true },
           { text: "." },
         ],
       },

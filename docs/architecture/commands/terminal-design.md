@@ -124,7 +124,10 @@ flag that reveals them. A row that did not settle as planned carries its
 reason: one line beneath the row, at the content column, painted at every
 width and every level of detail because a reason has nowhere else to appear.
 The reason is its producer's sentence without the category code, which
-machine output carries as a field. It is toned as the row's own mark, except
+machine output carries as a field, and it names its own unit as `this
+extension`, because the row already says which unit it is. Rows that failed or
+were blocked for the same reason say it once: the rows keep their marks, and
+one condition states the reason, naming each unit it covers. It is toned as the row's own mark, except
 that a rolled-back or not-tried row states a consequence of a cause another
 row or the verdict names, so its reason reads as a dim aside. Such a row
 wrote nothing a path could point at, so it has no detail; a ledger drops a
@@ -186,9 +189,14 @@ clock, sentence case, and dates — a day as `21 Sep 2026` and a moment as
 operation vocabulary every plan-family command shares: titles, verdicts, unit
 states, dispositions, and blocking conditions. Wording that only one command
 speaks lives with that command, as publish's does in
-`apps/cli/src/root/publish/phrases.ts`. A command name is a command span,
-`commandSpan` or the copyable `invocation`, so help, prose, and records tint it
-alike, and a version move is `versionMove`, `1.9.4 to 2.0.1`.
+`apps/cli/src/root/publish/phrases.ts`. A value a person acts on names its kind rather
+than its styling: a span's `kind` is `command`, `url`, `identifier`, or `path`,
+and the painter derives the rest — a command is tinted and never broken, a URL
+is never broken and becomes an OSC 8 hyperlink where colour is on with its text
+still shown, an identifier such as a one-time code is never broken, and a path
+wraps at its separators. `invocation`, `urlSpan`, `identifierSpan`, and
+`pathSpan` build them; `pathSpan` starts a path under the user's home at `~`. A
+version move is `versionMove`, `1.9.4 to 2.0.1`.
 
 A headline, verdict, title, label, empty state, and `Next` description is a
 phrase: it opens with a capital, states no closing stop, and never ends in an

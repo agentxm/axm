@@ -6,7 +6,7 @@
  * failure names the evidence.
  */
 
-import { plain, type Doc, type DocNode, type Text } from "../../screen/doc.js";
+import { isCopyableSpan, plain, type Doc, type DocNode, type Text } from "../../screen/doc.js";
 import { fragment } from "../../screen/grammar.js";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import type { PaintStyle } from "../../screen/paint-text.js";
@@ -146,6 +146,7 @@ export type SemanticFactKind =
   | "span.bold"
   | "span.link"
   | "span.copyable"
+  | "span.kind"
   | "headline.tone"
   | "headline.verdict"
   | "paragraph.tone"
@@ -182,6 +183,7 @@ export const semanticFactKinds: ReadonlyArray<SemanticFactKind> = [
   "span.bold",
   "span.link",
   "span.copyable",
+  "span.kind",
   "headline.tone",
   "headline.verdict",
   "paragraph.tone",
@@ -226,6 +228,7 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
       add("span.bold", at, span.bold);
       add("span.link", at, span.link);
       add("span.copyable", at, span.copyable);
+      add("span.kind", at, span.kind);
     });
   };
   const walk = (node: DocNode, path: string): void => {
@@ -364,13 +367,13 @@ export const copyableValues = (doc: Doc): ReadonlyArray<string> => {
       return;
     }
     if (typeof value === "string") return;
-    for (const span of value) if (span.copyable === true) values.push(span.text);
+    for (const span of value) if (isCopyableSpan(span)) values.push(span.text);
   });
   return values;
 };
 
 /** Lines a painter passes through verbatim: the content of `raw` and `markdown` nodes. */
-const verbatimLines = (doc: Doc): ReadonlySet<string> => {
+export const verbatimLines = (doc: Doc): ReadonlySet<string> => {
   const lines = new Set<string>();
   const walk = (node: DocNode): void => {
     if (node._tag === "markdown" || node._tag === "raw") {

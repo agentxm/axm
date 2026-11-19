@@ -42,7 +42,9 @@ and checks without adding a framework.
    `axm-policy/no-spelled-separator` lint rule holds CLI sources to this.
 3. **One grammar.** `apps/cli/src/screen/grammar.ts` owns the general forms
    every command shares: counts, lists, sizes, durations, dates, version moves,
-   sentence case, and the fragment form of `Next` descriptions. The shared
+   sentence case, and the fragment form of `Next` descriptions. A span names
+   the kind of value it carries — a command, URL, identifier, or path — and
+   the painter derives its tint, hyperlink, and unbreakability. The shared
    operation vocabulary stays in `screen/phrases.ts`; wording only one command
    speaks lives with that command.
 4. **Views are pure modules the gallery paints.** A command's view is a module
@@ -62,8 +64,8 @@ themselves.
 
 Accepting authority: maintainer direction to adopt the CLI output coherence
 review. Existing executable specifications keep their authority; the one
-obligation this change alters, `cli/list/human-inventory-states-each-row`,
-changed with it.
+obligations this change alters, `cli/list/human-inventory-states-each-row`
+and `cli/unsettled-units-state-their-reason`, changed with it.
 
 ## Rationale
 
@@ -103,8 +105,6 @@ Positive:
 
 Negative:
 
-- check, show, upgrade, and share await sample builders before the gallery
-  paints them;
 - human wording changed in many commands at once, so tests and snapshots
   changed with it; and
 - the taskbar progress allowlist needs maintenance as terminals adopt OSC 9;4.

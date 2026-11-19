@@ -585,7 +585,7 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
             _tag: "callout",
             tone: entry.standing === "failed" ? "error" : "warn",
             title: [
-              { text: identity(entry.item), copyable: true },
+              { text: identity(entry.item), kind: "identifier" },
               { text: `: ${wordOf(entry.standing, result.mode)}` },
             ],
             children: [
@@ -598,7 +598,16 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
               },
               ...(entry.item.cause?.requestId === undefined
                 ? []
-                : [dim(`request ${entry.item.cause.requestId}`)]),
+                : [
+                    {
+                      _tag: "paragraph",
+                      tone: "dim",
+                      text: [
+                        { text: "request " },
+                        { text: entry.item.cause.requestId, kind: "identifier" },
+                      ],
+                    } as const,
+                  ]),
             ],
           })),
           ...(needsAttention ? attentionDoc(result) : []),

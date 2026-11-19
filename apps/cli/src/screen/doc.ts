@@ -31,8 +31,19 @@ export type Mark = Change | Status | LiveMark;
  */
 export type Tint = "green" | "yellow" | "blue" | "magenta" | "cyan";
 
+/**
+ * What a span's text is, so every command shows the same kind of value the
+ * same way: a `command` a person runs is tinted and never broken, a `url` is
+ * never broken and becomes a terminal hyperlink where colour is on, an
+ * `identifier` such as a one-time code or request ID is never broken, and a
+ * `path` wraps at its separators. The painter derives the styling; a view
+ * names only the kind.
+ */
+export type SpanKind = "command" | "url" | "identifier" | "path";
+
 export interface Span {
   readonly text: string;
+  readonly kind?: SpanKind;
   readonly tone?: Tone;
   readonly tint?: Tint;
   readonly bold?: boolean;
@@ -395,6 +406,21 @@ export type DocNode =
   | BlankNode;
 
 export type Doc = ReadonlyArray<DocNode>;
+
+/** Whether the painter must keep a span whole: copyable by flag or by kind. */
+export const isCopyableSpan = (span: Span): boolean =>
+  span.copyable === true ||
+  span.kind === "command" ||
+  span.kind === "url" ||
+  span.kind === "identifier";
+
+/** The link a span carries: its own, or a URL's text. */
+export const spanLink = (span: Span): string | undefined =>
+  span.link ?? (span.kind === "url" ? span.text : undefined);
+
+/** The tint a span paints in: its own, or a command's. */
+export const spanTint = (span: Span): Tint | undefined =>
+  span.tint ?? (span.kind === "command" ? "cyan" : undefined);
 
 export const plain = (value: Text): string =>
   typeof value === "string" ? value : value.map((span) => span.text).join("");

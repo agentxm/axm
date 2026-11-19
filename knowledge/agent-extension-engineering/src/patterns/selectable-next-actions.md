@@ -24,22 +24,30 @@ Yield at the choice. If posting the picker returns control immediately, keep
 the question last while awaiting the user's reply. Dismissing it leaves the
 result available and applies no action.
 
-In a prompt, label each choice and show how to invoke it, for example **A · Inspect source**,
-**B · Apply correction**, **C · Finish**. Accept the letter, the action name,
-or an unambiguous ordinary reply. Where both interfaces are available, keep
-the same labels and meanings. A highlighted default takes effect only when
-the user submits it.
+Keep only applicable actions and combine choices with
+the same effect. If the user has already chosen an action and its scope,
+carry that choice forward.
+
+Give the workflow a usual order that readers can learn. For example, a
+diagnostic can offer **Inspect source**, **Apply correction**, then **Finish**.
+Place **Finish**, **Skip**, or **Cancel** last when offered. When the user's
+goal and the evidence favor one action, move it to the top and append
+`(Recommended)` to its label. Keep the other actions in their usual order.
+If the choice depends on a preference the user hasn't expressed, use the
+usual order and leave every label unmarked.
+
+Build the picker and text menu
+from the same ordered choices, including the recommendation marker and short
+replies. Assign any letters after ordering and interpret them against the
+menu the user saw. Accept the action name or an unambiguous ordinary reply.
+A picker may highlight the first row automatically. Wait for the user's
+selection before acting.
 
 When an action also needs a target, let the user select it in the control
 or supply both in one reply. For reviews, [Select from findings](select-from-findings.md)
 keeps the displayed numbers bound to their findings. “Inspect 2” shows the
 evidence for that finding. “Fix 2” applies its recommendation within the
 user's authority. “Done” ends the review.
-
-Use one choice for the whole result when the same actions apply to every
-item. Collapse choices with identical effects, such as “fix all” and “fix
-selected” in a single-finding report. If the user has already chosen the
-action and scope, carry them forward. Each extra picker costs a turn.
 
 Try one choice through the picker and its text equivalent on separate copies
 of the same fixture. Delay the reply and inspect the visible exchange while

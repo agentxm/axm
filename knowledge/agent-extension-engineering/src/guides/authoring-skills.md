@@ -90,7 +90,10 @@ Decide what the reader must do with the result. An archive review can use a
 broken, and unverified references. When the reader must decide how to act,
 design the report and the reply together. Offer
 [selectable next actions](../patterns/selectable-next-actions.md) after the
-result. Let the reader [select from findings](../patterns/select-from-findings.md)
+result. What evidence would favor one next action? What order will readers
+see when the evidence leaves the choice open?
+
+Let the reader [select from findings](../patterns/select-from-findings.md)
 to specify which items an action affects. Carry that
 selection in a [workflow handoff artifact](../patterns/workflow-handoff-artifact.md)
 when another session will do the repair. A [prefilled form](../patterns/prefilled-form.md)
@@ -101,7 +104,9 @@ Try the [review template](reviewing-extensions.md#report-the-review) in plain
 text with a fresh reader. Can they locate recommendation 2 and request just
 that repair? On identical fixtures, exercise the picker and the short reply.
 Withhold input first and check what the reader sees at the end of the report.
-Then submit the choice and check the actual edit. Try a clean result and an excerpt with missing
+Then submit the choice and check the actual edit. In both interfaces, try a case with a clear
+recommendation and one with no preference. Compare the order, visible labels,
+and scope selected by each short reply. Try a clean result and an excerpt with missing
 evidence to see whether the skill closes or asks for the right input.
 
 Before revising a skill, find where an actual run went wrong.[^writing] If

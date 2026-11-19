@@ -23,8 +23,8 @@ Resolve the reply against the list the user saw. If the selected finding disappe
 
 Pair item selection with [selectable next actions](selectable-next-actions.md)
 when the user can inspect as well as repair. Use letters for actions and
-numbers for findings in the prompt menu. If B means “Fix selected,” then
-“B 2,” “fix 2,” and choosing **Fix selected** followed by **2 · Missing
+numbers for findings in the prompt menu. If A means “Fix selected,” then
+“A 2,” “fix 2,” and choosing **Fix selected** followed by **2 · Missing
 migration guide** in the picker all request the same repair. Show both number
 and title in the item picker. Ask only for the part still missing.
 

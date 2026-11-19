@@ -93,8 +93,9 @@ scaffolding, workspace state, projections, and distribution. With AXM, compose
 with the `axm` skill and current CLI help for those operations.
 
 Report the selected routes, evidence, and material limits briefly. For an
-actionable review, label each finding's Recommendation and Evidence. Deliver
-the report once and end with one choice. Use a native picker if it can remain
+actionable review, label each finding's Recommendation and Evidence. Order the applicable actions as the review guide describes. When the evidence
+favors one, put it first and label it `(Recommended)`. Keep labels, order, and
+short replies consistent across picker and text. Deliver the report once and end with one choice. Use a native picker if it can remain
 the last visible item while awaiting input. Otherwise end the final report
 with the labeled prompt replies. Wait for the reply, then honor the selected
 action and findings.

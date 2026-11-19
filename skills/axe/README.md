@@ -8,7 +8,7 @@ $axe design a way to remind contributors to check the package they edited
 ```
 
 The first request reviews the named skill for issues, opportunities to improve a
-successful task, and steps that could be pruned. Each finding has a recommendation
+successful task, and steps that could be pruned. The review opens with a verdict and an evidence-backed coverage checklist. Each finding has a recommendation
 and evidence. Choose an action in the picker or reply `inspect 1` to see the first
 finding’s evidence or `apply 2` to apply just the second recommendation.
 

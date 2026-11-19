@@ -27,7 +27,7 @@ the operation sets the deliverable.
 | --------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `design`  | Recommend an extension type and a concrete design from the brief.                                                      |
 | `create`  | Author a usable draft in its canonical workspace location.                                                             |
-| `review`  | Use the review guide’s checklist and report issues, improvements, or pruning opportunities within the requested focus. |
+| `review`  | Report the verdict, evidence-backed coverage, and numbered issues, improvements, or pruning opportunities within scope. |
 | `revise`  | Apply the requested change and check the original case and a nearby valid case.                                        |
 | `verify`  | Test the stated claim against the target. Report observed behavior and what the available evidence leaves open.        |
 

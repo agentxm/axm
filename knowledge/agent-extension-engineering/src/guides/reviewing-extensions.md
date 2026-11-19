@@ -6,6 +6,9 @@ tags: ["review", "audit", "remediation", "verification", "evidence", "authority"
 status: draft
 generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
 sources:
+  - id: coverage
+    resource: https://github.com/agentxm/axm/blob/9582c832ecb8278c7b2c544fd6c453a54af674ea/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/docs/src/patterns/reporting-review-checklist.md
+    title: Reporting and review checklist
   - id: overlay
     resource: https://impeccable.style/tutorials/critique-with-overlay/
     title: Impeccable review walkthrough
@@ -54,8 +57,21 @@ For pruning, exercise the case the removed step might have protected. Report wha
 
 ## Report the review
 
-Use this [display template](../patterns/display-template.md) for an actionable
-review. Identify the target and revision or supplied material once. Give each
+Open every review with the target, revision or supplied material, and verdict.
+Directly below it, show **Review coverage**. Use one checklist row for each
+material question within the requested focus. Pair each emoji with its text
+label. Name what you inspected and locate the evidence in the row or its
+numbered finding.[^coverage]
+
+| Status           | What the row tells the reader                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| ✅ Confirmed     | State the precise claim the evidence supports and where you observed it.                                               |
+| ❌ Finding       | Name the discrepancy and point to its numbered finding below.                                                          |
+| ❔ Inconclusive  | Identify the in-scope question the available material leaves open and what evidence would settle it.                   |
+| ➖ Not exercised | Mention an out-of-scope activity only when readers might reasonably assume it ran. Say why it was outside this review. |
+
+Show only the applicable rows. For a clean review, the checklist can complete
+the report. For actionable results, continue the [display template](../patterns/display-template.md) below the checklist. Give each
 finding a stable number, one primary label (Issue, Improvement, or Pruning),
 and a short title. Add severity when the review uses a severity scale. Describe the trigger and consequence, label the
 **Recommendation**, then put the location and supporting **Evidence** on
@@ -66,6 +82,12 @@ give the preferred remedy and the tradeoff of the alternative.
 For example, a review of a release-note skill archive might read as follows.
 
 > **Release-note skill · candidate archive · 2 findings**
+>
+> **Review coverage**
+>
+> - ❌ **Finding** — The migration-guide link misses its archive entry. See finding 1.
+> - ❌ **Finding** — Supplying an exact release-note path still triggers a file picker. See finding 2.
+> - ➖ **Not exercised** — The review inspected the packaged instructions. It did not execute the picker in a host.
 >
 > **1 · Issue · Breaking-change notes cannot open the migration guide**\
 > The skill opens a missing path when a release contains a breaking change.\
@@ -111,12 +133,11 @@ numbers and titles. A reply such as “fix the second one” supplies both choic
 Keep inspection read-only. Apply only the selected recommendations and
 respect the scope of any repair the user already requested.
 
-For a clean review, give the scope, verdict, and evidence. For example,
-“The candidate archive contains the migration guide at the linked path.”
-End with that verdict when there is no meaningful follow-up.
-For an inconclusive review, identify the missing evidence and what it would
-settle, for example, “The excerpt names the guide. The archive listing would
-establish whether it ships.” Offer a change once the evidence supports a specific recommendation.
+With the file present, the row becomes “✅ **Confirmed** — The archive contains
+`references/migration.md` at the exact path linked from `src/SKILL.md:18`.”
+Given only the link excerpt, use “❔ **Inconclusive** — Line 18 names
+`references/migration.md`. Its entry in the release archive listing would
+establish that it ships.” A clean result can close the review. Offer a change when the evidence supports a specific recommendation.
 
 ## Decide who owns each assessment
 
@@ -139,3 +160,5 @@ set is open.
 [^overlay]: Impeccable, independent design review and detector assessments.
 
 [^evaluator]: Quality, evaluation roles and the runner's authoritative result.
+
+[^coverage]: Reporting and review checklist, @craigsmitham/knowledge/docs.

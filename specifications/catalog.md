@@ -1469,6 +1469,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 #### Human factors
 
+##### Axe reviews show the evidence behind their verdict
+
+- Requirement: `extension-engineering/review-coverage`
+- Owner: `axm`
+- Statement: Every Axe review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The sibling knowledge bundle supplies the report template. Static evidence checks its reader-facing example and status vocabulary. Host trials exercise the resulting reports.
+- Methods: static, review
+- Assumptions: The reviewer can access the axe skill and its engineering knowledge bundle.
+- Source: [`scripts/axe-review-coverage.spec.ts`](../scripts/axe-review-coverage.spec.ts)
+
 ##### Axe guides extension reviews across issues, improvements, and pruning
 
 - Requirement: `extension-engineering/review-guidance`

@@ -63,3 +63,32 @@ selection runs, `fix 2` changed only the River link. Returning an empty
 answer set in the dismissal run left both links untouched. These observations
 cover message order and file contents at the protocol boundary. They do not
 establish how a terminal draws the controls.
+
+## Review coverage and reader interpretation
+
+Four fresh read-only Codex CLI 0.170.0 sessions (`gpt-6.2-sol`, AXM 0.53.0)
+received an explicit axe review request in separate workspaces. Each contained
+the candidate router and engineering guide. Three requests asked whether a
+consumer could open each walking guide. The fourth asked about the written
+AXM rename procedure and whether the Registry workflow was exercised.
+
+| Material supplied                                                      | Observed coverage immediately below the verdict                                                                                                          |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complete skill with readable Lake and River targets                    | ✅ Confirmed for each link, with the linked path and the starting gate found in each file.                                                               |
+| Same skill, River file shipped as `rivers.md` but linked as `river.md` | ✅ Confirmed for Lake. ❌ Finding referred to finding 1, whose evidence distinguished the missing path from the readable replacement.                    |
+| Only the two link sentences                                            | ❔ Inconclusive for each link. The report named the exact paths whose presence and readability in the installed skill would settle the question.         |
+| AXM skill source, private rename on a non-default Registry             | ✅ Confirmed for the written conditions with source line references. ➖ Not exercised identified the live Registry operations outside the source review. |
+
+A fifth fresh session received only the three link reports and used no tools.
+Asked which links the reviewer established a consumer could open and what
+evidence supported that answer, it identified both starting gates in the clean
+case, Lake alone in the mixed case, and neither link as established from the
+excerpt. It distinguished the readable plural River filename from the broken
+singular link.
+
+The router and guide inputs had SHA-256 hashes
+`4bb70e8d8da3c8aff1e5391a95ac3a81d6d16d9ee9a6ddaac22c508b97ee2f34` and
+`f6d95d087779c977a90e472ed7d6981550eed0cde0ded20244ae7119b3317697`
+before Markdown table formatting and the final source citation. These trials assessed report content and
+reader interpretation in one host. The mixed case offered a text patch as a
+follow-up. Action selection and edits were outside this trial.

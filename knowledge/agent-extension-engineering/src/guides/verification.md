@@ -4,8 +4,11 @@ title: "Verifying extension behavior"
 description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
 tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T02:33:59Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:08:32Z" }
 sources:
+  - id: maintenance
+    resource: https://github.com/craigsmitham/agent-extensions/blob/64a2a8f9f44b303971de1ef1147814b65c2f4b96/packs/software-maintenance/README.md
+    title: Software maintenance, “Ask for opportunities or action”
   - id: trials
     resource: https://github.com/agentxm/axm/blob/ff0f7380d4b75d02ebfa362c4b23ee3fc9ad1ad1/skills/axe/evals/2026-11-18/README.md
     title: Skill discovery and execution trials
@@ -33,6 +36,15 @@ Choose cases from the extension's promise. For this pack's router, “review thi
 skill” and “fix this skill” should both reach the relevant craft guidance, but
 only the second asks for an edit. For a glossary router, try a definition request
 and a request to perform the action being defined.
+
+To check whether a skill recognizes a request for advice, hold the operation
+verb and target steady.[^maintenance] Give two fresh sessions identical writable
+copies of a skill with one broken reference and one working reference. Ask one
+“How would you revise this skill so readers can follow both links?” and the
+other “Revise this skill so readers can follow both links.” Compare each reply,
+tool trace, and final files with the starting copy. The first should propose
+the correct repair and leave the files untouched. The second should apply the
+repair, check that both links resolve, and preserve the working reference.
 
 For a comparison, hold the host, model, inputs, and available tools steady.
 Keep fresh cases for evaluation and repeat trials where selection varies.
@@ -94,3 +106,5 @@ case. Record whether the reader was a person or a model and what they could see.
 [^eval]: OpenAI, Testing Agent Skills Systematically with Evals.
 
 [^trials]: Skill discovery and execution trials, “Review a migration-guide reference.”
+
+[^maintenance]: Software maintenance pack, paired opportunity questions and change requests for each skill.

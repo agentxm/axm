@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Added guidance on [mining patterns from examples](guides/authoring-knowledge.md#when-an-example-belongs-in-the-pattern-catalog), [briefing independent reviewers](guides/authoring-agent-definitions.md#ask-for-an-independent-assessment), and [refreshing version-sensitive guidance](guides/lifecycle.md#when-an-upstream-change-calls-for-a-review). The [verification guide](guides/verification.md) pairs an advice request with an edit request for the same skill.
+
 - Updated the [authoring](guides/authoring-skills.md) and [review](guides/reviewing-extensions.md) guides to leave the approach to the agent by default. Pruning now considers which decisions can be delegated and what each constraint protects.
 
 - Expanded [Scope selector](patterns/scope-selector.md) with a ranked picker and equivalent text replies for choosing one or all matching targets.

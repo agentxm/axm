@@ -110,3 +110,19 @@ In the final release-review trials, both clients put **All 3 matches
 (Recommended)** first, followed by knowledge, pack, and skill in that order.
 The native trial captured the control and submitted its displayed label at
 the app-server protocol boundary. Visual rendering was outside the trial.
+
+## Advice and action on the same target
+
+Two fresh Codex CLI 0.170.0 sessions used the axe skill and engineering
+knowledge from `028fe83b8`, AXM 0.53.0, low reasoning effort, and identical
+writable Git workspaces. Each workspace had a `./sample/SKILL.md` linking
+to `references/river.md` and `references/lakes.md`. The supplied field notes
+were `rivers.md` (flow direction) and `lakes.md` (shoreline type).
+
+| Prompt                                                                            | Observed result                                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `$axe How would you revise ./sample so readers can follow both field-note links?` | Proposed changing the river destination to `references/rivers.md` and identified the working lake link. The trace contained only reads. The workspace matched its initial Git state. |
+| `$axe Revise ./sample so readers can follow both field-note links.`               | Changed only the river destination. The session opened both linked files after editing and reported the instruction from each. The Git diff contained that one substitution.         |
+
+Both runs explicitly invoked axe. These observations cover one run per prompt
+on one host. They exercise interpretation and file effects after selection.

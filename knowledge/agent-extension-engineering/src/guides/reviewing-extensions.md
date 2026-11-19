@@ -4,7 +4,7 @@ title: "Reviewing and remediating extensions"
 description: "Turn a suspected extension defect into a finding and verify an authorized fix against the original case."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:06:15Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
 sources:
   - id: overlay
     resource: https://impeccable.style/tutorials/critique-with-overlay/
@@ -32,14 +32,51 @@ revised artifact and try a nearby case that should still work. For the editor,
 a request to polish release notes should still reach it. Report what the
 recheck establishes and any unresolved findings.
 
-For example, suppose a release-note skill sends breaking-change requests to
-`references/migration.md`. The reviewed archive contains the guide at
-`references/migrations.md`. A useful finding names the broken link in the
-authored `SKILL.md`, identifies the affected request, and gives the author a
-completion condition. After the correction, submit the original request
-against a fresh archive and check that the skill can open the shipped guide
-and use it to write the requested migration note. Editing a local projection
-alone would leave the next consumer with the same failure.
+## Report the review
+
+Use this [display template](../patterns/display-template.md) for an actionable
+review. Identify the target and revision or supplied material once. Give each
+finding a stable number and a short title, adding severity when the review
+uses a severity scale. Describe the trigger and consequence, label the
+**Recommendation**, then put the location and supporting **Evidence** on
+their own line. Where two remedies have materially different consequences,
+give the preferred remedy and the tradeoff of the alternative.
+
+For example, a review of a release-note skill archive might read as follows.
+
+> **Release-note skill · candidate archive · 2 findings**
+>
+> **1 · Breaking-change notes cannot open the migration guide**\
+> The skill opens a missing path when a release contains a breaking change.\
+> **Recommendation** — Update the link in the authored skill to the shipped filename.\
+> **Evidence** — `src/SKILL.md:18` links to `migration.md`. The archive contains `migrations.md`.
+>
+> **2 · Draft requests publish a release note**\
+> Asking for a draft reaches the upload step before the author can read it.\
+> **Recommendation** — End the draft workflow after rendering. Reserve upload for an explicit publication request.\
+> **Evidence** — `src/SKILL.md:26` instructs the agent to upload every rendered draft.
+>
+> **Next action**\
+> **A · Fix both** (`A`)\
+> **B · Fix selected** (`B 2` or `fix 2`)\
+> **C · Inspect evidence** (`C 1` or `inspect 1`)\
+> **D · Finish review** (`D` or `done`)
+
+Show the complete report before opening a native picker. In a text-only host,
+put the labeled menu immediately below the findings in the same message.
+Keep the action labels usable as prompt replies wherever text input is available. For **Fix
+selected** or **Inspect evidence**, the next control lists finding numbers
+and titles. A reply such as “fix the second one” supplies both choices.
+Keep inspection read-only. Apply a repair only to the selected findings and
+respect the scope of any repair the user already requested.
+See [Selectable next actions](../patterns/selectable-next-actions.md) for
+adapting the choices to the result.
+
+For a clean review, give the scope, verdict, and evidence. For example,
+“The candidate archive contains the migration guide at the linked path.”
+For an inconclusive review, identify the missing evidence and what it would
+settle, for example, “The excerpt names the guide. The archive listing would
+establish whether it ships.” Offer a repair only for a grounded defect.
 
 ## Decide who owns each assessment
 

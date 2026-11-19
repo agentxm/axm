@@ -23,13 +23,13 @@ An archive review skill could render this Markdown once per reviewed archive.
 - **Archive** {filename and version}
 - **Result** {what the available evidence establishes}
 - **Evidence** {inspected entry, listing, or excerpt}
-- **Repair** {only for a defect — affected workflow and repair location}
+- **Recommendation** {for a defect, the suggested change and where to make it}
 - **Still needed** {only for incomplete evidence — what would settle the question}
 ```
 
 A complete archive with the expected guide yields a short clean result. A broken reference adds the repair location. An excerpt alone leaves availability open and calls for the archive listing. Show the populated result before any request for input. Omit inapplicable sections. A mandatory “fix” field invites invented work on a clean run.
 
-Keep a short shape inline. Move a long, reused layout into a skill reference and link it at the reporting step. Let opening summaries, progress updates, findings, and receipts use only the fields their readers need. For a receipt, tie the stated effect to the operation result and identify any items still pending.
+Keep a short shape inline. Put a reused layout at its canonical owner and link it at the reporting step. The [extension review template](../guides/reviewing-extensions.md#report-the-review) puts the recommendation and evidence with each finding, then offers [selectable next actions](selectable-next-actions.md) once for the report. For a receipt, tie the stated effect to the operation result and identify any items still pending.
 
 Render all three archive cases and try a [fresh-reader check](../guides/verification.md#try-the-artifact-with-a-fresh-reader). If the reader must supply or correct a value, combine the display with a [prefilled form](prefilled-form.md).
 

@@ -4,7 +4,7 @@ title: "Authoring and revising skills"
 description: "Design or revise a skill from a concrete use case, including how it gets invoked and how it chooses a procedure."
 tags: ["skills", "skill.md", "author", "revise", "routing", "progressive-disclosure"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:42:23Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
 sources:
   - id: writing
     resource: https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-skills/SKILL.md
@@ -41,14 +41,25 @@ wrong result. Give exact steps when order matters and link a specialized
 reference at the step that needs it. Try an [invocation trial](../patterns/invocation-trial.md)
 when selection is uncertain.
 
+## Design and revise the result
+
 Decide what the reader must do with the result. An archive review can use a
 [display template](../patterns/display-template.md) to distinguish clean,
-broken, and unverified references. If the user wants follow-up, let them
-[select from findings](../patterns/select-from-findings.md) and carry that
+broken, and unverified references. When the reader must decide how to act,
+design the report and the reply together. Offer
+[selectable next actions](../patterns/selectable-next-actions.md) after the
+result. Let the reader [select from findings](../patterns/select-from-findings.md)
+to specify which items an action affects. Carry that
 selection in a [workflow handoff artifact](../patterns/workflow-handoff-artifact.md)
 when another session will do the repair. A [prefilled form](../patterns/prefilled-form.md)
 fits a partly known brief. To settle a preference about the output, let the
 reader [compare variants in context](../patterns/compare-variants-in-context.md).
+
+Try the [review template](reviewing-extensions.md#report-the-review) in plain
+text with a fresh reader. Can they locate recommendation 2 and request just
+that repair? On identical fixtures, exercise the picker and the short reply,
+then check the actual edit. Try a clean result and an excerpt with missing
+evidence to see whether the skill closes or asks for the right input.
 
 Before revising a skill, find where an actual run went wrong.[^writing] If
 the agent never opened the review guide, examine the routing cue. If it read

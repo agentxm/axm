@@ -4,7 +4,7 @@ title: "Agent-mediated decisions"
 description: "When a workflow depends on a user decision, show what the choice changes and make the proposed answer easy to correct."
 tags: ["skills", "user interaction", "choices", "confirmation", "text fallback"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:13:12Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
 sources:
   - id: setup
     resource: https://github.com/qualitymd/quality.md/blob/6291df0e3173bf281f10a2a446a50eed041b7d21/skills/quality/workflows/setup.md
@@ -42,8 +42,9 @@ doesn't fit the choices. Try the exchange in plain text to see whether a
 reader can still tell what they are deciding.[^interaction]
 
 Use a [prefilled form](prefilled-form.md) when the user can correct a partly
-known brief. Use [Select from findings](select-from-findings.md) when their
-answer determines which discovered items receive follow-up.
+known brief. After presenting a result, use [Selectable next actions](selectable-next-actions.md)
+when the user can choose between distinct follow-ups. Add [Select from
+findings](select-from-findings.md) when the chosen action needs an item or subset.
 
 When the user can recognize a good result more easily than they can describe
 it, put a small sample in front of them. Superpowers uses sketches and

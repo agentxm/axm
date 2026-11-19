@@ -21,6 +21,13 @@ Give each finding a short handle, its location, and the consequence of leaving i
 
 Resolve the reply against the list the user saw. If the selected finding disappeared or its evidence changed materially, report that change before acting on it. Explain a dependency if selecting one fix also requires another. When the original request already specifies the working set, carry that scope forward directly.
 
+Pair item selection with [selectable next actions](selectable-next-actions.md)
+when the user can inspect as well as repair. Use letters for actions and
+numbers for findings in the prompt menu. If B means “Fix selected,” then
+“B 2,” “fix 2,” and choosing **Fix selected** followed by **2 · Missing
+migration guide** in the picker all request the same repair. Show both number
+and title in the item picker. Ask only for the part still missing.
+
 Try selecting 2 and 4, then reorder the list and resolve one of the two findings independently. Only the still-open selected finding should receive a fix. A [handoff artifact](workflow-handoff-artifact.md) can carry those decisions into another session.
 
 [^threads]: OpenAI, numbered review threads and selective fixes.

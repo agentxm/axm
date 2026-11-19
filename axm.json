@@ -15,7 +15,7 @@
     "okf": "agentxm:@craigsmitham/skills/okf",
     "research": "@craigsmitham/skills/research@>=3.0.1",
     "testing": "workspace",
-    "agent-extension-engineering": "workspace",
+    "axe": "workspace",
     "seq-search-and-query": "workspace"
   },
   "knowledge": {

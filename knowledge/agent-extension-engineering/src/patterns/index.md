@@ -23,6 +23,7 @@ Choose the decision you are making. Patterns from different groups can be used t
 ## What does the user see or respond to?
 
 - [Display template](display-template.md) — When a workflow repeatedly presents the same kind of result, give the reader a stable way to find the evidence and next action.
+- [Selectable next actions](selectable-next-actions.md) — When a result leaves several meaningful follow-ups, let the user select an action by control or by a short reply.
 - [Prefilled form](prefilled-form.md) — When the agent can recover part of a brief, show known values and proposals so the user can correct just the decisions that remain.
 - [Select from findings](select-from-findings.md) — When several findings can be addressed independently, let the user choose which ones enter remediation.
 - [Compare variants in context](compare-variants-in-context.md) — When a user can recognize a preference more easily than describe it, show alternatives on the same representative target.

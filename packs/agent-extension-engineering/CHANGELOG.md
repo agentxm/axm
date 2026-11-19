@@ -2,6 +2,12 @@
 
 ## Candidate 0.2.0
 
+The pack now selects `@agentxm/skills/axe`, replacing
+`@agentxm/skills/agent-extension-engineering`. Invoke it as `$axe`
+with a target for a read-only review, a question, or a design, create, review,
+revise, or verify request. The pack and knowledge bundle retain the name
+`agent-extension-engineering`.
+
 Authors can now look up five workflow patterns individually: Display template,
 Prefilled form, Select from findings, Compare variants in context, and Workflow
 handoff artifact. The guides and patterns also cover bare invocation, loading

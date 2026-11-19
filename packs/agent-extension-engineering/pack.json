@@ -6,7 +6,7 @@
   "version": "0.2.0",
   "description": "One routing skill and its knowledge bundle for engineering agent extensions",
   "dependencies": {
-    "@agentxm/skills/agent-extension-engineering": "0.2.0",
+    "@agentxm/skills/axe": "0.2.0",
     "@agentxm/knowledge/agent-extension-engineering": "0.2.0"
   },
   "license": "MIT",

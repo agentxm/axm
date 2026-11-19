@@ -1,6 +1,8 @@
 # Skill discovery and execution trials
 
-These trials ask whether an ordinary authoring request reaches the applicable
+The [review follow-up trials](review-follow-up.md) cover finding selection,
+prompt replies, and the resulting edits. The discovery trials below ask
+whether an ordinary authoring request reaches the applicable
 guidance and whether the resulting answer uses it. The [observations](observations.json)
 retain each final answer, concept lookups, command count, and input router hash.
 Local filesystem paths in answers are shown relative to the fixture.

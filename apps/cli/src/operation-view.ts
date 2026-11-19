@@ -47,6 +47,7 @@ import {
   emphatic,
   fragment,
   invocation,
+  versionMove,
   exitPhrase,
   factParts,
   interruptionPhrase,
@@ -249,7 +250,7 @@ const versionCell = (artifact: JobStepArtifact | undefined): string => {
       ? undefined
       : artifact.previousVersion;
   if (version === undefined) return previous ?? ABSENT;
-  return previous === undefined || previous === version ? version : `${previous} to ${version}`;
+  return versionMove(previous, version);
 };
 
 /** The same column on a planned row, which may not know its target yet. */

@@ -178,13 +178,44 @@ describe("Frame transcript ownership", () => {
         yield* frame.settle;
         yield* replayBytes(terminal, streams.state.stderr.slice(written).join(""));
         expect(terminalTranscript(terminal)).toContain("History must survive");
-        expect(streams.state.stderr[written]).toBe("\r\n");
+        // The frame after a resize abandons the old tail with a newline and
+        // never moves the cursor up into history.
+        const afterResize = streams.state.stderr[written] ?? "";
+        expect(afterResize.replace(`${String.fromCharCode(27)}[?2026h`, "")).toMatch(/^\r\n/u);
+        expect(afterResize).not.toMatch(new RegExp(`${String.fromCharCode(27)}\\[\\d+A`, "u"));
       }).pipe(
         Effect.provide(
           Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
         ),
         Effect.scoped,
       );
+    }).pipe(Effect.scoped),
+  );
+  it.effect("draws each repaint as one synchronized frame and clears taskbar progress", () =>
+    Effect.gen(function* () {
+      const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+      const ESC = String.fromCharCode(27);
+      yield* Effect.gen(function* () {
+        const frame = yield* Frame;
+        yield* frame.updateActive(active("Working", "activity"));
+        yield* frame.stderr("Committed milestone\n");
+        yield* frame.settle;
+      }).pipe(
+        Effect.provide(
+          Layer.provide(
+            FrameLive({ animate: true, quiet: false, colors: false, taskbarProgress: true }),
+            streams.layer,
+          ),
+        ),
+        Effect.scoped,
+      );
+      const writes = streams.state.stderr;
+      // The milestone, the erase before it, and the repaint after it are one write.
+      const milestone = writes.find((write) => write.includes("Committed milestone")) ?? "";
+      expect(milestone.startsWith(`${ESC}[?2026h`)).toBe(true);
+      expect(milestone.endsWith(`${ESC}[?2026l`)).toBe(true);
+      expect(writes.join("")).toContain(`${ESC}]9;4;3;0\u0007`);
+      expect(writes.join("").endsWith(`${ESC}]9;4;0;0\u0007${ESC}[?25h${ESC}[?2026l`)).toBe(true);
     }).pipe(Effect.scoped),
   );
 });

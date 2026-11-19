@@ -7,6 +7,7 @@ depends-on:
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
   - ../decisions/cli-live-event-contract.md
   - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
+  - ../decisions/cli-result-shapes-and-one-grammar.md
 ---
 
 # Terminal design
@@ -185,7 +186,9 @@ clock, sentence case, and dates — a day as `21 Sep 2026` and a moment as
 operation vocabulary every plan-family command shares: titles, verdicts, unit
 states, dispositions, and blocking conditions. Wording that only one command
 speaks lives with that command, as publish's does in
-`apps/cli/src/root/publish/phrases.ts`.
+`apps/cli/src/root/publish/phrases.ts`. A command name is a command span,
+`commandSpan` or the copyable `invocation`, so help, prose, and records tint it
+alike, and a version move is `versionMove`, `1.9.4 to 2.0.1`.
 
 A headline, verdict, title, label, empty state, and `Next` description is a
 phrase: it opens with a capital, states no closing stop, and never ends in an
@@ -420,6 +423,19 @@ cursor geometry becomes uncertain, the `Frame` abandons that tail with a
 newline instead of moving upward into history; a terminal may still reflow its
 own scrollback. CI, pipes, and terminals without animation receive the same
 eligible milestones as static text.
+
+Each update the `Frame` makes is one write per stream. Where it moves the
+cursor — an erase, a repaint, or durable text inserted above the active
+region — its stderr bytes open and close one DEC 2026 synchronized frame, so a
+terminal that supports the mode draws the erase, the inserted text, and the
+repaint as one picture, and a terminal that does not ignores the markers.
+Plain transcript text on a pipe or an idle terminal carries no markers. On a
+terminal known to draw OSC 9;4 progress — Windows Terminal, ConEmu, and
+Ghostty, never through tmux or screen, and never quiet or without animation —
+the taskbar shows indeterminate progress while the active region holds
+anything and is cleared when it empties or the `Frame` settles. No terminal
+answers a query for either feature, so detection is an allowlist in
+`apps/cli/src/screen/output-policy.ts`.
 
 ## Gallery
 

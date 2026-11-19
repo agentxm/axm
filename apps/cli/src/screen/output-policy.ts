@@ -15,7 +15,21 @@ export interface CliOutputPolicy {
   readonly quiet: boolean;
   /** Symbol set the painter uses: Unicode glyphs, or seven-bit ASCII where the terminal or locale cannot show them. */
   readonly glyphs: "unicode" | "ascii";
+  /**
+   * Whether the terminal shows OSC 9;4 progress in its tab or taskbar. No
+   * terminal answers a query for it, so only terminals known to draw it are
+   * told, and never through a multiplexer that would pass it on unread.
+   */
+  readonly taskbarProgress: boolean;
 }
+
+/** Terminals that draw OSC 9;4 progress rather than printing or misreading it. */
+const drawsTaskbarProgress = (env: NodeJS.ProcessEnv): boolean =>
+  !hasNonEmptyEnv(env, "TMUX") &&
+  !hasNonEmptyEnv(env, "STY") &&
+  (hasNonEmptyEnv(env, "WT_SESSION") ||
+    env["ConEmuANSI"] === "ON" ||
+    env["TERM_PROGRAM"] === "ghostty");
 
 const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
   const value = env[name];
@@ -81,5 +95,6 @@ export const resolveCliOutputPolicy = (
     animate,
     quiet: environment?.quiet ?? false,
     glyphs: resolveGlyphs(env),
+    taskbarProgress: animate && environment?.quiet !== true && drawsTaskbarProgress(env),
   };
 };

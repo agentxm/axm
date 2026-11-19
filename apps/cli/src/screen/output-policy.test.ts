@@ -21,6 +21,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: true,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -31,6 +32,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -41,6 +43,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -51,6 +54,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
 
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "" } })).toEqual({
@@ -59,6 +63,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -69,6 +74,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -79,6 +85,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "ascii",
+      taskbarProgress: false,
     });
   });
 
@@ -89,6 +96,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: true,
       quiet: true,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -99,6 +107,7 @@ describe("resolveCliOutputPolicy", () => {
       animate: false,
       quiet: false,
       glyphs: "unicode",
+      taskbarProgress: false,
     });
   });
 
@@ -123,5 +132,23 @@ describe("resolveCliOutputPolicy", () => {
       resolveCliOutputPolicy({ stdoutIsTTY: true, env: { LC_ALL: "C", LANG: "en_US.utf8" } })
         .glyphs,
     ).toBe("unicode");
+  });
+  it("shows taskbar progress only on terminals that draw it, never through a multiplexer", () => {
+    const tty = { stdoutIsTTY: true, stderrIsTTY: true };
+    expect(resolveCliOutputPolicy({ ...tty, env: { WT_SESSION: "1" } }).taskbarProgress).toBe(true);
+    expect(
+      resolveCliOutputPolicy({ ...tty, env: { TERM_PROGRAM: "ghostty" } }).taskbarProgress,
+    ).toBe(true);
+    expect(
+      resolveCliOutputPolicy({ ...tty, env: { WT_SESSION: "1", TMUX: "/tmp/tmux" } })
+        .taskbarProgress,
+    ).toBe(false);
+    expect(resolveCliOutputPolicy({ ...tty, env: {} }).taskbarProgress).toBe(false);
+    expect(
+      resolveCliOutputPolicy({ ...tty, env: { WT_SESSION: "1" }, quiet: true }).taskbarProgress,
+    ).toBe(false);
+    expect(
+      resolveCliOutputPolicy({ ...tty, env: { WT_SESSION: "1", CI: "true" } }).taskbarProgress,
+    ).toBe(false);
   });
 });

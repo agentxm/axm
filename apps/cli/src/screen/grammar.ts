@@ -59,6 +59,14 @@ export const fragment = (description: string): string => {
     : description;
 };
 
+/**
+ * A version a unit moved between, as every ledger, record, and message says
+ * it: `1.9.4 to 2.0.1`. Where both ends are the same, or only one is known,
+ * the one version stands alone.
+ */
+export const versionMove = (from: string | undefined, to: string | undefined): string =>
+  from === undefined || to === undefined || from === to ? (to ?? from ?? "") : `${from} to ${to}`;
+
 /** The first letter raised, for a phrase that opens a line. */
 export const capitalized = (value: string): string =>
   `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;

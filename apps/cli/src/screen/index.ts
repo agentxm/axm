@@ -104,6 +104,7 @@ export {
   moment,
   plural,
   remainingTime,
+  versionMove,
 } from "./grammar.js";
 export { displayWidth, stripTerminalFormatting } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
@@ -135,6 +136,7 @@ export {
   PROSE_SEPARATOR,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
+  commandSpan,
   emphatic,
   invocation,
   joined,

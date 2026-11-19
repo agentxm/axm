@@ -51,6 +51,7 @@ guidance, with a worked example when it helps.
 
 | User intent                                                    | Concept                                 |
 | -------------------------------------------------------------- | --------------------------------------- |
+| Decide how much of the agent’s approach to prescribe           | `principles/preserve-agent-judgment`    |
 | Define or distinguish shared terms                             | `glossary`                              |
 | Choose an extension type or divide responsibilities            | `guides/choosing-extensions`            |
 | Write or revise an extension README                            | `guides/authoring-readme`               |

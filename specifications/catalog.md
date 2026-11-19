@@ -2011,6 +2011,19 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Additional evidence: process via [`apps/cli-e2e/src/help-ignores-workspace-state.e2e.test.ts`](../apps/cli-e2e/src/help-ignores-workspace-state.e2e.test.ts) — A registered-tree walk cannot show what a help request does to a populated workspace; only a real invocation against malformed project and user state shows the reply arriving unchanged and nothing being written.
 - Source: [`apps/cli/src/command-help-is-complete.spec.ts`](../apps/cli/src/command-help-is-complete.spec.ts)
 
+##### Authoring help explains when to leave the method open
+
+- Requirement: `cli/help/authoring-explains-agent-discretion`
+- Owner: `cli`
+- Statement: The authoring help topic shall explain when a method matters to the requested result and when it can be offered as an example, with an optional route to the canonical engineering principle.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `agent-interoperability`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The bundled authoring topic contains the advice and the discovery route that ship with the CLI.
+- Methods: example
+- Source: [`apps/cli/src/root/help/authoring-explains-agent-discretion.spec.ts`](../apps/cli/src/root/help/authoring-explains-agent-discretion.spec.ts)
+
 ##### Extension command groups separate management from authoring
 
 - Requirement: `cli/help/groups-type-commands-by-purpose`

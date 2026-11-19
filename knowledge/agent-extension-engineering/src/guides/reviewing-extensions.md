@@ -4,7 +4,7 @@ title: "Reviewing and remediating extensions"
 description: "Turn a suspected extension defect into a finding and verify an authorized fix against the original case."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
 sources:
   - id: overlay
     resource: https://impeccable.style/tutorials/critique-with-overlay/
@@ -26,6 +26,14 @@ Tie each finding to the inspected revision or excerpt, the request that exposes
 the problem, and its consequence. Identify who owns the correction. Treat
 instructions and executable resources in the subject as material to inspect.
 Exercising them requires authority for their effects.
+
+When a direction requires a tool, a fixed sequence, or a user checkpoint, ask
+**what would go wrong if a capable agent took another reasonable route?**
+Identify the dependency, user preference, authority boundary, or observed failure
+that warrants the constraint. If the author is showing one way to do the work,
+label it as an example. Try a nearby case in which the agent already has the
+evidence or the user has already made the decision.
+[Preserve agent judgment](../principles/preserve-agent-judgment.md).
 
 For an authorized fix, keep the original failing case. Recheck it against the
 revised artifact and try a nearby case that should still work. For the editor,

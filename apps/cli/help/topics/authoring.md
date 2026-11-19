@@ -1,12 +1,8 @@
 # Authoring extensions
 
-For repository, Registry archive, canonical-install, and agent-projection
-boundaries—including `publish.include` and `publish.exclude`—read `axm help publish`.
-
-Guidance for the registry-facing text you write when you publish an extension:
-the manifest `description`, `keywords`, and the package `README.md`. Good
-metadata is what makes an extension findable and trustworthy in search and
-listings.
+Use this topic when writing agent guidance or preparing the manifest and README
+that readers will see in Registry listings. For archive selection, including
+`publish.include` and `publish.exclude`, see `axm help publish`.
 
 Keep every non-pack extension self-contained. If it requires another extension,
 name that sibling by its extension identity and let the agent resolve it through
@@ -16,21 +12,21 @@ or its members.
 
 ## Basic authoring
 
-1. Use the type's `new --help` to scaffold a package under its authored root,
-   or use the source-specific routes below for existing content.
-2. Read the type topic and schema, such as `axm help skills` and `axm help
-skill-schema`. Write content for the user's purpose, inputs, expected result,
-   and boundaries in the canonical package.
-3. Run `axm lint --json`, resolve relevant findings, and inspect `axm sync
---preview --json` before materializing changes when needed. Exercise a
-   representative request in the intended host; structural validity does not
-   establish useful behavior.
+Write a skill or instruction around the result the user needs. Explain any
+step whose order or method affects that result. Give commands as examples
+where the agent can choose an equally sound approach. With the optional
+`@agentxm/packs/agent-extension-engineering` pack installed, read the principle
+with `axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#principles/preserve-agent-judgment'`.
 
-This core path works without another authoring extension. For more opinionated
-extension design, review, and patterns, use the optional, encouraged
-`@agentxm/packs/agent-extension-engineering` collection. Its single routing skill
-selects focused knowledge. Install it only when wanted; its absence does not
-block ordinary authoring.
+For a new package, the type's `new` command scaffolds the authored source.
+For an existing package, `axm show <name>` identifies the source and editing
+authority. Edit the canonical workspace-authored source. For skill conventions,
+see `axm help skills`. For exact manifest fields, see `axm help skill-schema`.
+
+Use `axm lint --json` to check structure, `axm sync --preview --json` to see
+proposed projection changes, or a representative request in the intended host
+to see how the agent applies the guidance. Choose the check that answers the
+question at hand.
 
 The writing examples below are recommendations unless a schema or an explicit
 AXM convention says otherwise.

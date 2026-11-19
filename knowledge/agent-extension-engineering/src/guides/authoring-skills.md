@@ -4,7 +4,7 @@ title: "Authoring and revising skills"
 description: "Design or revise a skill from a concrete use case, including how it gets invoked and how it chooses a procedure."
 tags: ["skills", "skill.md", "author", "revise", "routing", "progressive-disclosure"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T00:52:33Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
 sources:
   - id: arguments
     resource: https://code.claude.com/docs/en/skills#pass-arguments-to-skills
@@ -22,7 +22,7 @@ sources:
 
 # Authoring and revising skills
 
-Start with one use case. Write it in three lines.
+Start with a use case the skill should handle. A package reviewer might begin here.
 
 - **Request.** “Can someone who installs this skill follow its migration-guide link?”
 - **Input.** The release-note skill archive the consumer receives.
@@ -42,9 +42,12 @@ the decisions that matter for this use case.
    procedure depends on the evidence supplied. An archive can establish whether
    a path exists. An excerpt warrants a narrower verdict.
 
-In the body, spell out decisions where a plausible choice would produce the
-wrong result. Give exact steps when order matters and link a specialized
-reference at the step that needs it. Try an [invocation trial](../patterns/invocation-trial.md)
+A skill body can [preserve agent judgment](../principles/preserve-agent-judgment.md)
+by explaining why the reviewer needs evidence from the shipped archive. If the
+request supplies the link and complete archive listing, the reviewer has what
+it needs. A listing command can serve as an example for a reviewer who has the
+archive itself. Link a specialized reference where a decision depends on it.
+Try an [invocation trial](../patterns/invocation-trial.md)
 when selection is uncertain.
 
 ## Write the invocation signature

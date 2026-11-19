@@ -1,6 +1,8 @@
 # Axe · Agent extension engineering
 
-Ask for a review of an existing extension or start from a problem you want to solve.
+Ask about one extension, the extensions you author or use together, or the
+workspace setup that supplies them. “Review our AXM setup for contributors”
+starts from a contributor's task and follows it to the intended host.
 
 ```text
 $axe ./skills/quality

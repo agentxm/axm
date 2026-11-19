@@ -1579,6 +1579,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: static, review
 - Source: [`scripts/extension-target-choice.spec.ts`](../scripts/extension-target-choice.spec.ts)
 
+##### Authors can design or review a workspace for its intended users
+
+- Requirement: `extension-engineering/workspace-setup`
+- Owner: `axm`
+- Statement: The engineering pack shall route workspace design and review to guidance that assesses an intended user's workflow against workspace configuration and host evidence, using the workspace manager for state inspection and authorized changes.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored routes establish guide availability. The mixed-workspace trials separately exercise subject selection, evidence use, and scope in a host.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-workspace-setup.spec.ts`](../scripts/axe-workspace-setup.spec.ts)
+
 ### Goal: extension-adoption
 
 People and agents can find, install, update, and remove reusable extensions across coding agents through dependable product surfaces.

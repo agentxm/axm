@@ -34,7 +34,14 @@ you established its scope, what evidence you inspected, and any material
 limit. For example, a host's configuration can identify two candidate writers.
 Attributing a duplicate entry to both takes evidence of the event and its effects.
 
+When a caller names a broad subject and asks a specific question about it,
+use that question as the focus. Opening a package or an event record for
+evidence expands the findings only if it changes the answer to that question.
+
 When the review concerns relationships among extensions, [trace a change or a request across the set](extension-sets.md). A policy copied across a repository and an action performed twice in one workspace call for different evidence.
+
+For a [workspace setup](workspace-setup.md), follow one intended user's task
+from the shared configuration to the host where they need the capability.
 
 [Preserve agent judgment](../principles/preserve-agent-judgment.md) in both the
 instructions you review and the changes you recommend. What depends on the

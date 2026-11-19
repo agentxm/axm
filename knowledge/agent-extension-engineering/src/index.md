@@ -4,7 +4,8 @@ okf_version: "0.2"
 
 # Agent extension engineering
 
-Use this bundle to design, author, and review extensions. For basic AXM authoring, see `axm help authoring`.
+Use this bundle to design, author, and review extensions, their relationships,
+and workspace setups. For basic AXM authoring, see `axm help authoring`.
 
 ## Start here
 

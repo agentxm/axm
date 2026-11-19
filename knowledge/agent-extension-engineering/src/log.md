@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Added [Designing and reviewing a workspace setup](guides/workspace-setup.md) for tracing a contributor's task through the shared configuration and the intended host.
+
 - Expanded the [set guide](guides/extension-sets.md) with a whole-repository ownership example and the [review guide](guides/reviewing-extensions.md) with evidence for the selected subject.
 
 - Added [Domain glossary](patterns/domain-glossary.md) for choosing how to draft, derive, or directly author definitions in a bounded context.

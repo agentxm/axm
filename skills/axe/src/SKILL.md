@@ -70,6 +70,7 @@ guide only when there is a relationship between extensions to decide.
 | Design or maintain a glossary for a domain                     | `patterns/domain-glossary`              |
 | Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
+| Design or review a workspace setup for its users and hosts     | `guides/workspace-setup`                |
 | Write or revise an extension README                            | `guides/authoring-readme`               |
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |

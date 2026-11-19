@@ -24,4 +24,9 @@ save?” starts from the extensions involved in that host event, including ones
 acquired from elsewhere. “Does our release pack provide the promised first
 use?” starts from what a clean consumer gets by installing the pack.
 
+“Review our AXM setup for a new contributor” follows a task from the shared
+configuration to the contributor's host. Axe assesses whether the arrangement
+serves that task. The AXM skill and CLI supply workspace state and handle
+authorized configuration changes.
+
 Upgrading from the plural-named pack? See the [migration notes](CHANGELOG.md#migration).

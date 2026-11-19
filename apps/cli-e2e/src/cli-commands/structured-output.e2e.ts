@@ -45,7 +45,7 @@ describe("structured output (--json)", () => {
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
         },
-        suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
+        suggestions: [{ description: "Sign in to this registry", cmd: "axm login" }],
       });
       // `axm logout` is a progress-liveness family (see the `logout` row in
       // apps/cli/src/machine-output-contracts.ts), so the sign-out crosses as

@@ -53,7 +53,7 @@ describe("root authentication commands", () => {
         });
         expect(result.exitCode).toBe(0);
         const output = result.stdout + result.stderr;
-        expect(output).toContain("Not logged in");
+        expect(output).toContain("Not signed in");
       } finally {
         temp.cleanup();
       }

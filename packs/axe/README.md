@@ -36,4 +36,4 @@ helps the team decide when to report drift, when to reconcile, and how to verify
 the result in the contributor’s host. The AXM skill and CLI supply workspace state and handle
 authorized configuration changes.
 
-Moving from `agent-extension-engineering`? See the [0.3.0 migration commands](CHANGELOG.md#030).
+Moving from `agent-extension-engineering`? See the [migration commands](CHANGELOG.md#030).

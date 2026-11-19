@@ -1,5 +1,10 @@
 # Agent Extension Engineering changes
 
+## 0.3.1
+
+Documented the two-step migration from pack 0.2.0 when its skill pin conflicts
+with the new pack. Package dependencies remain at 0.3.0.
+
 ## 0.3.0
 
 Install `@agentxm/packs/axe` to use Agent Extension Engineering. The pack
@@ -7,16 +12,24 @@ brings together `@agentxm/skills/axe` and `@agentxm/knowledge/axe` at 0.3.0.
 Invoke the skill with `$axe`. Existing concept IDs still work under the new
 bundle name, for example `@agentxm/knowledge/axe#glossary`.
 
-For a direct installation, preview the migration that matches your selection:
+Preview migration from the former pack:
 
 ```sh
 axm migrate @agentxm/packs/agent-extension-engineering --preview
-axm migrate @agentxm/knowledge/agent-extension-engineering --preview
 ```
 
-Run the matching command without `--preview` to apply it. A pack installation
-brings its knowledge dependency across. Migrate an independent bundle selection
-separately and update saved concept lookups to the new bundle name.
+If the CLI reports conflicting AXE skill pins, remove the former pack and
+install the replacement in the same workspace:
+
+```sh
+axm uninstall @agentxm/packs/agent-extension-engineering
+axm install @agentxm/packs/axe
+```
+
+Otherwise run the matching migrate command without `--preview` to apply it.
+For an independently installed bundle, preview
+`axm migrate @agentxm/knowledge/agent-extension-engineering --preview` and
+apply that migration separately. Update saved concept lookups to the new name.
 
 ## Candidate 0.2.0
 

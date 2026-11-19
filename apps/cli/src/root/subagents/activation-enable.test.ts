@@ -183,7 +183,7 @@ describe("subagents enable.handler", () => {
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.
           expect(logs.success).toEqual([]);
-          expect(logs.error).toContain("Nothing enabled - all changes rolled back");
+          expect(logs.error).toContain("Nothing enabled");
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
               _tag: "ledger",

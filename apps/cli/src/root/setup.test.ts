@@ -1200,8 +1200,8 @@ describe("setup.handler", () => {
           }).pipe(Effect.catchCause(() => Effect.void));
 
           expect(messages(rendererState)).toContainEqual({
-            _tag: "error",
-            message: "Approval required — no changes applied",
+            _tag: "warn",
+            message: "Setup is blocked",
           });
           expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
@@ -1307,7 +1307,7 @@ describe("setup.handler", () => {
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
           expect(messages(rendererState)).toContainEqual({
             _tag: "warn",
-            message: "Setup cancelled",
+            message: "Cancelled",
           });
           expect(rendererState.results[0]?.completion).toEqual({
             mode: "apply",

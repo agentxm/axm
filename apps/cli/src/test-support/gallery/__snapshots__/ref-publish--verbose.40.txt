@@ -46,5 +46,4 @@ Previewing publish
                     a1b2c3d
 
 Would publish 3 extensions
-  1 already published · nothing was
-  uploaded
+  1 already published · no changes made

@@ -2,6 +2,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { plain } from "./doc.js";
 import type { Doc, DocNode, Span, Tone } from "./doc.js";
+import { fragment } from "./grammar.js";
 import { displayWidth, padDisplay } from "./width.js";
 import { longestWordWidth } from "./wrap-text.js";
 import { paintFields, paintLedger, paintTable } from "./paint-grid.js";
@@ -131,7 +132,7 @@ const paintNode = (
       return [
         ...(node.aside === undefined
           ? title
-          : withSupplement(title, node.aside, style, style.valueColumn, {
+          : withSupplement(title, joinedParts(node.aside, glyphs), style, style.valueColumn, {
               gap: (last) => spaces(Math.max(COLUMN_GAP, style.valueColumn - displayWidth(last))),
             })),
         ...children,
@@ -154,7 +155,8 @@ const paintNode = (
     case "next":
       return [
         `${spaces(content)}${dim("Next", style)}`,
-        ...node.actions.flatMap((action) => {
+        ...node.actions.flatMap((suggested) => {
+          const action = { ...suggested, description: fragment(suggested.description) };
           const targetText = actionTarget(action);
           const target: ReadonlyArray<Span> = [{ text: targetText, copyable: true }];
           const actionStart = content + GUTTER_WIDTH;

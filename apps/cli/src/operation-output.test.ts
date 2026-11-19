@@ -877,7 +877,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
-          title: "Internal Error",
+          title: "Internal error",
           message: "copy failed",
           causes: [{ _tag: "Error", message: "source missing" }],
         },
@@ -906,7 +906,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
-          title: "Internal Error",
+          title: "Internal error",
           message: "copy failed",
           causes: [
             {

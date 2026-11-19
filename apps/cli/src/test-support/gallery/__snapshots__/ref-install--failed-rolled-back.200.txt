@@ -4,7 +4,7 @@ Install  in platform-services · agents: claude-code, codex
  ✖   @acme/packs/review-kit        failed
      @acme-enterprise/subagents/incident-commander 2.0.3, a member of this pack, could not be fetched: the registry has no content for it that this account can read.
 
-Nothing installed - all changes rolled back  1 failed · exit 3
+Nothing installed  all changes rolled back · 1 failed · exit 3
 
 Next
-     axm whoami   See which account is signed in; a private extension needs one that can read it.
+     axm whoami   See which account is signed in; a private extension needs one that can read it

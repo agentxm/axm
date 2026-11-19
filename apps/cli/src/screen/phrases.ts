@@ -14,35 +14,10 @@ import type {
 } from "@agentxm/workspace-kernel/operations";
 
 import type { Change, Tone } from "./doc.js";
+import { bytes, capitalized, count } from "./grammar.js";
 
 const unreachable = (value: never): never => {
   throw new Error(`Unrecognized CLI vocabulary: ${String(value)}`);
-};
-
-export const count = (value: number, singular: string, plural = `${singular}s`): string =>
-  `${value} ${value === 1 ? singular : plural}`;
-
-export const bytes = (value: number): string => {
-  if (value < 1_000) return `${value} B`;
-  if (value < 1_000_000) return `${Math.round(value / 100) / 10} KB`;
-  return `${Math.round(value / 100_000) / 10} MB`;
-};
-
-export const duration = (elapsedMs: number): string =>
-  elapsedMs < 1_000
-    ? `${Math.max(0, Math.round(elapsedMs))}ms`
-    : `${Math.round(elapsedMs / 100) / 10}s`;
-
-/**
- * How long is left before a handoff expires, as an open wait says it: minutes
- * and zero-padded seconds, as a clock reads. A wait that has run out says so
- * rather than counting past zero.
- */
-export const remainingTime = (remainingMs: number): string => {
-  if (remainingMs <= 0) return "expired";
-  const seconds = Math.ceil(remainingMs / 1_000);
-  const minutes = Math.floor(seconds / 60);
-  return `${String(minutes)}:${String(seconds % 60).padStart(2, "0")} left`;
 };
 
 /** The word one of an open wait's keys carries. */
@@ -187,7 +162,7 @@ export const disposition = (value: UnitDisposition): string => {
     case "retained":
       return "partial work was retained";
     case "untouched":
-      return "no changes were applied";
+      return "no changes were made";
     case "unknown":
       return "settlement was not observed";
     default:
@@ -200,8 +175,7 @@ export const disposition = (value: UnitDisposition): string => {
  * producer already finished its own sentence.
  */
 export const dispositionStatement = (value: UnitDisposition): string => {
-  const clause = disposition(value);
-  return `${clause.slice(0, 1).toUpperCase()}${clause.slice(1)}.`;
+  return `${capitalized(disposition(value))}.`;
 };
 
 /**
@@ -213,7 +187,21 @@ export const dispositionStatement = (value: UnitDisposition): string => {
 export const sharedDispositionStatement = (
   presentation: OperationPresentation,
   value: UnitDisposition,
-): string => `Every ${presentation.subject.singular} that did not settle: ${disposition(value)}.`;
+): string => {
+  const subjects = capitalized(presentation.subject.plural);
+  switch (value) {
+    case "restored":
+      return `${subjects} that did not settle were restored.`;
+    case "retained":
+      return `${subjects} that did not settle kept their partial work.`;
+    case "untouched":
+      return `${subjects} that did not settle were left unchanged.`;
+    case "unknown":
+      return `AXM could not observe how the ${presentation.subject.plural} that did not settle were left.`;
+    default:
+      return unreachable(value);
+  }
+};
 
 export const blockingClass = (value: BlockingClass): string => {
   switch (value) {
@@ -246,254 +234,47 @@ export const blockingClass = (value: BlockingClass): string => {
 
 /** What the terminal is parked on while it waits on the system rather than a person. */
 export const systemWaitStatus = (value: BlockingClass): string =>
-  `Waiting - ${blockingClass(value)}`;
+  `Waiting because ${blockingClass(value)}`;
+
+/**
+ * The one way every command says that it left the workspace as it found it,
+ * as the fact a verdict's aside states.
+ */
+export const NO_CHANGES_MADE = "no changes made";
+
+/**
+ * A verdict in two parts: the claim, bold and toned, and the consequence
+ * that qualifies it. The painter sets the consequence as the first fact of
+ * the verdict's aside, so no phrase spells the separator between them.
+ */
+export interface VerdictPhrase {
+  readonly claim: string;
+  readonly consequence?: string;
+}
+
+/** The facts a verdict's aside states, its consequence first. */
+export const verdictFacts = (
+  verdict: VerdictPhrase,
+  facts: ReadonlyArray<string>,
+): ReadonlyArray<string> =>
+  verdict.consequence === undefined ? facts : [verdict.consequence, ...facts];
 
 export const interruptionPhrase = (
   signal: "SIGINT" | "SIGTERM",
   disposition: UnitDisposition,
-): string => {
-  const prefix = signal === "SIGINT" ? "Interrupted" : "Terminated";
+): VerdictPhrase => {
+  const claim = signal === "SIGINT" ? "Interrupted" : "Terminated";
   switch (disposition) {
     case "restored":
-      return `${prefix} - changes rolled back`;
+      return { claim, consequence: "changes rolled back" };
     case "retained":
-      return `${prefix} - partial work retained`;
+      return { claim, consequence: "partial work kept" };
     case "untouched":
-      return `${prefix} - no changes applied`;
+      return { claim, consequence: NO_CHANGES_MADE };
     case "unknown":
-      return `${prefix} - settlement unknown`;
+      return { claim, consequence: "settlement unknown" };
     default:
       return unreachable(disposition);
-  }
-};
-
-type PublishParticipation = "publish" | "verified-existing";
-
-/**
- * What a publish plan ledger says an extension will do: be uploaded, or be
- * skipped because the registry already holds that exact version.
- */
-export const publishParticipation = (value: PublishParticipation): string => {
-  switch (value) {
-    case "publish":
-      return "publish";
-    case "verified-existing":
-      return "skip";
-    default:
-      return unreachable(value);
-  }
-};
-
-/** Why a publish row skips an extension the registry already holds. */
-export const ALREADY_PUBLISHED = "already published";
-
-/** What a publish result row says became of an extension. */
-export const publishOutcome = (
-  value: "published" | "failed" | "unconfirmed" | "blocked" | "skipped",
-): string => {
-  switch (value) {
-    case "published":
-      return "published";
-    case "failed":
-      return "failed";
-    case "unconfirmed":
-      return "unconfirmed";
-    case "blocked":
-      return "blocked";
-    case "skipped":
-      return "skip";
-    default:
-      return unreachable(value);
-  }
-};
-
-export type PublishPhase =
-  | "selection"
-  | "authoritative_preflight"
-  | "authorization"
-  | "dependency_execution"
-  | "upload_execution";
-
-export const publishPhase = (value: PublishPhase): string => {
-  switch (value) {
-    case "selection":
-      return "selection";
-    case "authoritative_preflight":
-      return "authoritative preflight";
-    case "authorization":
-      return "authorization";
-    case "dependency_execution":
-      return "dependency execution";
-    case "upload_execution":
-      return "upload";
-    default:
-      return unreachable(value);
-  }
-};
-
-export type PublishVisibilitySource =
-  "manifest" | "workspace" | "explicit" | "account" | "platform" | "existing";
-
-/**
- * Where an extension's visibility came from: set by an input for a new
- * extension, or kept from the publication the registry already holds.
- */
-export const publishVisibilityOrigin = (
-  disposition: "establish" | "preserve",
-  source: PublishVisibilitySource,
-): string => {
-  const from = (() => {
-    switch (source) {
-      case "manifest":
-        return "the manifest";
-      case "workspace":
-        return "workspace settings";
-      case "explicit":
-        return "the command";
-      case "account":
-        return "account settings";
-      case "platform":
-        return "platform defaults";
-      case "existing":
-        return "the existing publication";
-      default:
-        return unreachable(source);
-    }
-  })();
-  return `${disposition === "establish" ? "from" : "kept from"} ${from}`;
-};
-
-/** A Git revision as a person compares it: the short form Git itself prints. */
-const shortRevision = (revision: string): string => revision.slice(0, 7);
-
-/** How an extension's source relates to the Git HEAD the archive was compared with. */
-export const publishSourceState = (
-  status: "matches-head" | "differs-from-head" | "no-head",
-  revision: string | undefined,
-): string => {
-  switch (status) {
-    case "matches-head":
-      return revision === undefined
-        ? "matches Git HEAD"
-        : `matches Git HEAD ${shortRevision(revision)}`;
-    case "differs-from-head":
-      return revision === undefined
-        ? "differs from Git HEAD"
-        : `differs from Git HEAD ${shortRevision(revision)}`;
-    case "no-head":
-      return "no Git HEAD to compare with";
-    default:
-      return unreachable(status);
-  }
-};
-
-/** The archive paths that keep a working tree from matching Git HEAD. */
-export const publishSourceDifferences = (differenceCount: number): string =>
-  `${count(differenceCount, "path")} ${differenceCount === 1 ? "differs" : "differ"} from HEAD`;
-
-type PublishDisposition =
-  "included" | "excluded" | "unmanaged" | "not-authored" | "not-publishable" | "unmatched";
-
-export const publishDisposition = (value: PublishDisposition): string => {
-  switch (value) {
-    case "included":
-      return "included";
-    case "excluded":
-      return "excluded by selection";
-    case "unmanaged":
-      return "not managed by this workspace";
-    case "not-authored":
-      return "not authored here";
-    case "not-publishable":
-      return "not publishable";
-    case "unmatched":
-      return "did not match";
-    default:
-      return unreachable(value);
-  }
-};
-
-type PublishReason =
-  | "selected"
-  | "excluded"
-  | "unmanaged"
-  | "unmatched_selector"
-  | "version_already_published"
-  | "not_authored"
-  | "not_publishable"
-  | "invalid_workspace_source"
-  | "authorization_failed"
-  | "authoritative_preflight_failed"
-  | "dependency_unavailable"
-  | "candidate_invalid"
-  | "stale_material"
-  | "publish_precondition_changed"
-  | "deleting"
-  | "held"
-  | "archived"
-  | "upload_failed"
-  | "integrity_conflict"
-  | "settlement_unresolved"
-  | "authorization_expired"
-  | "blocked_by_dependency"
-  | "interrupted"
-  | "blocked_by_preflight"
-  | "source_state_not_accepted";
-
-export const publishReason = (value: PublishReason): string => {
-  switch (value) {
-    case "selected":
-      return "selected";
-    case "excluded":
-      return "excluded";
-    case "unmanaged":
-      return "not managed by this workspace";
-    case "unmatched_selector":
-      return "selector did not match";
-    case "version_already_published":
-      return "version already published";
-    case "not_authored":
-      return "not authored here";
-    case "not_publishable":
-      return "not publishable";
-    case "invalid_workspace_source":
-      return "workspace source is invalid";
-    case "authorization_failed":
-      return "authorization failed";
-    case "authoritative_preflight_failed":
-      return "authoritative preflight failed";
-    case "dependency_unavailable":
-      return "dependency unavailable";
-    case "candidate_invalid":
-      return "candidate is invalid";
-    case "stale_material":
-      return "source material changed";
-    case "publish_precondition_changed":
-      return "publish precondition changed";
-    case "deleting":
-      return "extension deletion is in progress";
-    case "held":
-      return "extension name is held";
-    case "archived":
-      return "extension is archived";
-    case "upload_failed":
-      return "upload failed";
-    case "integrity_conflict":
-      return "published content has different integrity";
-    case "settlement_unresolved":
-      return "registry settlement could not be verified";
-    case "authorization_expired":
-      return "authorization expired";
-    case "blocked_by_dependency":
-      return "blocked by a dependency";
-    case "interrupted":
-      return "interrupted";
-    case "blocked_by_preflight":
-      return "blocked by preflight";
-    case "source_state_not_accepted":
-      return "source state was not accepted";
-    default:
-      return unreachable(value);
   }
 };
 
@@ -587,15 +368,17 @@ export const operationTitle = (
  * imperative. The work is over, so the result no longer says it is going on.
  */
 export const settledTitle = (presentation: OperationPresentation): string =>
-  `${presentation.verb.imperative.slice(0, 1).toUpperCase()}${presentation.verb.imperative.slice(1)}`;
+  capitalized(presentation.verb.imperative);
 
 /**
  * The verdict of an operation that changed nothing because every change it
  * made was undone: what did not happen, then why the workspace is as it was.
  * The rows above name the failure, so the verdict does not count them again.
  */
-export const rolledBackVerdict = (presentation: OperationPresentation): string =>
-  `${nothingChangedVerdict(presentation)} - all changes rolled back`;
+export const rolledBackVerdict = (presentation: OperationPresentation): VerdictPhrase => ({
+  claim: nothingChangedVerdict(presentation),
+  consequence: "all changes rolled back",
+});
 
 /**
  * The verdict of a failed operation that changed nothing. A count of the
@@ -611,7 +394,7 @@ export const subjectNoun = (presentation: OperationPresentation, value: number):
 
 /** The header a ledger's name column carries for an operation's subject. */
 export const subjectHeader = (presentation: OperationPresentation): string =>
-  `${presentation.subject.singular.slice(0, 1).toUpperCase()}${presentation.subject.singular.slice(1)}`;
+  capitalized(presentation.subject.singular);
 
 /**
  * Where an operation acts, for the aside on its title line: the project by its
@@ -638,27 +421,32 @@ export const outcomeHeadline = (
   presentation: OperationPresentation,
   outcome: OperationOutcome,
   counts: UnitStateCounts,
-): string => {
+): VerdictPhrase => {
   switch (outcome) {
     case "previewed":
-      return `Would ${presentation.verb.imperative} ${subjectCount(presentation, counts.total)}`;
+      return {
+        claim: `Would ${presentation.verb.imperative} ${subjectCount(presentation, counts.total)}`,
+      };
     case "applied":
-      return `${presentation.verb.past} ${subjectCount(presentation, counts.committed)}`;
+      return { claim: `${presentation.verb.past} ${subjectCount(presentation, counts.committed)}` };
     // The counts belong to the verdict's aside, not its claim.
     case "no-op":
-      return counts.total === 0
-        ? `Nothing to ${presentation.verb.imperative}`
-        : "Already up to date";
+      return {
+        claim:
+          counts.total === 0 ? `Nothing to ${presentation.verb.imperative}` : "Already up to date",
+      };
     case "partial":
-      return `Partially ${presentation.verb.past.toLowerCase()}`;
+      return { claim: `Partially ${presentation.verb.past.toLowerCase()}` };
     case "failed":
-      return `Failed to ${presentation.verb.imperative} ${subjectCount(presentation, Math.max(1, counts.total))}`;
+      return {
+        claim: `Failed to ${presentation.verb.imperative} ${subjectCount(presentation, Math.max(1, counts.total))}`,
+      };
     case "blocked":
-      return `${presentation.verb.imperative[0]?.toUpperCase() ?? ""}${presentation.verb.imperative.slice(1)} is blocked`;
+      return { claim: `${capitalized(presentation.verb.imperative)} is blocked` };
     case "cancelled":
-      return "Cancelled - no changes applied";
+      return { claim: "Cancelled", consequence: NO_CHANGES_MADE };
     case "interrupted":
-      return "Interrupted";
+      return { claim: "Interrupted" };
     default:
       return unreachable(outcome);
   }

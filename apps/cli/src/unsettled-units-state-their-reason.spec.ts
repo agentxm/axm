@@ -233,8 +233,8 @@ describe("An unsettled unit states its reason", () => {
       },
     ]);
     everywhere(resolution, (painted, where) => {
-      expect(painted, where).toContain(compact("Every extension that did not settle:"));
-      expect(painted.split(compact("effects were restored")), where).toHaveLength(2);
+      expect(painted, where).toContain(compact("Extensions that did not settle were restored."));
+      expect(painted, where).not.toContain(compact("effects were restored"));
     });
   });
 
@@ -244,7 +244,7 @@ describe("An unsettled unit states its reason", () => {
       { ...cases[0]?.unit, id: "b", label: "b" } as ResolvedUnit<unknown>,
     ]);
     everywhere(resolution, (painted, where) => {
-      expect(painted, where).toContain(compact("Nothing updated - all changes rolled back"));
+      expect(painted, where).toContain(compact("Nothing updated  all changes rolled back"));
       expect(painted, where).not.toContain(compact("effects were restored"));
     });
   });

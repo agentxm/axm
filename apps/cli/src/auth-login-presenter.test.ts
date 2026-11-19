@@ -512,11 +512,14 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.awaitHuman(loopbackHandoff, Effect.void);
 
       expect(logs.info).toEqual([
-        "Authorize AXM in the browser that just opened.",
-        "Sign-in returns to http://127.0.0.1:3999/callback. On a remote or headless machine, run `axm login --device-code`.",
+        "To sign in, finish in the browser that opened, or open this link:",
+        "https://agentxm.ai/oauth/authorize?state=s1",
       ]);
       expect(state.suggestions).toEqual([
-        { description: "Authorize AXM", url: "https://agentxm.ai/oauth/authorize?state=s1" },
+        {
+          description: "Sign in with a code instead, on a remote or headless machine",
+          cmd: "axm login --device-code",
+        },
       ]);
     }).pipe(Effect.provide(layer));
   });
@@ -527,7 +530,7 @@ describe("AuthLoginPresenterLive", () => {
       const presenter = yield* AuthLoginPresenter;
       yield* presenter.awaitHuman({ ...loopbackHandoff, browserOpened: false }, Effect.void);
 
-      expect(logs.info[0]).toBe("Authorize AXM in a browser.");
+      expect(logs.info[0]).toBe("To sign in, open this link in a browser:");
     }).pipe(Effect.provide(layer));
   });
 });

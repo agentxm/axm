@@ -2,11 +2,11 @@ Linting  in this project
 
      Finding                       Location                 Fix
  ✖   Lockfile is stale             axm.lock                 fixable
-     workspace/lockfile-valid — 2 entries do not match axm.json
+     2 entries do not match axm.json (workspace/lockfile-valid)
  ✖   Description is missing        skills/triage/SKILL.md
-     skill/description-present — Agents choose skills by description
+     Agents choose skills by description (skill/description-present)
  ▲   Member version floats         packs/review-kit
-     pack/member-pinned — Pin @acme/skills/triage for repeatable installs
+     Pin @acme/skills/triage for repeatable installs (pack/member-pinned)
 
 2 errors and 1 warning  1 fixable · exit 1
 

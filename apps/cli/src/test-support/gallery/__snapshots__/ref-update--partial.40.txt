@@ -94,8 +94,8 @@ Update
 Partially updated
   5 updated · 7 failed · 1 already
   current · exit 1
-Every extension that did not settle:
-effects were restored.
+Extensions that did not settle were
+restored.
 
 Next
      axm update

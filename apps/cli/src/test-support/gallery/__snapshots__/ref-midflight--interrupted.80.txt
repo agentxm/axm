@@ -7,7 +7,7 @@ Install  in platform-services
      interrupted in flight
  ·   2 extensions not tried  --verbose to list
 
-Interrupted - changes rolled back  2 rolled back · 2 not tried · exit 130
+Interrupted  changes rolled back · 2 rolled back · 2 not tried · exit 130
 
 Next
      axm install @acme/packs/review-kit   Run it again; nothing is half-applied

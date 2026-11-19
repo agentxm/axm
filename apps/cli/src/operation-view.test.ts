@@ -617,7 +617,7 @@ describe("problem outcomes", () => {
     expect(text).toContain(" .   1 extension not tried  --verbose to list");
     expect(text).not.toContain("@acme/skills/standup");
     expect(text.split("\n").at(-1)).toBe(
-      "Interrupted - changes rolled back  1 rolled back - 1 not tried - exit 130",
+      "Interrupted  changes rolled back - 1 rolled back - 1 not tried - exit 130",
     );
   });
 
@@ -668,7 +668,7 @@ describe("problem outcomes", () => {
     expect(text).not.toContain("Effects were restored");
     expect(text.split("could not be fetched")).toHaveLength(2);
     expect(text).toContain(
-      "Nothing synced - all changes rolled back  1 failed - 1 not tried - exit",
+      "Nothing synced  all changes rolled back - 1 failed - 1 not tried - exit 3",
     );
   });
 
@@ -699,13 +699,13 @@ describe("problem outcomes", () => {
     const text = paint(doc);
     expect(text).toMatch(/\. {3}@acme\/skills\/standup\s+0\.4\.2\s+not tried/);
     expect(text).toContain(
-      " !!  Sync is blocked - approval is required   1 not tried, exit 2\n     This plan removes extensions another agent still uses.",
+      " !!  Sync is blocked               1 not tried - exit 2\n     This plan removes extensions another agent still uses.",
     );
     expect(text).toContain("axm sync --yes   Approve it up front");
     for (const columns of [40, 80, 120, 200]) {
       const wrapped = paint(doc, columns);
       const visible = compactText(wrapped);
-      expect(visible).toContain(compactText("Sync is blocked - approval is required"));
+      expect(visible).toContain(compactText("Sync is blocked"));
       expect(visible).toContain(
         compactText("This plan removes extensions another agent still uses."),
       );

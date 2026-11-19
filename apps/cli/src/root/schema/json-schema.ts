@@ -328,7 +328,7 @@ export const describeSchema = (node: SchemaNode, document: SchemaObject): string
             .join(" and ");
         const type = entry["type"];
         const description =
-          typeof entry["description"] === "string" ? ` — ${entry["description"]}` : "";
+          typeof entry["description"] === "string" ? `: ${entry["description"]}` : "";
         const map =
           isSchemaObject(entry["additionalProperties"]) ||
           isSchemaObject(entry["patternProperties"])

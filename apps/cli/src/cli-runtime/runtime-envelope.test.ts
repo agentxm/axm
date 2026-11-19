@@ -185,8 +185,8 @@ describe("writeDefect", () => {
         expect(stderrWrites).toHaveLength(1);
         expect(stderrWrites[0]).toMatch(/^ (?:✖ {3}|xx {2})/);
         // The same title, reason, and debug hint every internal error gets.
-        expect(stderrWrites[0]).toContain("Internal Error");
-        expect(stderrWrites[0]).toContain("internal, exit 10");
+        expect(stderrWrites[0]).toContain("Internal error");
+        expect(stderrWrites[0]).toContain("internal · exit 10");
         expect(stderrWrites[0]).toContain("boom");
         expect(stderrWrites[0]).toContain("--debug shows the cause.");
         expect(stderrWrites[0]).not.toContain("✗");
@@ -218,7 +218,7 @@ describe("writeDefect", () => {
       expect(stdoutDoc).toMatchObject({
         ok: false,
         code: "internal",
-        title: "Internal Error",
+        title: "Internal error",
         detail: "boom",
         suggestions: [{ url: "https://github.com/agentxm/axm/issues/new/choose" }],
       });
@@ -230,8 +230,7 @@ describe("writeDefect", () => {
       expect(events).toEqual([
         {
           type: "suggestion",
-          description:
-            "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+          description: "Report this bug, with the diagnostic ID if one is shown",
           url: "https://github.com/agentxm/axm/issues/new/choose",
         },
         { type: "error", code: "internal", message: "boom" },
@@ -248,7 +247,7 @@ describe("writeDefect", () => {
       expect(stdoutDoc).toMatchObject({
         ok: false,
         code: "internal",
-        title: "Internal Error",
+        title: "Internal error",
         detail: "kaboom",
       });
     }),
@@ -682,7 +681,7 @@ describe("withCliErrorHandling cancellation", () => {
       ).pipe(Effect.exit);
 
       expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Conflict)));
-      expect(stderrWrites.join("")).toContain("conflict, exit 6");
+      expect(stderrWrites.join("")).toContain("conflict · exit 6");
     }).pipe(
       Effect.provide(
         Layer.mergeAll(

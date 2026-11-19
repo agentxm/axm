@@ -74,7 +74,7 @@ const fixCell = (fixable: boolean): Text => (fixable ? [{ text: "fixable", tone:
 const childLine = (lead: string, rest: string | undefined): DocNode => ({
   _tag: "paragraph",
   tone: "dim",
-  text: rest === undefined ? lead : `${lead} — ${cellText(rest)}`,
+  text: rest === undefined ? lead : `${cellText(rest)} (${lead})`,
 });
 
 /** The rule and the first thing it says beyond the title; verbose adds the rest. */

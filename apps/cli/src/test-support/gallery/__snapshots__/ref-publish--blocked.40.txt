@@ -6,10 +6,9 @@ Publishing  as @acme · to agentxm
  ·   @ac…/reviewer   0.9.0     not tried
  ·   @…/review-kit   2.1.0     not tried
 
- ▲   Publish is blocked — an explicit
-     override is required
-                    1 blocked, 2 not
-                    tried, exit 2
+ ▲   Publish is blocked
+                    1 blocked · 2 not
+                    tried · exit 2
      The archive for code-review is not
      fully represented by Git HEAD
      a1b2c3d.

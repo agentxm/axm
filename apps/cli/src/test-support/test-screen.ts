@@ -138,7 +138,7 @@ const nodeText = (node: DocNode): string => {
     case "callout":
       return node.aside === undefined
         ? plain(node.title)
-        : `${plain(node.title)} ${plain(node.aside)}`;
+        : `${plain(node.title)} ${node.aside.map((part) => plain(part.text)).join(", ")}`;
     case "summary":
       return node.parts.map((part) => plain(part.text)).join(", ");
     case "section":

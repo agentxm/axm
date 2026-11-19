@@ -13,13 +13,16 @@ import type { Doc, LedgerColumn, LedgerRow, Mark } from "../../screen/index.js";
 import {
   artifactChange,
   artifactChangeMark,
+  blockingClass,
+  capitalized,
   count,
   emphatic,
   factParts,
-  joined,
   ledgerViewPolicy,
+  NO_CHANGES_MADE,
   suggestionsDoc,
 } from "../../screen/index.js";
+import { verdictDoc } from "../../operation-view.js";
 
 /**
  * The title line setup opens with, like every command whose result carries a
@@ -180,15 +183,11 @@ const resultRows = (result: SetupOutcome): ReadonlyArray<LedgerRow> => {
 };
 
 /** How many files the apply created and changed, as the verdict's aside counts them. */
-const changeTally = (rows: ReadonlyArray<LedgerRow>): string =>
-  joined(
-    (["create", "update"] as const).map((mark) => {
-      const value = rows.filter((row) => row.mark === mark).length;
-      return value === 0
-        ? undefined
-        : `${String(value)} ${mark === "create" ? "created" : "updated"}`;
-    }),
-  );
+const changeTally = (rows: ReadonlyArray<LedgerRow>): ReadonlyArray<string> =>
+  (["create", "update"] as const).flatMap((mark) => {
+    const value = rows.filter((row) => row.mark === mark).length;
+    return value === 0 ? [] : [`${String(value)} ${mark === "create" ? "created" : "updated"}`];
+  });
 
 /**
  * The extension types the configured agents cannot take in this scope. What
@@ -285,6 +284,20 @@ export interface SetupResultOptions {
  * was already set up, or a setup the person declined, changed nothing, so its
  * verdict stands alone. Quiet keeps the verdict and nothing else.
  */
+/**
+ * Setup that needs a person's approval and has none: blocked, like any other
+ * operation waiting on a person, with the attention mark and nothing changed.
+ */
+export const setupApprovalRequiredDoc = (): Doc =>
+  verdictDoc({
+    ledger: false,
+    tone: "warn",
+    verdict: "Setup is blocked",
+    aside: [NO_CHANGES_MADE],
+    reason: `${capitalized(blockingClass("approval-required"))}.`,
+    blocked: true,
+  });
+
 export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions): Doc => {
   const { quiet } = ledgerViewPolicy(options.verbosity);
   const next = quiet ? [] : suggestionsDoc(options.suggestions);
@@ -294,12 +307,12 @@ export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions
         {
           _tag: "headline",
           tone: "warn",
-          text: "Setup cancelled",
-          aside: factParts(["nothing was changed"]),
+          text: "Cancelled",
+          aside: factParts([NO_CHANGES_MADE]),
         },
       ];
     case "approval-required":
-      return [{ _tag: "headline", tone: "warn", text: result.message ?? "" }, ...next];
+      return [...setupApprovalRequiredDoc(), ...next];
     case "already-initialized":
       return [{ _tag: "headline", tone: "ok", text: result.message ?? "" }, ...next];
     case "preview":
@@ -308,7 +321,7 @@ export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions
           _tag: "headline",
           tone: "neutral",
           text: emphatic(`Would set up AXM ${agentsPhrase(result.agents.length)}`),
-          aside: factParts([previewDefaultPhrase(result), "no changes made"]),
+          aside: factParts([previewDefaultPhrase(result), NO_CHANGES_MADE]),
         },
         ...next,
       ];
@@ -319,15 +332,17 @@ export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions
           ? []
           : [{ _tag: "ledger", columns: resultColumns, rows } as const]),
         ...warningsDoc(result),
+        // Conditions stand between the rows and the verdict, so the verdict
+        // and `Next` close the result as they close every other one.
+        ...(quiet ? [] : scopeLimitsDoc(result)),
+        ...(quiet ? [] : existingSubagentsDoc(result, options.displayDirectory)),
         {
           _tag: "headline",
           tone: "ok",
           verdict: true,
           text: emphatic(`Set up AXM ${agentsPhrase(result.agents.length)}`),
-          aside: factParts([changeTally(rows)]),
+          aside: factParts(changeTally(rows)),
         },
-        ...(quiet ? [] : scopeLimitsDoc(result)),
-        ...(quiet ? [] : existingSubagentsDoc(result, options.displayDirectory)),
         ...next,
       ];
     }

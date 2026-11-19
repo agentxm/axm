@@ -41,9 +41,11 @@ import {
   artifactChange,
   artifactChangeMark,
   blockingClass,
+  capitalized,
   count,
   disposition,
   emphatic,
+  invocation,
   exitPhrase,
   factParts,
   interruptionPhrase,
@@ -61,6 +63,8 @@ import {
   resultLedgerColumns,
   scopePhrase,
   sharedDispositionStatement,
+  verdictFacts,
+  type VerdictPhrase,
   subjectHeader,
   subjectNoun,
   unitState,
@@ -352,11 +356,31 @@ const rowChildren = (
     (outcome) => detailed || outcome.outcome === "failed" || outcome.outcome === "blocked",
   );
   return [
-    ...(unit.artifact?.executionChanges ?? []).map((change) => ({
-      _tag: "paragraph" as const,
-      tone: "dim" as const,
-      text: `${change.name}: ${change.source}\nRegistrations: ${change.registrations.map((registration) => `${registration.target} (${registration.change})`).join(", ")}\nContent: ${change.contentIdentity}\n${change.details.join("\n")}\n${change.secretReferenceChanges.previous === "known" ? `Removed inputs: ${change.secretReferenceChanges.removed.join(", ") || "none"}` : "Previous input requests unavailable."}`,
-    })),
+    ...(unit.artifact?.executionChanges ?? []).flatMap((change): Doc => [
+      {
+        _tag: "fields",
+        fields: [
+          { label: change.name, value: change.source },
+          {
+            label: "Registrations",
+            value: change.registrations
+              .map((registration) => `${registration.target} (${registration.change})`)
+              .join(PROSE_SEPARATOR),
+          },
+          { label: "Content", value: change.contentIdentity },
+          {
+            label: "Removed inputs",
+            value:
+              change.secretReferenceChanges.previous === "known"
+                ? change.secretReferenceChanges.removed.join(PROSE_SEPARATOR) || "none"
+                : "unknown, previous input requests unavailable",
+          },
+        ],
+      },
+      ...change.details.map(
+        (detail) => ({ _tag: "paragraph", tone: "dim", text: detail }) as const,
+      ),
+    ]),
     ...sourceSwitchChildren(unit.artifact),
     ...membershipChildren(unit.artifact),
     ...outcomes.map(
@@ -364,11 +388,14 @@ const rowChildren = (
         ({
           _tag: "paragraph",
           tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}${outcome.reason === undefined || outcome.outcome === "projected" || outcome.outcome === "current" ? "" : ` — ${outcome.reason}`}`,
+          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}${outcome.reason === undefined || outcome.outcome === "projected" || outcome.outcome === "current" ? "" : ` (${cellReason(outcome.reason)})`}`,
         }) as const,
     ),
   ];
 };
+
+/** A producer's sentence set inside another line, without its closing stop. */
+const cellReason = (reason: string): string => reason.trimEnd().replace(/\.$/, "");
 
 const withChildren = (row: LedgerRow, children: Doc): LedgerRow =>
   children.length === 0 ? row : { ...row, children };
@@ -1084,25 +1111,26 @@ export const operationDoc = (
   const counts = countUnitStates(resolution.units);
   const presentation = resolution.presentation ?? defaultOperationPresentation;
   const unchanged = unchangedByFailure(resolution.units, resolution.mode, outcome);
-  const verdict =
-    options.message ??
-    (outcome === "blocked" && resolution.blocking !== undefined
-      ? `${outcomeHeadline(presentation, outcome, counts)} - ${blockingClass(resolution.blocking.class)}`
-      : unchanged === "restored"
-        ? rolledBackVerdict(presentation)
-        : unchanged === "untouched"
-          ? nothingChangedVerdict(presentation)
-          : outcome === "interrupted" && resolution.interruption !== undefined
-            ? interruptionPhrase(
-                resolution.interruption.signal,
-                resolution.interruption.disposition,
-              )
-            : outcomeHeadline(presentation, outcome, {
-                ...counts,
-                // Members a closure settled have rows of their own, so the
-                // claim counts them with the units they came in.
-                committed: counts.committed + nestedChanges(resolution.units, resolution.mode),
-              }));
+  const verdict: VerdictPhrase =
+    options.message !== undefined
+      ? { claim: options.message }
+      : outcome === "blocked"
+        ? outcomeHeadline(presentation, outcome, counts)
+        : unchanged === "restored"
+          ? rolledBackVerdict(presentation)
+          : unchanged === "untouched"
+            ? { claim: nothingChangedVerdict(presentation) }
+            : outcome === "interrupted" && resolution.interruption !== undefined
+              ? interruptionPhrase(
+                  resolution.interruption.signal,
+                  resolution.interruption.disposition,
+                )
+              : outcomeHeadline(presentation, outcome, {
+                  ...counts,
+                  // Members a closure settled have rows of their own, so the
+                  // claim counts them with the units they came in.
+                  committed: counts.committed + nestedChanges(resolution.units, resolution.mode),
+                });
   const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
   const visible = resolution.units.filter(
     (unit) =>
@@ -1229,7 +1257,22 @@ export const operationDoc = (
             children: [
               {
                 _tag: "paragraph",
-                text: `Run \`${renderCommandInvocation(commandForScope({ command: ["agents", "add"], arguments: [{ _tag: "Switch", flag: "--detected", enabled: true }] }, coverage.scope, options.scopedRoutes ?? NO_SCOPED_ROUTES))}\`, then retry.`,
+                text: [
+                  { text: "Run " },
+                  ...invocation(
+                    renderCommandInvocation(
+                      commandForScope(
+                        {
+                          command: ["agents", "add"],
+                          arguments: [{ _tag: "Switch", flag: "--detected", enabled: true }],
+                        },
+                        coverage.scope,
+                        options.scopedRoutes ?? NO_SCOPED_ROUTES,
+                      ),
+                    ) ?? "axm agents add --detected",
+                  ),
+                  { text: ", then run this command again." },
+                ],
               },
             ],
           } as const,
@@ -1237,8 +1280,8 @@ export const operationDoc = (
     ...verdictDoc({
       ledger: ledger.length > 0,
       tone: headlineTone(outcome),
-      verdict,
-      aside,
+      verdict: verdict.claim,
+      aside: verdictFacts(verdict, aside),
       // A blocked operation stopped on a condition a person must resolve, so
       // its reason stands with its verdict; a failure's reason follows it, and
       // where neither says anything the state the unsettled units share does.
@@ -1248,7 +1291,13 @@ export const operationDoc = (
             ? { reason: settledAlike }
             : {}
           : { reason: verdictReason }
-        : { reason: resolution.blocking.detail, blocked: true }),
+        : {
+            reason:
+              resolution.blocking.detail.length > 0
+                ? resolution.blocking.detail
+                : `${capitalized(blockingClass(resolution.blocking.class))}.`,
+            blocked: true,
+          }),
     }),
     ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
   ];
@@ -1275,7 +1324,7 @@ export const verdictDoc = (verdict: {
         _tag: "callout",
         tone: verdict.tone,
         title: emphatic(verdict.verdict),
-        ...(verdict.aside.length === 0 ? {} : { aside: joined(verdict.aside) }),
+        ...(verdict.aside.length === 0 ? {} : { aside: factParts(verdict.aside) }),
         ...(verdict.reason === undefined
           ? {}
           : { children: [{ _tag: "paragraph", text: verdict.reason }] }),

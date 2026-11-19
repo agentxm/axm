@@ -7,19 +7,10 @@ import type {
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import { verdictDoc } from "../../operation-view.js";
 import {
-  ALREADY_PUBLISHED,
   NOT_TRIED,
   bytes,
   count,
   factParts,
-  publishDisposition,
-  publishOutcome,
-  publishParticipation,
-  publishPhase,
-  publishReason,
-  publishSourceDifferences,
-  publishSourceState,
-  publishVisibilityOrigin,
   suggestionsDoc,
   ABSENT,
   PROSE_SEPARATOR,
@@ -34,6 +25,17 @@ import {
   type LedgerRow,
   type Mark,
 } from "../../screen/index.js";
+import {
+  ALREADY_PUBLISHED,
+  publishDisposition,
+  publishOutcome,
+  publishParticipation,
+  publishPhase,
+  publishReason,
+  publishSourceDifferences,
+  publishSourceState,
+  publishVisibilityOrigin,
+} from "./phrases.js";
 import {
   distinct,
   publishIdentity as identity,

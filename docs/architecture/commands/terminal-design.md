@@ -125,11 +125,19 @@ reached fold into one `· n not tried` line, and verbose level names each with
 its reason. What an unsettled unit was left in follows its reason, unless the
 verdict already states it for every such unit. Row children carry per-agent outcomes and details,
 aligned to the same column and shown at verbose level. A ledger takes any
-columns: lint's are finding, location, and fix, with the rule identifier and
-help as a dim child line, and a rule that repeats folds into one row with a
-location count. The separator between semantic parts of an aside or summary
-belongs to the painter; a view supplies parts and never spells it. Prose
-within a single ledger cell remains prose.
+columns: lint's are finding, location, and fix, with the rule's help and its
+identifier in parentheses as a dim child line, and a rule that repeats folds
+into one row with a location count.
+
+The separator between facts belongs to the painter. A headline's aside, a
+callout's aside, and a summary are lists of parts the painter joins with the
+glyph set's separator; a view supplies parts and never spells one, and the
+`axm-policy/no-spelled-separator` lint rule holds CLI sources to that. A
+verdict is a claim and the facts beside it: a consequence such as `all changes
+rolled back` or `no changes made` is the aside's first fact, never a dash
+inside the claim. Where an aside wraps, the separator stays on the line of the
+fact before it, so no line opens with one. Prose within a single ledger cell
+or reason remains prose, joined with commas and parentheses as a sentence is.
 
 The painter owns vertical spacing, so a view never spaces result blocks
 itself: `blank` separates only two paragraphs of authored prose, and the
@@ -155,6 +163,26 @@ inventory, so an inventory that changed nothing is a table. A detail page is a
 headline with a dim aside, a paragraph, fields, and a `next` command, and a
 single requested field prints raw.
 
+## Wording
+
+Every human sentence shares one grammar, and each kind of fact has one form.
+`apps/cli/src/screen/grammar.ts` owns the general forms: counts and plurals,
+prose lists with a serial comma, decimal sizes, durations, the open-wait
+clock, sentence case, and dates — a day as `21 Sep 2026` and a moment as
+`21 Sep 2026 16:44 UTC`, both in UTC. `apps/cli/src/screen/phrases.ts` owns the
+operation vocabulary every plan-family command shares: titles, verdicts, unit
+states, dispositions, and blocking conditions. Wording that only one command
+speaks lives with that command, as publish's does in
+`apps/cli/src/root/publish/phrases.ts`.
+
+A headline, verdict, title, label, empty state, and `Next` description is a
+phrase: it opens with a capital, states no closing stop, and never ends in an
+ellipsis. Reasons, callout bodies, and paragraphs are prose and punctuate as
+sentences. Problem titles are sentence case. One idea takes one term: a
+person signs in and signs out, a command that left the workspace as it found
+it made `no changes`, and a unit the workspace already matches is `already
+current`.
+
 ## Tone and glyphs
 
 Tone is meaning, not decoration. `ok` marks a satisfied outcome, `warn` a
@@ -176,10 +204,11 @@ Where a glyph goes is fixed. A row carries its own mark. A verdict that follows
 a ledger has no glyph, because the rows already carry status; it is bold and
 toned. A problem with no ledger above it leads with its glyph in the gutter. A
 callout always has one. A blocked verdict is the one callout that states an
-outcome: the operation is waiting on a person, so it keeps the attention mark
-and carries its reason beneath it.
+outcome: the operation is waiting on a person, so it keeps the attention mark,
+claims only that the command is blocked, and carries the condition beneath it
+as its reason.
 
-A problem reads the same for every error kind: a title naming the category,
+A problem reads the same for every error kind: a sentence-case title naming the category,
 with the stable code and the process exit code as a dim aside at the value
 column; the reason beneath it; identifiers as fields, where validation failures
 list the inputs they rejected in place of a sentence; and every recovery as a
@@ -190,9 +219,9 @@ the operation stopped before is · not tried, and a unit in flight when a
 restoring operation stopped is ↶ rolled back. Their verdict's aside ends with
 the exit code. A failure that committed nothing, and whose units are each
 known to be restored or untouched, never counts the units it did not change:
-its verdict says `Nothing installed`, and `Nothing installed - all changes
-rolled back` where it restored something, which states once what every row was
-left in.
+its verdict says `Nothing installed`, with `all changes rolled back` as the
+first fact of its aside where it restored something, which states once what
+every row was left in.
 
 Glyph width is measured, not trusted. Every glyph counts as one cell, as
 terminals draw East Asian Ambiguous characters outside East Asian contexts.
@@ -308,7 +337,8 @@ moves to its own line, in a ledger cell as anywhere else. Apart from `raw` and
 overflow the width. A `Next` action, whether a command or a link, carries its
 description beside the target where both fit and beneath it where they do not,
 hanging two columns in so that without colour it is not read as another
-command.
+command. A description is a fragment, so the painter drops the closing stop of
+a single sentence.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;

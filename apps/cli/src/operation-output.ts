@@ -92,7 +92,7 @@ import {
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
-import { emitResult, count, type Doc } from "./screen/index.js";
+import { emitResult, count, moment, type Doc } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -960,13 +960,13 @@ const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
   const kept = record.selectedVersion ?? record.currentVersion;
   const candidate = `${record.candidateVersion}${releaseAgeRequiredBy(record)}`;
   return kept === undefined
-    ? `${record.target} ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`
-    : `${record.target}: using ${kept}; ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`;
+    ? `${record.target} ${candidate} was published ${moment(record.publishedAt)} and becomes available ${moment(record.eligibleAt)}`
+    : `${record.target}: using ${kept}; ${candidate} was published ${moment(record.publishedAt)} and becomes available ${moment(record.eligibleAt)}`;
 };
 
 const releaseAgeBypassLines = (record: ReleaseAgeRecordView): ReadonlyArray<string> => [
-  `${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} — published ${record.publishedAt}`,
-  `${releaseAgeExemption(record)}; otherwise held until ${record.eligibleAt}`,
+  `${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} was published ${moment(record.publishedAt)}`,
+  `${releaseAgeExemption(record)}; otherwise held until ${moment(record.eligibleAt)}`,
 ];
 
 const RELEASE_AGE_OVERRIDE = "--ignore-release-age";

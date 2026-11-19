@@ -1,5 +1,5 @@
  ✖   Invalid skill name
-                    validation, exit 9
+                    validation · exit 9
      Name           "Code Review!"
      --debug shows the cause.
 Next
@@ -9,17 +9,16 @@ Next
      chars)
 
  ✖   Unrecognized flag --staged
-                    usage, exit 2
+                    usage · exit 2
 Next
      axm list --help
        See the flags the command takes
 
- ✖   Internal Error   internal, exit 10
+ ✖   Internal error   internal · exit 10
      Cannot read properties of undefined
      (reading 'agents')
      --debug shows the cause.
 Next
      https://github.com/agentxm/axm/issues/new/choose
-       This looks like a bug. Please
-       report it and include the
-       Diagnostic ID if one is shown.
+       Report this bug, with the
+       diagnostic ID if one is shown

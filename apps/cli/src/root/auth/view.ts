@@ -48,11 +48,14 @@ export const authProgressUnitId = (progress: AuthLoginProgress): string => {
 
 /** The one question a session that is still valid raises. */
 export const existingSessionNote = (handle: string): AuthViewEntry => ({
-  doc: headlineDoc("info", `Already logged in as ${handle}.`),
+  doc: headlineDoc("info", `Already signed in as ${handle}`),
 });
 
 export const rejectedStoredCredentialsNote: AuthViewEntry = {
-  doc: headlineDoc("info", "Your saved credentials are no longer valid. Starting a new sign-in…"),
+  doc: headlineDoc(
+    "info",
+    "Saved credentials are no longer valid, so AXM is starting a new sign-in",
+  ),
 };
 
 export const deviceCodeFallbackNote = (
@@ -65,6 +68,32 @@ export const deviceCodeFallbackNote = (
   ),
   instruction: true,
 });
+
+/** The sign-in that needs no browser on this machine, for a remote or headless one. */
+const deviceCodeAction: SuggestedAction = {
+  description: "Sign in with a code instead, on a remote or headless machine",
+  cmd: "axm login --device-code",
+};
+
+/**
+ * What browser sign-in asks of a person: the link the browser opened, or
+ * should have, set apart so it is never cut, and the sign-in that needs no
+ * local browser as the one alternative.
+ */
+const browserSignInBrief = (handoff: {
+  readonly authorizeUrl: string;
+  readonly browserOpened?: boolean;
+}): Doc => [
+  {
+    _tag: "paragraph",
+    text:
+      handoff.browserOpened === true
+        ? "To sign in, finish in the browser that opened, or open this link:"
+        : "To sign in, open this link in a browser:",
+  },
+  { _tag: "paragraph", inset: true, text: [{ text: handoff.authorizeUrl, copyable: true }] },
+  { _tag: "next", actions: [deviceCodeAction] },
+];
 
 /** The page that carries the code already: the one a person is asked to open. */
 const signInPageAction = (handoff: {
@@ -141,23 +170,7 @@ const handoffBrief = (handoff: HumanHandoff): Doc => {
     case "DeviceLogin":
       return terminalSignInBrief(handoff);
     case "LoopbackLogin":
-      return [
-        {
-          _tag: "paragraph",
-          text: handoff.browserOpened
-            ? "Authorize AXM in the browser that just opened."
-            : "Authorize AXM in a browser.",
-        },
-        {
-          _tag: "next",
-          actions: [{ description: "Authorize AXM", url: handoff.authorizeUrl }],
-        },
-        {
-          _tag: "paragraph",
-          tone: "dim",
-          text: `Sign-in returns to ${handoff.redirectUri}. On a remote or headless machine, run \`axm login --device-code\`.`,
-        },
-      ];
+      return browserSignInBrief(handoff);
   }
 };
 
@@ -226,7 +239,7 @@ export const pendingHandoffBrief = (result: DeviceLoginPendingResult): Doc =>
  * pages to open came with the guidance above it, so only the resume is left.
  */
 export const pendingApprovalDoc = (result: DeviceLoginPendingResult): Doc => [
-  { _tag: "headline", tone: "warn", text: "Sign-in is waiting for you in the browser." },
+  { _tag: "headline", tone: "warn", text: "Sign-in is waiting for you in the browser" },
   { _tag: "next", actions: [resumeAction(result)] },
 ];
 
@@ -259,21 +272,12 @@ export const loopbackStartView = (start: {
   readonly redirectUri: string;
   readonly authorizeUrl: string;
 }): ReadonlyArray<AuthViewEntry> => [
-  {
-    doc: paragraphDoc(`Starting local sign-in server on ${start.redirectUri}.`),
-    instruction: true,
-  },
-  {
-    doc: paragraphDoc(
-      `If the browser does not open, visit:\n\n${start.authorizeUrl}\n\nOn a remote or headless machine, run \`axm login --device-code\`.`,
-    ),
-    instruction: true,
-  },
+  { doc: browserSignInBrief({ authorizeUrl: start.authorizeUrl }), instruction: true },
 ];
 
 export const loopbackBrowserOutcomeView = (opened: boolean): AuthViewEntry =>
   opened
-    ? { doc: headlineDoc("info", "Opening your browser to authorize AXM.") }
+    ? { doc: paragraphDoc("Opened your browser to sign in.") }
     : {
         doc: paragraphDoc(
           "Could not open the system browser. Use the authorization URL above to continue.",

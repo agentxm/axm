@@ -320,7 +320,7 @@ describe("root publish", () => {
           new Response(
             JSON.stringify({
               type: "https://registry.agentxm.ai/v1/problems/not_found",
-              title: "Not Found",
+              title: "Not found",
               status: 404,
               detail: "Extension not found",
               code: "not_found",
@@ -438,7 +438,7 @@ describe("root publish", () => {
             "",
             "     Visibility                    public (from platform defaults)",
             "",
-            "Would publish 1 extension  nothing was uploaded",
+            "Would publish 1 extension  no changes made",
             "--verbose for details",
           ]);
         }),
@@ -569,9 +569,7 @@ describe("root publish", () => {
           expect(lines).toContain(
             " !!  @acme/skills/review           1.0.0     blocked   1 path differs from HEAD",
           );
-          expect(lines).toContain(
-            " !!  Publish is blocked — an explicit override is required   1 blocked, exit 2",
-          );
+          expect(lines).toContain(" !!  Publish is blocked            1 blocked - exit 2");
           expect(
             rendererState.suggestions.some((suggestion) =>
               suggestion.cmd?.includes("--accept-warnings"),
@@ -720,7 +718,7 @@ describe("root publish", () => {
             "     Registry upload is temporarily unavailable.",
             "     request req_retry",
             "",
-            "Publish failed for 1 extension  1 failed - exit 8",
+            "Failed to publish 1 extension  1 failed - exit 8",
             "",
             "Next",
             "     axm publish @acme/skills/review   Continue the failed items and their blocked dependents",

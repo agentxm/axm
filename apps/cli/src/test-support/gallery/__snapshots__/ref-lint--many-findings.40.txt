@@ -3,23 +3,21 @@ Linting  in this project
      Finding        Location     Fix
  ✖   Descri…ssing   12
                     locations
-     skill/description-present —
      skills/triage/SKILL.md,
      skills/standup/SKILL.md, and 10
-     more
+     more (skill/description-present)
  ✖   Lockfi…stale   axm.lock     fixable
-     workspace/lockfile-valid — 2
-     entries do not match axm.json
+     2 entries do not match axm.json
+     (workspace/lockfile-valid)
  ▲   Name d…ctory   7
                     locations
-     skill/name-matches-directory —
      skills/code_review, skills/lintFix,
      and 5 more
+     (skill/name-matches-directory)
  ▲   Member…loats   3
                     locations
-     pack/member-pinned —
      packs/review-kit, packs/ops, and 1
-     more
+     more (pack/member-pinned)
 
 13 errors and 10 warnings
   in 23 locations · 1 fixable · exit 1

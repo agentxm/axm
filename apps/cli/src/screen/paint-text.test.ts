@@ -540,7 +540,7 @@ describe("paintText", () => {
         _tag: "callout",
         tone: "error",
         title: "Invalid skill name",
-        aside: "validation · exit 9",
+        aside: [{ text: "validation" }, { text: "exit 9" }],
         children: [
           {
             _tag: "fields",

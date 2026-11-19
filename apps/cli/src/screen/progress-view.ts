@@ -1,8 +1,8 @@
 /** Semantic narration shared by terminals and pipes; measurements stay transient. */
 import { plain, type Doc, type Tone } from "./doc.js";
 import { factParts } from "./docs.js";
+import { capitalized, duration } from "./grammar.js";
 import {
-  duration,
   phaseLabel,
   progressMeasure,
   retryAttempt,
@@ -21,7 +21,6 @@ export interface NarrationOptions {
   readonly attributeOperation?: boolean;
 }
 
-const sentence = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 const incomplete = (unit: ProgressUnitState): boolean =>
   unit.failure !== undefined ||
   unit.status === "failed" ||
@@ -44,7 +43,7 @@ const phaseConclusion = (state: ProgressState, next: ProgressState): Doc => {
       _tag: "headline",
       tone: problems > 0 || unsuccessful ? "warn" : running ? "info" : "ok",
       text: stopped
-        ? `${sentence(activity)} stopped`
+        ? `${capitalized(activity)} stopped`
         : running
           ? `Leaving ${activity}; work continues`
           : `Finished ${activity}`,
@@ -75,7 +74,7 @@ export const progressActivity =
       phaseUnits.length <= total
         ? `${String(finished)} of ${String(total)} work items finished${failed === 0 ? "" : `, ${String(failed)} did not complete as planned`}`
         : undefined;
-    const activity = state.phase === undefined ? "Working" : sentence(phaseLabel(state.phase));
+    const activity = state.phase === undefined ? "Working" : capitalized(phaseLabel(state.phase));
     const retry = unit?.attempt === undefined ? undefined : retryAttempt(unit.attempt);
     const details = [
       wait === undefined
@@ -119,7 +118,7 @@ export const progressTransitionDoc = (
       if (next.phase === "restoration") {
         doc.push({ _tag: "headline", tone: "warn", text: "Restoring affected changes" });
       } else if (options.static) {
-        doc.push({ _tag: "headline", tone: "info", text: sentence(phaseLabel(next.phase)) });
+        doc.push({ _tag: "headline", tone: "info", text: capitalized(phaseLabel(next.phase)) });
       }
     }
   }

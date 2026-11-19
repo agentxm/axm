@@ -2,5 +2,4 @@ Setting up AXM in ~/code/storefront for
 this project
  ✔   Checked for coding agents
                     found 4 agents
- ▲   Setup cancelled
-                    nothing was changed
+ ▲   Cancelled      no changes made

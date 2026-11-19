@@ -274,7 +274,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     const error = toAppError(producer);
 
     expect(error.code).toBe("internal");
-    expect(error.title).toBe("Internal Error");
+    expect(error.title).toBe("Internal error");
     expect(error.detail).toBe("An internal error occurred.");
     expect(error.metadata?.response).toEqual({ status: 502, body: "gateway unavailable" });
     expect(error.cause).toBe(producer);
@@ -286,7 +286,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
       registryErrorToProblem(
         {
           type: "about:blank",
-          title: "Too Many Requests",
+          title: "Too many requests",
           status: 429,
           detail: "Rate limited",
           code: "rate_limited",
@@ -297,7 +297,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     );
 
     expect(error.code).toBe("rate_limit");
-    expect(error.title).toBe("Too Many Requests");
+    expect(error.title).toBe("Too many requests");
     expect(error.detail).toBe("Rate limited");
     expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
   });
@@ -393,10 +393,10 @@ describe("registry-client failure conversion (golden pairs)", () => {
     );
 
     expect(error.code).toBe("timeout");
-    expect(error.title).toBe("Timed Out");
+    expect(error.title).toBe("Timed out");
     expect(renderAppError(error)).toBe(
       [
-        " ✖   Timed Out                     timeout, exit 16",
+        " ✖   Timed out                     timeout · exit 16",
         "     Registry request did not complete within the configured deadline.",
         "     Registry                      https://registry.agentxm.ai",
         "     --debug shows the cause.",
@@ -405,7 +405,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     expect(makeJsonErrorEnvelopeFromAppError(error)).toMatchObject({
       ok: false,
       code: "timeout",
-      title: "Timed Out",
+      title: "Timed out",
       detail: "Registry request did not complete within the configured deadline.",
       metadata: { request: requestMetadata },
     });
@@ -422,7 +422,7 @@ describe("extension-sources failure conversion (golden pairs)", () => {
     const error = toAppError(producer);
 
     expect(error.code).toBe("validation");
-    expect(error.title).toBe("Invalid Request");
+    expect(error.title).toBe("Invalid request");
     expect(error.detail).toBe('Invalid provider shorthand "github:x"');
     expect(error.suggestions).toBeUndefined();
     expect(error.cause).toBe(producer);

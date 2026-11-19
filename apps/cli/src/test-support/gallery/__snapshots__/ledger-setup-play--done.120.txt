@@ -19,10 +19,10 @@ Setting up AXM in ~/code/storefront for this project
  +   .agents/skills/axm            created           Codex
  +   .cursor/skills/axm            created           Cursor
 
-Set up AXM for 3 agents  8 created, 1 updated
-
  ●   Some extension types are limited for this project
      Hook: AXM cannot write Cursor hooks yet.
+
+Set up AXM for 3 agents  8 created · 1 updated
 
 Next
      axm discover   Discover recommended extensions

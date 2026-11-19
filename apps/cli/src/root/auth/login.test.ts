@@ -479,7 +479,7 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           messages(rendererState).some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(true);
         expect(sessionReplacementPrompts).toEqual([true]);
@@ -504,7 +504,7 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: true, deviceCode: true });
         expect(
           messages(rendererState).some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(true);
         expect(
@@ -552,12 +552,12 @@ describe("auth login handler", () => {
           yield* handleLogin({ yes: true, deviceCode: true });
           expect(
             messages(rendererState).filter(
-              (l) => l._tag === "success" && l.message.includes("Already logged in to"),
+              (l) => l._tag === "success" && l.message.includes("Already signed in to"),
             ),
           ).toEqual([]);
           expect(messages(rendererState)).toContainEqual({
             _tag: "info",
-            message: `Already logged in as ${ALICE}.`,
+            message: `Already signed in as ${ALICE}`,
           });
           // The non-interactive device flow hands the approval to a person
           // instead of blocking on the poll.
@@ -581,7 +581,7 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(messages(rendererState)).toContainEqual({
           _tag: "success",
-          message: "Already logged in to registry.agentxm.ai as @alice.",
+          message: "Already signed in to registry.agentxm.ai as @alice",
         });
         expect(rendererState.suggestions).toContainEqual({
           description: "Sign in again with a different account",
@@ -607,7 +607,7 @@ describe("auth login handler", () => {
         ).toHaveLength(0);
         expect(messages(rendererState)).toContainEqual({
           _tag: "success",
-          message: "Already logged in to registry.agentxm.ai as @alice.",
+          message: "Already signed in to registry.agentxm.ai as @alice",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "Check active account", cmd: "axm whoami" },
@@ -659,12 +659,12 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           messages(rendererState).some(
-            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+            (l) => l._tag === "info" && l.message.includes("Already signed in"),
           ),
         ).toBe(false);
         expect(messages(rendererState)).toContainEqual({
           _tag: "info",
-          message: "Your saved credentials are no longer valid. Starting a new sign-in…",
+          message: "Saved credentials are no longer valid, so AXM is starting a new sign-in",
         });
       }),
     );

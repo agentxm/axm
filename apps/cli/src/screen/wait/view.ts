@@ -9,7 +9,8 @@
  */
 
 import type { Doc, PromptChip } from "../doc.js";
-import { duration, remainingTime, waitKeyWord } from "../phrases.js";
+import { duration, remainingTime } from "../grammar.js";
+import { waitKeyWord } from "../phrases.js";
 import type { WaitKeys, WaitView } from "./wait.js";
 
 /** The keys an open wait offers, in paint order; stopping is always offered. */

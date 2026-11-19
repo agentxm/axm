@@ -191,7 +191,7 @@ export const cancelledOutcome: SetupOutcome = {
   outcome: "cancelled",
   status: "cancelled",
   agents: [],
-  message: "Setup cancelled — no changes applied",
+  message: "Setup cancelled; no changes made",
 };
 
 export const previewOutcome: SetupOutcome = {

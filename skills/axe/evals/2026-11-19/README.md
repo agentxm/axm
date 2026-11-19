@@ -88,3 +88,16 @@ maintainer as the dependency owner, and set a point to revisit alternatives.
 A publisher asking what to tell consumers opened both the lifecycle and
 management guides and drafted a migration note covering the successor and a
 host check. Both cases used supplied scenarios without a live Registry migration.
+
+## Who owns the correction after a branch switch?
+
+Two fresh read-only sessions received the same workspace management guide and
+a stale release-note draft as the symptom. In the first scenario, the project
+installed only published extensions. The reader recommended checking the branch's
+selected release, assigned a missing rule change to the publisher, and pointed to
+built-in AXM help for reconciling a stale checkout. In the second, the team
+authored the rule and a pack that selected a vendor skill. The reader located
+rule wording in the canonical source, dependency selection in the pack, and
+skill behavior with the vendor. Both proposed checking a draft in a fresh
+host session. The second also proposed testing the packaged change in a clean
+consumer workspace. These trials exercised interpretation of the guide.

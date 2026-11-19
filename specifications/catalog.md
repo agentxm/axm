@@ -1583,7 +1583,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/workspace-management`
 - Owner: `axm`
-- Statement: The engineering pack shall route policy questions about changing workspaces to guidance on choosing and verifying a management policy for the affected users and hosts, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.
+- Statement: The engineering pack shall route workspace policy questions to guidance on choosing and verifying a policy for the affected users and hosts according to who owns each extension, including in workspaces that author none, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`

@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/workspace-management",
   title: "Teams can choose how to keep extension workflows usable as their workspace changes",
   statement:
-    "The engineering pack shall route policy questions about changing workspaces to guidance on choosing and verifying a management policy for the affected users and hosts, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.",
+    "The engineering pack shall route workspace policy questions to guidance on choosing and verifying a policy for the affected users and hosts according to who owns each extension, including in workspaces that author none, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],

@@ -1,27 +1,37 @@
 ---
 type: Guide
 title: "Managing an agent-extension workspace over time"
-description: "Choose how to keep shared extensions usable when branches, versions, or the people and hosts using them change."
+description: "Keep workflows usable across branch and version changes, whether your team installs published extensions or also authors its own."
 tags:
   [
     "workspace management",
     "drift",
     "branch switches",
+    "installed extensions",
+    "authored extensions",
     "shared rules",
     "personal scope",
     "deprecated extensions",
     "retirement",
   ]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:53:18Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:59:53Z" }
 ---
 
 # Managing an agent-extension workspace over time
 
-Start with a task the [workspace setup](workspace-setup.md) already supports.
-A contributor can draft a release note using the team's current policy. What
-should happen to that workflow when the contributor switches branches or the
-team retires the drafting skill?
+A team that installs only published extensions still manages a workspace.
+It chooses which extensions and versions to use, what belongs in project or
+personal scope, and which hosts receive them. When the [workspace setup](workspace-setup.md)
+changes, check that contributors can still do their work. In AXM,
+`axm help basic-usage` covers routine installation, sync, and updates.
+
+Identify ownership for each extension. For example, a team can author a
+release pack that includes a third-party drafting skill. The team can change
+which skill the pack selects. The skill’s publisher owns its implementation.
+When the team changes its pack, check both the author's workspace and
+[what a clean consumer gets from the packaged release](composing-packs.md).
+The outcomes below apply whether the team authors any packages or only uses them.
 
 ## Outcomes of effective workspace management
 
@@ -36,13 +46,13 @@ team retires the drafting skill?
 
 ## A shared rule changes after a pull
 
-Suppose the release policy on the new branch requires a rollback instruction
-in each note. A contributor pulls the change and still gets the old format.
-Compare the branch's declaration and accepted version, the instructions
-present where that contributor's host reads them, and a draft from a fresh
-session in that worktree. If the local instructions are stale, reconcile them
-with the branch. If they are current, use the fresh-session result to decide
-whether the problem persists before changing shared configuration.
+Suppose the new branch requires a rollback instruction in each release note,
+but a contributor still gets the old format. What changed on the branch?
+
+| Change                                                    | What the team owns and can check                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The project adopted a newer published rule.**           | Check the project declaration and the version accepted on this branch. If that release contains the rollback requirement, reconcile the checkout with it. If the release itself lacks the requirement, revisit the selection or raise the issue with the publisher. |
+| **The project authors the rule and changed its wording.** | Inspect the canonical rule source on the branch. Correct it there if needed, then reconcile the instructions generated from it. If the team distributes the rule, try the packaged change in a separate consumer workspace as well.                                 |
 
 Choose the branch-switch policy by its effects. An advisory check gives
 contributors a chance to review local edits, at the cost of a manual step
@@ -53,8 +63,9 @@ release is a separate adoption decision, even if it becomes available during
 the switch. In AXM, see `axm help workspace-state` for reconciliation and
 `axm help git-hooks` for Git events and commands.
 
-Try a switch between branches with different release policies. Ask for a
-draft in a fresh session and check it against that branch's expected format.
+Try a switch between branches with different release policies. Inspect the
+instructions the contributor's host receives, then ask for a draft in a fresh
+session and check it against that branch's expected format.
 On a second check of the same branch, the contributor should have no further
 repair to make.
 

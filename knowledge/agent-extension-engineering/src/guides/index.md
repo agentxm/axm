@@ -13,7 +13,7 @@ For “will this still work after a branch switch?”, start with workspace mana
 - [Designing and reviewing sets of extensions](extension-sets.md) — Trace a change and a request to decide which extensions should evolve independently, work together, or ship together.
 - [Composing extension packs](composing-packs.md) — Choose pack members and compatible versions from the job a clean installation must support.
 - [Designing and reviewing a workspace setup](workspace-setup.md) — Trace a user's workflow through the capabilities, scopes, and hosts that the workspace supplies.
-- [Managing an agent-extension workspace over time](workspace-management.md) — Choose how to keep shared extensions usable when branches, versions, or the people and hosts using them change.
+- [Managing an agent-extension workspace over time](workspace-management.md) — Keep workflows usable across branch and version changes, whether your team installs published extensions or also authors its own.
 
 ## Author the selected surface
 

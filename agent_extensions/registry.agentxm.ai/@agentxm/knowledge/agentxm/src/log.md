@@ -2,7 +2,9 @@
 
 ## 2026-11-19
 
-- Updated shared terminology links to the [Agent Extension Glossary](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md) in the AXE knowledge bundle.
+- Updated shared terminology links to the
+  [Agent Extension Glossary](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md)
+  in the AXE knowledge bundle.
 
 ## 2026-11-14
 

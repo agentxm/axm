@@ -5,10 +5,10 @@ version = 1
 [[package]]
 id = "registry.agentxm.ai/@agentxm/knowledge/agentxm"
 source = { registry = "https://registry.agentxm.ai" }
-version = "1.6.0"
-archive = "sha512-HZhfOITBw88ai4IFd2Ohl8tijz7WKx+hg56JnaOP3sO1RQlCQpAWStL5+YMlBBYN3m7W36l6THUyx8tBWcMApw=="
+version = "1.6.1"
+archive = "sha512-V0NLJZd4M1Tm5dEtrszVCHNfhvZdT7dhara4dDnrIo0O5ZqoLUKi+3ksE+OMEqrp3FjJt+tse/Hr9nKABQ0gGA=="
 publisher = "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp"
-tree = "sha256-tree-v2:ffa1fec0b187c37015c92b2bd398cfbb0c387d3478b03c931f3f734a033fb993"
+tree = "sha256-tree-v2:f247582ca2062ed1a97f974c8f24495bff56b89f2061df44070a14dd1e169107"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/knowledge/docs"

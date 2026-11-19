@@ -25,8 +25,8 @@ ID (used in manifests, APIs, and persistence), a plural route segment (used in
 FQNs and CLI subcommands), and a product-facing label — the exact spellings are
 normative in [Identifier grammar](identifier-grammar.md).
 
-| Type ID      | Product label | What it does                                                                                                                        |
-| ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Type ID      | Product label | What it does                                                                                                                                    |
+| ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `skill`      | Skills        | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#agent-skill).           |
 | `mcp-server` | MCP Servers   | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#mcp-server-connection). |
 | `subagent`   | Subagents     | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#subagent).              |

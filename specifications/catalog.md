@@ -1491,10 +1491,9 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Role: experience
 - Product goals: `authoring-and-creation`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The shipped review guide expresses the decision. Paired, read-only host trials separately assess how reviewers apply it to open and focused requests.
+- Boundary rationale: The shipped review guide expresses the decision. The host trials recorded in skills/axe/evals/2026-11-18/review-scope.md separately assess open and focused reviews.
 - Methods: static, review
 - Assumptions: The reviewer has access to the engineering knowledge bundle.
-- Bound evidence: `review: skills/axe/evals/2026-11-18/review-scope.md` — Records findings, scope, and evidentiary limits for open, focused, corrected, and excerpt-only targets.
 - Source: [`scripts/axe-review-scope.spec.ts`](../scripts/axe-review-scope.spec.ts)
 
 ### Goal: extension-adoption

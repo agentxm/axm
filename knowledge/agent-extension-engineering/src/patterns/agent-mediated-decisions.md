@@ -41,6 +41,10 @@ and consequence visible, and allow a short text reply or a correction that
 doesn't fit the choices. Try the exchange in plain text to see whether a
 reader can still tell what they are deciding.[^interaction]
 
+Use a [prefilled form](prefilled-form.md) when the user can correct a partly
+known brief. Use [Select from findings](select-from-findings.md) when their
+answer determines which discovered items receive follow-up.
+
 When the user can recognize a good result more easily than they can describe
 it, put a small sample in front of them. Superpowers uses sketches and
 side-by-side mockups for visual choices.[^sketch] Anthropic’s skill creator
@@ -48,7 +52,8 @@ lets authors inspect actual trial outputs while revising a skill.[^outputs]
 For a review skill, show two findings about the same broken link, one written
 for the package author and one for the installer. Ask which reader should
 be able to act on the result. A short pair of drafts can settle the audience
-before the author spends time polishing the reporting format.
+before the author spends time polishing the reporting format. For a choice
+about the layout itself, [compare variants in context](compare-variants-in-context.md).
 
 A checkpoint costs attention. Quality setup deliberately spends some of it
 teaching a first-time model author what each choice controls.[^setup] On a

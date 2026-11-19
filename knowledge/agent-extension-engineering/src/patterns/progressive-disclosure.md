@@ -15,6 +15,9 @@ sources:
   - id: jupyter
     resource: https://github.com/openai/skills/blob/49f948faa9258a0c61caceaf225e179651397431/skills/.curated/jupyter-notebook/SKILL.md
     title: OpenAI Jupyter notebook skill
+  - id: playbook
+    resource: https://github.com/pbakaus/impeccable/blob/b49177d32788f2dc585c42831d845dacf1ebed2c/skill/SKILL.src.md
+    title: Impeccable main skill
 ---
 
 # Progressive disclosure
@@ -35,6 +38,12 @@ knowledge bundle so a reader can also look up the glossary directly.[^engineerin
 When a workflow depends on a separately installed bundle, [compose and check
 the pair](../guides/composing-packs.md) at compatible versions.
 
+Timing can matter even after the workflow has selected a reference. Impeccable
+opens the playbook for the requested operation and reads its shared design rules
+immediately before a UI edit.[^playbook] A planning request can finish at the
+brief. Try a plan-only request and an editing request against the same target.
+Check which step first needs the detailed rules and place the retrieval cue there.
+
 Try an ordinary request from the reader's starting point. Which cue would tell
 them to retrieve the material? If they can finish using a familiar but obsolete
 convention, consider a short [scoped pointer](scoped-instructions.md) to the
@@ -46,3 +55,5 @@ time the reader takes it.
 [^docs]: Docs skill, need-to-concept table.
 
 [^engineering]: Agent extension engineering skill, use-case table.
+
+[^playbook]: Impeccable, playbook selection and guidance before editing.

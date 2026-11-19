@@ -2,6 +2,12 @@
 
 ## Candidate 0.2.0
 
+Authors can now look up five workflow patterns individually: Display template,
+Prefilled form, Select from findings, Compare variants in context, and Workflow
+handoff artifact. The guides and patterns also cover bare invocation, loading
+guidance at the step that uses it, independent review evidence, and testing a
+completed artifact with a fresh reader.
+
 The skill authoring guide now starts with a use case and links to individual
 patterns for invocation policy, trigger cues, neighboring intent, routing after
 inspection, and invocation trials. The pattern index groups these decisions by

@@ -9,6 +9,9 @@ sources:
   - id: eval
     resource: https://developers.openai.com/blog/eval-skills
     title: OpenAI skill evaluation guide
+  - id: reader
+    resource: https://github.com/anthropics/skills/blob/e4bb5d960d87126ff3b3a8af1a104b7db67560ba/skills/doc-coauthoring/SKILL.md
+    title: Anthropic doc-coauthoring skill
 ---
 
 # Verifying extension behavior
@@ -56,5 +59,20 @@ Record how the workflow went alongside the verdict. A reviewer might reach
 the right finding after opening three unrelated concepts. Capture the extra
 lookups and what prompted them as trial observations. If the detour recurs,
 try a more specific route or retain the case for the next comparison.
+
+## Try the artifact with a fresh reader
+
+Give a reader the completed artifact and the same resources its intended
+recipient will have. Withhold the authoring conversation. Anthropic's
+doc-coauthoring skill uses realistic reader questions in a fresh context to
+expose assumptions.[^reader] For a brief, ask what was decided, what remains
+open, and what the builder can act on. For a review handoff, ask the reader
+to locate the selected finding and explain what would make it stale.
+
+Compare the answers with the actual decisions and evidence. A plausible answer
+based on a guess exposes a missing cue. Revise that field and retry with a fresh
+case. Record whether the reader was a person or a model and what they could see.
+
+[^reader]: Anthropic, reader testing without the drafting conversation.
 
 [^eval]: OpenAI, Testing Agent Skills Systematically with Evals.

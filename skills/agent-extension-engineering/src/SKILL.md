@@ -27,6 +27,11 @@ through the active host or extension manager. With AXM, use
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |
 | Design a user choice or checkpoint in a skill                  | `patterns/agent-mediated-decisions`     |
+| Design a recurring result, finding, or report layout           | `patterns/display-template`             |
+| Let a user correct a partly known brief                        | `patterns/prefilled-form`               |
+| Let a user choose findings for follow-up                       | `patterns/select-from-findings`         |
+| Compare alternative outputs on the same target                 | `patterns/compare-variants-in-context`  |
+| Carry decisions into another workflow or session               | `patterns/workflow-handoff-artifact`    |
 | Design validation before a skill applies a batch of edits      | `patterns/validate-the-proposed-change` |
 | Create or revise a skill, including how it gets invoked        | `guides/authoring-skills`               |
 | Create or improve instructions or rules                        | `patterns/scoped-instructions`          |

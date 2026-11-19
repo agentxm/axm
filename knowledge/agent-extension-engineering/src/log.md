@@ -2,6 +2,8 @@
 
 ## 2026-11-18
 
+- Added five [workflow patterns](patterns/index.md) for presenting results, collecting corrections, selecting findings, comparing variants, and handing work forward. Expanded guidance on bare invocation, when to load references, independent assessments, and fresh-reader checks.
+
 - Organized the [pattern library](patterns/index.md) by authoring decision. Added patterns for invocation policy, trigger cues, neighboring intent, routing after inspection, and invocation trials.
 
 - Broadened the router pattern into [Progressive disclosure](patterns/progressive-disclosure.md), added [Validate the proposed change](patterns/validate-the-proposed-change.md), and expanded the skill design and trial guidance.

@@ -5,6 +5,13 @@ description: "Turn a suspected extension defect into a finding and verify an aut
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
 generated: { by: "codex/gpt-6", at: "2026-11-18T23:06:15Z" }
+sources:
+  - id: overlay
+    resource: https://impeccable.style/tutorials/critique-with-overlay/
+    title: Impeccable review walkthrough
+  - id: evaluator
+    resource: https://github.com/qualitymd/quality.md/blob/6291df0e3173bf281f10a2a446a50eed041b7d21/skills/quality/SKILL.md
+    title: Quality evaluation workflow ownership
 ---
 
 # Reviewing and remediating extensions
@@ -33,3 +40,25 @@ completion condition. After the correction, submit the original request
 against a fresh archive and check that the skill can open the shipped guide
 and use it to write the requested migration note. Editing a local projection
 alone would leave the next consumer with the same failure.
+
+## Decide who owns each assessment
+
+When an automated result could steer an open-ended review, form the judgment
+from the target first, then reconcile it with the scan. Impeccable uses this
+order to compare a task walkthrough with detector findings.[^overlay] For an
+extension review, a link checker can establish that a reference resolves. A
+reader can still discover that the guide describes a different procedure.
+Record what each assessment examined, where they disagreed, and which checks
+were unavailable. If one reviewer saw the scan first, disclose the shared
+context when reporting agreement.
+
+A second assessment costs time and needs its own question. Where a designated
+evaluator owns the judgment, consume its result and follow the workflow's rules
+for revisiting it. Quality assigns evaluation judgment to its selected evaluator
+and validation to the runner.[^evaluator] For subsequent repairs, let the
+user [select findings](../patterns/select-from-findings.md) when the working
+set is open.
+
+[^overlay]: Impeccable, independent design review and detector assessments.
+
+[^evaluator]: Quality, evaluation roles and the runner's authoritative result.

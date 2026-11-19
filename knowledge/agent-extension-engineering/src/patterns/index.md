@@ -20,6 +20,17 @@ Choose the decision you are making. Patterns from different groups can be used t
 - [CLI-backed skill](cli-backed-skill.md) — When a skill drives a CLI, give the command ownership of effects and the skill responsibility for interpreting the request.
 - [Validate the proposed change](validate-the-proposed-change.md) — When one judgment drives many edits, check the proposed edits together before applying them.
 
+## What does the user see or respond to?
+
+- [Display template](display-template.md) — When a workflow repeatedly presents the same kind of result, give the reader a stable way to find the evidence and next action.
+- [Prefilled form](prefilled-form.md) — When the agent can recover part of a brief, show known values and proposals so the user can correct just the decisions that remain.
+- [Select from findings](select-from-findings.md) — When several findings can be addressed independently, let the user choose which ones enter remediation.
+- [Compare variants in context](compare-variants-in-context.md) — When a user can recognize a preference more easily than describe it, show alternatives on the same representative target.
+
+## What carries forward to another workflow?
+
+- [Workflow handoff artifact](workflow-handoff-artifact.md) — When work continues in another workflow or session, record the decisions and evidence the next participant needs to resume.
+
 ## How do we know it worked?
 
 - [Invocation trial](invocation-trial.md) — When a skill misses a task or appears on the wrong one, observe selection and task outcome separately.

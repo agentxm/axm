@@ -41,6 +41,15 @@ wrong result. Give exact steps when order matters and link a specialized
 reference at the step that needs it. Try an [invocation trial](../patterns/invocation-trial.md)
 when selection is uncertain.
 
+Decide what the reader must do with the result. An archive review can use a
+[display template](../patterns/display-template.md) to distinguish clean,
+broken, and unverified references. If the user wants follow-up, let them
+[select from findings](../patterns/select-from-findings.md) and carry that
+selection in a [workflow handoff artifact](../patterns/workflow-handoff-artifact.md)
+when another session will do the repair. A [prefilled form](../patterns/prefilled-form.md)
+fits a partly known brief. To settle a preference about the output, let the
+reader [compare variants in context](../patterns/compare-variants-in-context.md).
+
 Before revising a skill, find where an actual run went wrong.[^writing] If
 the agent never opened the review guide, examine the routing cue. If it read
 the guide, found the defect, and omitted the repair location, change the example

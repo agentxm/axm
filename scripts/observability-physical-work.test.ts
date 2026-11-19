@@ -384,7 +384,9 @@ describe("physical-work configuration", () => {
   // evidence that strace itself leaves product output and exit status unchanged.
   // The default case runs inside the /usr/bin/time elapsed/RSS wrapper, as the
   // capture does; the benchmark already requires that wrapper on Linux.
-  for (const measureRss of [undefined, false] as const)
+  for (const measureRss of process.platform === "linux"
+    ? ([undefined, false] as const)
+    : ([false] as const))
     it.effect(
       "runs a command prefix before the executable without changing its output or exit" +
         (measureRss === false ? " (no RSS wrapper)" : " (inside the RSS wrapper)"),

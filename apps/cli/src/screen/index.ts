@@ -8,13 +8,12 @@ export type {
   LedgerRow,
   Mark,
   Span,
-  SpanKind,
   SummaryPart,
   Text,
   Tint,
   Tone,
 } from "./doc.js";
-export { isCopyableSpan, plain } from "./doc.js";
+export { plain } from "./doc.js";
 export { paintText } from "./paint-text.js";
 export { asciiGlyphs, unicodeGlyphs } from "./glyphs.js";
 export {
@@ -103,8 +102,6 @@ export {
   fragment,
   list,
   moment,
-  plural,
-  remainingTime,
   versionMove,
 } from "./grammar.js";
 export { displayWidth, stripTerminalFormatting } from "./width.js";
@@ -126,9 +123,6 @@ export {
   recordDoc,
   titleDoc,
   type EmptyResult,
-  type OperationResult,
-  type RecordResult,
-  type TitleWhere,
 } from "./templates.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";
@@ -139,10 +133,8 @@ export {
   VERBOSE_LIST_HINT,
   commandSpan,
   emphatic,
-  identifierSpan,
   invocation,
   pathSpan,
-  urlSpan,
   joined,
   ledgerViewPolicy,
   resultLedgerColumns,

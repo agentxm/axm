@@ -38,13 +38,6 @@ export const invocation = (value: string): ReadonlyArray<Span> => [
 /** A URL a person opens: never broken, and a terminal hyperlink where colour is on. */
 export const urlSpan = (value: string): Span => ({ text: value, kind: "url" });
 
-/** A value a person copies exactly, such as a one-time code or a request ID. */
-export const identifierSpan = (value: string, options?: { readonly bold?: true }): Span => ({
-  text: value,
-  kind: "identifier",
-  ...(options?.bold === undefined ? {} : { bold: true }),
-});
-
 /**
  * A path as a person reads it: under their home directory it starts at `~`,
  * and it wraps at its separators.

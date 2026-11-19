@@ -55,8 +55,7 @@ interface ArtifactFacts {
  * Where an acquired extension's package sits, as a row names it: relative to
  * the workspace, the way the kernel's display paths spell it.
  */
-export const acquiredPath = (name: string): string =>
-  `agent_extensions/registry.agentxm.ai/${name}`;
+const acquiredPath = (name: string): string => `agent_extensions/registry.agentxm.ai/${name}`;
 
 /** What a unit wrote or would write: its acquired package in the sample project. */
 export const anArtifact = (

@@ -39,7 +39,7 @@ export type Tint = "green" | "yellow" | "blue" | "magenta" | "cyan";
  * `path` wraps at its separators. The painter derives the styling; a view
  * names only the kind.
  */
-export type SpanKind = "command" | "url" | "identifier" | "path";
+type SpanKind = "command" | "url" | "identifier" | "path";
 
 export interface Span {
   readonly text: string;

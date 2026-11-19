@@ -12,10 +12,6 @@ import * as Option from "effect/Option";
 export const count = (value: number, singular: string, plural = `${singular}s`): string =>
   `${String(value)} ${value === 1 ? singular : plural}`;
 
-/** The noun alone, pluralized for a count stated elsewhere. */
-export const plural = (value: number, singular: string, pluralForm = `${singular}s`): string =>
-  value === 1 ? singular : pluralForm;
-
 const conjunction = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 
 /** Items in prose: `a`, `a and b`, `a, b, and c`. */

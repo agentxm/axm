@@ -1,4 +1,15 @@
-import { plain, type Doc, type Status, type TableColumnPriority, type Text } from "./doc.js";
+import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
+import {
+  plain,
+  type CalloutNode,
+  type Doc,
+  type Status,
+  type TableColumnPriority,
+  type Text,
+} from "./doc.js";
+import { suggestionsDoc } from "./docs.js";
+import { emptyDoc, type EmptyResult } from "./templates.js";
 
 export interface ViewColumn<T> {
   readonly header: Text;
@@ -59,14 +70,8 @@ export const fieldsDoc = <T>(row: T, fields: ReadonlyArray<ViewField<T>>): Doc =
   },
 ];
 
-const summaryDoc = (summary: string | ReadonlyArray<Text> | undefined): Doc =>
-  summary === undefined
-    ? []
-    : [
-        typeof summary === "string"
-          ? { _tag: "paragraph", text: summary }
-          : { _tag: "summary", parts: summary.map((text) => ({ text })) },
-      ];
+const summaryDoc = (summary: ReadonlyArray<Text>): Doc =>
+  summary.length === 0 ? [] : [{ _tag: "summary", parts: summary.map((text) => ({ text })) }];
 
 /** A column with a stated uniform form whose rows, two or more, all hold one value. */
 const isUniform = <T>(column: ViewColumn<T>, rows: ReadonlyArray<T>): boolean => {
@@ -77,51 +82,40 @@ const isUniform = <T>(column: ViewColumn<T>, rows: ReadonlyArray<T>): boolean =>
 };
 
 /**
- * An inventory: its rows as a table and the summary sentence after it, or —
- * when there is nothing to list — the empty state alone, which says what is
- * true and may name the one next step. A column whose rows all hold one value
- * leaves the table and its stated form joins the summary, after `summary` and
- * before `summaryTail`.
+ * An inventory: its rows as a table, the facts about them as one summary,
+ * the conditions that deserve attention, and `Next` — or, when there is
+ * nothing to list, the empty state, which says what is true and may name the
+ * one next step. A column whose rows all hold one value leaves the table and
+ * its stated form joins the summary, after `summary` and before `summaryTail`.
  */
 export const inventoryDoc = <T>(options: {
   readonly rows: ReadonlyArray<T>;
   readonly columns: ReadonlyArray<ViewColumn<T>>;
-  /** One sentence, or several parts the painter joins with its separator. */
-  readonly summary?: string | ReadonlyArray<Text>;
-  /** Parts after the uniform columns' facts, such as what needs attention. */
+  /** Facts about the rows, which the painter joins with its separator. */
+  readonly summary?: ReadonlyArray<Text>;
+  /** Facts after the uniform columns' facts, such as what needs attention. */
   readonly summaryTail?: ReadonlyArray<Text>;
   readonly mark?: ViewRowMark<T>;
-  readonly empty: string | Doc;
+  /** Conditions about the inventory, such as observations it could not make. */
+  readonly conditions?: ReadonlyArray<CalloutNode>;
+  readonly next?: ReadonlyArray<FailureSuggestedAction>;
+  readonly empty: EmptyResult;
 }): Doc => {
   const [first] = options.rows;
-  if (first === undefined)
-    return typeof options.empty === "string"
-      ? [{ _tag: "paragraph", text: options.empty }]
-      : options.empty;
+  if (first === undefined) return [...emptyDoc(options.empty), ...(options.conditions ?? [])];
   const uniform = options.columns.filter((column) => isUniform(column, options.rows));
   const facts = uniform.flatMap((column) => {
     const fact = column.whenUniform?.(first);
     return fact === undefined ? [] : [fact];
   });
-  const tail = options.summaryTail ?? [];
-  const summary =
-    facts.length === 0 && tail.length === 0
-      ? options.summary
-      : [
-          ...(options.summary === undefined
-            ? []
-            : typeof options.summary === "string"
-              ? [options.summary]
-              : options.summary),
-          ...facts,
-          ...tail,
-        ];
   return [
     ...tableDoc(
       options.rows,
       options.columns.filter((column) => !uniform.includes(column)),
       options.mark === undefined ? undefined : { mark: options.mark },
     ),
-    ...summaryDoc(summary),
+    ...summaryDoc([...(options.summary ?? []), ...facts, ...(options.summaryTail ?? [])]),
+    ...(options.conditions ?? []),
+    ...suggestionsDoc(options.next),
   ];
 };

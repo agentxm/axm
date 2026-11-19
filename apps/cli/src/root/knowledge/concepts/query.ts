@@ -15,7 +15,7 @@ import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { LearnMore, formatLearnMore } from "../../../formatter.js";
-import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { ABSENT, count, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -87,8 +87,8 @@ export const handleKnowledgeConceptQuery = Effect.fnUntraced(function* (
     return inventoryDoc({
       rows,
       columns: conceptColumns,
-      summary: `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
-      empty: "No installed knowledge concepts matched the query",
+      summary: [count(rows.length, "concept result")],
+      empty: { statement: "No installed knowledge concepts match the query" },
     });
   });
   return processOutcome(0);

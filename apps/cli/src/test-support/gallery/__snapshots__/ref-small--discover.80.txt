@@ -8,7 +8,9 @@
      Not shown at this width: Resolution, Source, For package. A wider terminal
      shows them.
 
-5 companion extensions for 2 of 14 detected packages · axm view <extension> for
-details
+5 companion extensions for 2 of 14 detected packages
 
-No companion extensions for the 14 packages this project depends on.
+Next
+     axm view <extension>   See an extension in detail
+
+No companion extensions for the 14 packages this project depends on

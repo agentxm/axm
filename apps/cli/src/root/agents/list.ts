@@ -74,8 +74,8 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
       ...inventoryDoc({
         rows: inventory.items,
         columns: AgentListColumns,
-        summary: count(inventory.items.length, "coding agent"),
-        empty: "No coding agents configured or detected.",
+        summary: [count(inventory.items.length, "coding agent")],
+        empty: { statement: "No coding agents configured or detected" },
       }),
       ...suggestionsDoc(suggestions),
     ],

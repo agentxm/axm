@@ -291,7 +291,7 @@ describe("list.handler", () => {
           count: 0,
           items: [],
         });
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([{ _tag: "info", message: "No skills found" }]);
       }),
     );
   });
@@ -386,7 +386,9 @@ describe("list.handler", () => {
           count: 0,
           items: [],
         });
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No skills match the selected agents" },
+        ]);
       }),
     );
   });

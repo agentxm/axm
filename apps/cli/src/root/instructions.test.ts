@@ -73,11 +73,9 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsStatus();
 
-        expect(messages(rendererState)).toEqual([]);
-        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
-          _tag: "paragraph",
-          text: "Instruction-file management is disabled.",
-        });
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "Instruction-file management is disabled" },
+        ]);
       }),
     );
   });
@@ -94,11 +92,9 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsStatus();
 
-        expect(messages(rendererState)).toEqual([]);
-        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
-          _tag: "paragraph",
-          text: "No configured agents need instruction-file propagation.",
-        });
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No configured agents need instruction files" },
+        ]);
       }),
     );
   });
@@ -115,7 +111,9 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsStatus();
 
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "message", message: "1 instruction file" },
+        ]);
         expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
           expect.objectContaining({
             _tag: "table",

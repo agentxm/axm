@@ -99,6 +99,7 @@ export {
   count,
   day,
   duration,
+  fragment,
   list,
   moment,
   plural,

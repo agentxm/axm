@@ -86,14 +86,17 @@ describe("agents list.handler", () => {
         yield* handleAgentsList({ detected: false, available: false });
 
         expect(tables(rendererState)).toEqual([]);
-        expect(messages(rendererState)).toEqual([]);
+        expect(messages(rendererState)).toEqual([
+          { _tag: "info", message: "No coding agents configured or detected" },
+        ]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
         });
         expect(rendererState.docs[0]?.doc).toContainEqual({
-          _tag: "paragraph",
-          text: "No coding agents configured or detected.",
+          _tag: "headline",
+          tone: "neutral",
+          text: "No coding agents configured or detected",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "Set up AXM in this workspace", cmd: "axm setup" },

@@ -83,15 +83,15 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const coverage = document.coverage;
   const emptyState =
     result.items.length === 0 && filter === "all" ? yield* emptyInventory() : undefined;
-  yield* screen.result([
-    ...listDoc({
+  yield* screen.result(
+    listDoc({
       items: result.items,
       filter,
       ...(coverage === undefined ? {} : { coverage }),
       ...(emptyState === undefined ? {} : { emptyState }),
+      conditions: inventoryDiagnosticsDoc(document),
     }),
-    ...inventoryDiagnosticsDoc(document),
-  ]);
+  );
 });
 
 const listConfig = {

@@ -706,7 +706,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/usage-errors-render-once`
 - Owner: `cli-e2e`
-- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage Error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
+- Statement: Human usage failures on diagnostics show, diagnostics export and token revoke shall print command help followed by exactly one Usage error block and exit 2. Machine usage failures shall retain one structured failure document with code usage and exit 2.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -4862,7 +4862,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/human-inventory-states-each-row`
 - Owner: `cli`
-- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and a summary over a row that `axm lint` explains shall name `axm lint` as a command to run.
+- Statement: When `axm list` renders an inventory for a person, each row shall state in one State column how desired state explains it and whether it is missing, of unknown installation, or disabled, its Source column shall name a registry extension's registry rather than repeat its identity, and an inventory with a row that `axm lint` explains shall offer `axm lint` as its next command.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

@@ -59,7 +59,7 @@ const { handler, command } = makePerTypeListCommand({
     ListKnowledge.query({ agents }).pipe(Effect.mapError(inspectionFailureToAppError)),
   schema: KnowledgeListQueryResultSchema,
   columns: BundleColumns,
-  summary: (_document, rows) => count(rows.length, "knowledge bundle"),
+  summary: (_document, rows) => [count(rows.length, "knowledge bundle")],
 });
 
 export const handleList = handler;

@@ -67,6 +67,6 @@ describe("inventory human vocabulary", () => {
         },
         "skill",
       ),
-    ).toBe("4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM");
+    ).toEqual(["4 skills", "3 managed by this workspace", "3 installed", "1 found outside AXM"]);
   });
 });

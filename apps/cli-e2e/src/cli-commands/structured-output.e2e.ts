@@ -145,7 +145,7 @@ describe("structured output (--json)", () => {
       expect(document).toMatchObject({
         ok: false,
         code: "usage",
-        title: "Usage Error",
+        title: "Usage error",
         detail: "Unrecognized flag: --nonexistent-flag in command axm token",
       });
       expect(result.stderr).toContain("Unrecognized flag: --nonexistent-flag");

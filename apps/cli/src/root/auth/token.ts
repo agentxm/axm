@@ -381,8 +381,8 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
           ...inventoryDoc({
             rows,
             columns: TokenListColumns,
-            summary: count(rows.length, "token"),
-            empty: "No tokens found",
+            summary: [count(rows.length, "token")],
+            empty: { statement: "No tokens found" },
           }),
           ...(continuation.length === 0 ? [] : [{ _tag: "next", actions: continuation } as const]),
         ];

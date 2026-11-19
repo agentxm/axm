@@ -1,5 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
-import { emptyInventoryDoc } from "../../root/list/view.js";
+import { emptyInventory } from "../../root/list/view.js";
+import { emptyDoc } from "../../screen/templates.js";
 import { galleryModule } from "./fixture.js";
 
 /**
@@ -13,9 +14,8 @@ import { galleryModule } from "./fixture.js";
  * plain state.
  */
 const refSmallEmptyStates: Doc = [
-  ...emptyInventoryDoc("empty-project"),
-  { _tag: "blank" },
-  ...emptyInventoryDoc("no-workspace"),
+  { _tag: "section", children: emptyDoc(emptyInventory("empty-project")) },
+  { _tag: "section", children: emptyDoc(emptyInventory("no-workspace")) },
 ];
 
 export default galleryModule({

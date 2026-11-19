@@ -839,7 +839,7 @@ describe("packs-add.handler", () => {
           expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
           expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Add to pack",
-            message: "No extensions added to pack.",
+            message: "No extensions added to pack",
           });
         }),
       );
@@ -877,7 +877,7 @@ describe("packs-add.handler", () => {
           expect(logs.success).toEqual([]);
           expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Add to pack",
-            message: "No extensions added to pack.",
+            message: "No extensions added to pack",
           });
         }),
       );

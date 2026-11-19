@@ -16,7 +16,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking, type ExpectedCliError } from "../../cli-runtime/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, inventoryDoc, type Text, type ViewColumn } from "../../screen/index.js";
 import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { inventorySummary, inventoryDiagnosticsDoc } from "../inventory-view.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
@@ -46,7 +46,10 @@ interface ListDefinition<Row extends InventoryListRow, E extends ExpectedCliErro
   >;
   readonly schema: typeof ExtensionInventoryDocumentSchema;
   readonly columns: ReadonlyArray<ViewColumn<Row>>;
-  readonly summary: (document: ExtensionInventoryDocument, rows: ReadonlyArray<Row>) => string;
+  readonly summary: (
+    document: ExtensionInventoryDocument,
+    rows: ReadonlyArray<Row>,
+  ) => ReadonlyArray<Text>;
 }
 
 export const inventoryList = <Row, E, R>(
@@ -100,12 +103,14 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
             typeof column.header !== "string" || !detailColumnHeaders.includes(column.header),
         ),
         summary: definition.summary(document, rows),
-        empty:
-          args.agents.length > 0
-            ? `No ${noun.plural} matched the selected agent filter.`
-            : `No ${noun.plural} found`,
+        conditions: inventoryDiagnosticsDoc(document),
+        empty: {
+          statement:
+            args.agents.length > 0
+              ? `No ${noun.plural} match the selected agents`
+              : `No ${noun.plural} found`,
+        },
       }),
-      ...inventoryDiagnosticsDoc(document),
     ]);
   });
   const scope = scopeFlag;

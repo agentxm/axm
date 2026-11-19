@@ -166,7 +166,7 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).not.toBe(0);
         expect(result.stderr).toContain("No skills found in source");
-        expect(result.stderr).toContain("not_found, exit 3");
+        expect(result.stderr).toMatch(/not_found [·-] exit 3/u);
       } finally {
         temp.cleanup();
       }

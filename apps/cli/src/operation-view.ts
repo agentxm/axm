@@ -45,6 +45,7 @@ import {
   count,
   disposition,
   emphatic,
+  fragment,
   invocation,
   exitPhrase,
   factParts,
@@ -1084,7 +1085,7 @@ export const operationDoc = (
   const outcome = deriveOperationOutcome(resolution);
   if (outcome === "previewed" && resolution.divergence !== true) {
     return resolution.units.length === 0 && options.message !== undefined
-      ? [{ _tag: "headline", tone: "info", text: options.message }]
+      ? [{ _tag: "headline", tone: "info", text: fragment(options.message) }]
       : [];
   }
   const counts = countUnitStates(resolution.units);
@@ -1092,7 +1093,7 @@ export const operationDoc = (
   const unchanged = unchangedByFailure(resolution.units, resolution.mode, outcome);
   const verdict: VerdictPhrase =
     options.message !== undefined
-      ? { claim: options.message }
+      ? { claim: fragment(options.message) }
       : outcome === "blocked"
         ? outcomeHeadline(presentation, outcome, counts)
         : unchanged === "restored"

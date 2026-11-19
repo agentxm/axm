@@ -2,7 +2,8 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 
 import {
   ABSENT,
-  paragraphDoc,
+  conditionDoc,
+  type CalloutNode,
   agentOutcome,
   count,
   type Text,
@@ -92,7 +93,10 @@ type InventoryCounts = Pick<
   readonly items: ReadonlyArray<{ readonly installed: boolean | null }>;
 };
 
-export const inventorySummary = (inventory: InventoryCounts, label: string): string => {
+export const inventorySummary = (
+  inventory: InventoryCounts,
+  label: string,
+): ReadonlyArray<string> => {
   const native = inventory.nativeLocationCounts;
   const parts = [
     ...(native === undefined
@@ -124,15 +128,18 @@ export const inventorySummary = (inventory: InventoryCounts, label: string): str
       ? undefined
       : `${String(inventory.managementCounts.unmanaged)} found outside AXM`,
   ].filter((part): part is string => part !== undefined);
-  const headline = count(inventory.count, label);
-  return parts.length === 0 ? headline : `${headline}: ${parts.join(", ")}`;
+  return [count(inventory.count, label), ...parts];
 };
 
-/** Preserve incomplete observations in human output as well as the machine document. */
+/**
+ * Preserve incomplete observations in human output as well as the machine
+ * document: one condition after the inventory, naming each observation it
+ * could not make.
+ */
 export const inventoryDiagnosticsDoc = (
   inventory: Pick<ExtensionInventoryDocument, "observationDiagnostics" | "items">,
-) =>
-  [
+): ReadonlyArray<CalloutNode> => {
+  const messages = [
     ...new Set([
       ...(inventory.observationDiagnostics ?? [])
         .filter((warning) => warning.code !== "scanner-config")
@@ -145,4 +152,14 @@ export const inventoryDiagnosticsDoc = (
           : [],
       ),
     ]),
-  ].flatMap((message) => paragraphDoc(message));
+  ];
+  return messages.length === 0
+    ? []
+    : [
+        conditionDoc({
+          tone: "warn",
+          title: "Part of this inventory could not be observed",
+          body: messages,
+        }),
+      ];
+};

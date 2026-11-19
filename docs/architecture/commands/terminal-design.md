@@ -164,7 +164,11 @@ painter's vertical-spacing tests in `apps/cli/src/screen/paint-text.test.ts`
 hold these rules.
 
 When nothing changed there is no ledger and no title line: the verdict stands
-alone, and it keeps its own status glyph because no row above it carries one. A
+alone, and it keeps its own status glyph because no row above it carries one.
+An empty read is the empty result shape: one neutral statement at the margin,
+such as `No extensions installed in this project`, facts beside it, and `Next`
+where one command moves on; it says what is true and is not an outcome, so it
+carries no glyph. A
 headline states what happened; its aside states how much. A callout is
 subordinate to a headline and never replaces it. A table describes an
 inventory, so an inventory that changed nothing is a table. A detail page is a
@@ -323,8 +327,7 @@ from its rows that says a wider terminal shows them, and stacks below forty
 columns, which suits wide inventories. An inventory states a value every row
 shares once: a column whose view gives that value a summary form leaves the
 table and the form joins the summary, after the inventory's own facts and
-before what needs attention (`cli/inventories-state-uniform-columns-once`). A
-command a summary names is a copyable, tinted invocation, as help shows one.
+before what needs attention (`cli/inventories-state-uniform-columns-once`). A summary states facts only; the command that acts on them is the inventory's `Next`, as it is every result's.
 
 A protected column is laid out at its natural width even where a width hint
 would keep the columns after it on a shared lane: alignment is worth having

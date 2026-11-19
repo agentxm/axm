@@ -11,5 +11,9 @@
      terminal shows them.
 
 6 extensions · 3 enabled · no agents
-configured · 1 needs attention · run
-axm lint
+configured · 1 needs attention
+
+Next
+     axm lint
+       See what needs attention and how
+       to fix it

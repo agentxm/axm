@@ -86,7 +86,9 @@ Use `glossary` when shared terminology affects interpretation or a design decisi
 Read only the selected concepts and the additional guidance their application
 requires. For a focused review, start with the review guide and the target.
 Stop when those two settle the question. Open another concept only for a
-decision they leave open. For a broad review, use the guide and pattern indexes
+decision they leave open. In a broad package review, start at each selected
+package's public entry point and check its README before tracing a first use.
+Use the guide and pattern indexes
 to select guidance for the decisions the target makes.
 For mixed requests, select the relevant routes together. Resolve
 obvious intent from the request and local context; clarify only material missing

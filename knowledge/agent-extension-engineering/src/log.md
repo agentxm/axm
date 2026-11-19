@@ -12,6 +12,8 @@
 
 ## 2026-11-18
 
+- Added [pack-member README guidance](guides/authoring-readme.md#when-the-extension-belongs-to-a-pack) and a [review check](guides/reviewing-extensions.md#review-checklist) for readers who discover a package directly.
+
 - Added [Preserve agent judgment](principles/preserve-agent-judgment.md) and applied it to skill authoring, scoped instructions, and extension review.
 
 - Clarified how to leave the [next action](patterns/selectable-next-actions.md) visible while awaiting a reply, including on hosts that require a final text response.

@@ -1514,12 +1514,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/review-scope`
 - Owner: `axm`
-- Statement: Axe review guidance shall preserve the caller's focus and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence.
+- Statement: Axe review guidance shall preserve the caller's focus and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The shipped review guide expresses the decision. The host trials recorded in skills/axe/evals/2026-11-18/review-scope.md separately assess open and focused reviews.
+- Boundary rationale: The shipped review guide expresses the decision. The trials in skills/axe/evals/2026-11-18 separately exercise open and focused reviews from pack and member entry points.
 - Methods: static, review
 - Assumptions: The reviewer has access to the engineering knowledge bundle.
 - Source: [`scripts/axe-review-scope.spec.ts`](../scripts/axe-review-scope.spec.ts)

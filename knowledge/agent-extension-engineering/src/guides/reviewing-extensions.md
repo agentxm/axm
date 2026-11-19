@@ -32,6 +32,17 @@ author choosing a particular approach before the agent sees the user's request?
 
 ## Review checklist
 
+For an open package review, account for the root `README.md` of each
+independently discoverable package in scope, including a pack and each
+selected member. Start as someone who found that package directly. Can they
+tell what it provides, what to install, and how to try it? Compare its advice
+with the declared pack relationships and the
+[README guidance](authoring-readme.md#when-the-extension-belongs-to-a-pack).
+In **Review coverage**, name which packages have a usable README and which
+are missing one or give an unsupported install route. Use the checkout for
+source claims and a candidate preview or exact archive for shipping claims.
+An excerpt that omits a README leaves its presence open.
+
 1. Identify the target, revision, requested focus, and a representative user request. Trace it to the result or the point where the evidence runs out.
 2. Locate the decisions that shape that request. For an open-ended review, consult the [guide index](index.md) by extension type or task and the [pattern index](../patterns/index.md) by decision. Use the relevant guidance to discover findings across all three lenses. [Review the decisions an artifact makes](../patterns/review-the-decisions-an-artifact-makes.md) illustrates how one decision can lead to different findings.
 3. For each decision within scope, ask the three questions below. Keep one numbered finding per distinct change. A lens can yield none.

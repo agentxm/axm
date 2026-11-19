@@ -22,3 +22,7 @@ skill uses. Pin the combination if that is the extent of the evidence.
 Try the promised task from the selected archives in a clean consumer. A sibling
 installed for unrelated work can hide a missing dependency in the author's
 workspace. AXM's membership and dependency conventions are in `axm help packs`.
+
+Also start from a member's package page. Follow its
+[README install route](authoring-readme.md#when-the-extension-belongs-to-a-pack)
+and check that this supplies the companions its first example uses.

@@ -21,6 +21,13 @@ to find the relevant surface and the [pattern index](index.md) to find that
 decision. Read the guidance that could change your judgment. Its examples can
 reveal questions you would otherwise have missed.
 
+Where else can the reader enter the workflow, and what context will they
+lack there? A pack README can lead to a working installation while someone
+who discovers its skill directly gets no setup guidance. Start at the
+skill's package page and follow its [first-use example](../guides/authoring-readme.md#when-the-extension-belongs-to-a-pack).
+Even when the README exists, its command can leave out a required companion.
+The pack page and member page support different conclusions about discovery.
+
 Consider what breaks, what would make a successful task easier, and what
 work could disappear while preserving the outcome. The same decision can
 lead to different recommendations in different artifacts. For example, use

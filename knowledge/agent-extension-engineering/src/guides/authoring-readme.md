@@ -21,13 +21,27 @@ it helps them accomplish. Give the install command, then show one realistic
 first use and the result to expect.
 
 For a skill, show a request and its result.[^skills] For a hook, show the event
-and its observable effect. For a pack, show a task its members accomplish
-together. If someone lands on a member README and needs the pack, point them
-there.
+and its observable effect. For knowledge, show a question and the concept
+that answers it.
 
 Mention a prerequisite, permission, side effect, or limitation when it changes
 the install decision or the example.[^actions] Link deeper instructions and
 release history. Stop when the reader can choose, install, and try it.
+
+## When the extension belongs to a pack
+
+Someone can discover a member before they discover its pack. Give each
+independently discoverable package its own root `README.md`. The pack README
+owns shared setup and an example of a task the members accomplish together.
+The member README explains its contribution and shows a first use of that
+member. Link to the pack using a destination the reader can open from the
+distributed package.
+
+When companions are required, lead with the pack install command and explain
+what the companion supplies. For a standalone member, show how to use it
+directly and explain what installing the pack adds. In AXM, check both
+`standalone` and `recommendedPacks` in the member manifest. A recommended
+pack can include a member that also works independently.
 
 [^skills]: Anthropic Skills README, Claude Code example.
 

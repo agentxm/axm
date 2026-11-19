@@ -27,7 +27,7 @@ the operation sets the deliverable.
 | --------- | --------------------------------------------------------------------------------------------------------------- |
 | `design`  | Recommend an extension type and a concrete design from the brief.                                               |
 | `create`  | Author a usable draft in its canonical workspace location.                                                      |
-| `review`  | Use the review guide's report template for actionable, clean, or inconclusive results.                          |
+| `review`  | Use the review guide’s template for the verdict, evidence-backed coverage checklist, and any numbered findings. |
 | `revise`  | Apply the requested change and check the original case and a nearby valid case.                                 |
 | `verify`  | Test the stated claim against the target. Report observed behavior and what the available evidence leaves open. |
 

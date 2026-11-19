@@ -126,3 +126,33 @@ were `rivers.md` (flow direction) and `lakes.md` (shoreline type).
 
 Both runs explicitly invoked axe. These observations cover one run per prompt
 on one host. They exercise interpretation and file effects after selection.
+
+## Discover a set-design question while authoring
+
+Two fresh, read-only Codex CLI 0.170.0 sessions received the same brief:
+
+> $axe design a reviewer for submitted field notes. On request, list the observations that need a coordinate correction. Use the extensions in this workspace where useful. Return a design I can act on.
+
+Both workspaces contained the project Axe skill and engineering knowledge.
+One also had an `intake-review` skill that already reported missing latitude
+or longitude by observation ID. The other had an empty `skills/` directory.
+
+| Workspace | Concepts opened and design returned |
+| --- | --- |
+| Existing reviewer | Read the existing skill, then the boundary guide and the set guide. Kept the advisory coordinate policy and its report in `intake-review`. |
+| Empty directory | Read the boundary and skill-authoring guides. Proposed one on-request skill. The command trace showed no read of the set guide. |
+
+With the shorter review instructions alone, both designs chose an appropriate
+owner, but both sessions opened the set guide. Narrowing the route-table
+labels produced the same extra lookup. The final router asks the agent to
+identify a relationship before opening the set guide. Each variant used one
+session per case. These traces show the paths taken on this host.
+
+Two more sessions replayed the [pack-member review cases](review-member-readmes.md)
+with the same final router and the original three release archives. The open
+review credited the pack README, reported both missing member READMEs with
+archive evidence, and ended with numbered findings and selectable actions.
+The dependency-only review traced both declared dependencies through the
+shipped readiness-checklist route and returned a clean verdict within scope.
+It also opened the set guide. These runs exercised text reports through
+explicit invocation. They did not exercise picker interaction or repair.

@@ -54,11 +54,14 @@ guidance, with a worked example when it helps.
 
 ## Select the use case
 
+For design, inspect the brief and available capabilities first. Open the set
+guide only when there is a relationship between extensions to decide.
+
 | User intent                                                    | Concept                                 |
 | -------------------------------------------------------------- | --------------------------------------- |
 | Decide how much of the agent’s approach to prescribe           | `principles/preserve-agent-judgment`    |
 | Define or distinguish shared terms                             | `glossary`                              |
-| Choose an extension type or divide responsibilities            | `guides/choosing-extensions`            |
+| Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
 | Write or revise an extension README                            | `guides/authoring-readme`               |
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
@@ -88,10 +91,7 @@ Use `glossary` when shared terminology affects interpretation or a design decisi
 Read only the selected concepts and the additional guidance their application
 requires. For a focused review, start with the review guide and the target.
 Stop when those two settle the question. Open another concept only for a
-decision they leave open. In a broad package review, start at each selected
-package's public entry point and check its README before tracing a first use.
-Use the guide and pattern indexes
-to select guidance for the decisions the target makes.
+decision they leave open.
 For mixed requests, select the relevant routes together. Resolve
 obvious intent from the request and local context; clarify only material missing
 scope. If the required bundle or concept is unavailable, name the missing
@@ -104,12 +104,6 @@ verification. Use the existing manager workflow for canonical ownership,
 scaffolding, workspace state, projections, and distribution. With AXM, compose
 with the `axm` skill and current CLI help for those operations.
 
-Report the selected routes, evidence, and material limits briefly. For an
-actionable review, label each finding's Recommendation and Evidence. Order the
-applicable actions as the review guide describes. When the evidence favors
-one, put it first and label it `(Recommended)`. Keep labels, order, and short
-replies consistent across picker and text. Deliver the report once and end
-with one choice. Use a native picker if it can remain the last visible item
-while awaiting input. Otherwise end the final report with the labeled prompt
-replies. Bind the choice to the displayed finding numbers and wait for the
-reply before applying the selected recommendations.
+Report the selected routes, evidence, and material limits briefly. Follow the
+review guide for coverage, findings, and follow-up choices. Wait for the
+caller's selection before applying a repair.

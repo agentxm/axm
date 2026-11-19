@@ -34,10 +34,14 @@ For each published origin in scope, read the old entry's visibility there.
 Use that same Registry for the replacement preview, publication, deprecation,
 and verification. Publish through the authorized release workflow only when
 the preview matches the old visibility or an explicitly authorized change.
-Once the replacement is available there with the intended visibility,
-deprecate the old entry with reason `superseded` and the replacement's fully
-qualified identity. Verify both fields on the old entry. For pending work,
-report the Registry, old and new identities, and remaining step.
+Before deprecating the old entry, confirm the replacement has the intended
+visibility there and verify its exact version against the archive integrity expected
+by the authorized release workflow. This also applies when publication skips
+an existing version. If the expected integrity is unavailable or verification
+fails, leave deprecation pending. After verification, deprecate the old entry
+with reason `superseded` and the replacement's fully qualified identity.
+Verify both fields on the old entry. For pending work, report the Registry,
+old and new identities, and remaining step.
 
 Follow the reported editing authority. Edit authored source or supported
 configuration; use the supported authoring transition for acquired content.

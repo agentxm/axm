@@ -8,6 +8,8 @@ Project-authored packages live in `hooks/<name>`. Acquired packages use their
 source-addressed package path, for example
 `agent_extensions/registry.agentxm.ai/@acme/hooks/block-secrets`.
 
+For Git events such as a branch switch or commit, see `axm help git-hooks`.
+
 ## Manifest
 
 `hook.json` declares identified implementations of exact native protocols. Each

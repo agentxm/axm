@@ -2474,6 +2474,22 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`apps/cli/src/commands-have-no-alias-routes.spec.ts`](../apps/cli/src/commands-have-no-alias-routes.spec.ts)
 
+#### Human factors
+
+##### Git hook guidance connects branch changes and staged commits to the appropriate AXM check
+
+- Requirement: `cli/help/git-hook-workflows`
+- Owner: `cli-e2e`
+- Statement: Project users shall be able to discover and use bundled Git hook recipes to check the staged commit and check or reconcile the current checkout after branch changes, preserving local edits and surfacing planning failures separately from actionable drift.
+- Class: human-factors
+- Role: experience
+- Product goals: `knowledge-access`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Git runs hooks extracted from the compiled CLI help in a disposable two-branch project. The index, workspace lock, visible instructions, diagnostics, and exit status expose the effects.
+- Methods: example
+- Assumptions: Git and a POSIX shell are available to the consumer.
+- Source: [`apps/cli-e2e/src/git-hook-guidance.spec.ts`](../apps/cli-e2e/src/git-hook-guidance.spec.ts)
+
 ### Goal: machine-automation
 
 Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.

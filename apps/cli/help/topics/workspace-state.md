@@ -28,7 +28,7 @@ blocked and unchanged. Run `axm sync
 --preview` to inspect the same semantic candidate that apply will execute. In CI, run `axm sync
 --preview --fail-on-change`; it exits 1 with a `reconciliation-required`
 result when that candidate contains changes and exits 0 when the workspace is
-already converged. Both preview forms are read-only.
+already converged. Both preview forms are read-only. See `axm help git-hooks` to check or reconcile agent-visible files after a branch switch, pull, or rebase.
 
 ## Export an accepted-resolution inventory
 

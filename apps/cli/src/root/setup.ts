@@ -203,7 +203,8 @@ const setupSuggestions = (args: {
 
   if (args.scope === "project") {
     suggestions.push({
-      description: "Set up staged lint hooks (project-only)",
+      description:
+        "Validate commits and keep extensions in sync after branch changes (project Git hooks)",
       cmd: "axm help git-hooks",
     });
   }

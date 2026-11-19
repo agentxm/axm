@@ -59,7 +59,11 @@ const projectSetupSuggestions = [
   { description: "Lint workspace state", cmd: "axm lint" },
   { description: "List installed extensions", cmd: "axm list" },
   { description: "Discover recommended extensions", cmd: "axm discover" },
-  { description: "Set up staged lint hooks (project-only)", cmd: "axm help git-hooks" },
+  {
+    description:
+      "Validate commits and keep extensions in sync after branch changes (project Git hooks)",
+    cmd: "axm help git-hooks",
+  },
 ];
 const projectRerunSuggestions = [
   projectSetupSuggestions[0],

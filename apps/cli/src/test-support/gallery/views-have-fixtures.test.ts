@@ -9,9 +9,7 @@ import { describe, expect, it } from "vitest";
  * `*-view.ts` — is imported by a gallery fixture module or a gallery sample,
  * or is named here with the reason it is not yet.
  */
-const awaitingSamples: Readonly<Record<string, string>> = {
-  "root/inventory-view.ts": "holds inventory helpers that list views compose",
-};
+const awaitingSamples: Readonly<Record<string, string>> = {};
 
 const srcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 

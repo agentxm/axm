@@ -1,9 +1,9 @@
 No extensions installed in this project.
 Next
      axm discover
-     Find recommended extensions
+       Find recommended extensions
 
 No AXM workspace in this project.
 Next
      axm setup
-     Set up AXM in this project
+       Set up AXM in this project

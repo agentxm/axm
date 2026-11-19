@@ -25,6 +25,7 @@ const unsettled = new Set(
 
 const refUpdatePartial = operationDoc(partialUpdate, {
   verbosity: "normal",
+  project: "platform-services",
   suggestions: operationNextActions(resolutionRecoveries(partialUpdate), [
     {
       description: "Try the extensions that did not update again",

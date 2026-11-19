@@ -1,30 +1,14 @@
-Installing
+Install  in platform-services · agents: claude-code, codex
 
-     Extension                     Version   Status        Detail
- ↶   @acme/packs/review-kit        2.1.0     rolled back   /home/dev/work/
-                                                           platform-services/
-                                                           agent_extensions/
-                                                           review-kit
-     The pack's members were written and then removed again when a later member
-     failed. Effects were restored.
- ✖   @acme-e…/incident-commander   -         failed        /home/dev/work/
-                                                           platform-services/
-                                                           agent_extensions/
-                                                           incident-commander
-     The registry has no version of
-     @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which
-     @acme/packs/review-kit requires. Nothing was installed. (not_found) Effects
-     were restored.
- ·   @ac…/skills/incident-review   2.0.0     not tried
-     the operation stopped before this extension
- ·   @acme/knowledge/runbooks      5.2.0     not tried
-     the operation stopped before this extension
+     Extension                     Status
+ ✖   @acme/packs/review-kit        failed
+     @acme-enterprise/subagents/incident-commander 2.0.3, a member of this pack,
+     could not be fetched: the registry has no content for it that this account
+     can read.
 
-Failed to install 4 extensions - all changes rolled back
-  1 failed · 1 rolled back · 2 not tried · exit 3
-One extension could not be resolved, so the install was rolled back.
+Nothing installed - all changes rolled back  1 failed · exit 3
 
 Next
-     axm list   Inspect installed extensions
-     axm install @acme/packs/review-kit@1.9.0
-     Install the pack at a version whose members resolve
+     axm whoami
+       See which account is signed in; a private extension needs one that can
+       read it.

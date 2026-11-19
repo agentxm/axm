@@ -12,4 +12,4 @@ request.
 
 Next
      axm skills install @acme/skills/code-review
-     Install this extension
+       Install this extension

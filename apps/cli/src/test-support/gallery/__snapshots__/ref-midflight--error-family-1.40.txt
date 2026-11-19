@@ -4,7 +4,8 @@
      Sep.
 Next
      axm login
-     Sign in, then run the command again
+       Sign in, then run the command
+       again
 
  ✖   Registry unreachable
                     network, exit 8
@@ -14,4 +15,4 @@ Next
                     registry.agentxm.ai
 Next
      axm install @acme/skills/standup --verbose
-     Show the requests
+       Show the requests

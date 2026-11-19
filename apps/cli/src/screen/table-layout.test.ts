@@ -116,6 +116,27 @@ describe("layoutTable", () => {
     ).toEqual({ _tag: "grid", columns: [{ index: 0, width: 10, align: "left" }], hidden: [] });
   });
 
+  it("drops an optional column rather than wrap it onto more than three lines", () => {
+    const columns = [
+      column({ naturalWidth: 25, wordWidth: 25, priority: "required" }),
+      column({ naturalWidth: 75, wordWidth: 18, priority: "optional" }),
+    ];
+    // Word floors fit, 25 + 18 + 3 = 46, but 75 cells in 18 take five lines.
+    expect(
+      layoutTable({
+        columns,
+        available: 46,
+        gap: 3,
+        wrapBeforeDrop: true,
+        droppable: ["optional"],
+      }),
+    ).toEqual({
+      _tag: "grid",
+      columns: [{ index: 0, width: 25, align: "left" }],
+      hidden: [1],
+    });
+  });
+
   it("wraps to word floors before dropping a column when asked to", () => {
     const columns = [
       column({ naturalWidth: 25, wordWidth: 25, priority: "required" }),

@@ -1,4 +1,4 @@
-Updating
+Update
   in this project · agents: claude-code,
   codex, cursor
 

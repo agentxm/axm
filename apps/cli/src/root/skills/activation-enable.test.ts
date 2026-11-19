@@ -284,7 +284,7 @@ describe("enable.handler", () => {
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.
           expect(logs.success).toEqual([]);
-          expect(logs.error).toContain("Failed to enable 1 skill");
+          expect(logs.error).toContain("Nothing enabled - all changes rolled back");
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
               _tag: "ledger",
@@ -295,8 +295,7 @@ describe("enable.handler", () => {
                   cells: expect.arrayContaining(["my-skill"]),
                   // The refusal is why the unit did not settle, so it stands on
                   // the row's reason line rather than in a droppable cell.
-                  reason:
-                    'Accepted skill content for "my-skill" is not usable (not_found) Effects were restored.',
+                  reason: 'Accepted skill content for "my-skill" is not usable',
                 }),
               ]),
             }),

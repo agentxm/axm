@@ -80,7 +80,12 @@ shape happens to fit the terminal.
 
 Every command whose result carries a ledger opens with the same title line:
 what it is doing, where it acts, and which agents it covers, stated once so no
-row repeats it. A condition the operation reports about its units — a
+row repeats it. A plan says what the command is doing; a settled result names
+the command it records in the imperative, because the work is over. Where it
+acts names a project by its directory, so a reader with several checkouts open
+sees which one changed, and the user workspace as `for this user`. Which agents
+come from every unit the command planned, settled or not, since they describe
+the command rather than its outcome. A condition the operation reports about its units — a
 release-age decision, a warning several units share — stands between the rows
 and the verdict, and states nothing a row contradicts: an annotation naming a
 unit that did not settle as planned yields to that unit's own reason. `Next` is
@@ -88,7 +93,9 @@ the last thing a reader sees, and on a result that did not succeed it names a
 recovery that fits: the emitting command again, narrowed to the units still
 waiting where an unchanged retry can change their outcome, or what the
 producers of those failures themselves suggested. Where no command would
-change the outcome, it offers no retry. No command prints a logo or a phase
+change the outcome, it offers no retry. A command's general suggestions, which
+do not depend on the outcome, follow every recovery, and a failure that
+changed nothing and names a recovery leaves them out. No command prints a logo or a phase
 strip; setup opens like every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
@@ -98,12 +105,25 @@ outcome, and a detail — and differ in their marks and in the outcome column, a
 plan's `Plan` against a result's `Status`. A version column states the move a
 unit made where both ends are known, the version still installed
 for a unit that did not settle, and that its target is not resolved yet where
-a plan has not resolved one. A ledger folds rows that repeat one outcome, such
-as unchanged units, into one fold line with a mark, a count, a noun, and the
+a plan has not resolved one. A committed closure that settled other
+extensions with its own, such as a pack and its members, nests one row per
+member beneath its row, each with its version, change, and path; the parent row
+then names no paths, the verdict counts the nested rows it claims, and a
+member that changed nothing waits for verbose level. A ledger folds rows that
+repeat one outcome, such as unchanged units, into one fold line with a mark, a count, a noun, and the
 flag that reveals them. A row that did not settle as planned carries its
-reason: one line beneath the row, at the content column, toned as the row's
-own mark, painted at every width and every level of detail because a reason
-has nowhere else to appear. Row children carry per-agent outcomes and details,
+reason: one line beneath the row, at the content column, painted at every
+width and every level of detail because a reason has nowhere else to appear.
+The reason is its producer's sentence without the category code, which
+machine output carries as a field. It is toned as the row's own mark, except
+that a rolled-back or not-tried row states a consequence of a cause another
+row or the verdict names, so its reason reads as a dim aside. Such a row
+wrote nothing a path could point at, so it has no detail; a ledger drops a
+column no row has a value for. Where another row's reason or the operation's
+interruption already says what stopped the operation, the units it never
+reached fold into one `· n not tried` line, and verbose level names each with
+its reason. What an unsettled unit was left in follows its reason, unless the
+verdict already states it for every such unit. Row children carry per-agent outcomes and details,
 aligned to the same column and shown at verbose level. A ledger takes any
 columns: lint's are finding, location, and fix, with the rule identifier and
 help as a dim child line, and a rule that repeats folds into one row with a
@@ -168,7 +188,11 @@ is the report link. Blocked, partial, and interrupted outcomes reuse the ledger
 rather than a bespoke layout: a unit blocked by its own condition is ▲, a unit
 the operation stopped before is · not tried, and a unit in flight when a
 restoring operation stopped is ↶ rolled back. Their verdict's aside ends with
-the exit code.
+the exit code. A failure that committed nothing, and whose units are each
+known to be restored or untouched, never counts the units it did not change:
+its verdict says `Nothing installed`, and `Nothing installed - all changes
+rolled back` where it restored something, which states once what every row was
+left in.
 
 Glyph width is measured, not trusted. Every glyph counts as one cell, as
 terminals draw East Asian Ambiguous characters outside East Asian contexts.
@@ -237,7 +261,9 @@ is its widest segment rather than the whole list.
 
 A ledger would rather wrap than drop: it shrinks every column to its word
 floors before it gives one up, because wrapping keeps a value in the column
-whose header names it. Width then moves what a ledger carries and never
+whose header names it. The exception is an `optional` cell that would need
+more than three lines: stacked a word to a line it is harder to read than the
+same value beneath its row, so the column drops instead. Width then moves what a ledger carries and never
 removes it (`cli/ledger-width-relocates-values`). A dropped `optional` column
 is repainted beneath each row that has a value for it, dim, at the content
 column: the bare value when one column was dropped, and `Header  value` pairs
@@ -280,7 +306,9 @@ identifier — is never cut, truncated, or hyphenated; when it does not fit it
 moves to its own line, in a ledger cell as anywhere else. Apart from `raw` and
 `markdown` content passed through verbatim, it is the only content allowed to
 overflow the width. A `Next` action, whether a command or a link, carries its
-description beside the target where both fit and beneath it where they do not.
+description beside the target where both fit and beneath it where they do not,
+hanging two columns in so that without colour it is not read as another
+command.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;

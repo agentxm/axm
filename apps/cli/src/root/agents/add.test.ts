@@ -383,7 +383,7 @@ describe("agents add.handler", () => {
 
         expect(messages(rendererState)).toContainEqual({
           _tag: "error",
-          message: "Failed to configure 2 agents",
+          message: "Nothing configured - all changes rolled back",
         });
         expect(messages(rendererState)).not.toContainEqual({
           _tag: "success",

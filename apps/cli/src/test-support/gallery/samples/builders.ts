@@ -51,19 +51,42 @@ interface ArtifactFacts {
   readonly agents?: ReadonlyArray<string>;
 }
 
-/** What a unit wrote or would write: its extension directory under the sample project. */
+/**
+ * Where an acquired extension's package sits, as a row names it: relative to
+ * the workspace, the way the kernel's display paths spell it.
+ */
+export const acquiredPath = (name: string): string =>
+  `agent_extensions/registry.agentxm.ai/${name}`;
+
+/** What a unit wrote or would write: its acquired package in the sample project. */
 export const anArtifact = (
   name: string,
   change: JobStepArtifact["change"],
   facts: ArtifactFacts = {},
 ): JobStepArtifact => ({
-  path: `${PROJECT_ROOT}/agent_extensions/${name.split("/").at(-1) ?? name}`,
+  path: acquiredPath(name),
   scope: "project",
   change,
   ...(facts.version === undefined ? {} : { version: facts.version }),
   ...(facts.previousVersion === undefined ? {} : { previousVersion: facts.previousVersion }),
   ...(facts.fileCount === undefined ? {} : { fileCount: facts.fileCount }),
   ...(facts.agents === undefined ? {} : { agents: facts.agents }),
+});
+
+/**
+ * One child a committed closure settled, keyed by its step as the kernel keys
+ * it and named by its label: a pack member and the version it reached.
+ */
+export const aPackMember = (
+  key: string,
+  name: string,
+  change: JobStepArtifact["change"],
+  version: string,
+): NonNullable<JobStepArtifact["members"]>[number] => ({
+  id: key,
+  label: name,
+  changed: change !== "unchanged",
+  artifact: anArtifact(name, change, { version, fileCount: 3 }),
 });
 
 /** A failure a producer reported: its category, its sentence, and the routes it suggests. */

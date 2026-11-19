@@ -37,6 +37,6 @@ Set up AXM for 3 agents
 
 Next
      axm discover
-     Discover recommended extensions
+       Discover recommended extensions
      axm sync --preview
-     Preview workspace reconciliation
+       Preview workspace reconciliation

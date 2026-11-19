@@ -33,6 +33,9 @@ export type { PaintStyle, PaintWidth } from "./paint-kit.js";
 
 const actionTarget = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
+/** How far a `Next` description that wraps onto its own line hangs beneath its command. */
+const HANGING_INDENT = 2;
+
 /**
  * Where a node paints: `mark` is the column its gutter starts at, and
  * `content` is where a node without a mark starts. They differ inside a titled
@@ -164,7 +167,9 @@ const paintNode = (
           }
           const lines = paintPrefixed(target, style, { indent: actionStart, first: "" });
           if (plain(action.description).length === 0) return lines;
-          return withSupplement(lines, action.description, style, actionStart, {
+          // A description that cannot share its command's line hangs beneath
+          // it, so on a terminal without colour it is not read as a command.
+          return withSupplement(lines, action.description, style, actionStart + HANGING_INDENT, {
             gap: spaces(COLUMN_GAP),
             ownLine: action.description,
           });

@@ -436,6 +436,75 @@ const resolutionOf = (units: ReadonlyArray<ResolvedUnit<never>>) =>
   });
 
 describe("result ledger", () => {
+  it("nests the extension members a committed closure settled beneath its row", () => {
+    const member = (
+      id: string,
+      label: string,
+      change: JobStepArtifact["change"],
+      version: string,
+    ) => ({
+      id,
+      label,
+      changed: change !== "unchanged",
+      artifact: { ...artifactOf(change, version), path: `agent_extensions/${label}` },
+    });
+    const resolution = resolutionOf([
+      {
+        id: "@acme/packs/review-kit",
+        label: "@acme/packs/review-kit",
+        state: "committed",
+        artifact: {
+          ...artifactOf("created", "2.1.0"),
+          path: "pack graph",
+          fileCount: 3,
+          members: [
+            member("pack:@acme/review-kit", "@acme/packs/review-kit", "created", "2.1.0"),
+            member("skill:incident-review", "@acme/skills/incident-review", "created", "2.0.0"),
+            member("knowledge:runbooks", "@acme/knowledge/runbooks", "unchanged", "5.2.0"),
+            {
+              id: "projection:instructions",
+              label: "instruction files",
+              changed: true,
+              artifact: { path: "AGENTS.md", scope: "project", change: "updated" },
+            },
+          ],
+        },
+      },
+    ]);
+    const normal = paint(operationDoc(resolution, { verbosity: "normal" }));
+    // The pack's row names no paths: each member row names its own.
+    expect(normal).toMatch(/\+ {3}@acme\/packs\/review-kit\s+2\.1\.0\s+created\n/);
+    expect(normal).toMatch(
+      /\+ {5}@acme\/skills\/incident-review\s+2\.0\.0\s+created\s+agent_extensions\/@acme\/skills\/incident-review/,
+    );
+    // The closure's own pack and its projection step are not member rows,
+    // and a member that changed nothing waits for verbose level.
+    expect(normal.split("@acme/packs/review-kit")).toHaveLength(2);
+    expect(normal).not.toContain("instruction files");
+    expect(normal).not.toContain("@acme/knowledge/runbooks");
+    // The claim counts the members that have rows of their own.
+    expect(normal.split("\n").at(-1)).toBe("Synced 2 extensions");
+    const verbose = paint(operationDoc(resolution, { verbosity: "verbose" }));
+    expect(verbose).toMatch(/= {5}@acme\/knowledge\/runbooks\s+5\.2\.0\s+already current/);
+  });
+
+  it("names the project a command acted in on its title line", () => {
+    const text = paint(
+      operationDoc(
+        resolutionOf([
+          {
+            id: "@acme/skills/triage",
+            label: "@acme/skills/triage",
+            state: "committed",
+            artifact: { ...artifactOf("updated", "2.0.1"), agents: ["codex"] },
+          },
+        ]),
+        { verbosity: "normal", project: "platform-services" },
+      ),
+    );
+    expect(text.split("\n")[0]).toBe("Sync  in platform-services - agents: codex");
+  });
+
   it("puts the verdict after the ledger, where it needs no glyph of its own", () => {
     const text = paint(
       operationDoc(
@@ -453,7 +522,7 @@ describe("result ledger", () => {
     const lines = text.split("\n");
     // Where the operation acted and for which agents is stated once, on the
     // title line, rather than repeated as a trailing aside.
-    expect(lines[0]).toBe("Syncing  in this project - agents: claude-code, codex");
+    expect(lines[0]).toBe("Sync  in this project - agents: claude-code, codex");
     expect(lines.at(-1)).toBe("Synced 1 extension");
     expect(text).toMatch(/~ {3}@acme\/skills\/triage\s+2\.0\.1\s+updated/);
   });
@@ -539,15 +608,67 @@ describe("problem outcomes", () => {
         { verbosity: "normal" },
       ),
     );
+    // The verdict says the changes were rolled back, so the row does not.
     expect(text).toMatch(
-      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\n\s+interrupted in flight/,
+      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\n\s+interrupted in flight\n/,
     );
-    // A unit the operation stopped before says what stopped it, beneath its row.
-    expect(text).toMatch(
-      /\. {3}@acme\/skills\/standup\s+-\s+not tried\n\s+not attempted: the operation was interrupted/,
-    );
+    // The interruption is what stopped the operation, so the unit it never
+    // reached is counted rather than listed with the same reason again.
+    expect(text).toContain(" .   1 extension not tried  --verbose to list");
+    expect(text).not.toContain("@acme/skills/standup");
     expect(text.split("\n").at(-1)).toBe(
       "Interrupted - changes rolled back  1 rolled back - 1 not tried - exit 130",
+    );
+  });
+
+  it("names each unit an interruption stopped before, with its reason, at verbose level", () => {
+    const text = paint(
+      operationDoc(
+        makeOperationResolution({
+          ...resolutionOf([notTried("@acme/skills/standup"), notTried("@acme/skills/triage")]),
+          interruption: { signal: "SIGINT", disposition: "untouched" },
+        }),
+        { verbosity: "verbose" },
+      ),
+    );
+    expect(text).toMatch(
+      /\. {3}@acme\/skills\/standup\s+not tried\n\s+not attempted: the operation was interrupted/,
+    );
+    expect(text).toMatch(/\. {3}@acme\/skills\/triage\s+not tried/);
+  });
+
+  it("counts nothing a failure changed in its verdict, and says once what was restored", () => {
+    const failed = (id: string): ResolvedUnit<never> => ({
+      id,
+      label: id,
+      state: "failed",
+      disposition: "restored",
+      message: `${id} could not be fetched. (not_found)`,
+      error: new StepFailure({ category: "not_found", detail: `${id} could not be fetched.` }),
+    });
+    const text = paint(
+      operationDoc(
+        makeOperationResolution({
+          ...resolutionOf([failed("@acme/packs/review-kit"), notTried("@acme/skills/standup")]),
+          failure: new StepFailure({
+            category: "not_found",
+            detail: "@acme/packs/review-kit could not be fetched. (not_found)",
+          }),
+        }),
+        { verbosity: "normal" },
+      ),
+    );
+    // The row states its producer's sentence without the machine's code and
+    // without what the verdict already says, and the operation-level failure
+    // that repeats it is not painted again.
+    expect(text).toMatch(
+      /x{2} {2}@acme\/packs\/review-kit\s+failed\n\s+@acme\/packs\/review-kit could not be fetched\.\n/,
+    );
+    expect(text).not.toContain("(not_found)");
+    expect(text).not.toContain("Effects were restored");
+    expect(text.split("could not be fetched")).toHaveLength(2);
+    expect(text).toContain(
+      "Nothing synced - all changes rolled back  1 failed - 1 not tried - exit",
     );
   });
 

@@ -77,6 +77,7 @@ const refMidflightInterrupted = operationDoc(
   }),
   {
     verbosity: "normal",
+    project: "platform-services",
     suggestions: [
       {
         description: "Run it again; nothing is half-applied",

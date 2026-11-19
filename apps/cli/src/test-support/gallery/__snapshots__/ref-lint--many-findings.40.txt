@@ -27,4 +27,4 @@ Linting  in this project
 
 Next
      axm lint --fix
-     Apply the available automatic fix
+       Apply the available automatic fix

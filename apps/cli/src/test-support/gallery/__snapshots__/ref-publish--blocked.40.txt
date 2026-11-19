@@ -16,6 +16,6 @@ Publishing  as @acme · to agentxm
 
 Next
      git commit -a && axm publish
-     Publish what is committed
+       Publish what is committed
      axm publish --accept-warnings
-     Publish the working tree as it is
+       Publish the working tree as it is

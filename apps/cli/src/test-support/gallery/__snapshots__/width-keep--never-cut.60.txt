@@ -3,4 +3,4 @@
 
 Next
      axm install @acme-enterprise/skills/soc2-evidence-review --yes
-     Install the reviewed extension
+       Install the reviewed extension

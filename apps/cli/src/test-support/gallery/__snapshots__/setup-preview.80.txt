@@ -15,4 +15,4 @@ Would set up AXM for 3 agents  using agents found here · no changes made
 
 Next
      axm setup --yes --scope project --agent claude-code --agent codex --agent cursor
-     Apply setup
+       Apply setup

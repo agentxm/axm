@@ -16,6 +16,7 @@ import {
   type UnitState,
 } from "@agentxm/workspace-kernel/operations";
 import { redactCredentialText } from "@agentxm/host-primitives";
+import { extensionFromStepKey } from "@agentxm/workspace-kernel/reconciliation";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 
@@ -51,7 +52,10 @@ import {
   ledgerViewPolicy,
   notTriedReason,
   operationTitle,
+  nothingChangedVerdict,
   outcomeHeadline,
+  rolledBackVerdict,
+  settledTitle,
   planVerdict,
   plannedArtifactChange,
   resultLedgerColumns,
@@ -392,6 +396,17 @@ const UNSETTLED: ReadonlySet<UnitState> = new Set([
 /** Where a producer's sentence has already closed, so nothing is appended to it. */
 const SENTENCE_END = /[.!?)]$/u;
 
+/**
+ * The producer's sentence without the category code a step failure appends to
+ * it. The code belongs to the machine envelope, which carries it as a field;
+ * in prose it reads as a fragment of the sentence before it.
+ */
+const producerReason = (unit: ResolvedUnit<unknown>): string | undefined => {
+  if (unit.message === undefined || unit.error === undefined) return unit.message;
+  const code = ` (${unit.error.category})`;
+  return unit.message.endsWith(code) ? unit.message.slice(0, -code.length) : unit.message;
+};
+
 /** Whether a settlement owes the reader a reason of its own. */
 const owesReason = (settlement: Settlement): boolean =>
   settlement._tag === "not-tried" ||
@@ -417,7 +432,7 @@ const reasonOf = (
       ? (unit.blocking?.detail ?? notTriedReason(presentation))
       : settlement._tag === "rolled-back-in-flight"
         ? INTERRUPTED_IN_FLIGHT
-        : (unit.message ?? UNREPORTED_REASON);
+        : (producerReason(unit) ?? UNREPORTED_REASON);
   if (saidOnce || unit.disposition === undefined) return reason;
   // A producer's sentence already ends where it means to, so the settlement
   // follows it as a sentence of its own rather than as another clause.
@@ -466,15 +481,94 @@ const settlementOf = (
   return { _tag: "state", state: unit.state };
 };
 
-const resultRow = (
+/** Where the version and the detail sit in the columns plan and result ledgers share. */
+const VERSION_COLUMN = 1;
+const DETAIL_COLUMN = 3;
+
+/**
+ * The extensions a committed closure settled beside its own, as rows nested
+ * beneath it: a pack's members, each with the version it reached and where it
+ * landed. Steps that name no extension, such as a closure's projection, and
+ * the closure's own extension are not rows of their own. Members that changed
+ * nothing are listed at verbose level only.
+ */
+const memberRows = (
+  unit: ResolvedUnit<unknown>,
+  artifact: JobStepArtifact,
+  detailed: boolean,
+  saidOnce: SaidOnce,
+): ReadonlyArray<LedgerRow> =>
+  (artifact.members ?? []).flatMap((member): ReadonlyArray<LedgerRow> => {
+    const extension = extensionFromStepKey(member.id);
+    if (
+      extension === undefined ||
+      member.label === unit.label ||
+      (extension.type === "pack" && unit.label.endsWith(`/${extension.name}`)) ||
+      (!detailed && !member.changed)
+    ) {
+      return [];
+    }
+    const change = member.changed ? member.artifact.change : "unchanged";
+    return [
+      {
+        id: member.id,
+        depth: 1,
+        mark: artifactChangeMark(change),
+        cells: [
+          member.label,
+          versionCell(member.artifact),
+          artifactChange(change),
+          detailCell(member.artifact, [], saidOnce),
+        ],
+      },
+    ];
+  });
+
+/** How many changed members committed closures settled, as rows nested beneath them. */
+const nestedChanges = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+): number =>
+  units.reduce((total, unit) => {
+    const settlement = settlementOf(unit, mode);
+    return settlement._tag === "changed"
+      ? total + memberRows(unit, settlement.artifact, false, onEveryRow).length
+      : total;
+  }, 0);
+
+/**
+ * A unit's result row, followed by the rows of the members it settled. Where
+ * the members have rows of their own, each names its own path, so the parent
+ * row does not list them all again.
+ */
+const resultRows = (
   unit: ResolvedUnit<unknown>,
   mode: OperationResolution<unknown>["mode"],
   detailed: boolean,
   presentation: OperationPresentation,
   dispositionSaidOnce: boolean,
   saidOnce: SaidOnce = onEveryRow,
-): LedgerRow => {
+): ReadonlyArray<LedgerRow> => {
   const settlement = settlementOf(unit, mode);
+  const members =
+    settlement._tag === "changed" ? memberRows(unit, settlement.artifact, detailed, saidOnce) : [];
+  const row = resultRow(unit, settlement, detailed, presentation, dispositionSaidOnce, saidOnce);
+  return members.length === 0
+    ? [row]
+    : [
+        { ...row, cells: row.cells.map((cell, index) => (index === DETAIL_COLUMN ? "" : cell)) },
+        ...members,
+      ];
+};
+
+const resultRow = (
+  unit: ResolvedUnit<unknown>,
+  settlement: Settlement,
+  detailed: boolean,
+  presentation: OperationPresentation,
+  dispositionSaidOnce: boolean,
+  saidOnce: SaidOnce,
+): LedgerRow => {
   const name = unit.artifact?.packMembership?.pack ?? unit.label;
   const version = versionCell(unit.artifact);
   const row = ((): LedgerRow => {
@@ -509,10 +603,11 @@ const resultRow = (
             version,
             unitState(settlement.state),
             // A unit that did not settle as planned says why, and what it was
-            // left in, on its reason line; any other unit's message restates
-            // its status, except where there is no artifact to describe it.
+            // left in, on its reason line, and wrote nothing a path could
+            // point at; any other unit's message restates its status, except
+            // where there is no artifact to describe it.
             UNSETTLED.has(settlement.state)
-              ? detailCell(unit.artifact, [])
+              ? ""
               : detailCell(unit.artifact, [
                   unit.artifact === undefined ? unit.message : undefined,
                   unit.disposition === undefined ? undefined : disposition(unit.disposition),
@@ -584,6 +679,7 @@ const detailAwaitsVerbose = (
   units.some((unit) => rowChildren(unit, true).length > rowChildren(unit, false).length);
 
 interface FoldGroup {
+  readonly mark: LedgerFold["mark"];
   readonly count: number;
   readonly noun: string;
 }
@@ -595,9 +691,22 @@ const foldGroups = (
   groups
     .filter((group) => group.count > 0)
     .map((group) => ({
+      mark: "unchanged",
       count: group.count,
       noun: `${subjectNoun(presentation, group.count)} ${unitState(group.state)}`,
     }));
+
+/**
+ * The units an operation never reached, counted on one line. Where another
+ * row already says what stopped the operation, each of them would only repeat
+ * that they were not reached, and their names matter only to a reader who
+ * asked for them.
+ */
+const untriedFold = (presentation: OperationPresentation, untried: number): FoldGroup => ({
+  mark: "not-tried",
+  count: untried,
+  noun: `${subjectNoun(presentation, untried)} ${NOT_TRIED}`,
+});
 
 /**
  * Each group folds into a line of its own, so neither the already-current nor
@@ -617,38 +726,53 @@ const foldedLedger = (
       ...(folds.length === 0
         ? {}
         : {
-            folds: folds.map((fold): LedgerFold => ({
-              mark: "unchanged",
-              ...fold,
-              hint: FOLD_HINT,
-            })),
+            folds: folds.map((fold): LedgerFold => ({ ...fold, hint: FOLD_HINT })),
           }),
     },
   ];
 };
 
-/** Where the version sits in the columns plan and result ledgers share. */
-const VERSION_COLUMN = 1;
+interface LedgerShape {
+  readonly columns: ReadonlyArray<LedgerColumn>;
+  readonly rows: ReadonlyArray<LedgerRow>;
+}
 
 /**
- * A settled ledger without its version column where no row has a version to
- * show. A column of absences tells a reader nothing the rows do not, and the
- * width goes to what each row did instead.
+ * A settled ledger without a column no row has a value for. A column of
+ * absences tells a reader nothing the rows do not, and the width goes to what
+ * each row did instead.
  */
-const withoutEmptyVersions = (
-  columns: ReadonlyArray<LedgerColumn>,
-  rows: ReadonlyArray<LedgerRow>,
-): { readonly columns: ReadonlyArray<LedgerColumn>; readonly rows: ReadonlyArray<LedgerRow> } => {
-  if (rows.length === 0 || rows.some((row) => row.cells[VERSION_COLUMN] !== ABSENT)) {
-    return { columns, rows };
+const withoutEmptyColumn = (
+  ledger: LedgerShape,
+  column: number,
+  empty: (cell: LedgerRow["cells"][number] | undefined) => boolean,
+): LedgerShape => {
+  if (ledger.rows.length === 0 || ledger.rows.some((row) => !empty(row.cells[column]))) {
+    return ledger;
   }
   const without = <A>(values: ReadonlyArray<A>): ReadonlyArray<A> =>
-    values.filter((_, index) => index !== VERSION_COLUMN);
+    values.filter((_, index) => index !== column);
   return {
-    columns: without(columns),
-    rows: rows.map((row) => ({ ...row, cells: without(row.cells) })),
+    columns: without(ledger.columns),
+    rows: ledger.rows.map((row) => ({ ...row, cells: without(row.cells) })),
   };
 };
+
+/**
+ * A settled ledger without the detail column where no row has a detail, then
+ * without the version column where no row has a version. Detail comes off
+ * first so the version column's position still holds.
+ */
+const withoutEmptyColumns = (ledger: LedgerShape): LedgerShape =>
+  withoutEmptyColumn(
+    withoutEmptyColumn(
+      ledger,
+      DETAIL_COLUMN,
+      (cell) => cell === undefined || (typeof cell === "string" && cell.length === 0),
+    ),
+    VERSION_COLUMN,
+    (cell) => cell === ABSENT,
+  );
 
 const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone => {
   switch (outcome) {
@@ -763,17 +887,17 @@ export const resolutionAgentCoverage = (
  * ledger has nothing to orient, and its verdict stands alone.
  */
 const titleLine = (
-  presentation: OperationPresentation,
-  mode: "preview" | "apply",
+  title: string,
   where: {
     readonly ledger: boolean;
     readonly scope?: "project" | "user";
+    readonly project?: string;
     readonly agents?: ReadonlyArray<string>;
   },
 ): Doc => {
   if (!where.ledger) return [];
   const aside = factParts([
-    where.scope === undefined ? undefined : scopePhrase(where.scope),
+    where.scope === undefined ? undefined : scopePhrase(where.scope, where.project),
     where.agents === undefined || where.agents.length === 0
       ? undefined
       : `agents: ${where.agents.join(", ")}`,
@@ -782,7 +906,7 @@ const titleLine = (
     {
       _tag: "headline",
       tone: "neutral",
-      text: emphatic(operationTitle(presentation, mode)),
+      text: emphatic(title),
       ...(aside.length === 0 ? {} : { aside }),
     },
   ];
@@ -871,6 +995,58 @@ export const unsettledUnits = (
 ): ReadonlyArray<ResolvedUnit<unknown>> =>
   resolution.units.filter((unit) => owesReason(settlementOf(unit, resolution.mode)));
 
+/**
+ * What the operation left the units it reached without settling in, where
+ * that is known for each of them and none kept partial work: `restored` when
+ * any was rolled back, `untouched` when none had changed anything.
+ */
+const leftAsItWas = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+): "restored" | "untouched" | undefined => {
+  const reached = units.filter((unit) => {
+    const settlement = settlementOf(unit, mode);
+    return settlement._tag !== "not-tried" && owesReason(settlement);
+  });
+  if (
+    reached.length === 0 ||
+    !reached.every((unit) => unit.disposition === "restored" || unit.disposition === "untouched")
+  ) {
+    return undefined;
+  }
+  return reached.some((unit) => unit.disposition === "restored") ? "restored" : "untouched";
+};
+
+/**
+ * What a failure that changed nothing left behind, or undefined where it
+ * committed something or the state of a unit it reached is not known. Its
+ * verdict then says nothing changed, so it counts no units it did not change.
+ */
+const unchangedByFailure = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+  outcome: ReturnType<typeof deriveOperationOutcome>,
+): "restored" | "untouched" | undefined =>
+  outcome !== "failed" || units.some((unit) => unit.state === "committed")
+    ? undefined
+    : leftAsItWas(units, mode);
+
+/**
+ * Where the title line says the command acts and which agents it covers: the
+ * scope and agents of every unit the operation planned, whether or not it
+ * settled, because they describe the command rather than its outcome.
+ */
+const titleCoverage = (
+  units: ReadonlyArray<{ readonly artifact?: JobStepArtifact }>,
+): { readonly scope?: "project" | "user"; readonly agents?: ReadonlyArray<string> } => {
+  const scope = units.find((unit) => unit.artifact !== undefined)?.artifact?.scope;
+  const agents = [...new Set(units.flatMap((unit) => unit.artifact?.agents ?? []))];
+  return {
+    ...(scope === undefined ? {} : { scope }),
+    ...(agents.length === 0 ? {} : { agents }),
+  };
+};
+
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
@@ -891,6 +1067,8 @@ export interface OperationDocOptions {
    * last thing a reader sees.
    */
   readonly callouts?: Doc;
+  /** The project directory's name, which the title line says the command acted in. */
+  readonly project?: string;
 }
 
 export const operationDoc = (
@@ -905,15 +1083,26 @@ export const operationDoc = (
   }
   const counts = countUnitStates(resolution.units);
   const presentation = resolution.presentation ?? defaultOperationPresentation;
+  const unchanged = unchangedByFailure(resolution.units, resolution.mode, outcome);
   const verdict =
     options.message ??
     (outcome === "blocked" && resolution.blocking !== undefined
       ? `${outcomeHeadline(presentation, outcome, counts)} - ${blockingClass(resolution.blocking.class)}`
-      : outcome === "failed" && counts.rolledBack > 0
-        ? `${outcomeHeadline(presentation, outcome, counts)} - all changes rolled back`
-        : outcome === "interrupted" && resolution.interruption !== undefined
-          ? interruptionPhrase(resolution.interruption.signal, resolution.interruption.disposition)
-          : outcomeHeadline(presentation, outcome, counts));
+      : unchanged === "restored"
+        ? rolledBackVerdict(presentation)
+        : unchanged === "untouched"
+          ? nothingChangedVerdict(presentation)
+          : outcome === "interrupted" && resolution.interruption !== undefined
+            ? interruptionPhrase(
+                resolution.interruption.signal,
+                resolution.interruption.disposition,
+              )
+            : outcomeHeadline(presentation, outcome, {
+                ...counts,
+                // Members a closure settled have rows of their own, so the
+                // claim counts them with the units they came in.
+                committed: counts.committed + nestedChanges(resolution.units, resolution.mode),
+              }));
   const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
   const visible = resolution.units.filter(
     (unit) =>
@@ -926,10 +1115,30 @@ export const operationDoc = (
   // Where every unsettled unit was left in the same state, the verdict says so
   // once; where they differ, each row says it for itself.
   const settledAlike = sharedDisposition(resolution.units, resolution.mode, presentation);
+  // The operation-level failure is the first failed unit's own sentence, so
+  // where a row already states it the verdict does not say it again.
+  const failureReason = resolution.failure?.detail;
+  const failureRepeatsARow =
+    failureReason !== undefined &&
+    visible.some(
+      (unit) =>
+        owesReason(settlementOf(unit, resolution.mode)) &&
+        (unit.message === failureReason || producerReason(unit) === failureReason),
+    );
+  const verdictReason = failureRepeatsARow ? undefined : failureReason;
+  // A verdict that says nothing changed, or that the changes were rolled
+  // back, already states what every row it covers was left in, so no row
+  // says it again.
+  const verdictSaysRestored =
+    unchanged !== undefined ||
+    (outcome === "interrupted" &&
+      resolution.interruption?.disposition === "restored" &&
+      leftAsItWas(resolution.units, resolution.mode) === "restored");
   const dispositionSaidOnce =
-    settledAlike !== undefined &&
-    resolution.blocking === undefined &&
-    resolution.failure?.detail === undefined;
+    verdictSaysRestored ||
+    (settledAlike !== undefined &&
+      resolution.blocking === undefined &&
+      verdictReason === undefined);
   const nativeLocations = operationNativeLocations(resolution);
   // A reader who asked for detail gets every location with its state on a
   // line of its own, so only the plain view gathers destinations off the rows.
@@ -944,22 +1153,35 @@ export const operationDoc = (
       }),
     ),
   ];
-  const settled = withoutEmptyVersions(
-    ledgerColumns(presentation, "Status"),
-    visible.map((unit) =>
-      resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce, saidOnce),
-    ),
-  );
-  const ledger = foldedLedger(
-    settled.columns,
-    settled.rows,
-    detailed || quiet
+  // Where a row already says what stopped the operation, or the operation was
+  // interrupted, the units it never reached are counted rather than listed.
+  const stopExplained =
+    resolution.interruption !== undefined ||
+    visible.some((unit) => {
+      const settlement = settlementOf(unit, resolution.mode);
+      return settlement._tag !== "not-tried" && owesReason(settlement);
+    });
+  const untried =
+    detailed || !stopExplained
+      ? []
+      : visible.filter((unit) => settlementOf(unit, resolution.mode)._tag === "not-tried");
+  const settled = withoutEmptyColumns({
+    columns: ledgerColumns(presentation, "Status"),
+    rows: visible
+      .filter((unit) => !untried.includes(unit))
+      .flatMap((unit) =>
+        resultRows(unit, resolution.mode, detailed, presentation, dispositionSaidOnce, saidOnce),
+      ),
+  });
+  const ledger = foldedLedger(settled.columns, settled.rows, [
+    ...(untried.length === 0 ? [] : [untriedFold(presentation, untried.length)]),
+    ...(detailed || quiet
       ? []
       : foldGroups(presentation, [
           { count: counts.unchanged, state: "unchanged" },
           { count: counts.skipped, state: "skipped" },
-        ]),
-  );
+        ])),
+  ]);
   const next = options.suggestions ?? [];
   const aside = verdictAside(
     resolution.units,
@@ -971,10 +1193,16 @@ export const operationDoc = (
   return [
     // Quiet keeps the outcome and drops the narration around it, so the
     // title line the operation opened with does not survive the filter.
-    ...titleLine(presentation, resolution.mode, {
-      ledger: ledger.length > 0 && !quiet,
-      ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
-    }),
+    ...titleLine(
+      resolution.mode === "preview"
+        ? operationTitle(presentation, resolution.mode)
+        : settledTitle(presentation),
+      {
+        ledger: ledger.length > 0 && !quiet,
+        ...titleCoverage(resolution.units),
+        ...(options.project === undefined ? {} : { project: options.project }),
+      },
+    ),
     ...ledger,
     ...nativeLocationsDoc(nativeLocations, detailed, resolution.mode === "preview", destinations),
     ...groupedWarnings(resolution.units, resolution.mode),
@@ -1015,11 +1243,11 @@ export const operationDoc = (
       // its reason stands with its verdict; a failure's reason follows it, and
       // where neither says anything the state the unsettled units share does.
       ...(resolution.blocking === undefined
-        ? resolution.failure?.detail === undefined
-          ? dispositionSaidOnce && settledAlike !== undefined
+        ? verdictReason === undefined
+          ? !verdictSaysRestored && dispositionSaidOnce && settledAlike !== undefined
             ? { reason: settledAlike }
             : {}
-          : { reason: resolution.failure.detail }
+          : { reason: verdictReason }
         : { reason: resolution.blocking.detail, blocked: true }),
     }),
     ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
@@ -1097,7 +1325,7 @@ export const planDoc = (
   );
 
   return [
-    ...titleLine(presentation, options.mode, {
+    ...titleLine(operationTitle(presentation, options.mode), {
       ledger: ledger.length > 0,
       ...(scope === undefined ? {} : { scope }),
       ...(agents.length === 0 ? {} : { agents }),

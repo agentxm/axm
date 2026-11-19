@@ -121,7 +121,7 @@ export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
  * has when no blocking condition named a subject of its own.
  */
 export const notTriedReason = (presentation: OperationPresentation): string =>
-  `the operation stopped before this ${presentation.subject.singular}`;
+  `The operation stopped before this ${presentation.subject.singular}.`;
 
 /**
  * What a row says when its producer settled it unsettled and supplied no
@@ -582,6 +582,29 @@ export const operationTitle = (
 ): string =>
   mode === "preview" ? `Previewing ${presentation.verb.imperative}` : presentation.verb.gerund;
 
+/**
+ * The title line of a settled result: the command it records, named in its
+ * imperative. The work is over, so the result no longer says it is going on.
+ */
+export const settledTitle = (presentation: OperationPresentation): string =>
+  `${presentation.verb.imperative.slice(0, 1).toUpperCase()}${presentation.verb.imperative.slice(1)}`;
+
+/**
+ * The verdict of an operation that changed nothing because every change it
+ * made was undone: what did not happen, then why the workspace is as it was.
+ * The rows above name the failure, so the verdict does not count them again.
+ */
+export const rolledBackVerdict = (presentation: OperationPresentation): string =>
+  `${nothingChangedVerdict(presentation)} - all changes rolled back`;
+
+/**
+ * The verdict of a failed operation that changed nothing. A count of the
+ * units it failed to change would overstate the failure where most of them
+ * were never reached; the aside counts how each one ended instead.
+ */
+export const nothingChangedVerdict = (presentation: OperationPresentation): string =>
+  `Nothing ${presentation.verb.past.toLowerCase()}`;
+
 /** The subject noun alone, pluralized for a count that is stated separately. */
 export const subjectNoun = (presentation: OperationPresentation, value: number): string =>
   value === 1 ? presentation.subject.singular : presentation.subject.plural;
@@ -590,9 +613,13 @@ export const subjectNoun = (presentation: OperationPresentation, value: number):
 export const subjectHeader = (presentation: OperationPresentation): string =>
   `${presentation.subject.singular.slice(0, 1).toUpperCase()}${presentation.subject.singular.slice(1)}`;
 
-/** Where an operation acts, for the aside on its title line. */
-export const scopePhrase = (scope: "project" | "user"): string =>
-  scope === "project" ? "in this project" : "for this user";
+/**
+ * Where an operation acts, for the aside on its title line: the project by its
+ * directory's name where that is known, so a reader with several checkouts
+ * open sees which one changed.
+ */
+export const scopePhrase = (scope: "project" | "user", project?: string): string =>
+  scope === "user" ? "for this user" : project === undefined ? "in this project" : `in ${project}`;
 
 /**
  * What a plan ledger's verdict states: the change it would make. Units that

@@ -3,9 +3,19 @@
  * the typed `upgrade-assessment-v1` result; the wording is the CLI's.
  */
 
+import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
 import type { VerbosityLevel } from "../../cli-flags/index.js";
-import type { Doc } from "../../screen/index.js";
-import { headlineDoc, successDoc } from "../../screen/index.js";
+import {
+  capitalized,
+  conditionDoc,
+  invocation,
+  recordDoc,
+  type CalloutNode,
+  type Doc,
+  type Field,
+  type Tone,
+} from "../../screen/index.js";
 import {
   methodLabel,
   type UpgradeAssessmentResult,
@@ -14,15 +24,15 @@ import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/offi
 
 type Disposition = UpgradeAssessmentResult["disposition"];
 
-const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): Doc => {
+const outcomeTone = (upgrade: UpgradeAssessmentResult): Tone => {
   switch (upgrade.disposition) {
     case "upgraded":
     case "reinstalled":
     case "already-current":
-      return successDoc(message);
+      return "ok";
     case "previewed":
     case "local-newer":
-      return headlineDoc("info", message);
+      return "info";
     case "downgrade-refused":
     case "installer-lagging":
     case "installer-leading":
@@ -32,7 +42,7 @@ const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): Doc =>
     case "verification-failed":
     case "recovery-required":
     case "rolled-back":
-      return headlineDoc("warn", message);
+      return "warn";
   }
 };
 
@@ -57,9 +67,10 @@ const outputTail = (output: string): string | null => {
  * The output of the command whose failure produced this result. A terminal
  * failure already tells the reader to inspect this output, so it is shown
  * where the instruction is — not behind a flag that would make acting on the
- * message require rerunning a mutating command.
+ * message require rerunning a mutating command. It is the command's own
+ * output, so it passes through untouched.
  */
-const failureEvidence = (upgrade: UpgradeAssessmentResult): Doc => {
+const failureEvidence = (upgrade: UpgradeAssessmentResult): ReadonlyArray<CalloutNode> => {
   if (!TERMINAL_FAILURES.has(upgrade.disposition)) return [];
   const failing = [...upgrade.commands]
     .reverse()
@@ -68,90 +79,98 @@ const failureEvidence = (upgrade: UpgradeAssessmentResult): Doc => {
   const tail = outputTail(failing.stderr) ?? outputTail(failing.stdout);
   if (tail === null) return [];
   return [
-    ...headlineDoc("warn", `Output from ${failing.display}:`),
-    ...tail.split("\n").flatMap((line) => headlineDoc("info", line)),
+    conditionDoc({
+      tone: "warn",
+      title: [{ text: "Output from " }, ...invocation(failing.display)],
+      children: [{ _tag: "raw", content: tail }],
+    }),
   ];
 };
 
 /**
  * Resolved facts the reader cannot obtain any other way and that change what
  * happened: which installer owns the installation, the exact command it was
- * handed, and the executable that was checked afterwards. These belong at
- * default verbosity; `--verbose` keeps the full command-by-command audit
- * trail below.
+ * handed, the executable that was checked afterwards, and the skill version
+ * this CLI expects. These belong at default verbosity; `--verbose` adds the
+ * full command-by-command audit trail.
  */
-const resolvedFacts = (upgrade: UpgradeAssessmentResult): Doc => [
-  ...headlineDoc("info", `Install method: ${methodLabel(upgrade.ownership.method)}`),
+const resolvedFields = (upgrade: UpgradeAssessmentResult): ReadonlyArray<Field> => [
+  { label: "Install method", value: methodLabel(upgrade.ownership.method) },
   ...upgrade.commands
     .filter((command) => command.purpose === "delegation")
-    .flatMap((command) => headlineDoc("info", `Ran: ${command.display}`)),
+    .map((command) => ({ label: "Ran", value: invocation(command.display) })),
   ...upgrade.verification.executables
     .filter((verification) => verification.reportedVersion !== null)
     .slice(-1)
-    .flatMap((verification) =>
-      headlineDoc(
-        "info",
-        `Verified: ${verification.resolvedExecutable ?? verification.path} reported ${verification.reportedVersion ?? ""}`,
-      ),
-    ),
+    .map((verification) => ({
+      label: "Verified",
+      value: `${verification.resolvedExecutable ?? verification.path} reported ${verification.reportedVersion ?? ""}`,
+    })),
+  {
+    label: "Compatibility target",
+    value: formatAxmSkillCompatibilityTarget({
+      targetCliVersion: upgrade.target.version,
+      targetSkillVersion: upgrade.target.version,
+    }),
+  },
 ];
 
-const verboseEntries = (upgrade: UpgradeAssessmentResult): Doc => [
-  ...headlineDoc(
-    "info",
-    `Detection: ${upgrade.ownership.source} (${upgrade.ownership.confidence})`,
-  ),
-  ...upgrade.ownership.evidence.flatMap((evidence) => headlineDoc("info", `Evidence: ${evidence}`)),
-  ...upgrade.commands.flatMap((command) => [
-    ...headlineDoc(
-      "info",
-      `${command.purpose}: ${command.display}, ${command.executionState}, exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? ", output truncated" : ""}`,
-    ),
-    ...(command.stdout.length === 0 ? [] : headlineDoc("info", `stdout: ${command.stdout}`)),
-    ...(command.stderr.length === 0 ? [] : headlineDoc("info", `stderr: ${command.stderr}`)),
+/** The audit trail a reader asked for: how ownership was decided and what every command did. */
+const auditSection = (upgrade: UpgradeAssessmentResult): Doc => [
+  {
+    _tag: "fields",
+    fields: [
+      {
+        label: "Detection",
+        value: `${upgrade.ownership.source} (${upgrade.ownership.confidence})`,
+      },
+      ...upgrade.ownership.evidence.map((evidence) => ({ label: "Evidence", value: evidence })),
+      ...upgrade.commands.map((command) => ({
+        label: `${capitalized(command.purpose)} command`,
+        value: `${command.display}, ${command.executionState}, exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? ", output truncated" : ""}`,
+      })),
+      ...upgrade.verification.executables.map((verification) => ({
+        label: `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`})`,
+        value: `${verification.resolvedExecutable ?? verification.path} reported ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
+      })),
+      ...(upgrade.recovery.backupPath === null
+        ? []
+        : [{ label: "Recoverable backup", value: upgrade.recovery.backupPath }]),
+      ...(upgrade.details.observedFormulaVersion === null
+        ? []
+        : [{ label: "Homebrew formula", value: upgrade.details.observedFormulaVersion }]),
+      ...(upgrade.details.homebrewFailure === null
+        ? []
+        : [{ label: "Homebrew terminal reason", value: upgrade.details.homebrewFailure }]),
+      ...(upgrade.disposition === "upgraded" || upgrade.disposition === "reinstalled"
+        ? [{ label: "Install metadata", value: "persisted" }]
+        : []),
+    ],
+  },
+  ...upgrade.commands.flatMap((command): Doc => [
+    ...(command.stdout.length === 0 ? [] : [{ _tag: "raw", content: command.stdout } as const]),
+    ...(command.stderr.length === 0 ? [] : [{ _tag: "raw", content: command.stderr } as const]),
   ]),
-  ...upgrade.verification.executables.flatMap((verification) =>
-    headlineDoc(
-      "info",
-      `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} -> ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
-    ),
-  ),
-  ...(upgrade.recovery.backupPath === null
-    ? []
-    : headlineDoc("info", `Recoverable backup: ${upgrade.recovery.backupPath}`)),
-  ...(upgrade.details.observedFormulaVersion === null
-    ? []
-    : headlineDoc("info", `Homebrew formula: ${upgrade.details.observedFormulaVersion}`)),
-  ...(upgrade.details.homebrewFailure === null
-    ? []
-    : headlineDoc("info", `Homebrew terminal reason: ${upgrade.details.homebrewFailure}`)),
-  ...(upgrade.disposition === "upgraded" || upgrade.disposition === "reinstalled"
-    ? headlineDoc("info", "Install metadata: persisted")
-    : []),
 ];
 
-export const upgradeView = (upgrade: UpgradeAssessmentResult, verbosity: VerbosityLevel): Doc => {
-  const recommended = upgrade.recovery.recommendedCommand;
-  if (verbosity === "quiet") {
-    return [
-      ...outcomeEntry(upgrade, upgrade.message),
-      ...failureEvidence(upgrade),
-      ...(recommended === null ? [] : headlineDoc("info", `Next: ${recommended.display}`)),
-    ];
-  }
-  return [
-    ...outcomeEntry(upgrade, upgrade.message),
-    ...resolvedFacts(upgrade),
-    ...upgrade.details.messages.flatMap((detail) => headlineDoc("info", detail)),
-    ...failureEvidence(upgrade),
-    ...headlineDoc(
-      "info",
-      `Compatibility target: ${formatAxmSkillCompatibilityTarget({
-        targetCliVersion: upgrade.target.version,
-        targetSkillVersion: upgrade.target.version,
-      })}`,
-    ),
-    ...(recommended === null ? [] : headlineDoc("info", `Next: ${recommended.display}`)),
-    ...(verbosity === "verbose" || verbosity === "debug" ? verboseEntries(upgrade) : []),
-  ];
+/**
+ * An upgrade as a record: what happened, the facts that decided it, the
+ * output of a command that failed, the audit trail at verbose level, and the
+ * next safe action.
+ */
+export const upgradeView = (
+  upgrade: UpgradeAssessmentResult,
+  verbosity: VerbosityLevel,
+  next: ReadonlyArray<FailureSuggestedAction>,
+): Doc => {
+  const quiet = verbosity === "quiet";
+  const detailed = verbosity === "verbose" || verbosity === "debug";
+  return recordDoc({
+    tone: outcomeTone(upgrade),
+    verdict: upgrade.message,
+    ...(quiet ? {} : { fields: resolvedFields(upgrade), notes: upgrade.details.messages }),
+    conditions: failureEvidence(upgrade),
+    ...(detailed ? { sections: [{ title: "Details", children: auditSection(upgrade) }] } : {}),
+    next,
+  });
 };

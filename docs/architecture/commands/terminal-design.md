@@ -429,7 +429,11 @@ command results, plans, failures with recovery, waits in their open, static,
 and settled forms, each prompt kind in its initial, filtered, error, narrow,
 and answered states, transcript checkpoints, and the painter's vocabulary. A
 fixture that shows a command's output is that command's own view applied to
-sample data, so the gallery reviews what the command paints; only fixtures that
+sample data, so the gallery reviews what the command paints. A command's view
+is a pure module of its own — a `view.ts` or `*-view.ts` under `root/` — never a
+closure inside its handler, and
+`apps/cli/src/test-support/gallery/views-have-fixtures.test.ts` fails on a view
+module no fixture or sample imports unless it names why; only fixtures that
 exercise the painter itself, such as the vocabulary and the width and prompt
 primitives, build a document by hand. The `vocabulary--` fixtures split the
 node kinds across screens a person could meet — a settled result, a read,

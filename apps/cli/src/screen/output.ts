@@ -6,11 +6,9 @@ export interface SuggestionOptions {
   readonly withoutSuggestions?: boolean;
 }
 
-export interface SuccessOptions extends SuggestionOptions {
+export interface ResultOptions extends SuggestionOptions {
+  /** A machine envelope's summary; the human document states its own facts. */
   readonly summary?: string;
-}
-
-export interface ResultOptions extends SuccessOptions {
   readonly completion?: ResultCompletion;
   /** Explicit owner-declared fields promoted to the ordinary result envelope. */
   readonly promotedResultFields?: ReadonlyArray<"mode" | "outcome">;

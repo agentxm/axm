@@ -2,7 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/cli";
 
-import { emitResult, rawDoc, successDoc } from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
+import { cacheStatusDoc, cachePruneDoc, cacheVerifyDoc } from "./view.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
@@ -41,37 +42,13 @@ const CachePruneSchema = Schema.Struct({
 
 export const CachePruneOutputSchema = Schema.Struct({ result: CachePruneSchema });
 
-const formatBytes = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KiB", "MiB", "GiB", "TiB"] as const;
-  let value = bytes / 1024;
-  let unit: (typeof units)[number] = units[0];
-  for (const candidate of units.slice(1)) {
-    if (value < 1024) break;
-    value /= 1024;
-    unit = candidate;
-  }
-  return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
-};
-
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const cache = yield* makeUserArchiveCache();
   const status = yield* withLiveOperation(
     { name: "Inspect archive cache", mode: "query" },
     observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
   );
-  yield* emitResult(status, CacheStatusOutputSchema, () =>
-    rawDoc(
-      [
-        "Archive cache",
-        `Entries  ${status.entries}`,
-        `Size     ${formatBytes(status.bytes)}`,
-        `Limit    ${formatBytes(status.maxBytes)}`,
-        `Max age  ${status.maxAgeDays} days`,
-        "",
-      ].join("\n"),
-    ),
-  );
+  yield* emitResult(status, CacheStatusOutputSchema, () => cacheStatusDoc(status));
 });
 
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
@@ -85,21 +62,13 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
       exitCode: 0,
     }),
   );
-  yield* emitResult(
-    { result },
-    CacheVerifyOutputSchema,
-    () =>
-      successDoc(
-        `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
-      ),
-    {
-      completion: {
-        mode: "apply",
-        outcome: result.corruptRemoved === 0 ? "no-op" : "applied",
-        exitCode: 0,
-      },
+  yield* emitResult({ result }, CacheVerifyOutputSchema, () => cacheVerifyDoc(result), {
+    completion: {
+      mode: "apply",
+      outcome: result.corruptRemoved === 0 ? "no-op" : "applied",
+      exitCode: 0,
     },
-  );
+  });
 });
 
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
@@ -113,21 +82,13 @@ export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
       exitCode: 0,
     }),
   );
-  yield* emitResult(
-    { result },
-    CachePruneOutputSchema,
-    () =>
-      successDoc(
-        `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
-      ),
-    {
-      completion: {
-        mode: "apply",
-        outcome: result.removed === 0 ? "no-op" : "applied",
-        exitCode: 0,
-      },
+  yield* emitResult({ result }, CachePruneOutputSchema, () => cachePruneDoc(result), {
+    completion: {
+      mode: "apply",
+      outcome: result.removed === 0 ? "no-op" : "applied",
+      exitCode: 0,
     },
-  );
+  });
 });
 
 const statusConfig = {} as const;

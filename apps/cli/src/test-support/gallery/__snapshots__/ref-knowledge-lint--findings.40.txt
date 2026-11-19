@@ -1,0 +1,11 @@
+Lint knowledge  3 bundles
+
+     Finding            Location
+ ✖   Invalid …g quote   platform/
+                        auth.md:5:1
+     OKF conformance
+ ▲   Descript…racters   platform/
+                        index.md
+     AgentXM profile
+
+1 error and 1 warning  exit 1

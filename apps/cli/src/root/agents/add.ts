@@ -15,7 +15,7 @@ import {
   replaceUnrecordedFlag,
 } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { Screen, headlineDoc } from "../../screen/index.js";
+import { Screen, conditionDoc } from "../../screen/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import {
@@ -57,8 +57,12 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     .prepare({ ids: args.ids, detected: args.detected, acceptWarnings: args.force })
     .pipe(Effect.mapError(failureToAppError));
 
-  for (const notice of candidate.retiredDetected) {
-    yield* screen.note(headlineDoc("warn", notice.detail));
+  if (candidate.retiredDetected.length > 0) {
+    yield* screen.note(
+      candidate.retiredDetected.map((notice) =>
+        conditionDoc({ tone: "warn", title: notice.detail }),
+      ),
+    );
   }
 
   if (candidate._tag === "Unchanged") {
@@ -70,7 +74,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
         ? {}
         : {
             suggestions: candidate.retiredDetected.map(({ agentId }) => ({
-              description: `Explicitly configure retired agent ${agentId}.`,
+              description: `Configure retired agent ${agentId} explicitly`,
               invocation: {
                 command: ["agents", "add"],
                 arguments: [recoveryPositional(publicRecoveryValue(agentId))],
@@ -81,8 +85,10 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     return;
   }
 
-  for (const warning of candidate.lifecycleWarnings) {
-    yield* screen.note(headlineDoc("warn", warning));
+  if (candidate.lifecycleWarnings.length > 0) {
+    yield* screen.note(
+      candidate.lifecycleWarnings.map((warning) => conditionDoc({ tone: "warn", title: warning })),
+    );
   }
 
   // The reconciliation feature plans the steps that realize installed

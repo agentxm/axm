@@ -1,0 +1,4 @@
+ ✔   Archived @acme/skills/changelog
+     State          active to archived
+     Revision       rev-2026-09-19-02
+     Message        No longer maintained

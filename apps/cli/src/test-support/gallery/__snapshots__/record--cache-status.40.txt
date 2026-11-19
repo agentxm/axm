@@ -1,0 +1,5 @@
+Archive cache  42 archive cache entries
+
+     Size           18.4 MB
+     Limit          500 MB
+     Max age        30 days

@@ -1,0 +1,11 @@
+Verify  on agentxm (https://registry.agentxm.ai) · selected by --registry
+
+     Release                     Presence    Identity       Archive
+     @acme/skills/review@1.0.0   satisfied   not assessed   satisfied
+     @acme/skills/triage@1.0.0   satisfied   not assessed   satisfied
+
+ ●   What the registry reported
+     Identity not assessed for @acme/skills/review@1.0.0,
+     @acme/skills/triage@1.0.0. No expected integrity was supplied.
+
+Verified the selected 2 releases  2 requested · 2 distinct · no changes made

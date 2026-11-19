@@ -1,0 +1,22 @@
+Verify
+  on agentxm
+  (https://registry.agentxm.ai) ·
+  selected by --registry
+
+     Release
+     @acme/skills/review@1.0.0
+     @acme/skills/triage@1.0.0
+
+     Not shown at this width: Presence,
+     Identity, Archive. A wider terminal
+     shows them.
+
+ ●   What the registry reported
+     Identity not assessed for
+     @acme/skills/review@1.0.0,
+     @acme/skills/triage@1.0.0. No
+     expected integrity was supplied.
+
+Verified the selected 2 releases
+  2 requested · 2 distinct · no changes
+  made

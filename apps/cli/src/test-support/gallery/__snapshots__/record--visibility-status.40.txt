@@ -1,0 +1,7 @@
+@acme/skills/review  not established
+
+     Intended       not configured
+     Actual         not established
+
+ ▲   Declare visibility in the manifest
+     before publishing a new extension

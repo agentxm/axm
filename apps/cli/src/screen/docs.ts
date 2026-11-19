@@ -1,7 +1,7 @@
 import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import type { Doc, SummaryPart, Text, Tone } from "./doc.js";
-import type { SuggestionOptions, SuccessOptions } from "./output.js";
+import type { SuggestionOptions } from "./output.js";
 import { normalizeSuggestions } from "./presenter-helpers.js";
 
 export const paragraphDoc = (message: string): Doc => [{ _tag: "paragraph", text: message }];
@@ -22,16 +22,8 @@ export const suggestionsDoc = (
   return visible.length === 0 ? [] : [{ _tag: "next", actions: visible }];
 };
 
-export const successDoc = (message: string, options?: SuccessOptions): Doc => [
+export const successDoc = (message: string, options?: SuggestionOptions): Doc => [
   { _tag: "headline", tone: "ok", text: message },
-  ...(options?.summary === undefined
-    ? []
-    : [
-        {
-          _tag: "section",
-          children: [{ _tag: "raw", content: options.summary }],
-        } as const,
-      ]),
   ...suggestionsDoc(options?.suggestions, options),
 ];
 

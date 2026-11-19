@@ -1,0 +1,3 @@
+ ✔   Verified 42 archive cache entries   1 corrupt removed
+
+ ✔   Pruned 7 archive cache entries   3.2 MB freed · 34 remain · 15.2 MB kept

@@ -12,12 +12,12 @@ describe("upgrade human view", () => {
         human: true,
       });
 
-      expect(run.humanOutput).toContain("Install method: npm");
-      expect(run.humanOutput).toContain("Ran: npm install -g axm.sh@");
-      expect(run.humanOutput).toContain("Verified: ");
+      expect(run.humanOutput).toMatch(/Install\smethod\s+npm/u);
+      expect(run.humanOutput).toMatch(/Ran\s+npm install -g axm\.sh@/u);
+      expect(run.humanOutput).toMatch(/Verified\s{2,}/u);
       expect(run.humanOutput).toContain(TARGET_VERSION);
       // The audit trail stays behind --verbose.
-      expect(run.humanOutput).not.toContain("Detection: ");
+      expect(run.humanOutput).not.toMatch(/Detection\s{2,}/u);
       expect(run.humanOutput).not.toContain("delegation: ");
     }),
   );
@@ -62,8 +62,8 @@ describe("upgrade human view", () => {
         human: true,
         verbose: true,
       });
-      expect(verbose.humanOutput).toContain("Detection: ");
-      expect(verbose.humanOutput).toContain("delegation: npm ");
+      expect(verbose.humanOutput).toMatch(/Detection\s{2,}/u);
+      expect(verbose.humanOutput).toMatch(/Delegation command\s+npm /u);
       expect(verbose.humanOutput).toContain("Verification ");
 
       const quiet = yield* runUpgradeCommand({
@@ -75,8 +75,8 @@ describe("upgrade human view", () => {
         quiet: true,
         verbose: true,
       });
-      expect(quiet.humanOutput).toContain("Next:");
-      expect(quiet.humanOutput).not.toContain("Install method: ");
+      expect(quiet.humanOutput).toMatch(/^Next$/mu);
+      expect(quiet.humanOutput).not.toMatch(/Install\smethod\s{2,}/u);
     }),
   );
 });

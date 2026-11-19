@@ -176,10 +176,16 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       blockedCount: result.outcome === "failed" ? 1 : 0,
     }),
   );
-  yield* emitResult({ result }, UpgradeDocumentSchema, () => upgradeView(result, verbosity.level), {
-    suggestions: upgradeSuggestions(result),
-    completion,
-    promotedResultFields: ["outcome"],
-  });
+  const suggestions = upgradeSuggestions(result);
+  yield* emitResult(
+    { result },
+    UpgradeDocumentSchema,
+    () => upgradeView(result, verbosity.level, suggestions),
+    {
+      suggestions,
+      completion,
+      promotedResultFields: ["outcome"],
+    },
+  );
   return processOutcome(completion.exitCode);
 });

@@ -553,17 +553,15 @@ export const emitResult = <S extends Schema.Top>(
     const screen = yield* Screen;
     if (!(yield* screen.document(data, schema, options))) {
       const document = human();
-      yield* screen.result(
-        options?.diagnosticId === undefined
-          ? document
-          : [
-              ...document,
-              {
-                _tag: "paragraph",
-                tone: "dim",
-                text: `Diagnostic ID: ${options.diagnosticId}`,
-              },
-            ],
-      );
+      if (options?.diagnosticId === undefined) return yield* screen.result(document);
+      // `Next` closes every result, so the identifier stands before it.
+      const last = document.at(-1);
+      const closing = last?._tag === "next" ? [last] : [];
+      const body = closing.length === 0 ? document : document.slice(0, -1);
+      yield* screen.result([
+        ...body,
+        { _tag: "paragraph", tone: "dim", text: `Diagnostic ID: ${options.diagnosticId}` },
+        ...closing,
+      ]);
     }
   });

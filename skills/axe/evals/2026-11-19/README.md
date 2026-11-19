@@ -77,3 +77,14 @@ boundary lock directory alongside the disposable checkout. After sync, a
 fresh read-only session was asked to draft a release note for a sorting fix,
 given its release date and the availability of the prior version. The draft
 included the date and an instruction to reinstall the prior version.
+
+## A publisher deprecates a skill a team still uses
+
+Two fresh read-only sessions used the same engineering bundle with different
+roles. A consumer needed a pack-supplied, unmaintained drafting skill for
+Friday's release. The session opened the management guide, recommended a
+contributor draft before relying on the current selection, identified the pack
+maintainer as the dependency owner, and set a point to revisit alternatives.
+A publisher asking what to tell consumers opened both the lifecycle and
+management guides and drafted a migration note covering the successor and a
+host check. Both cases used supplied scenarios without a live Registry migration.

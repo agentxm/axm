@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Added a [consumer deprecation case](guides/workspace-management.md#a-publisher-deprecates-a-skill-our-team-still-uses) covering how a team can replace, remove, or temporarily retain a skill while preserving its release workflow.
+
 - Defined [workspace management](glossary.md#workspace-management) and added a [guide](guides/workspace-management.md) on keeping contributor workflows usable through branch changes and shared skill retirement.
 
 - Added [Designing and reviewing a workspace setup](guides/workspace-setup.md) for tracing a contributor's task through the shared configuration and the intended host.

@@ -72,7 +72,7 @@ guide only when there is a relationship between extensions to decide.
 | Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
 | Design or review a workspace setup for a user's first workflow | `guides/workspace-setup`                |
-| Plan for workspace drift, branch switches, or retirement       | `guides/workspace-management`           |
+| Workspace drift, branches, retired or deprecated dependencies  | `guides/workspace-management`           |
 | Write or revise an extension README                            | `guides/authoring-readme`               |
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |
@@ -94,7 +94,7 @@ guide only when there is a relationship between extensions to decide.
 | Review, audit, remediate, or verify earlier findings           | `guides/reviewing-extensions`           |
 | Check routing, behavior, portability, or improvement claims    | `guides/verification`                   |
 | Assess execution, provenance, credentials, or side effects     | `guides/trust-and-authority`            |
-| Publish, replace, deprecate, or retire extensions              | `guides/lifecycle`                      |
+| Publish, replace, deprecate, or retire an extension you own    | `guides/lifecycle`                      |
 
 Use `glossary` when the meaning of an agent extension term affects a decision.
 

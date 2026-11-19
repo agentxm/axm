@@ -27,6 +27,10 @@ it.effect("the skill and the bundle lead policy readers to the same guide", () =
     const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
     const route = skill.match(/^\|[^|]*workspace drift[^|]*\|\s*`([^`]+)`/im)?.[1];
     if (!route) throw new Error("Axe has no guidance route for workspace drift");
+    const consumerRoute = skill.match(
+      /^\|[^|]*deprecated[^|]*dependencies[^|]*\|\s*`([^`]+)`/im,
+    )?.[1];
+    expect(consumerRoute).toBe(route);
 
     const bundle = new URL("../knowledge/agent-extension-engineering/src/", import.meta.url);
     const guide = new URL(route + ".md", bundle);

@@ -9,10 +9,11 @@ tags:
     "branch switches",
     "shared rules",
     "personal scope",
+    "deprecated extensions",
     "retirement",
   ]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:46:06Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:53:18Z" }
 ---
 
 # Managing an agent-extension workspace over time
@@ -56,6 +57,30 @@ Try a switch between branches with different release policies. Ask for a
 draft in a fresh session and check it against that branch's expected format.
 On a second check of the same branch, the contributor should have no further
 repair to make.
+
+## A publisher deprecates a skill our team still uses
+
+Suppose contributors use a release pack to draft notes in the team's format.
+The publisher deprecates its drafting skill and names a successor. Before the
+next release, find out which declaration supplies the skill. If the pack
+selects it, the pack maintainer owns the dependency change. A team consuming
+that pack can try a revised pack release. If the project selects the skill
+directly, the team can preview the migration in its own workspace.
+
+Read the publisher's reason against the task contributors still need to do.
+For a **superseded** skill, try the named successor on a recent release.
+For an **obsolete** skill, try the workflow with the skill removed and check
+that contributors can still produce the note. An **unmaintained** skill may
+have no successor. If it still works and the team chooses to keep it for the
+next release, name who will evaluate alternatives and when to revisit that
+choice. In AXM, `axm list --deprecated` finds affected installations.
+`axm help workspace-state` explains how to inspect the reason and preview
+supported migrations.
+
+After the chosen change, ask a contributor to draft a note in a fresh session
+on the affected host. Check that the note follows the team's format and
+includes the rollback instructions. If the old skill still appears for one
+person, trace what supplies it in their scope.
 
 ## A retired shared skill still appears for one maintainer
 

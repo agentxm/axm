@@ -5,7 +5,7 @@ description: "Trace a change and a request to decide which extensions should evo
 tags:
   ["modularity", "extension sets", "cohesion", "coupling", "ownership", "routing", "composition"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:16:02Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:36:43Z" }
 sources:
   - id: parnas
     resource: https://doi.org/10.1145/361598.361623
@@ -23,6 +23,14 @@ Choose the set according to the decision you need to make.
 | Extensions active together in a workspace | Given the same request or event, which extensions participate, and what is their combined effect?   |
 
 Two skills maintained in one repository may serve different consumers. A skill and a hook from different packs may both write to the same file. Use the authorship, membership, or active configuration that bears on the question.
+
+For “review everything we author here,” establish which extensions the
+repository owns, including disabled ones. Suppose a release skill and a
+disabled migration skill each define the threshold for a breaking change.
+Each could pass its own examples. Changing the threshold reveals two places
+to edit and two consumers that depend on the same decision. Name the owner
+and the consumers when recommending where that policy should live. If only
+part of the authored inventory is available, bound the conclusion to that part.
 
 ## Trace a change
 

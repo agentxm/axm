@@ -4,6 +4,9 @@ Choose the task you are working on.
 
 ## Choose and compose
 
+Start with the boundary guide for one capability, the set guide for shared
+ownership or a host interaction, and the pack guide for a consumer's installation.
+
 - [Choosing extension boundaries](choosing-extensions.md) — Choose an extension type based on when and where the behavior should apply.
 - [Designing and reviewing sets of extensions](extension-sets.md) — Trace a change and a request to decide which extensions should evolve independently, work together, or ship together.
 - [Composing extension packs](composing-packs.md) — Choose pack members and compatible versions from the job a clean installation must support.

@@ -18,4 +18,10 @@ narrow their descriptions or combine them?” The guide to sets of extensions
 helps you trace a change across both skills and try requests that need one
 or both.
 
+“Review everything we author here” includes disabled extensions and looks for
+shared decisions across the collection. “Why do contributors get two notes on
+save?” starts from the extensions involved in that host event, including ones
+acquired from elsewhere. “Does our release pack provide the promised first
+use?” starts from what a clean consumer gets by installing the pack.
+
 Upgrading from the plural-named pack? See the [migration notes](CHANGELOG.md#migration).

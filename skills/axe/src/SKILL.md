@@ -5,8 +5,8 @@ description: >-
   extensions to focused knowledge guidance: skills and SKILL.md, scoped
   instructions such as AGENTS.md and CLAUDE.md, rules, knowledge bundles,
   agent definitions, hooks, MCP connection configuration, and packs. Use for
-  extension craft, design patterns, package READMEs, and how sets of extensions
-  fit and work together. Not for
+  extension craft, design patterns, package READMEs, relationships among
+  extensions, and designing or reviewing a workspace setup for its users. Not for
   building agent runtimes, implementing MCP servers, ordinary use of an
   installed extension, or package management alone.
 ---
@@ -26,13 +26,19 @@ the operation sets the deliverable.
 
 | Operation | Deliverable                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `design`  | Recommend an extension type or set of extensions and explain how the proposed design serves the brief.                  |
+| `design`  | Recommend an extension, set, or workspace setup and explain how the design serves the brief.                           |
 | `create`  | Author a usable draft in its canonical workspace location.                                                              |
 | `review`  | Report the verdict, evidence-backed coverage, and numbered issues, improvements, or pruning opportunities within scope. |
 | `revise`  | Apply the requested change and check the original case and a nearby valid case.                                         |
 | `verify`  | Test the stated claim against the target. Report observed behavior and what the available evidence leaves open.         |
 
-A target alone requests read-only review. For work on an existing extension,
+A target alone requests read-only review. Take the subject from the request
+before looking up a package name. It can name an individual extension, a
+specific group, everything authored here (including disabled extensions),
+what a pack delivers to a consumer, what participates in a host request or
+event, or the workspace setup for its users. Preserve an explicit selection.
+
+For work on a named existing extension,
 resolve the target before announcing which artifact you will inspect or opening
 its contents. Use an explicit path (such as `./design`) or fully qualified
 package identity directly. For a short name, look it up across extension types

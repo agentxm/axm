@@ -4,7 +4,7 @@ title: "Reviewing and remediating extensions"
 description: "Review an extension for issues, improvements, and pruning opportunities, then verify the changes the user selects."
 tags: ["review", "audit", "remediation", "verification", "evidence", "authority"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:16:02Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:36:43Z" }
 sources:
   - id: coverage
     resource: https://github.com/agentxm/axm/blob/9582c832ecb8278c7b2c544fd6c453a54af674ea/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/docs/src/patterns/reporting-review-checklist.md
@@ -28,6 +28,11 @@ inspection. Following one promised task through an installation can expose a
 missing dependency. A change to a data destination can take you directly to
 [the operation and its authority](trust-and-authority.md). State what you
 examined so the reader knows where the verdict applies.
+
+In the verdict, identify the resolved subject. In review coverage, say how
+you established its scope, what evidence you inspected, and any material
+limit. For example, a host's configuration can identify two candidate writers.
+Attributing a duplicate entry to both takes evidence of the event and its effects.
 
 When the review concerns relationships among extensions, [trace a change or a request across the set](extension-sets.md). A policy copied across a repository and an action performed twice in one workspace call for different evidence.
 

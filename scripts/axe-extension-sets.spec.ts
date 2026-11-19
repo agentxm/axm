@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/extension-set-guidance",
   title: "Authors can assess boundaries and interactions across sets of extensions",
   statement:
-    "The engineering pack shall route authors designing or reviewing relationships among extensions to guidance for tracing a change and a request across the relevant authored, packaged, or active set.",
+    "The engineering pack shall preserve the caller’s selected extensions and route design or review of relationships across the full authored inventory, a pack’s members, or the extensions participating in a host request or event to the relevant change and request traces.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],

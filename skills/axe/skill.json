@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "axe",
   "version": "0.2.0",
-  "description": "Design, create, review, revise, and verify agent extensions, their relationships, and workspace setups",
+  "description": "Design, create, review, revise, and verify agent extensions, their relationships, and how teams set up and maintain their workspaces",
   "license": "MIT",
   "repository": {
     "type": "git",

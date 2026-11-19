@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Defined [workspace management](glossary.md#workspace-management) and added a [guide](guides/workspace-management.md) on keeping contributor workflows usable through branch changes and shared skill retirement.
+
 - Added [Designing and reviewing a workspace setup](guides/workspace-setup.md) for tracing a contributor's task through the shared configuration and the intended host.
 
 - Expanded the [set guide](guides/extension-sets.md) with a whole-repository ownership example and the [review guide](guides/reviewing-extensions.md) with evidence for the selected subject.

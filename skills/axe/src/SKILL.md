@@ -6,7 +6,8 @@ description: >-
   instructions such as AGENTS.md and CLAUDE.md, rules, knowledge bundles,
   agent definitions, hooks, MCP connection configuration, and packs. Use for
   extension craft, design patterns, package READMEs, relationships among
-  extensions, and designing or reviewing a workspace setup for its users. Not for
+  extensions, workspace setup, and choosing how to keep shared extensions usable
+  across workspace changes. Not for
   building agent runtimes, implementing MCP servers, ordinary use of an
   installed extension, or package management alone.
 ---
@@ -26,7 +27,7 @@ the operation sets the deliverable.
 
 | Operation | Deliverable                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `design`  | Recommend an extension, set, or workspace setup and explain how the design serves the brief.                           |
+| `design`  | Recommend an extension, set, or workspace setup and explain how the design serves the brief.                            |
 | `create`  | Author a usable draft in its canonical workspace location.                                                              |
 | `review`  | Report the verdict, evidence-backed coverage, and numbered issues, improvements, or pruning opportunities within scope. |
 | `revise`  | Apply the requested change and check the original case and a nearby valid case.                                         |
@@ -70,7 +71,8 @@ guide only when there is a relationship between extensions to decide.
 | Design or maintain a glossary for a domain                     | `patterns/domain-glossary`              |
 | Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
-| Design or review a workspace setup for its users and hosts     | `guides/workspace-setup`                |
+| Design or review a workspace setup for a user's first workflow | `guides/workspace-setup`                |
+| Plan for workspace drift, branch switches, or retirement       | `guides/workspace-management`           |
 | Write or revise an extension README                            | `guides/authoring-readme`               |
 | Choose inline guidance, a local reference, or shared knowledge | `patterns/progressive-disclosure`       |
 | Choose a CLI or bundled helper for a skill                     | `patterns/cli-backed-skill`             |

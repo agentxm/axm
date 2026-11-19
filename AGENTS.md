@@ -89,7 +89,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 | Bundle | Description |
 | --- | --- |
-| [agent-extension-engineering](knowledge/agent-extension-engineering/src/index.md) | Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs |
+| [agent-extension-engineering](knowledge/agent-extension-engineering/src/index.md) | Design and maintain skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs, and manage the workspaces that supply them |
 | [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Public AgentXM product relationships, naming conventions, ecosystem foundations, and durable knowledge about identity, discovery, and publishing |
 
 ### @craigsmitham

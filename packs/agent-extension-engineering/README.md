@@ -26,7 +26,9 @@ use?” starts from what a clean consumer gets by installing the pack.
 
 “Review our AXM setup for a new contributor” follows a task from the shared
 configuration to the contributor's host. Axe assesses whether the arrangement
-serves that task. The AXM skill and CLI supply workspace state and handle
+serves that task. “How should we handle extension drift after a branch switch?”
+helps the team decide when to report drift, when to reconcile, and how to verify
+the result in the contributor’s host. The AXM skill and CLI supply workspace state and handle
 authorized configuration changes.
 
 Upgrading from the plural-named pack? See the [migration notes](CHANGELOG.md#migration).

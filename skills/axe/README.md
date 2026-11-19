@@ -2,7 +2,9 @@
 
 Ask about one extension, the extensions you author or use together, or the
 workspace setup that supplies them. “Review our AXM setup for contributors”
-starts from a contributor's task and follows it to the intended host.
+starts from a contributor's task and follows it to the intended host. Ask
+“How should we keep shared rules current across branch switches?” to compare
+workspace management policies and decide how to check the result.
 
 ```text
 $axe ./skills/quality

@@ -9,7 +9,7 @@
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs",
+  "description": "Design and maintain skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs, and manage the workspaces that supply them",
   "license": "CC-BY-4.0",
   "repository": {
     "type": "git",

@@ -4,7 +4,7 @@ title: "Designing and reviewing a workspace setup"
 description: "Trace a user's workflow through the capabilities, scopes, and hosts that the workspace supplies."
 tags: ["workspace", "setup", "contributors", "configuration", "design", "review"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T03:36:43Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:46:06Z" }
 ---
 
 # Designing and reviewing a workspace setup
@@ -43,3 +43,5 @@ which capability the workflow requires, where it belongs, and what would
 show that the intended user can complete the task. Carry the selected
 subject and evidence into an authorized repair. Recheck the contributor's
 original task in the affected scope.
+
+Once the first draft works, consider [how the team will keep that workflow usable](workspace-management.md) across branch switches, upgrades, and retirements.

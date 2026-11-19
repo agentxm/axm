@@ -4,7 +4,7 @@ title: Agent Extension Glossary
 description: Shared definitions for agent extensions, their types, distribution, and the AXM and AgentXM product surfaces.
 tags: [glossary, terminology, extensions, skills, knowledge, registry, axm, agentxm]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-31T01:28:14Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:46:06Z" }
 sources:
   - id: agent-skills-standard
     resource: https://agentskills.io/home
@@ -107,6 +107,12 @@ Guidance an agent reads to understand how it should behave and work, commonly
 stored in files such as [AGENTS.md](https://agents.md/) or `CLAUDE.md`.
 Agent instructions are not an extension type; their files may contain both
 authored guidance and content injected by Rule extensions.
+
+### Workspace management
+
+The practice of maintaining a workspace’s agent extensions and configuration so
+its intended users can reliably perform their work as the workspace changes.
+See [Managing an agent-extension workspace over time](guides/workspace-management.md).
 
 ## Extension types
 

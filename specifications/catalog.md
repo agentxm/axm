@@ -1579,6 +1579,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: static, review
 - Source: [`scripts/extension-target-choice.spec.ts`](../scripts/extension-target-choice.spec.ts)
 
+##### Teams can choose how to keep extension workflows usable as their workspace changes
+
+- Requirement: `extension-engineering/workspace-management`
+- Owner: `axm`
+- Statement: The engineering pack shall route policy questions about changing workspaces to guidance on choosing and verifying a management policy for the affected users and hosts, while routing first-use design to setup guidance and application of declared configuration to the workspace manager.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Links and routes establish that the pack exposes the practice through its glossary, setup guide, index, and skill. Reader trials separately exercise selection, policy tradeoffs, and application.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-workspace-management.spec.ts`](../scripts/axe-workspace-management.spec.ts)
+
 ##### Authors can design or review a workspace for its intended users
 
 - Requirement: `extension-engineering/workspace-setup`

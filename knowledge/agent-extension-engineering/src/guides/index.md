@@ -7,11 +7,13 @@ Choose the task you are working on.
 Start with the boundary guide for one capability, the set guide for shared
 ownership or a host interaction, and the pack guide for a consumer's installation.
 For “can a new contributor do this from a fresh checkout?”, start with workspace setup.
+For “will this still work after a branch switch?”, start with workspace management.
 
 - [Choosing extension boundaries](choosing-extensions.md) — Choose an extension type based on when and where the behavior should apply.
 - [Designing and reviewing sets of extensions](extension-sets.md) — Trace a change and a request to decide which extensions should evolve independently, work together, or ship together.
 - [Composing extension packs](composing-packs.md) — Choose pack members and compatible versions from the job a clean installation must support.
 - [Designing and reviewing a workspace setup](workspace-setup.md) — Trace a user's workflow through the capabilities, scopes, and hosts that the workspace supplies.
+- [Managing an agent-extension workspace over time](workspace-management.md) — Choose how to keep shared extensions usable when branches, versions, or the people and hosts using them change.
 
 ## Author the selected surface
 

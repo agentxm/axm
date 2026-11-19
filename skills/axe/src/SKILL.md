@@ -12,12 +12,12 @@ description: >-
   installed extension, or package management alone.
 ---
 
-# Axe · Agent extension engineering
+# AXE · Agent Extension Engineering
 
-Select guidance from `@agentxm/knowledge/agent-extension-engineering`, the
-required sibling in `@agentxm/packs/agent-extension-engineering`. Resolve it
+Select guidance from `@agentxm/knowledge/axe`, the
+required sibling in `@agentxm/packs/axe`. Resolve it
 through the active host or extension manager. With AXM, use
-`axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#<concept>'`.
+`axm knowledge concepts get '@agentxm/knowledge/axe#<concept>'`.
 
 ## Interpret the request
 

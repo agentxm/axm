@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/remedy-selection",
   title: "Callers can select a recommended or alternative remedy in one reply",
   statement:
-    "Axe review guidance shall let the caller select the displayed recommendation by finding number or a particular displayed alternative by finding number and remedy letter.",
+    "AXE review guidance shall let the caller select the displayed recommendation by finding number or a particular displayed alternative by finding number and remedy letter.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -27,10 +27,7 @@ it.effect(
   () =>
     Effect.sync(() => {
       const pattern = readFileSync(
-        new URL(
-          "../knowledge/agent-extension-engineering/src/patterns/select-from-findings.md",
-          import.meta.url,
-        ),
+        new URL("../knowledge/axe/src/patterns/select-from-findings.md", import.meta.url),
         "utf8",
       ).replace(/\s+/gu, " ");
       expect(pattern).toContain("2a (Recommended) · Link to the existing instructions");

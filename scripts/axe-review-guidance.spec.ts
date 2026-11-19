@@ -6,9 +6,9 @@ import * as Effect from "effect/Effect";
 
 export const specification = defineSpecification({
   requirement: "extension-engineering/review-guidance",
-  title: "Axe guides extension reviews across issues, improvements, and pruning",
+  title: "AXE guides extension reviews across issues, improvements, and pruning",
   statement:
-    "Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.",
+    "AXE shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -27,9 +27,9 @@ it.effect(
   () =>
     Effect.sync(() => {
       const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
-      const bundle = new URL("../knowledge/agent-extension-engineering/src/", import.meta.url);
+      const bundle = new URL("../knowledge/axe/src/", import.meta.url);
       const route = skill.match(/^\|\s*Review\b[^|]*\|\s*`([^`]+)`/im)?.[1];
-      if (!route) throw new Error("Axe has no route for reviewing an extension");
+      if (!route) throw new Error("AXE has no route for reviewing an extension");
 
       const guide = new URL(route + ".md", bundle);
       const guidance = readFileSync(guide, "utf8");

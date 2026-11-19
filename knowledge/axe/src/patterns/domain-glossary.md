@@ -43,11 +43,11 @@ it there. [Progressive disclosure](progressive-disclosure.md) covers those
 placement choices.
 
 This pack uses the same arrangement. “Can an open agent use a proprietary
-model?” follows Axe’s term-lookup cue to the [open agent entry](../glossary.md#open-agent).
+model?” follows AXE’s term-lookup cue to the [open agent entry](../glossary.md#open-agent).
 A reader can retrieve that same concept directly in AXM.
 
 ```sh
-axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#glossary'
+axm knowledge concepts get '@agentxm/knowledge/axe#glossary'
 ```
 
 The entry lets the reader answer yes and explain which extension interfaces

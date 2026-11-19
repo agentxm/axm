@@ -86,7 +86,7 @@ They cannot establish a typical cost, activation rate, or cross-host result.
 
 A short-name review in a workspace with three packages named `docs` originally
 listed their identities and asked for one type. The reader wanted a selectable
-scope that could include all three. The [scope selector](../../../../knowledge/agent-extension-engineering/src/patterns/scope-selector.md)
+scope that could include all three. The [scope selector](../../../../knowledge/axe/src/patterns/scope-selector.md)
 now illustrates that decision.
 
 Five fresh read-only Codex CLI 0.170.0 app-server sessions used AXM 0.53.0 and
@@ -102,7 +102,7 @@ or text replies.
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Release review, native picker                               | The structured control offered all three first with a recommendation, followed by each qualified identity. Submitting its first option produced the codes from all three READMEs. |
 | Same review, text only                                      | The first lettered option was **All 3 matches (Recommended)**. Replying `all` produced the same three codes.                                                                      |
-| Same review, qualified as “the docs skill”                  | Axe opened the skill README directly and reported its code without a scope question.                                                                                              |
+| Same review, qualified as “the docs skill”                  | AXE opened the skill README directly and reported its code without a scope question.                                                                                              |
 | AXM inspection of `docs` to investigate invocation behavior | The text menu recommended the skill first and offered all three as another choice.                                                                                                |
 | AXM planning for a single package to own a file             | The native control offered only the three individual owners, each with its qualified identity.                                                                                    |
 
@@ -133,14 +133,14 @@ Two fresh, read-only Codex CLI 0.170.0 sessions received the same brief:
 
 > $axe design a reviewer for submitted field notes. On request, list the observations that need a coordinate correction. Use the extensions in this workspace where useful. Return a design I can act on.
 
-Both workspaces contained the project Axe skill and engineering knowledge.
+Both workspaces contained the project AXE skill and engineering knowledge.
 One also had an `intake-review` skill that already reported missing latitude
 or longitude by observation ID. The other had an empty `skills/` directory.
 
-| Workspace | Concepts opened and design returned |
-| --- | --- |
+| Workspace         | Concepts opened and design returned                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Existing reviewer | Read the existing skill, then the boundary guide and the set guide. Kept the advisory coordinate policy and its report in `intake-review`. |
-| Empty directory | Read the boundary and skill-authoring guides. Proposed one on-request skill. The command trace showed no read of the set guide. |
+| Empty directory   | Read the boundary and skill-authoring guides. Proposed one on-request skill. The command trace showed no read of the set guide.            |
 
 With the shorter review instructions alone, both designs chose an appropriate
 owner, but both sessions opened the set guide. Narrowing the route-table

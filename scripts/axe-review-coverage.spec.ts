@@ -6,9 +6,9 @@ import * as Effect from "effect/Effect";
 
 export const specification = defineSpecification({
   requirement: "extension-engineering/review-coverage",
-  title: "Axe reviews show the evidence behind their verdict",
+  title: "AXE reviews show the evidence behind their verdict",
   statement:
-    "Every Axe review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.",
+    "Every AXE review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -25,10 +25,7 @@ export const specification = defineSpecification({
 it.effect("the report template demonstrates coverage before actionable findings", () =>
   Effect.sync(() => {
     const guide = readFileSync(
-      new URL(
-        "../knowledge/agent-extension-engineering/src/guides/reviewing-extensions.md",
-        import.meta.url,
-      ),
+      new URL("../knowledge/axe/src/guides/reviewing-extensions.md", import.meta.url),
       "utf8",
     );
     for (const status of ["✅ Confirmed", "❌ Finding", "❔ Inconclusive", "➖ Not exercised"]) {

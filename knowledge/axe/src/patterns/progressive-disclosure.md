@@ -8,7 +8,7 @@ generated: { by: "codex/gpt-6", at: "2026-11-18T23:13:12Z" }
 sources:
   - id: engineering
     resource: https://github.com/agentxm/axm/blob/03a82fdd2a0aebeb8fb3f38c99afe303bfad77a0/skills/agent-extension-engineering/src/SKILL.md
-    title: Agent extension engineering skill
+    title: Agent Extension Engineering skill
   - id: docs
     resource: https://github.com/agentxm/axm/blob/03a82fdd2a0aebeb8fb3f38c99afe303bfad77a0/agent_extensions/registry.agentxm.ai/@craigsmitham/skills/docs/src/SKILL.md
     title: Docs skill
@@ -54,6 +54,6 @@ time the reader takes it.
 
 [^docs]: Docs skill, need-to-concept table.
 
-[^engineering]: Agent extension engineering skill, use-case table.
+[^engineering]: Agent Extension Engineering skill, use-case table.
 
 [^playbook]: Impeccable, playbook selection and guidance before editing.

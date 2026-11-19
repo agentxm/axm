@@ -22,13 +22,13 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-it.effect("Axe, the guide index, and the review guide lead to the same workspace guidance", () =>
+it.effect("AXE, the guide index, and the review guide lead to the same workspace guidance", () =>
   Effect.sync(() => {
     const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
     const route = skill.match(/^\|[^|]*workspace setup[^|]*\|\s*`([^`]+)`/im)?.[1];
-    if (!route) throw new Error("Axe has no guidance route for a workspace setup");
+    if (!route) throw new Error("AXE has no guidance route for a workspace setup");
 
-    const bundle = new URL("../knowledge/agent-extension-engineering/src/", import.meta.url);
+    const bundle = new URL("../knowledge/axe/src/", import.meta.url);
     const workspaceGuide = new URL(route + ".md", bundle);
     const guidance = readFileSync(workspaceGuide, "utf8");
     expect(guidance).toContain("](verification.md)");

@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Adopted `@agentxm/knowledge/axe` as the bundle identity. Existing concept IDs stay the same.
+
 - Clarified [workspace management](guides/workspace-management.md) for teams that use only published extensions and teams that also author packages. The branch-switch case traces the same stale instructions to either a newly selected release or a local rule edit.
 
 - Added a [consumer deprecation case](guides/workspace-management.md#a-publisher-deprecates-a-skill-our-team-still-uses) covering how a team can replace, remove, or temporarily retain a skill while preserving its release workflow.

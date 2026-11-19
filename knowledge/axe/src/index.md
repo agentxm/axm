@@ -2,7 +2,7 @@
 okf_version: "0.2"
 ---
 
-# Agent extension engineering
+# Agent Extension Engineering
 
 Use this bundle to design, author, and review extensions, decide how they work
 together, and manage the workspaces that supply them to users and hosts.

@@ -20,12 +20,12 @@
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.5.0",
-    "agent-extension-engineering": "workspace"
+    "axe": "workspace"
   },
   "packs": {
     "docs": "agentxm:@craigsmitham/packs/docs",
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "agent-extension-engineering": "workspace"
+    "axe": "workspace"
   },
   "subagents": {
     "researcher": {

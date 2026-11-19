@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/target-choice",
   title: "Callers can select the intended scope of an ambiguous package name",
   statement:
-    "When a package name remains ambiguous, Axe and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.",
+    "When a package name remains ambiguous, AXE and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -27,10 +27,7 @@ it.effect(
   () =>
     Effect.sync(() => {
       const pattern = readFileSync(
-        new URL(
-          "../knowledge/agent-extension-engineering/src/patterns/scope-selector.md",
-          import.meta.url,
-        ),
+        new URL("../knowledge/axe/src/patterns/scope-selector.md", import.meta.url),
         "utf8",
       );
       const choices = pattern.split("\n").filter((line) => line.startsWith("- **"));

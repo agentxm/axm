@@ -200,5 +200,5 @@ never by file path. See `axm help packs` for pack composition.
 - `axm help workspace-state` — desired, accepted-resolution, and observed semantics
 
 For deeper authoring judgment and evaluation patterns, the optional
-`@agentxm/packs/agent-extension-engineering` collection supplies one routing
+`@agentxm/packs/axe` collection supplies one routing
 skill and its knowledge bundle. Basic skill creation and use do not require it.

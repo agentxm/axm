@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "axe",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Design, create, review, revise, and verify agent extensions, their relationships, and how teams set up and maintain their workspaces",
   "license": "MIT",
   "repository": {
@@ -12,7 +12,7 @@
     "directory": "skills/axe"
   },
   "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
-  "recommendedPacks": ["@agentxm/packs/agent-extension-engineering"],
+  "recommendedPacks": ["@agentxm/packs/axe"],
   "standalone": false,
   "publish": {
     "exclude": ["/AGENTS.md", "/evals/"]

@@ -23,14 +23,14 @@ export const specification = defineSpecification({
 });
 
 it.effect(
-  "authors can reach the set guidance from Axe and from the decisions that reveal an overlap",
+  "authors can reach the set guidance from AXE and from the decisions that reveal an overlap",
   () =>
     Effect.sync(() => {
       const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
       const route = skill.match(/^\|[^|]*relationships among extensions[^|]*\|\s*`([^`]+)`/im)?.[1];
-      if (!route) throw new Error("Axe has no guidance route for relationships among extensions");
+      if (!route) throw new Error("AXE has no guidance route for relationships among extensions");
 
-      const bundle = new URL("../knowledge/agent-extension-engineering/src/", import.meta.url);
+      const bundle = new URL("../knowledge/axe/src/", import.meta.url);
       const guide = new URL(route + ".md", bundle);
       const content = readFileSync(guide, "utf8");
       expect(content).toMatch(/^## Trace a change$/m);

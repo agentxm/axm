@@ -7,7 +7,7 @@ engineering tools live outside Fieldwork's inventory.
 
 Each row ran twice in fresh read-only Codex CLI 0.170.0 sessions, once with
 the ordinary request shown and once with the same request prefixed by `$axe`.
-All five ordinary sessions opened the project Axe skill. The two focused
+All five ordinary sessions opened the project AXE skill. The two focused
 individual reviews opened neither the workspace guide nor the set guide.
 
 | Request                                                                                                                                              | Evidence used and conclusion in both runs                                                                                                                                  |
@@ -56,7 +56,7 @@ hook nor installation from a Registry.
 ## Workspace setup, management policy, and application
 
 Three ordinary requests ran in fresh Codex CLI 0.170.0 sessions with AXM
-0.53.0 and the project copies of Axe and AXM available. The first two
+0.53.0 and the project copies of AXE and AXM available. The first two
 sessions had read-only access. The third used a writable disposable checkout.
 
 | Request                                                         | Observed route and result                                                                                                                                                                                                                                                                                          |

@@ -15,8 +15,8 @@ or its members.
 Write a skill or instruction around the result the user needs. Explain any
 step whose order or method affects that result. Give commands as examples
 where the agent can choose an equally sound approach. With the optional
-`@agentxm/packs/agent-extension-engineering` pack installed, read the principle
-with `axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#principles/preserve-agent-judgment'`.
+`@agentxm/packs/axe` pack installed, read the principle
+with `axm knowledge concepts get '@agentxm/knowledge/axe#principles/preserve-agent-judgment'`.
 
 For a new package, the type's `new` command scaffolds the authored source.
 For an existing package, `axm show <name>` identifies the source and editing
@@ -29,7 +29,7 @@ to see how the agent applies the guidance. Choose the check that answers the
 question at hand.
 
 For a worked example of choosing release files, see
-`@agentxm/knowledge/agent-extension-engineering#guides/lifecycle` in the optional engineering pack.
+`@agentxm/knowledge/axe#guides/lifecycle` in the optional engineering pack.
 
 The writing examples below are recommendations unless a schema or an explicit
 AXM convention says otherwise.

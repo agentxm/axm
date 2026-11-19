@@ -1,21 +1,21 @@
-# Agent extension engineering knowledge
+# Agent Extension Engineering
 
 Browse the [engineering principle, guides, patterns, and glossary](src/index.md) when choosing, writing, or
 reviewing an extension. For example, [Choosing extension boundaries](src/guides/choosing-extensions.md)
 helps you decide whether a task calls for a skill, scoped instructions, or a hook.
 
-For direct lookup, install the knowledge bundle. For example, to find out what
+Install the pack to have AXE choose the relevant concept for a request.
+
+```sh
+axm install @agentxm/packs/axe
+```
+
+For direct lookup, install the standalone knowledge bundle. For example, to find out what
 this collection means by an “open agent,” read the glossary.
 
 ```sh
-axm install @agentxm/knowledge/agent-extension-engineering
-axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#glossary'
-```
-
-To have Axe select the relevant concept from your request, install the pack.
-
-```sh
-axm install @agentxm/packs/agent-extension-engineering
+axm install @agentxm/knowledge/axe
+axm knowledge concepts get '@agentxm/knowledge/axe#glossary'
 ```
 
 The extension-focused guidance adapts concepts from the published

@@ -1,6 +1,6 @@
 # Can an open review find the consequential question?
 
-The baseline Axe reviewer found a broken consumer example and an unwanted
+The baseline AXE reviewer found a broken consumer example and an unwanted
 maintainer file when given the open request `$axe review ./sample`. It also
 recognized the intentional fixture once the package was corrected. These
 observations support keeping file selection in the publishing and review
@@ -21,8 +21,8 @@ trial=$(mktemp -d)/workspace
 python3 skills/axe/evals/2026-11-18/prepare-review-scope.py defect "$trial"
 mkdir -p "$trial/.agents/skills" "$trial/knowledge"
 cp -R skills/axe/src "$trial/.agents/skills/axe"
-cp -R knowledge/agent-extension-engineering "$trial/knowledge/"
-echo '{"owner":"@agentxm","agents":["codex"],"knowledge":{"agent-extension-engineering":"workspace"}}' > "$trial/axm.json"
+cp -R knowledge/axe "$trial/knowledge/"
+echo '{"owner":"@agentxm","agents":["codex"],"knowledge":{"axe":"workspace"}}' > "$trial/axm.json"
 git -C "$trial" init -q
 codex exec --ignore-user-config --ephemeral -s read-only -C "$trial" \
   -m gpt-6.2-astra -c 'model_reasoning_effort="low"' '$axe review ./sample'
@@ -60,7 +60,7 @@ The [observations](review-scope-observations.json) retain the final answers,
 guide digests, whether command output exposed the guide body, and shell-command
 counts. Paths in answers are relative to each fixture. Runs used Codex CLI
 0.170.0, AXM 0.53.0, and separate read-only sessions. The baseline used the guide
-at `ff0f7380d`. The Axe routing skill stayed fixed throughout.
+at `ff0f7380d`. The AXE routing skill stayed fixed throughout.
 
 The baseline and final guide both found the two archive issues and the pack
 version mismatch. Both closed the corrected case, bounded the excerpt verdict,

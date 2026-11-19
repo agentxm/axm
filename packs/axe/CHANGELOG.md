@@ -1,4 +1,22 @@
-# Agent extension engineering changes
+# Agent Extension Engineering changes
+
+## 0.3.0
+
+Install `@agentxm/packs/axe` to use Agent Extension Engineering. The pack
+brings together `@agentxm/skills/axe` and `@agentxm/knowledge/axe` at 0.3.0.
+Invoke the skill with `$axe`. Existing concept IDs still work under the new
+bundle name, for example `@agentxm/knowledge/axe#glossary`.
+
+For a direct installation, preview the migration that matches your selection:
+
+```sh
+axm migrate @agentxm/packs/agent-extension-engineering --preview
+axm migrate @agentxm/knowledge/agent-extension-engineering --preview
+```
+
+Run the matching command without `--preview` to apply it. A pack installation
+brings its knowledge dependency across. Migrate an independent bundle selection
+separately and update saved concept lookups to the new bundle name.
 
 ## Candidate 0.2.0
 

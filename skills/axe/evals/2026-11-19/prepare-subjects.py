@@ -29,15 +29,15 @@ def write_json(path, value):
 for name in ["axe", "axm"]:
     shutil.copytree(Path("skills") / name / "src", root / ".agents/skills" / name)
 shutil.copytree(
-    "knowledge/agent-extension-engineering",
-    root / "knowledge/agent-extension-engineering",
+    "knowledge/axe",
+    root / "knowledge/axe",
 )
 write_json(
     root / "axm.json",
     {
         "owner": "@agentxm",
         "agents": ["codex"],
-        "knowledge": {"agent-extension-engineering": "workspace"},
+        "knowledge": {"axe": "workspace"},
     },
 )
 write(

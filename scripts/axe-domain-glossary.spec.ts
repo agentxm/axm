@@ -22,10 +22,10 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-it.effect("glossary authors and term readers can follow distinct routes in Axe", () =>
+it.effect("glossary authors and term readers can follow distinct routes in AXE", () =>
   Effect.sync(() => {
     const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
-    const bundle = new URL("../knowledge/agent-extension-engineering/src/", import.meta.url);
+    const bundle = new URL("../knowledge/axe/src/", import.meta.url);
     const routes = Array.from(skill.matchAll(/^\| ([^|]+)\|\s*`([^`]+)`\s*\|$/gm));
 
     function readRoute(intent: RegExp) {

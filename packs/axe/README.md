@@ -1,11 +1,11 @@
-# Agent extension engineering
+# Agent Extension Engineering
 
 Design and improve extensions for your agent. The pack pairs a routing skill
 with guides and patterns on choices such as when to split a skill, scope an instruction,
 or use a hook.
 
 ```sh
-axm install @agentxm/packs/agent-extension-engineering
+axm install @agentxm/packs/axe
 ```
 
 Start with `$axe ./skills/quality` to review a skill or
@@ -13,7 +13,7 @@ Start with `$axe ./skills/quality` to review a skill or
 to design an extension. Use `create`, `revise`, or `verify` when you want an
 authored draft, a bounded change, or evidence about behavior.
 
-Ask “How should our agents use our fulfillment team's vocabulary?” Axe opens
+Ask “How should our agents use our fulfillment team's vocabulary?” AXE opens
 the Domain glossary pattern, which shows where to put the definitions and
 how a customer-update skill can use them. Asking what “open agent” means
 takes you to the term in the shared glossary.
@@ -30,10 +30,10 @@ acquired from elsewhere. “Does our release pack provide the promised first
 use?” starts from what a clean consumer gets by installing the pack.
 
 “Review our AXM setup for a new contributor” follows a task from the shared
-configuration to the contributor's host. Axe assesses whether the arrangement
+configuration to the contributor's host. AXE assesses whether the arrangement
 serves that task. “How should we handle extension drift after a branch switch?”
 helps the team decide when to report drift, when to reconcile, and how to verify
 the result in the contributor’s host. The AXM skill and CLI supply workspace state and handle
 authorized configuration changes.
 
-Upgrading from the plural-named pack? See the [migration notes](CHANGELOG.md#migration).
+Moving from `agent-extension-engineering`? See the [0.3.0 migration commands](CHANGELOG.md#030).

@@ -1514,7 +1514,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/remedy-selection`
 - Owner: `axm`
-- Statement: Axe review guidance shall let the caller select the displayed recommendation by finding number or a particular displayed alternative by finding number and remedy letter.
+- Statement: AXE review guidance shall let the caller select the displayed recommendation by finding number or a particular displayed alternative by finding number and remedy letter.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
@@ -1524,11 +1524,11 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Assumptions: The caller has received a numbered finding with alternative remedies.
 - Source: [`scripts/axe-remedy-selection.spec.ts`](../scripts/axe-remedy-selection.spec.ts)
 
-##### Axe reviews show the evidence behind their verdict
+##### AXE reviews show the evidence behind their verdict
 
 - Requirement: `extension-engineering/review-coverage`
 - Owner: `axm`
-- Statement: Every Axe review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.
+- Statement: Every AXE review shall place a coverage checklist immediately below its verdict, pairing each applicable emoji with a text label and tying each material check to confirming evidence, a numbered finding, the evidence still needed, or a material activity outside scope.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
@@ -1538,11 +1538,11 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Assumptions: The reviewer can access the axe skill and its engineering knowledge bundle.
 - Source: [`scripts/axe-review-coverage.spec.ts`](../scripts/axe-review-coverage.spec.ts)
 
-##### Axe guides extension reviews across issues, improvements, and pruning
+##### AXE guides extension reviews across issues, improvements, and pruning
 
 - Requirement: `extension-engineering/review-guidance`
 - Owner: `axm`
-- Statement: Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.
+- Statement: AXE shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
@@ -1556,7 +1556,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/review-scope`
 - Owner: `axm`
-- Statement: Axe review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.
+- Statement: AXE review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`
@@ -1570,7 +1570,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `extension-engineering/target-choice`
 - Owner: `axm`
-- Statement: When a package name remains ambiguous, Axe and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.
+- Statement: When a package name remains ambiguous, AXE and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.
 - Class: human-factors
 - Role: experience
 - Product goals: `authoring-and-creation`

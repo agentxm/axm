@@ -19,6 +19,6 @@ something, capture a fresh case first. Add a standing instruction when varied
 cases show a recurring miss and a comparison improves detection while
 preserving focused and clean reviews.
 
-Use the [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
+Use the [Agent Extension Glossary](../../knowledge/axe/src/glossary.md)
 for shared meanings. Keep definitions in that knowledge concept and maintain
 consistent terminology in documentation, help, skills, and product copy.

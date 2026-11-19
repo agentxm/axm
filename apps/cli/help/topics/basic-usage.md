@@ -15,7 +15,7 @@ AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bu
 
 For shared definitions of extensions, their types, and the AXM and AgentXM
 product surfaces, see the
-[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md).
+[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/axe/src/glossary.md).
 
 ## How to use AXM
 

@@ -30,9 +30,9 @@ describe("Authoring help for skills and instructions", () => {
   });
 
   it("offers the canonical principle to a reader with the optional pack", () => {
-    expect(topic).toContain("optional `@agentxm/packs/agent-extension-engineering`");
+    expect(topic).toContain("optional `@agentxm/packs/axe`");
     expect(topic).toContain(
-      "axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#principles/preserve-agent-judgment'",
+      "axm knowledge concepts get '@agentxm/knowledge/axe#principles/preserve-agent-judgment'",
     );
   });
 });

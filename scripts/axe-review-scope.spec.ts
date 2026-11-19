@@ -7,7 +7,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/review-scope",
   title: "Extension reviews follow the caller's focus and available evidence",
   statement:
-    "Axe review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.",
+    "AXE review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -26,10 +26,7 @@ it.effect(
   () =>
     Effect.sync(() => {
       const guide = readFileSync(
-        new URL(
-          "../knowledge/agent-extension-engineering/src/guides/reviewing-extensions.md",
-          import.meta.url,
-        ),
+        new URL("../knowledge/axe/src/guides/reviewing-extensions.md", import.meta.url),
         "utf8",
       ).replace(/\s+/gu, " ");
       expect(guide).toContain("Honor the caller's focus");

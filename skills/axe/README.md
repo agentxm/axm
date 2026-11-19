@@ -1,4 +1,4 @@
-# Axe · Agent extension engineering
+# AXE · Agent Extension Engineering
 
 Ask about one extension, the extensions you author or use together, or the
 workspace setup that supplies them. “Review our AXM setup for contributors”
@@ -20,7 +20,7 @@ The second request recommends an extension type and a design. Install the
 engineering pack to get the skill and the knowledge it uses.
 
 ```sh
-axm install @agentxm/packs/agent-extension-engineering
+axm install @agentxm/packs/axe
 ```
 
 | Request                                                                                                       | What you get                                                               |

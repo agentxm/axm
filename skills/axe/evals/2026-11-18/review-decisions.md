@@ -15,7 +15,7 @@ Candidate source SHA-256 values were:
 
 | Source            | SHA-256                                                            |
 | ----------------- | ------------------------------------------------------------------ |
-| Axe SKILL.md      | `158bb3d72a3d1853eef936df1a759f2685174cff415ea404fc10f4b4e8c53d14` |
+| AXE SKILL.md      | `158bb3d72a3d1853eef936df1a759f2685174cff415ea404fc10f4b4e8c53d14` |
 | Review guide      | `11feb0cc538c29a15733b3c4526b9eaf342f7fe271f801e0674ea7f4e927934f` |
 | Candidate pattern | `971e5c837ee0ec7a798c90760e80c814762c17ece482fa4e65da039fe9111093` |
 

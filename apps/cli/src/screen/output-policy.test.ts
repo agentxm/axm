@@ -151,4 +151,15 @@ describe("resolveCliOutputPolicy", () => {
       resolveCliOutputPolicy({ ...tty, env: { WT_SESSION: "1", CI: "true" } }).taskbarProgress,
     ).toBe(false);
   });
+  it("keeps a terminal still when a person asks for less motion", () => {
+    const tty = { stdoutIsTTY: true, stderrIsTTY: true };
+    expect(resolveCliOutputPolicy({ ...tty, env: { AXM_NO_ANIMATION: "1" } }).animate).toBe(false);
+    expect(resolveCliOutputPolicy({ ...tty, env: { AXM_NO_ANIMATION: "true" } }).animate).toBe(
+      false,
+    );
+    expect(resolveCliOutputPolicy({ ...tty, env: { AXM_NO_ANIMATION: "0" } }).animate).toBe(true);
+    expect(resolveCliOutputPolicy({ ...tty, env: { AXM_NO_ANIMATION: "1" } }).stderrColors).toBe(
+      true,
+    );
+  });
 });

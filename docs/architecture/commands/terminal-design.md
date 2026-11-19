@@ -271,7 +271,8 @@ pipe (`cli/non-tty-output-is-plain-and-unpadded`). `NO_COLOR`, `FORCE_COLOR=0`,
 `TERM=dumb`, and `CI` turn color off on every stream, though `FORCE_COLOR`
 restores it under `CI` on a terminal — a precedence that specification leaves
 open. Animation also needs a stderr terminal, and forced color never implies
-one. Color only styles: stripped of its styling, colored output is the plain
+one; `AXM_NO_ANIMATION=1` turns it off for a person who wants less motion,
+such as with a screen reader, and progress then reads as static milestones. Color only styles: stripped of its styling, colored output is the plain
 output.
 
 Only the eight standard colors and the dim attribute are used, never

@@ -73,8 +73,11 @@ export const resolveCliOutputPolicy = (
   const env = environment?.env ?? process.env;
   const stdoutIsTTY = environment?.stdoutIsTTY ?? process.stdout.isTTY;
   const stderrIsTTY = environment?.stderrIsTTY ?? environment?.stdoutIsTTY ?? process.stderr.isTTY;
+  // A person who asks for less motion, such as for a screen reader, gets the
+  // same milestones as static lines; questions stay operable.
   const animate =
     stderrIsTTY === true &&
+    !axmBooleanEnabled(env["AXM_NO_ANIMATION"]) &&
     !hasCi(env) &&
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&

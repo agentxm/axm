@@ -4,7 +4,11 @@ title: "Review the decisions an artifact makes"
 description: "When reviewing a working extension, use its decisions and the applicable design guidance to discover issues, improvements, and pruning opportunities."
 tags: ["review", "discovery", "issues", "improvement", "pruning"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T02:45:36Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:12:18Z" }
+sources:
+  - id: improve
+    resource: https://github.com/craigsmitham/agent-extensions/blob/5a4d1e8697800e0b313545457bb84cb2aaa92344/skills/improve-whatever/src/SKILL.md
+    title: Improve whatever
 ---
 
 # Review the decisions an artifact makes
@@ -40,6 +44,11 @@ to walk through a package picker:
 | The skill correctly pauses but asks only “Which package?”                         | **Improvement.** Show the matching qualified names so the caller can choose in one reply.                                            |
 | The caller supplied an exact path and must still choose that package from a list. | **Pruning.** Use the target established by the request or earlier context. Ask the caller to choose if the target remains ambiguous. |
 
+What already works that the proposed change must preserve?[^improve] In the
+third picker case, an exact path can bypass the picker. Two matches still
+need a choice before an edit. Include that second case in the finding so the
+maintainer can check both when removing the redundant prompt.
+
 A hook raises different questions. The [hook guide](../guides/configuring-hooks-and-mcp.md)
 prompts the reviewer to follow a duplicate delivery. If a repeated event
 already sets the same value, that case can close cleanly. A separate event
@@ -53,3 +62,5 @@ shows a consequence for the user or maintainer. To assess the candidate, compare
 reviews of the same skill and hook with and without the method, including a
 working case that earns a clean result. Check missed findings and unsupported
 suggestions as well as what each review discovered.
+
+[^improve]: Improve whatever, “Praiseworthy.”

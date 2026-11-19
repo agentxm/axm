@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/review-guidance",
   title: "Axe guides extension reviews across issues, improvements, and pruning",
   statement:
-    "Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints and leaving changes for the user's selection.",
+    "Axe shall guide reviewers to use applicable guides and patterns within the requested focus to identify grounded issues, improvements, and pruning opportunities where the agent can choose how to achieve the user's purpose with the evidence and authority available, retaining warranted constraints, identifying working behavior that shapes the proposed remedy or its verification, and leaving changes for the user's selection.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -41,6 +41,11 @@ it.effect(
         (match) => new URL(match[0].slice(2, -1), guide).href,
       );
       expect(destinations).toContain(new URL("principles/preserve-agent-judgment.md", bundle).href);
+      const decisions = new URL("patterns/review-the-decisions-an-artifact-makes.md", bundle);
+      expect(destinations).toContain(decisions.href);
+      expect(readFileSync(decisions, "utf8").replace(/\s+/gu, " ")).toContain(
+        "Two matches still need a choice before an edit",
+      );
       for (const index of ["guides/index.md", "patterns/index.md"]) {
         const destination = new URL(index, bundle);
         expect(destinations).toContain(destination.href);

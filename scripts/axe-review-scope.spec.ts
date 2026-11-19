@@ -7,7 +7,7 @@ export const specification = defineSpecification({
   requirement: "extension-engineering/review-scope",
   title: "Extension reviews follow the caller's focus and available evidence",
   statement:
-    "Axe review guidance shall preserve the caller's focus and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.",
+    "Axe review guidance shall preserve the caller's focus, distinguish evidence about a governed artifact from a defect attributable to the reviewed extension, and support choosing and explaining the scope of an open review from the extension's purpose, the change, and the available evidence. An open package review shall account for README presence and first-use guidance at each independently discoverable package in scope.",
   class: "human-factors",
   role: "experience",
   goals: ["authoring-and-creation"],
@@ -40,5 +40,8 @@ it.effect(
       );
       expect(guide).toContain("what it provides, what to install, and how to try it");
       expect(guide).toContain("An excerpt that omits a README leaves its presence open");
+      expect(guide).toContain("one clear owner shows a lapse in following the rule");
+      expect(guide).toContain("neither can determine who should write the note");
+      expect(guide).toContain("the finding belongs to the rule");
     }),
 );

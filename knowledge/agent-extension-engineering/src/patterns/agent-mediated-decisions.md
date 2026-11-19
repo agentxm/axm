@@ -39,7 +39,9 @@ what gets authored and which workspaces can use it.
 A picker can show those choices when the host supports it. Keep the evidence
 and consequence visible, and allow a short text reply or a correction that
 doesn't fit the choices. Try the exchange in plain text to see whether a
-reader can still tell what they are deciding.[^interaction]
+reader can still tell what they are deciding.[^interaction] When the choice
+is which objects a request covers, [Scope selector](scope-selector.md) shows
+how to rank the matching targets and when to offer the whole set.
 
 Use a [prefilled form](prefilled-form.md) when the user can correct a partly
 known brief. After presenting a result, use [Selectable next actions](selectable-next-actions.md)

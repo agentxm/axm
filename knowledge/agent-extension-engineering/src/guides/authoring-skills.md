@@ -67,7 +67,8 @@ name in a creation brief has a different role.
 - `/package` offers orientation. `/package ./checkout` inspects checkout.
   `/package audit ./checkout` produces a findings report. Choose an
   [operation selector](../patterns/operation-selector.md) for the verb and a
-  [scope selector](../patterns/scope-selector.md) for the target. Define the
+  [scope selector](../patterns/scope-selector.md) for the target. Its worked
+  example lets the caller choose one match or all three by picker or text. Define the
   [contextual default](../patterns/contextual-default.md) for each omission.
 - `/package audit ./checkout --focus links` asks the same question as
   “audit the checkout package for broken links.” A [focus filter](../patterns/focus-filter.md)

@@ -78,3 +78,32 @@ existing router and the review trial exercised the working candidate. These
 are single observations per condition on one host. Command counts describe
 the recorded trajectories and include commands that combine multiple reads.
 They cannot establish a typical cost, activation rate, or cross-host result.
+
+## Choose the review target
+
+A short-name review in a workspace with three packages named `docs` originally
+listed their identities and asked for one type. The reader wanted a selectable
+scope that could include all three. The [scope selector](../../../../knowledge/agent-extension-engineering/src/patterns/scope-selector.md)
+now illustrates that decision.
+
+Five fresh read-only Codex CLI 0.170.0 app-server sessions used AXM 0.53.0 and
+a disposable workspace containing the candidate skills, engineering knowledge,
+and a synthetic skill, knowledge bundle, and pack named `docs`. Each package
+README contained a distinct release inventory code. The review prompt was
+“$axe review docs. We are preparing the docs release. Focus only on whether
+the package README states its release inventory code. Quote the code for each
+target you actually review.” The client stated whether it supported a picker
+or text replies.
+
+| Request                                                     | Observed choice and result                                                                                                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release review, native picker                               | The structured control offered all three first with a recommendation, followed by each qualified identity. Submitting its first option produced the codes from all three READMEs. |
+| Same review, text only                                      | The first lettered option was **All 3 matches (Recommended)**. Replying `all` produced the same three codes.                                                                      |
+| Same review, qualified as “the docs skill”                  | Axe opened the skill README directly and reported its code without a scope question.                                                                                              |
+| AXM inspection of `docs` to investigate invocation behavior | The text menu recommended the skill first and offered all three as another choice.                                                                                                |
+| AXM planning for a single package to own a file             | The native control offered only the three individual owners, each with its qualified identity.                                                                                    |
+
+In the final release-review trials, both clients put **All 3 matches
+(Recommended)** first, followed by knowledge, pack, and skill in that order.
+The native trial captured the control and submitted its displayed label at
+the app-server protocol boundary. Visual rendering was outside the trial.

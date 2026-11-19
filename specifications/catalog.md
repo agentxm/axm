@@ -1524,6 +1524,19 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Assumptions: The reviewer has access to the engineering knowledge bundle.
 - Source: [`scripts/axe-review-scope.spec.ts`](../scripts/axe-review-scope.spec.ts)
 
+##### Callers can select the intended scope of an ambiguous package name
+
+- Requirement: `extension-engineering/target-choice`
+- Owner: `axm`
+- Statement: When a package name remains ambiguous, Axe and AXM shall offer the qualified matches through a native picker or labeled text replies, put a context-supported recommendation first when one exists, offer the whole displayed set when the operation permits it, and resume the requested operation only after selection.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The shared example exposes the text choices and their identities. Host trials separately exercise skill instructions, native input and continuation.
+- Methods: static, review
+- Source: [`scripts/extension-target-choice.spec.ts`](../scripts/extension-target-choice.spec.ts)
+
 ### Goal: extension-adoption
 
 People and agents can find, install, update, and remove reusable extensions across coding agents through dependable product surfaces.

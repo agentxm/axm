@@ -11,7 +11,7 @@ Choose the decision you are making. Patterns from different groups can be used t
 ## How does the caller specify the work?
 
 - [Operation selector](operation-selector.md) — Give callers a short verb when choosing a workflow changes the deliverable or its effects.
-- [Scope selector](scope-selector.md) — Let the caller identify the object or boundary of an operation and resolve it to an exact target.
+- [Scope selector](scope-selector.md) — Resolve the caller’s intended scope to one or more exact targets and make ambiguous matches selectable.
 - [Contextual default](contextual-default.md) — When an argument is omitted, use the operation and available evidence to decide whether its value can be inferred.
 - [Focus filter](focus-filter.md) — When an operation has several applicable aspects, let the caller choose which ones to examine within the selected scope.
 - [Named option](named-option.md) — Give an optional control a name when its value would be unclear by position or callers need to set it precisely.

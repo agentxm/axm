@@ -37,9 +37,13 @@ its contents. Use an explicit path (such as `./design`) or fully qualified
 package identity directly. For a short name, look it up across extension types
 in the workspace inventory (with AXM, `axm show <name> --json`). Apply any
 type or owner the caller supplied. Proceed with one matching identity. For
-several, list the matching types and qualified names, ask for the smallest
-distinguishing qualifier, and wait. Resume the same operation and focus on
-the selected identity. For zero matches, report the unresolved target.
+several, show the matching types and qualified names. Use a native picker
+when it can show every choice. Otherwise give a lettered menu with short replies. Include
+**All N matches** when the operation can cover the displayed set. Put the
+scope best supported by the request and context first and mark it
+`(Recommended)`. Use a stable, unmarked order when the evidence is even.
+Wait for the choice, then resume the same operation and focus on the selected
+identities. For zero matches, report the unresolved target.
 A name proposed for a new extension is part of the creation brief.
 
 A bare invocation asks for orientation. Use the current discussion or selected

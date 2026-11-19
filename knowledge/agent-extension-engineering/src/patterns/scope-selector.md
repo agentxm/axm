@@ -1,7 +1,7 @@
 ---
 type: Pattern
 title: "Scope selector"
-description: "Let the caller identify the object or boundary of an operation and resolve it to an exact target."
+description: "Resolve the caller’s intended scope to one or more exact targets and make ambiguous matches selectable."
 tags: ["skills", "arguments", "scope", "target", "path", "qualified reference"]
 status: draft
 sources:
@@ -35,6 +35,24 @@ choice. A skill, knowledge bundle, and pack all named `docs` give three.
 Apply a supplied type or owner first. If several candidates remain, show
 their qualified identities and ask for the missing distinction before
 inspecting any candidate. “The knowledge bundle” can settle the choice.
+
+Suppose a reader preparing a release asks to review `docs` after discussing
+what its packages ship. A review can cover all three matches. Use a native
+picker when it can show the complete choice. The same labels, in the same
+order, work as short replies in a text-only client.
+
+- **A · All 3 matches (Recommended)** (`all`) — review the three packages below.
+- **B · Skill** (`skill`) — `@example/skills/docs`.
+- **C · Knowledge bundle** (`knowledge`) — `@example/knowledge/docs`.
+- **D · Pack** (`pack`) — `@example/packs/docs`.
+
+Rank by what the caller is trying to do. A question about how `docs` responds
+to an invocation favors the skill. With equally plausible scopes, keep a
+stable order and leave the labels unmarked. Offer the whole set only when it
+is a valid answer. Choosing the single package that should own a new file
+calls for the individual owners. Bind the reply to the displayed identities
+and continue the original task after the user selects. A highlighted first
+row still needs a selection.
 
 Try equivalent references, a collision across types, and a typo. Proceed on
 a unique match and report an unknown explicit target. A

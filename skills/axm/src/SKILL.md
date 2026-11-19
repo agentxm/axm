@@ -20,6 +20,14 @@ when needed. `axm show` explains local ownership and editing authority;
 `axm schema` explains result fields. If AXM is unavailable or ownership is
 unresolved, preserve managed state rather than reconstructing it by hand.
 
+Use a uniquely resolved target directly. When a name still matches several
+packages, show their types and qualified identities. Use a native picker
+when it can show every choice. Otherwise give a lettered menu with short replies. Include
+**All N matches** when the operation can cover that set. Put the scope most
+likely intended by the caller first and mark it `(Recommended)` when the
+request or context supports it. Otherwise keep a stable, unmarked order.
+Wait for the selection and carry the original operation and focus forward.
+
 Stay within the requested operation, scope, and supplied case facts. A review
 or plan grants no apply authority. Publication, Registry changes, credentials,
 executable upgrades, and native execution require authority for those actions.

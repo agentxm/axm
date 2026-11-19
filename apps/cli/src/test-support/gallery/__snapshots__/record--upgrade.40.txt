@@ -1,0 +1,15 @@
+ ✔   Upgraded AXM 0.53.0 to 0.54.0 via
+     npm
+     Install method
+       npm
+     Ran
+       npm install -g axm.sh@0.54.0
+     Verified       /usr/local/bin/axm
+                    reported 0.54.0
+     Compatibility target
+       AXM CLI 0.54.0 + official AXM
+       skill 0.54.0
+Next
+     axm lint
+       Verify CLI and official-skill
+       compatibility

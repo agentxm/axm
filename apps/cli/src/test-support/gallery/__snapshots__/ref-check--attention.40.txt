@@ -1,0 +1,28 @@
+Check  2 local subjects
+
+     Subject
+     skill:code-review
+     skill:triage
+
+     Not shown at this width: Included
+     because. A wider terminal shows it.
+
+     Check           Coverage
+     compatibility   complete
+     convergence     incomplete
+
+     Not shown at this width:
+     Conclusion. A wider terminal shows
+     it.
+
+ ▲   Some checks could not cover
+     everything
+     convergence: The installed content
+     is missing
+
+ ●   Sync would change the workspace
+     @acme/skills/code-review: Reinstall
+     the missing content
+
+Selected checks need attention
+  no changes made

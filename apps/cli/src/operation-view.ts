@@ -47,6 +47,8 @@ import {
   emphatic,
   fragment,
   invocation,
+  pathSpan,
+  plain,
   versionMove,
   exitPhrase,
   factParts,
@@ -453,6 +455,74 @@ const owesReason = (settlement: Settlement): boolean =>
  * stopped it, and one whose producer said nothing says that, because a blank
  * line beneath a failed row reads as information that was lost.
  */
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
+/**
+ * A reason beneath a row names its own unit as `this extension`: the row
+ * already says which unit it is, and two units that failed the same way then
+ * read the same, so the ledger can say it once for both.
+ */
+const selfReferenced = (reason: string, label: string, noun: string): string => {
+  // Only an identity a reader could not mistake for a word, such as
+  // `@acme/skills/review`, and only whole, never a fragment of another name.
+  if (!/[@/]/u.test(label)) return reason;
+  const identity = `(?<![\\w@/.-])${escapeRegExp(label)}(?![\\w/-])`;
+  return reason
+    .replace(new RegExp(`(^|[.!?]\\s+)${identity}`, "gu"), `$1${capitalized(`this ${noun}`)}`)
+    .replace(new RegExp(identity, "gu"), `this ${noun}`);
+};
+
+/**
+ * Rows that failed or were blocked for the same reason say it once: the rows
+ * keep their marks, and one condition states the reason and names every unit
+ * it covers. A reason only one row has stays beneath that row.
+ */
+const sharedReasons = (
+  rows: ReadonlyArray<LedgerRow>,
+  presentation: OperationPresentation,
+): { readonly rows: ReadonlyArray<LedgerRow>; readonly conditions: ReadonlyArray<CalloutNode> } => {
+  const grouped = new Map<string, Array<LedgerRow>>();
+  for (const row of rows) {
+    if (typeof row.reason !== "string" || (row.mark !== "failed" && row.mark !== "blocked"))
+      continue;
+    const key = `${row.mark}\u0000${row.reason}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), row]);
+  }
+  const shared = [...grouped.values()].filter((group) => group.length > 1);
+  if (shared.length === 0) return { rows, conditions: [] };
+  const sharedRows = new Set(shared.flat());
+  return {
+    rows: rows.map((row) => {
+      if (!sharedRows.has(row)) return row;
+      const { reason: _reason, ...rest } = row;
+      return rest;
+    }),
+    conditions: shared.map((group) => {
+      const [first] = group;
+      return conditionDoc({
+        tone: first?.mark === "failed" ? "error" : "warn",
+        title: `${count(group.length, presentation.subject.singular, presentation.subject.plural)} ${first?.mark === "failed" ? "failed" : "are blocked"} for one reason`,
+        body: [
+          // The reason names its unit as `this extension`; said for several,
+          // it names each of them.
+          typeof first?.reason === "string"
+            ? first.reason
+                .replaceAll(
+                  `this ${presentation.subject.singular}`,
+                  `each ${presentation.subject.singular}`,
+                )
+                .replaceAll(
+                  capitalized(`this ${presentation.subject.singular}`),
+                  capitalized(`each ${presentation.subject.singular}`),
+                )
+            : "",
+          group.map((row) => plain(row.cells[0] ?? "")).join(PROSE_SEPARATOR),
+        ],
+      });
+    }),
+  };
+};
+
 const reasonOf = (
   unit: ResolvedUnit<unknown>,
   settlement: Settlement,
@@ -465,7 +535,11 @@ const reasonOf = (
       ? (unit.blocking?.detail ?? notTriedReason(presentation))
       : settlement._tag === "rolled-back-in-flight"
         ? INTERRUPTED_IN_FLIGHT
-        : (producerReason(unit) ?? UNREPORTED_REASON);
+        : selfReferenced(
+            producerReason(unit) ?? UNREPORTED_REASON,
+            unit.label,
+            presentation.subject.singular,
+          );
   if (saidOnce || unit.disposition === undefined) return reason;
   // A producer's sentence already ends where it means to, so the settlement
   // follows it as a sentence of its own rather than as another clause.
@@ -865,6 +939,7 @@ const referenceOf = (unit: ResolvedUnit<unknown>): ReadonlyArray<JobStepArtifact
 const untouchedPaths = (
   units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: "preview" | "apply",
+  home?: string,
 ): ReadonlyArray<CalloutNode> => {
   const references = units.flatMap(referenceOf);
   if (references.length === 0) return [];
@@ -881,7 +956,10 @@ const untouchedPaths = (
           ({
             _tag: "paragraph",
             tone: "dim",
-            text: joined([reference.path, reference.reason]),
+            text: [
+              pathSpan(reference.path, home),
+              { text: `${PROSE_SEPARATOR}${reference.reason}` },
+            ],
           }) as const,
       ),
     },
@@ -1077,6 +1155,8 @@ export interface OperationDocOptions {
   readonly callouts?: ReadonlyArray<CalloutNode>;
   /** The project directory's name, which the title line says the command acted in. */
   readonly project?: string;
+  /** The user's home directory, under which paths read from `~`. */
+  readonly home?: string;
 }
 
 export const operationDoc = (
@@ -1174,13 +1254,17 @@ export const operationDoc = (
     detailed || !stopExplained
       ? []
       : visible.filter((unit) => settlementOf(unit, resolution.mode)._tag === "not-tried");
-  const settled = withoutEmptyColumns({
-    columns: ledgerColumns(presentation, "Status"),
-    rows: visible
+  const shared = sharedReasons(
+    visible
       .filter((unit) => !untried.includes(unit))
       .flatMap((unit) =>
         resultRows(unit, resolution.mode, detailed, presentation, dispositionSaidOnce, saidOnce),
       ),
+    presentation,
+  );
+  const settled = withoutEmptyColumns({
+    columns: ledgerColumns(presentation, "Status"),
+    rows: shared.rows,
   });
   const ledger = foldedLedger(settled.columns, settled.rows, [
     ...(untried.length === 0 ? [] : [untriedFold(presentation, untried.length)]),
@@ -1222,8 +1306,9 @@ export const operationDoc = (
       ...nativeLocationsDoc(nativeLocations, detailed, resolution.mode === "preview", destinations),
     ],
     conditions: [
+      ...shared.conditions,
       ...groupedWarnings(resolution.units, resolution.mode),
-      ...untouchedPaths(resolution.units, resolution.mode),
+      ...untouchedPaths(resolution.units, resolution.mode, options.home),
       ...(options.callouts ?? []),
       ...(recoveries.length === 0
         ? []
@@ -1235,8 +1320,8 @@ export const operationDoc = (
                 {
                   _tag: "fields",
                   fields: recoveries.map((entry) => ({
-                    label: redactCredentialText(entry.originalPath),
-                    value: redactCredentialText(entry.recoveryPath),
+                    label: [pathSpan(redactCredentialText(entry.originalPath), options.home)],
+                    value: [pathSpan(redactCredentialText(entry.recoveryPath), options.home)],
                   })),
                 },
               ],

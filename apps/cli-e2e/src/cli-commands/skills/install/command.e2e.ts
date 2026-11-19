@@ -113,7 +113,7 @@ describe("axm skills install", () => {
         const unitRow = "skills/my-skill               created   1 file";
         expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
         expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
-        expect(output).toMatch(/Installing {2}in this project [·-] agents: claude-code/);
+        expect(output).toMatch(/Install {2}in \S+ [·-] agents: claude-code/);
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");

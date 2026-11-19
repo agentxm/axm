@@ -1047,7 +1047,10 @@ describe("HTTP registry transport", () => {
       expect(result.timedOut).toBe(false);
       expect(result.exitCode, result.transcript).toBe(0);
       expect(result.actions[0]?.matched).toBe(true);
-      expect(result.actions[0]?.emitted).toContain("check extension retry 2 of 3 after 2s");
+      // The active line may wrap at the pane's width; the words are what count.
+      expect(result.actions[0]?.emitted.replace(/\s+/gu, " ")).toContain(
+        "check extension retry 2 of 3 after 2s",
+      );
       expect(registry.requests.filter((request) => request.status === 503)).toHaveLength(1);
     } finally {
       await registry.close();

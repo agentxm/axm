@@ -41,27 +41,31 @@ export const tableDoc = <T>(
   rows: ReadonlyArray<T>,
   columns: ReadonlyArray<ViewColumn<T>>,
   options?: { readonly caption?: Text; readonly mark?: ViewRowMark<T> },
-): Doc => [
-  {
-    _tag: "table",
-    columns: columns.map((column) => ({
-      header: column.header,
-      ...(column.role === undefined ? {} : { role: column.role }),
-      ...(column.align === undefined ? {} : { align: column.align }),
-      ...(column.width === undefined ? {} : { width: column.width }),
-      ...(column.minWidth === undefined ? {} : { minWidth: column.minWidth }),
-      ...(column.priority === undefined ? {} : { priority: column.priority }),
-    })),
-    rows: rows.map((row) => {
-      const mark = options?.mark?.(row);
-      return {
-        cells: columns.map((column) => column.value(row)),
-        ...(mark === undefined ? {} : { mark }),
-      };
-    }),
-    ...(options?.caption === undefined ? {} : { caption: options.caption }),
-  },
-];
+): Doc =>
+  // A table with no rows has nothing to compare: its headers alone say nothing.
+  rows.length === 0
+    ? []
+    : [
+        {
+          _tag: "table",
+          columns: columns.map((column) => ({
+            header: column.header,
+            ...(column.role === undefined ? {} : { role: column.role }),
+            ...(column.align === undefined ? {} : { align: column.align }),
+            ...(column.width === undefined ? {} : { width: column.width }),
+            ...(column.minWidth === undefined ? {} : { minWidth: column.minWidth }),
+            ...(column.priority === undefined ? {} : { priority: column.priority }),
+          })),
+          rows: rows.map((row) => {
+            const mark = options?.mark?.(row);
+            return {
+              cells: columns.map((column) => column.value(row)),
+              ...(mark === undefined ? {} : { mark }),
+            };
+          }),
+          ...(options?.caption === undefined ? {} : { caption: options.caption }),
+        },
+      ];
 
 export const fieldsDoc = <T>(row: T, fields: ReadonlyArray<ViewField<T>>): Doc => [
   {

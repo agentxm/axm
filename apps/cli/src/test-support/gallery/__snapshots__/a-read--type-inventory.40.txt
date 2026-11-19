@@ -1,0 +1,21 @@
+     Name             Management
+     format-on-save   managed by this
+                      workspace
+
+     block-secrets    included by a pack
+
+     legacy-notify    outside AXM
+
+     Not shown at this width:
+     Activation, Source, Locked, Agent
+     outcomes. A wider terminal shows
+     them.
+
+3 hooks · 1 managed by this workspace ·
+1 included by packs · 3 installed · 1
+found outside AXM
+
+ ▲   Part of this inventory could not be
+     observed
+     .codex/hooks.json: The file is not
+     valid JSON

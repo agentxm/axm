@@ -8,6 +8,14 @@
      as one pack.
 
      Owner          @acme
+     Page
+       https://agentxm.ai/@acme/packs/review-kit
+     Location       ~/code/storefront/
+                    agent_extensions/
+                    review-kit
+     Update
+       axm update @acme/packs/review-kit
+     Request        req_01J8ZQ4M7T
      Description    A field whose value
                     is long enough to
                     need wrapping at

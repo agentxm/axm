@@ -35,7 +35,7 @@ describe("axm skills install output UX", () => {
       const output = getOutput(result);
       // With no agent to name, the title line says only where it acted; the
       // callout is what tells a reader nothing was materialized.
-      expect(output).toContain("Installing  in this project");
+      expect(output).toMatch(/^Install {2}in \S+$/mu);
       expect(output).not.toContain("agents:");
       expect(output).toContain("No coding agents received this change");
       expect(output).toContain("axm agents add --detected");
@@ -80,9 +80,7 @@ describe("axm skills install output UX", () => {
       expect(output).toContain(unitRow);
       // The verdict settles the ledger, so it follows the rows it rests on.
       expect(output.indexOf(unitRow)).toBeLessThan(output.indexOf(verdict));
-      expect(output).toMatch(
-        /Installing {2}in this project [·-] agents: antigravity, amp, claude-code/,
-      );
+      expect(output).toMatch(/Install {2}in \S+ [·-] agents: antigravity, amp, claude-code/);
       expect(output).not.toContain("skill(s)");
     } finally {
       temp.cleanup();

@@ -223,9 +223,13 @@ describe("first use settings observation", () => {
       return { agents, ...measure(context.recordings, settingsPath) };
     });
 
-  /** Answer setup's questions: no instruction sync, then approve the plan. */
+  /**
+   * Answer setup's questions: no instruction sync, then approve the plan. The
+   * screen states that a question can open, so the observation is the same
+   * whether a person, a coding agent, or CI runs the test.
+   */
   const answeringSetup = (instructions: boolean) => {
-    const screen = makeTestScreen();
+    const screen = makeTestScreen({ interactive: true });
     if (instructions) screen.state.script.answers.push({ _tag: "Confirm", key: "n" });
     screen.state.script.answers.push({ _tag: "Confirm", key: "y" });
     return screen;

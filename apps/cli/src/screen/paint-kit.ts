@@ -1,4 +1,4 @@
-import { plain } from "./doc.js";
+import { plain, spanLink, spanTint } from "./doc.js";
 import type { Mark, PaintSpan, PaintText, Tint, Tone } from "./doc.js";
 import { unicodeGlyphs, type Glyphs } from "./glyphs.js";
 import { displayWidth, truncateLine } from "./width.js";
@@ -85,18 +85,19 @@ const tintCodes: Readonly<Record<Tint, string>> = {
   cyan: `${ESC}36m`,
 };
 
-const colorCode = (span: PaintSpan): string =>
-  span.tone === undefined && span.tint !== undefined
-    ? tintCodes[span.tint]
+const colorCode = (span: PaintSpan): string => {
+  const tint = spanTint(span);
+  return span.tone === undefined && tint !== undefined
+    ? tintCodes[tint]
     : toneCodes[span.tone ?? "neutral"];
+};
 
 const styleSpan = (span: PaintSpan, colors: boolean): string => {
   if (!colors) return span.text;
   const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${colorCode(span)}`;
+  const link = spanLink(span);
   const linked =
-    span.link === undefined
-      ? span.text
-      : `\u001b]8;;${span.link}\u001b\\${span.text}\u001b]8;;\u001b\\`;
+    link === undefined ? span.text : `\u001b]8;;${link}\u001b\\${span.text}\u001b]8;;\u001b\\`;
   return prefix.length === 0 ? linked : `${prefix}${linked}${RESET}`;
 };
 
@@ -108,7 +109,7 @@ export const paintSpans = (
   spans
     .map((span) => {
       // A tinted span keeps its own colour inside a toned line.
-      const tone = span.tone ?? (span.tint === undefined ? inherited : undefined);
+      const tone = span.tone ?? (spanTint(span) === undefined ? inherited : undefined);
       return styleSpan(tone === undefined ? span : { ...span, tone }, style.colors);
     })
     .join("");

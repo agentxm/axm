@@ -158,7 +158,9 @@ const paintNode = (
         ...node.actions.flatMap((suggested) => {
           const action = { ...suggested, description: fragment(suggested.description) };
           const targetText = actionTarget(action);
-          const target: ReadonlyArray<Span> = [{ text: targetText, copyable: true }];
+          const target: ReadonlyArray<Span> = [
+            { text: targetText, kind: action.url === undefined ? "command" : "url" },
+          ];
           const actionStart = content + GUTTER_WIDTH;
           if (targetText.length === 0) {
             return paintPrefixed(action.description, style, {

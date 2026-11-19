@@ -146,7 +146,10 @@ export const appErrorDoc = (
   }));
   const children: Array<DocNode> = [];
   if (error.diagnosticId !== undefined)
-    fields.push({ label: "Diagnostic ID", value: [{ text: error.diagnosticId, copyable: true }] });
+    fields.push({
+      label: "Diagnostic ID",
+      value: [{ text: error.diagnosticId, kind: "identifier" }],
+    });
 
   if (registryUrl !== undefined) {
     fields.push({ label: "Registry", value: formatRegistryLocation(registryUrl, secrets) });
@@ -162,7 +165,7 @@ export const appErrorDoc = (
   if (requestId !== undefined && (detailed || error.code === "internal")) {
     fields.push({
       label: "Request ID",
-      value: [{ text: redactCredentialText(requestId, { secrets }), copyable: true }],
+      value: [{ text: redactCredentialText(requestId, { secrets }), kind: "identifier" }],
     });
   }
 

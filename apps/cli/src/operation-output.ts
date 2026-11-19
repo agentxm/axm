@@ -93,6 +93,7 @@ import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/ex
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
 import { currentProjectName } from "./project-name.js";
+import { resolveUserHome } from "@agentxm/workspace-kernel/workspace-state";
 import { emitResult, count, moment, type CalloutNode } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
 
@@ -1222,6 +1223,8 @@ export const emitOperationResolution = (
     // The title names the project a command acted in by its directory, so a
     // reader with several checkouts open sees which one changed.
     const project = yield* currentProjectName;
+    // Paths under the user's home read from `~`, as a person types them.
+    const home = yield* resolveUserHome().pipe(Effect.orElseSucceed(() => undefined));
     const suggestions = next.length === 0 ? undefined : suggestionsForScope(next, scope, routes);
 
     const result = toPlanResolutionResult(resolution, {
@@ -1310,6 +1313,7 @@ export const emitOperationResolution = (
           // about, so `Next` stays the last thing a reader sees.
           callouts: releaseAgeDoc(options?.recovery, result, { unsettled }),
           ...(project === undefined ? {} : { project }),
+          ...(home === undefined ? {} : { home }),
         });
       },
       {

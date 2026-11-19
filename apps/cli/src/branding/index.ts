@@ -25,9 +25,9 @@ export const brandingDoc: Doc = [
       {
         _tag: "paragraph",
         text: [
-          { text: "https://axm.sh", copyable: true },
+          { text: "https://axm.sh", kind: "url" },
           { text: " | " },
-          { text: "https://agentxm.ai", copyable: true },
+          { text: "https://agentxm.ai", kind: "url" },
         ],
       },
     ],

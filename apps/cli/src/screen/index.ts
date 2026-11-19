@@ -8,12 +8,13 @@ export type {
   LedgerRow,
   Mark,
   Span,
+  SpanKind,
   SummaryPart,
   Text,
   Tint,
   Tone,
 } from "./doc.js";
-export { plain } from "./doc.js";
+export { isCopyableSpan, plain } from "./doc.js";
 export { paintText } from "./paint-text.js";
 export { asciiGlyphs, unicodeGlyphs } from "./glyphs.js";
 export {
@@ -138,7 +139,10 @@ export {
   VERBOSE_LIST_HINT,
   commandSpan,
   emphatic,
+  identifierSpan,
   invocation,
+  pathSpan,
+  urlSpan,
   joined,
   ledgerViewPolicy,
   resultLedgerColumns,

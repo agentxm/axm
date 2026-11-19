@@ -9,13 +9,7 @@ import { describe, expect, it } from "vitest";
  * `*-view.ts` — is imported by a gallery fixture module or a gallery sample,
  * or is named here with the reason it is not yet.
  */
-const awaitingSamples: Readonly<Record<string, string>> = {
-  "root/check/view.ts": "needs a local check document sample builder",
-  "root/show/view.ts": "needs a local inspection document sample builder",
-  "root/upgrade/view.ts": "needs an upgrade assessment sample builder",
-  "root/share/view.ts": "needs a share document sample builder",
-  "root/inventory-view.ts": "holds inventory helpers that list views compose",
-};
+const awaitingSamples: Readonly<Record<string, string>> = {};
 
 const srcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 

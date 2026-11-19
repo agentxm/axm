@@ -1,0 +1,9 @@
+ ▲   npm could not install AXM 0.54.0; AXM 0.53.0 is still installed
+     Install method                npm
+     Ran                           npm install -g axm.sh@0.54.0
+     Compatibility target          AXM CLI 0.54.0 + official AXM skill 0.54.0
+ ▲   Output from npm install -g axm.sh@0.54.0
+     npm ERR! code EACCES
+     npm ERR! permission denied, mkdir '/usr/local/lib'
+Next
+     npm install -g axm.sh@0.54.0   Run the installer yourself

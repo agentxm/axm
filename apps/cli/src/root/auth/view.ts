@@ -91,7 +91,7 @@ const browserSignInBrief = (handoff: {
         ? "To sign in, finish in the browser that opened, or open this link:"
         : "To sign in, open this link in a browser:",
   },
-  { _tag: "paragraph", inset: true, text: [{ text: handoff.authorizeUrl, copyable: true }] },
+  { _tag: "paragraph", inset: true, text: [{ text: handoff.authorizeUrl, kind: "url" }] },
   { _tag: "next", actions: [deviceCodeAction] },
 ];
 
@@ -147,13 +147,13 @@ const terminalSignInBrief = (handoff: {
   {
     _tag: "paragraph",
     inset: true,
-    text: [{ text: handoff.verificationUriComplete, copyable: true }],
+    text: [{ text: handoff.verificationUriComplete, kind: "url" }],
   },
   {
     _tag: "paragraph",
     text: [
       { text: "Make sure it shows the code " },
-      { text: handoff.userCode, bold: true },
+      { text: handoff.userCode, kind: "identifier", bold: true },
       { text: "." },
     ],
   },

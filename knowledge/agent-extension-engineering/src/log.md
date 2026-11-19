@@ -2,6 +2,8 @@
 
 ## 2026-11-18
 
+- Clarified how to leave the [next action](patterns/selectable-next-actions.md) visible while awaiting a reply, including on hosts that require a final text response.
+
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.
 
 - Added six [argument patterns](patterns/index.md#how-does-the-caller-specify-the-work), guidance on writing invocation signatures, and [trials for argument interpretation](patterns/invocation-trial.md#check-argument-interpretation).

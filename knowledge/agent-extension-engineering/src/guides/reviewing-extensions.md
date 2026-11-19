@@ -62,8 +62,11 @@ For example, a review of a release-note skill archive might read as follows.
 > **C · Inspect evidence** (`C 1` or `inspect 1`)\
 > **D · Finish review** (`D` or `done`)
 
-Show the complete report before opening a native picker. In a text-only host,
-put the labeled menu immediately below the findings in the same message.
+Deliver the complete report once, including any limits. Use a native picker
+as its last visible item when the host supports that ordering. If the host
+requires a separate final response after the picker, or supports only text,
+put the report and labeled choices together in that final response. Leave
+the question last until the reader responds.
 Keep the action labels usable as prompt replies wherever text input is available. For **Fix
 selected** or **Inspect evidence**, the next control lists finding numbers
 and titles. A reply such as “fix the second one” supplies both choices.

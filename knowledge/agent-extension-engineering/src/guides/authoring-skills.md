@@ -96,8 +96,9 @@ reader [compare variants in context](../patterns/compare-variants-in-context.md)
 
 Try the [review template](reviewing-extensions.md#report-the-review) in plain
 text with a fresh reader. Can they locate recommendation 2 and request just
-that repair? On identical fixtures, exercise the picker and the short reply,
-then check the actual edit. Try a clean result and an excerpt with missing
+that repair? On identical fixtures, exercise the picker and the short reply.
+Withhold input first and check what the reader sees at the end of the report.
+Then submit the choice and check the actual edit. Try a clean result and an excerpt with missing
 evidence to see whether the skill closes or asks for the right input.
 
 Before revising a skill, find where an actual run went wrong.[^writing] If

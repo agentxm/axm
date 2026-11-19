@@ -39,3 +39,27 @@ The rename walkthrough used AXM skill SHA-256
 The native run exercised the host's selection protocol with scripted answers.
 Visual rendering and other hosts were outside the trial. The rename cases
 used supplied release facts and made no Registry changes.
+
+## Leave the choice pending
+
+The earlier native transcript contained the full report, the asynchronous
+question, and a second report before the scripted reply. The edit comparison
+passed even with that extra message.
+
+Repeat the Lake/River review in two fresh copies. Give one client a native
+picker that can remain the last visible item. For the other, tell the reviewer
+that the client always displays a separate final message after a picker.
+Capture the assistant messages and structured questions in delivery order.
+Withhold input for 40 seconds, longer than the 30-second delay in the reported
+failure. At that point check the transcript and the original file. A reader
+should see both findings once and the pending choice last. Then send `fix 2`
+and compare the entire skill file with the original plus the River correction.
+In a third copy, dismiss the native picker and compare the file with the original.
+
+In three Codex CLI 0.170.0 app-server sessions, the native question stayed
+last during the wait and the fallback report ended with its text choices.
+Both fixtures retained their original contents until the reply. In both
+selection runs, `fix 2` changed only the River link. Returning an empty
+answer set in the dismissal run left both links untouched. These observations
+cover message order and file contents at the protocol boundary. They do not
+establish how a terminal draws the controls.

@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "spot-spew",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Finds opportunities to release engineering capacity through elimination, capability substitution, idiomatic simplification, and consolidation that reduce total maintenance burden while preserving live obligations and domain meaning",
   "keywords": [
     "code review",

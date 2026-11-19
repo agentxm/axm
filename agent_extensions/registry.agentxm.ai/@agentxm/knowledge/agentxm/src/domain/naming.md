@@ -29,7 +29,7 @@ sources:
 # AXM and AgentXM naming
 
 The
-[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md)
+[Agent Extension Glossary](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md)
 defines AXM, AgentXM, the registry, and the marketplace. This concept owns their
 spelling and naming conventions.[^axm-agents-md]
 

@@ -19,7 +19,7 @@
     "seq-search-and-query": "workspace"
   },
   "knowledge": {
-    "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.5.0",
+    "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.6.0",
     "axe": "workspace"
   },
   "packs": {

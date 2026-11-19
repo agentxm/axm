@@ -2,7 +2,7 @@
 
 Use for a group with collective responsibility and a collaboration interface.
 Apply the [common profile](../references/profile.md). The Type contract is
-normative for profile 0.5.0; the remaining sections guide authoring.
+normative for profile 0.5.1; the remaining sections guide authoring.
 
 ## Type contract
 

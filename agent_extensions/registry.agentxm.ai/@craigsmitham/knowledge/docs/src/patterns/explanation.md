@@ -42,10 +42,10 @@ sources:
   resource: https://www.mintlify.com/guides/content-types
   title: Mintlify — Content types (explanation notes)
 - id: ddd-authoring
-  resource: Repository authoring and review of Domain-driven design in the product-engineering knowledge bundle on 2026-09-08
+  resource: https://github.com/craigsmitham/agent-extensions/blob/bfb5fc84821605a8fc1996d85ca7c5fbebfc1a3f/knowledge/product-engineering/src/foundations/domain-driven-design.md
   title: Domain-driven design — repository authoring case
 - id: jtbd-authoring
-  resource: Repository authoring and review of Jobs to Be Done in the product-engineering knowledge bundle on 2026-09-08
+  resource: https://github.com/craigsmitham/agent-extensions/blob/bfb5fc84821605a8fc1996d85ca7c5fbebfc1a3f/knowledge/product-engineering/src/foundations/jobs-to-be-done.md
   title: Jobs to Be Done — repository authoring case
 - id: sqlite-isolation
   resource: https://www.sqlite.org/isolation.html
@@ -519,6 +519,6 @@ comprehension or evidence that one outline works for every topic.
 
 [^diataxis-ref-explanation]: Diátaxis, [The difference between reference and explanation](https://diataxis.fr/reference-explanation/).
 
-[^ddd-authoring]: Repository authoring case: Domain-driven design, especially classification criteria and subdomain/context distinctions. The case illustrates the craft synthesis; it is not an evaluation of reader comprehension.
+[^ddd-authoring]: The September 8 authoring case illustrates how an explanation distinguishes subdomains from bounded contexts and gives criteria for classification. [Domain-driven design](https://github.com/craigsmitham/agent-extensions/blob/bfb5fc84821605a8fc1996d85ca7c5fbebfc1a3f/knowledge/product-engineering/src/foundations/domain-driven-design.md)
 
-[^jtbd-authoring]: Repository authoring case: Jobs to Be Done, especially job framing, competing interpretations, and the running incident scenario. The case illustrates the craft synthesis; it is not an evaluation of reader comprehension.
+[^jtbd-authoring]: The September 8 authoring case illustrates job framing and competing interpretations through a service incident. Evidence for both cases is limited to the authored documents. [Jobs to Be Done](https://github.com/craigsmitham/agent-extensions/blob/bfb5fc84821605a8fc1996d85ca7c5fbebfc1a3f/knowledge/product-engineering/src/foundations/jobs-to-be-done.md)

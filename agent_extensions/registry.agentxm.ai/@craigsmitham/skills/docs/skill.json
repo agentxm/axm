@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "docs",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Author, review, adapt, organize, audit, and maintain documentation, reusable checklists, pattern descriptions, and pattern collections",
   "keywords": [
     "docs",

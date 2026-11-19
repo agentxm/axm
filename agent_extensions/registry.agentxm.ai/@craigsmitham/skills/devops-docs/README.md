@@ -56,7 +56,7 @@ and human reader needs; redundant guidance may be retired without a successor.
 Adoption declarations contain repository-specific decisions and references to
 shared guidance.
 
-Setup and maintain also inspect the repository's canonical agent instructions
+Setup and changes affecting corpus discovery inspect the repository's canonical agent instructions
 for a discovery pointer. Their proposals name the instruction source, exact
 text to add or revise, and reason; equivalent adequate guidance is retained.
 The pointer identifies engineering and operations documentation, all ten
@@ -74,7 +74,7 @@ and verifies effective discovery and link resolution.
 | [Agent-instructions template](src/templates/agent-instructions.md) | Discovery-pointer wording, inspection, proposal, and verification |
 | [Connected example](src/references/example.md) | A fictional draft Service, Measure, and Runbook |
 
-The canonical AXM package is `@craigsmitham/skills/devops-docs`, version 0.5.1.
+The canonical AXM package is `@craigsmitham/skills/devops-docs`.
 `src/` is the portable runtime payload. README is package documentation.
 This package has no executable helpers or mandatory runtime sibling dependencies.
 When available, `docs` contributes documentation craft and `okf`
@@ -92,6 +92,14 @@ The profile is an application convention over OKF v0.2, not an OKF extension
 standard. Profile review is manual. Base validation, profile consistency,
 source support, and actual use evidence are distinct results.
 
+## Unreleased
+
+Task wrappers and automatic skill-freshness checks are removed. Setup and
+maintain retain their conversational proposal contract; author retains scoped
+editing. Profile 0.5.1 limits discovery-pointer checks to setup and changes that
+affect discovery. Record schemas and type contracts are unchanged; existing
+adoptions need no record migration. Skill updates remain separate lifecycle work.
+
 ## Changes in 0.5.2
 
 Release notes no longer refer to a deferred behavioral evaluation suite; the
@@ -100,7 +108,7 @@ and no corpus migration is required.
 
 ## Changes in 0.5.1
 
-Setup and maintain run an advisory [skill freshness check](src/references/skill-freshness.md)
+Setup and maintain run an advisory [skill freshness check](https://github.com/craigsmitham/agent-extensions/blob/333fc2fe7f67b0520f456efdb107e0730d04e069/skills/devops-docs/src/references/skill-freshness.md)
 and include its result in the proposal. The check respects installation source,
 pins, update policy, and compatibility; an unavailable check does not block the
 analysis. Updates remain separately authorized. Profile 0.5.0 still applies;

@@ -1,5 +1,23 @@
 # Directory Update Log
 
+## 2026-11-19
+
+- Updated shared terminology links to the [Agent Extension Glossary](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md) in the AXE knowledge bundle.
+
+## 2026-11-14
+
+- **Update**: Added the versioned FQN, `@<slug>/<plural-type>/<name>@<version>`,
+  to [Identifier grammar](domain/identifier-grammar.md) as the spelling of the
+  extension version tuple and the form for naming one version, valid input to
+  URLs, the CLI, and APIs, and named it in
+  [The AgentXM product model](domain/extension-model.md#identity-and-versions).
+
+## 2026-11-08
+
+- **Addition**: Added
+  [Activity Feed and Follow](domain/activity-feed-and-follow.md) to explain
+  activity views, private follows, current access, and release notices.
+
 ## 2026-10-31
 
 - **Update**: Kept specialized product terms in the product model as the shared

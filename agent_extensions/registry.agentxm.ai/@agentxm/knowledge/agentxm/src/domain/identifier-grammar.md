@@ -4,11 +4,11 @@ description:
   The normative AgentXM identifier grammar — slugs, handles, extension type IDs,
   FQNs, library references, identity tuples, version strings, and reserved
   filenames.
-tags: [identifiers, fqn, handle, slug, grammar, naming]
+tags: [identifiers, fqn, versioned-fqn, handle, slug, grammar, naming]
 status: stable
 generated:
-  by: codex/gpt-5.6
-  at: 2026-10-05T00:00:00Z
+  by: claude/opus-5.5
+  at: 2026-11-14T17:42:10Z
 sources:
   - id: axm-readme
     resource: https://github.com/agentxm/axm/blob/main/README.md
@@ -30,6 +30,7 @@ grammar is observable across the registry, the AXM CLI, and published manifests.
 | Core product feature label   | Title Case                                   | `Skills`, `MCP Servers`, `Subagents`, `Rules`, `Hooks`, `Knowledge`, `Packs`.                                                                                                                   |
 | Core product feature ID      | plural kebab-case                            | `skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, `packs`.                                                                                                                          |
 | FQN (route/input form)       | `@<slug>/<plural-type>/<name>`               | Example: `@acme/skills/code-review`.                                                                                                                                                            |
+| Versioned FQN                | `@<slug>/<plural-type>/<name>@<version>`     | Spells the extension version tuple; the form for naming one version, valid input to URLs, the CLI, and APIs. Example: `@acme/skills/code-review@1.2.0`.                                         |
 | Library ID                   | `lib_<typeid>`                               | Immutable Library identity; titles are editable and non-unique.                                                                                                                                 |
 | Public Library link          | `/@<slug>/libraries/<libraryId>/<titleSlug>` | The readable suffix is presentation; lookup uses the ID and verifies the owner. An authorized GET canonicalizes a missing or stale suffix. Libraries are not extension FQNs or install targets. |
 | Extension identity tuple     | `(handle, type, name)`                       | Type uses canonical singular ID. Handle is always full `@<slug>` form.                                                                                                                          |

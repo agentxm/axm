@@ -1,5 +1,9 @@
 # Documentation craft update log
 
+## 2026-11-18
+
+- Clarified the scope of a naming proposal in [Organizing and naming documentation](guides/organizing-and-naming-documentation.md) and linked the historical authoring cases in [Explanation](patterns/explanation.md).
+
 ## 2026-11-11
 
 - **Prune:** Retired duplicate craft/workflow recipes and centralized audit presentation in its report contract; removed arbitrary action and publication sequencing.

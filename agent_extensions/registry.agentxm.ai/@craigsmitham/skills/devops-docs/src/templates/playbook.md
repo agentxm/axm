@@ -2,7 +2,7 @@
 
 Use for assessment and judgment in a recurring situation, including choosing,
 combining, and adapting responses. Apply the [common profile](../references/profile.md).
-The Type contract is normative for profile 0.5.0; other sections guide authoring.
+The Type contract is normative for profile 0.5.1; other sections guide authoring.
 
 ## Type contract
 

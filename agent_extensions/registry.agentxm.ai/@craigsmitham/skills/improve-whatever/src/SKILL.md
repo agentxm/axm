@@ -15,55 +15,32 @@ tactical, aesthetic, technical, relational, moral, theological, or societal.
 Do not turn every tactical evaluation into a sermon or strip the framework of
 its source when that source matters.
 
-## Evaluate
+## Lens and evidence
 
-1. Identify the subject's kind, purpose, audience, constraints, and stakes.
-   Name the subject explicitly and the nearest thing it is not — especially
-   when it describes, prescribes, or governs something else. Evaluating what
-   it governs is legitimate as an additional, explicitly named object of
-   evaluation, never a silent substitute; fix the scope and carry it through
-   the evaluation.
-   Establish what excellence means for this kind of thing, and locate where
-   that knowledge already lives — a standard, tradition, exemplar, or the
-   tooling that produces and checks the kind — then consult what is within
-   reach. State consequential assumptions; ask only when missing context
-   would materially change the evaluation.
-2. Gather domain-appropriate evidence before judging. Inspect, test, measure,
-   or research when the claims require it. When tools can run the subject's
-   own checks — tests, validators, builds, previews — run them and cite their
-   output rather than predicting what they would say. When the subject has no
-   checks of itself, the evidence is close reading, comparison with exemplars
-   of its kind, and tracing the decisions it would actually produce. Evidence
-   about artifacts the subject governs is evidence of adoption, not of the
-   subject's quality; unless the governed state is itself a named object of
-   evaluation, admit it only where it exposes a defect in the subject itself —
-   a rule that is unfollowable, self-contradictory, or impossible to satisfy —
-   and label it as such. Probe without altering
-   the subject: keep experiments in scratch space, avoid side effects the
-   owner has not sanctioned, and note any state the probing did change.
-   Separate observation, inference, and unknowns, noting the source of each:
-   what you inspected, ran, measured, or consulted.
-3. Begin with what is praiseworthy. Do not let fault-finding make genuine good
-   invisible.
-4. Apply each criterion contextually:
+Keep the named subject distinct from what it describes, prescribes, or governs.
+Evidence of adoption is not automatically evidence of a norm's quality; it
+matters when it exposes a defect in the norm itself. Evaluate a governed system
+only when explicitly included in scope.
 
-   | Criterion | Ask |
-   | --- | --- |
-   | True | Is it correct, authentic, accurate, and faithful to reality and its purpose? |
-   | Honorable | Is it responsible, well-made, dignified, and worthy of respect? |
-   | Just | Is it fair, proportionate, rightly ordered, and considerate of affected parties? |
-   | Pure | Is it coherent and uncorrupted by manipulation, contamination, needless complexity, or hidden compromise? |
-   | Lovely | Is it fitting, harmonious, delightful, beautiful, or life-giving for its kind — including the experience it creates, directly or through a mediator, for those who receive or use it? |
-   | Commendable | Can it responsibly be recommended, celebrated, or offered as an example? |
-   | Excellent | How well does it fulfill the standards proper to its kind? |
-   | Praiseworthy | What specifically merits recognition, gratitude, imitation, and preservation? |
+Use the standards proper to the subject's kind and evidence fit for the claim.
+Distinguish observation, inference, and unknowns; report checks actually run,
+not predicted results. Unsanctioned changes are outside evaluation authority.
 
-5. When attention or formation is material, examine what the subject makes
-   salient or hides; which loves, fears, desires, or resentments it cultivates;
-   whether it supports presence or distraction; and what it invites people to
-   practice or imitate.
-6. Synthesize the whole. Criteria may reinforce or constrain one another; do
-   not count them as interchangeable points.
+| Criterion | Ask |
+| --- | --- |
+| True | Is it correct, authentic, accurate, and faithful to reality and its purpose? |
+| Honorable | Is it responsible, well-made, dignified, and worthy of respect? |
+| Just | Is it fair, proportionate, rightly ordered, and considerate of affected parties? |
+| Pure | Is it coherent and uncorrupted by manipulation, contamination, needless complexity, or hidden compromise? |
+| Lovely | Is it fitting, harmonious, delightful, beautiful, or life-giving for its kind — including the experience it creates, directly or through a mediator, for those who receive or use it? |
+| Commendable | Can it responsibly be recommended, celebrated, or offered as an example? |
+| Excellent | How well does it fulfill the standards proper to its kind? |
+| Praiseworthy | What specifically merits recognition, gratitude, imitation, and preservation? |
+
+When formation is material, consider what the subject makes salient or hides,
+what it invites people to practice or imitate, and whether it supports presence
+or distraction. Criteria may reinforce or constrain one another; they are not
+interchangeable points.
 
 ## Exercise judgment
 
@@ -98,30 +75,27 @@ Scale the response to the request. Usually provide:
 4. **Basis** — what was examined and what was not, and which standards or
    authorities supplied the bar, or evaluator judgment where none did. Write
    this before Improvements and use it as a checkpoint: if it shows the
-   subject itself was barely examined, return to Evaluate before proceeding.
+   subject itself was barely examined, examine the subject before proceeding.
 5. **Improvements** — one numbered item per finding from Discernment,
    citing it, ordered by priority. Every finding must imply a change to a
    named object of evaluation, and each remedy states which object it edits;
    a remedy aimed outside the declared scope belongs in a closing note, not
    in Improvements.
 
-   - Open by noting that items are independent, not sequential, and that
-     letters are alternative remedies.
-   - Under each item, letter options differing in approach, scope, or
-     ambition; include a keep-as-is option that accepts the defect when
-     reasonable. Write options as nested bullets styled as in the example
-     (markdown does not treat letters as list markers, so bare lettered
-     lines lose their indentation), and mark exactly one option per item
-     as `Recommended:`.
-   - Keep-as-is options belong in Improvements, never in Praiseworthy:
-     Praiseworthy names strengths, while keep-as-is accepts a defect.
-     Propose preservation only when it needs a concrete step.
-   - Close by inviting a reply naming items or options (e.g., "do 1 and 3c").
+   - If one remedy depends on another, name the prerequisite and what happens
+     if the caller selects the remedy alone.
+   - Give a single remedy directly. When alternatives have materially
+     different consequences, letter them under the finding, explain the
+     tradeoff, and mark the recommended option. Keeping the subject as it is
+     can be an option when the caller has reason to accept the defect.
+   - Invite a reply by finding or option. For example, “do 1 and 3b” selects
+     the recommendation for finding 1 and the displayed alternative 3b.
 
    ```
-   1. **Redundant phrasing** (Pure — intro repeats the summary):
-      - **a. Recommended:** *Tighten* — cut redundant clauses to half length.
-      - **b.** *Keep as-is* — accept the repetition as emphasis.
+   1. **Missing prerequisite** (True) — Add the required tool version to Setup.
+   2. **Quickstart fails on a fresh machine** (Excellent)
+      - **a. Recommended** — Link to Setup. This depends on finding 1 so readers get the version they need.
+      - **b.** Give the version in the quickstart. It works on its own but creates a second place to maintain it once Setup is corrected.
    ```
 6. **Overall judgment** — a concise account of the whole, including confidence
    and the most important tradeoff.

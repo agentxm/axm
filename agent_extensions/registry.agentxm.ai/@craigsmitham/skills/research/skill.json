@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "research",
-  "version": "3.0.5",
+  "version": "3.0.6",
   "description": "Explicit-only workflow for fresh-context, read-only evidence research; never select from unprefixed natural language",
   "keywords": [
     "research",

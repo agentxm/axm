@@ -27,13 +27,13 @@ normative in [Identifier grammar](identifier-grammar.md).
 
 | Type ID      | Product label | What it does                                                                                                                        |
 | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `skill`      | Skills        | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#agent-skill).           |
-| `mcp-server` | MCP Servers   | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#mcp-server-connection). |
-| `subagent`   | Subagents     | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#subagent).              |
-| `rule`       | Rules         | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#rule).                  |
-| `hook`       | Hooks         | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#hook).                  |
-| `knowledge`  | Knowledge     | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#knowledge-bundle).      |
-| `pack`       | Packs         | [Definition](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md#extension-pack).        |
+| `skill`      | Skills        | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#agent-skill).           |
+| `mcp-server` | MCP Servers   | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#mcp-server-connection). |
+| `subagent`   | Subagents     | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#subagent).              |
+| `rule`       | Rules         | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#rule).                  |
+| `hook`       | Hooks         | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#hook).                  |
+| `knowledge`  | Knowledge     | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#knowledge-bundle).      |
+| `pack`       | Packs         | [Definition](https://github.com/agentxm/axm/blob/816919df87690d7d8bf6d44a0c4003f56bfa75fc/knowledge/axe/src/glossary.md#extension-pack).        |
 
 ## Governing standards
 

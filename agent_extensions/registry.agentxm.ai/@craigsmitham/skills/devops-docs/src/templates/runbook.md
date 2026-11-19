@@ -4,7 +4,7 @@ Use for an established procedure with a bounded trigger and verifiable outcome.
 Tasks can concern engineering or operations, such as reproducing a build,
 resetting a development environment, deploying a service, or restoring service.
 Apply the [common profile](../references/profile.md). The Type contract is
-normative for profile 0.5.0; the remaining sections guide authoring.
+normative for profile 0.5.1; the remaining sections guide authoring.
 
 ## Type contract
 

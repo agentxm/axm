@@ -390,10 +390,20 @@ sources:
         self.assertEqual(3, stats["concepts"])
         self.assertEqual({"unverified": 3}, stats["tiers"])
 
-    def test_invalid_status_is_not_counted_as_stable(self) -> None:
-        self.write("concept.md", concept("type: Reference\nstatus: proposed"))
-        _, stats = self.validate()
-        self.assertEqual({"invalid": 1}, stats["status"])
+    def test_invalid_status_warns_and_preserves_the_bundle_report(self) -> None:
+        self.write("other.md", concept("type: Reference\nstatus: draft"))
+        for value in ("proposed", "[draft]", "{state: draft}"):
+            with self.subTest(value=value):
+                self.write("concept.md", concept(f"type: Reference\nstatus: {value}"))
+                code, output, _ = self.run_cli()
+                self.assertEqual(0, code)
+                report = json.loads(output)
+                self.assertTrue(report["base_conformant"])
+                self.assertEqual({"invalid": 1, "draft": 1}, report["summary"]["status"])
+                self.assertIn(
+                    ("concept.md", "status-value", "warn"),
+                    [(f["file"], f["code"], f["severity"]) for f in report["findings"]],
+                )
 
     def test_index_omitting_available_description_warns(self) -> None:
         self.write(

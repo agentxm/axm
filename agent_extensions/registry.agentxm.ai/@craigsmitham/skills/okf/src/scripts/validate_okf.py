@@ -959,9 +959,13 @@ def check_concept(f, rel, path, root, text, now, stats):
         f.warn("tags-shape", rel, "`tags` must be a YAML list")
 
     status = fm.get("status")
-    if status is not None and (not isinstance(status, str) or status not in STATUS_VALUES):
+    if status is None:
+        status_key = "stable"
+    elif isinstance(status, str) and status in STATUS_VALUES:
+        status_key = status
+    else:
         f.warn("status-value", rel, f"`status` must be draft|stable|deprecated, got {status!r} (§5.4)")
-    status_key = "stable" if status is None else status if status in STATUS_VALUES else "invalid"
+        status_key = "invalid"
     stats["status"][status_key] = stats["status"].get(status_key, 0) + 1
 
     if "stale_after" in fm:

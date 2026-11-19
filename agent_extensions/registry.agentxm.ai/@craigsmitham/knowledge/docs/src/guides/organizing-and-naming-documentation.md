@@ -33,9 +33,13 @@ path and title understandable when directory context is absent.
 - Representative reader questions or observed retrieval behavior
 - Knowledge of the host's path, URL, index, metadata, redirect, and validation
   rules
-- Authority to add or rename the affected paths
 
-If restructuring an existing corpus, keep the first change small enough to
+For a proposal, give the suggested names or old-to-new paths and the reader
+need each change serves. Flag any links or published URLs that a move would
+affect. The proposal can finish with that mapping.
+
+When applying a reorganization, confirm authority to change the affected
+paths and keep the first change small enough to
 validate independently. Use the [Documentation workflow](../explainers/documentation-workflow.md) rather than waiting for a complete site-wide
 redesign.
 
@@ -163,9 +167,11 @@ Before changing existing paths:
 2. define old-to-new mappings;
 3. choose redirects, aliases, deprecated stubs, or a coordinated breaking
    change according to host capabilities;
-4. move the document and update its canonical title, description, indexes,
-   metadata, and internal links together; and
-5. avoid leaving two independently maintained copies.
+4. identify the title, description, indexes, metadata, and internal links that
+   must change with the document.
+
+For an authorized migration, move the document and update those references
+together. Retire the old copy using the host's migration policy.
 
 Renaming a title alone is cheaper than changing a filename or concept ID. Use
 that difference deliberately, but do not retain a misleading identifier when
@@ -183,7 +189,7 @@ Check the result as:
 3. **A maintainer:** inspect raw paths and nearby documents. Are the organizing
    rule, authority, and expected change relationships evident?
 
-Then run host link, metadata, and package validators. Fix orphaned documents,
+After applying the change, run host link, metadata, and package validators. Fix orphaned documents,
 stale links, ambiguous duplicates, and indexes whose descriptions no longer
 match their targets.
 

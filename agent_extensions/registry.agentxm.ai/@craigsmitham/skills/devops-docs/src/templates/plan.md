@@ -27,13 +27,11 @@ conversation. Do not save a plan or change documentation during either task.
 - State the proposed root and standard type-folder structure. Show migration
   paths for relevant existing content; do not offer alternative layouts or
   initially offer another root. Honor an explicit or declared root override.
-- Always report the agent discovery-pointer check under Related changes using
-  [its template](agent-instructions.md). Name the canonical target, action,
-  exact proposed text for an addition or revision, and reason. Keep adequate
-  equivalent guidance. Mark dependent instruction edits outside a narrow scope.
-- Under Verification, include the concise Skill freshness result from the
-  [shared preflight](../references/skill-freshness.md). Include an applicable
-  update recommendation under Related changes; keep it advisory.
+- For setup or changes affecting discovery, report the discovery-pointer check
+  under Related changes using [its template](agent-instructions.md). Name the
+  canonical target, action, exact proposed text for an addition or revision,
+  and reason. Keep adequate equivalent guidance. Identify dependent edits
+  outside the requested scope. Omit this check for unrelated narrow maintenance.
 - Put the overall recommendation and feedback invitation last. Do not append
   another summary or an implementation log. Scale the number of rows and their
   detail, not the presentation structure.

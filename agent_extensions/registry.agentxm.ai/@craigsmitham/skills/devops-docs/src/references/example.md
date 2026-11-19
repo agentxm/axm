@@ -1,6 +1,6 @@
 # Connected draft example
 
-This fictional miniature illustrates profile 0.5.0. Names, role assignments,
+This fictional miniature illustrates profile 0.5.1. Names, role assignments,
 and targets are synthetic, not instructions for a real engineering or operations
 task. Each named file below is
 complete as a draft record; explicit required-information gaps are permitted

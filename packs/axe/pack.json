@@ -15,17 +15,8 @@
     "url": "https://github.com/agentxm/axm",
     "directory": "packs/axe"
   },
-  "keywords": [
-    "agent-extensions",
-    "engineering",
-    "skills",
-    "instructions",
-    "knowledge",
-    "packs"
-  ],
+  "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
   "publish": {
-    "exclude": [
-      "/AGENTS.md"
-    ]
+    "exclude": ["/AGENTS.md"]
   }
 }

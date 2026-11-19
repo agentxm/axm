@@ -35,6 +35,7 @@ Load only the relevant route.
 | Reusable checklist | `patterns/checklist`, then the applicable purpose pattern |
 | Pattern description or mining | `patterns/pattern-description` |
 | Pattern collection or language | `patterns/pattern-collection` |
+| Review one document, including a README | `explainers/documentation-quality`, plus a matching pattern when its form matters |
 | Bounded corpus audit | `explainers/documentation-audits` and `guides/auditing-documentation` |
 | Organization, placement, or naming | `guides/organizing-and-naming-documentation` |
 | Repeatedly confused concepts | `guides/comparing-concepts` and authoritative definitions |
@@ -51,6 +52,7 @@ completion is not evidence of the intended outcome. Mining patterns does not
 validate their domain effectiveness or authorize implementation.
 
 Keep related indexes, metadata, and references coherent with authorized edits.
-An index or catalog that previews a canonical description copies it exactly.
+Keep index and catalog previews accurate for their readers. Copy a canonical
+description verbatim when the host requires it.
 Report actual verification and unresolved source gaps; authoring review is not
 reader testing, independent approval, or procedure execution.

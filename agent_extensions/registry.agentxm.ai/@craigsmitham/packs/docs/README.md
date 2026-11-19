@@ -29,6 +29,10 @@ extensions provide all required guidance.
 
 ## Install and use
 
+With [AXM](https://axm.sh/) installed, run this command in the project where
+you want to use the pack. To configure an agent on first install, add
+`--agent` with its name, for example `--agent codex`.
+
 ```bash
 axm packs install @craigsmitham/packs/docs
 ```
@@ -47,6 +51,11 @@ axm knowledge concepts get '@craigsmitham/knowledge/docs#patterns/checklist'
 
 The guidance includes use protocols, evidence, validation plans, and lifecycle.
 Writing or reviewing a checklist does not establish its real-world effectiveness.
+
+For example, ask the skill to “Draft a release-readiness checklist from our
+release procedure” and supply that procedure. The skill uses the bundle's
+readiness pattern to turn the procedure's release conditions into checks with
+observable evidence and a decision about whether to proceed.
 
 Start with the reader's problem and choose a suitable pattern. Adapt its design
 and authoring guidance to the document's job. For an example of selecting and

@@ -3,10 +3,11 @@
 Evaluates anything — an artifact, plan, decision, practice, system, or
 experience — through the Philippians 4:8-9 criteria: whatever is true,
 honorable, just, pure, lovely, commendable, excellent, and praiseworthy. It
-gathers real evidence before judging (running the subject's own tests,
-validators, or builds where possible), names what is worth preserving, and
-returns prioritized improvements with lettered alternative remedies you can
-adopt by reply (e.g., "do 1a and 3b").
+names what is worth preserving and runs a relevant, authorized check when
+the result can settle a material question. For an onboarding guide, following
+the quickstart can reveal a missing prerequisite even when the site builds.
+You can select a recommended improvement or a particular alternative by
+reply (e.g., "do 1 and 3b").
 
 Formerly published as `@craigsmitham/skills/eval-whatever`.
 
@@ -22,6 +23,10 @@ This skill requires explicit invocation on OpenAI surfaces; matching natural
 language alone does not activate it.
 
 ## Example
+
+```sh
+axm install @craigsmitham/skills/improve-whatever
+```
 
 ```
 $improve-whatever docs/onboarding-guide.md

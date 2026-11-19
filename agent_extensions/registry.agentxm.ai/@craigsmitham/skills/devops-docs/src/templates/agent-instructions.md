@@ -1,6 +1,6 @@
 # Engineering and operations documentation discovery pointer
 
-Use this template during setup and maintenance to check and propose a concise
+Use this template during setup or changes affecting corpus discovery to check and propose a concise
 route from agent instructions to the engineering and operations documentation
 corpus. It owns the shared wording; proposals render it instead of maintaining
 another copy.

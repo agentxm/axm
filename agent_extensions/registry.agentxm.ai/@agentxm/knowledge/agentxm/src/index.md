@@ -38,6 +38,9 @@ model.
   and Library visibility works on the AgentXM registry — the public/private
   perimeter, hidden existence, and how visibility differs from archive, hold,
   deletion, yank, deprecation, and Library curation archival.
+- [Activity Feed and Follow](domain/activity-feed-and-follow.md) — How personal,
+  organization, and library activity relates to private follows, current access,
+  and release notices.
 - [AXM and AgentXM naming](domain/naming.md) — When to write the all-caps
   product name, when to use the lowercase code identifier, how the CLI relates
   to the platform, and where the AXM mark stands for AgentXM.

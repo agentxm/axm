@@ -1,6 +1,6 @@
 # DevOps Docs profile
 
-Version **0.5.0** · Base **OKF v0.2** · Maintainer **@craigsmitham**.
+Version **0.5.1** · Base **OKF v0.2** · Maintainer **@craigsmitham**.
 Adoption by a repository is a separate scoped act.
 
 This profile describes engineering and operations documentation for people
@@ -67,8 +67,9 @@ have ISO `YYYY-MM-DD` date headings, newest first; version control MAY suffice.
 
 ## Agent discovery
 
-Setup and maintain MUST check the repository's effective agent instructions for
-a discovery pointer to the adopted root index. Use the
+Setup and changes that affect corpus discovery MUST check the repository's
+effective agent instructions for a pointer to the adopted root index. Narrow
+record maintenance need not inspect unrelated discovery guidance. Use the
 [agent-instructions template](../templates/agent-instructions.md) to assess
 equivalent guidance and propose missing or stale content. The proposal MUST
 identify the canonical instruction source, exact proposed text, and reason.
@@ -261,6 +262,12 @@ This package's maintainer owns profile revisions; adopters own their declaration
 and records. Version the profile and type contracts together. Changes to
 meaning, required content, endpoints, or cardinality MUST state migration impact
 before existing records claim the new version.
+
+V0.5.1 limits discovery-pointer checks to setup and changes affecting discovery.
+Record content, type contracts, placement, relationship fields, and cardinalities
+are unchanged from v0.5.0; no record migration is required. An existing v0.5.0
+adoption remains valid under its declared version. Update the declaration only
+when explicitly adopting this revision; installing the skill does not do so.
 
 V0.5.0 moves canonical typed relationships from body tables to top-level YAML
 frontmatter. The identifiers, meanings, allowed endpoint types, and target

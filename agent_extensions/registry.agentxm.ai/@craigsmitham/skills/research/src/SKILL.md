@@ -1,5 +1,6 @@
 ---
 name: research
+disable-model-invocation: true
 description: Explicitly invoked stage that orchestrates fresh-context, read-only research from a bounded subject or explicit questions. Select only when the user directly invokes `$research` or the corresponding host control; never select it from an unprefixed natural-language request, even when that request resembles research. Produces a Research Brief when needed and a question-by-question report with citations, counterevidence, limitations, implications, and unresolved gaps. Not for ordinary factual lookup, diagnosis of an observed failure, recommendations, or applying findings.
 ---
 
@@ -16,32 +17,29 @@ requires a separate request after Research ends.
 Fresh delegated context is required. If it is unavailable, return `blocked` and
 name the missing capability; do not perform either phase in the calling context.
 
-## Workflow
+## Phase selection
 
-1. Bind the intended use, subject and boundary, observable context,
-   constraints, allowed read-only sources, supplied time, question, source, or
-   cost limits, and whether only framing is requested.
-2. Treat a complete Research Brief or one or more explicit research questions
-   as framed input. Preserve supplied question IDs and wording; assign `Q1`,
-   `Q2`, and so on only when explicit questions lack IDs.
-3. When questions are absent, read `references/framing-research.md`. Prepare
-   only the bounded framing input. If the request contains originating analysis,
-   remove its hypotheses, diagnoses, conclusions, recommendations, proposed
-   fixes, and favored alternatives before delegating one fresh `frame` phase.
-   Validate the returned Research Brief against that reference. Stop visibly on
-   invalid or blocked framing.
-4. If framing alone was requested, return the generated Research Brief or the
-   supplied framed input and stop.
-5. Delegate one fresh `execute` phase with only the validated Research Brief or
-   explicit questions. Pass the allowed read sources and supplied limits;
-   prohibit mutation and subdelegation.
-6. Validate the Research report: every input question has one dashboard row and
-   one matching finding; IDs and wording remain stable; material external claims
-   have nearby citations; credible counterevidence and limitations are visible;
-   limits are honored; and no unsupported recommendation or decision appears.
-7. Return generated framing followed by the Research report, or only the report
-   for supplied framing. End after the artifact or structured failure; do not
-   begin another workflow.
+A complete Research Brief or explicit questions are framed input. Preserve
+supplied IDs and wording; assign `Q1`, `Q2`, and so on only when IDs are absent.
+
+Without questions, delegate a fresh `frame` phase using
+[Framing bounded research](references/framing-research.md). Its input preserves
+the bounded subject, intended use, observable context, constraints, read
+sources, and supplied limits while excluding originating hypotheses,
+diagnoses, conclusions, recommendations, fixes, and favored alternatives.
+Validate the returned Brief against that contract. Invalid or blocked framing
+stops the workflow visibly.
+
+Framing-only requests end with the Brief or supplied framed input. Otherwise,
+a separate fresh `execute` phase receives only the validated Brief or explicit
+questions, read authority, and supplied limits. The researcher follows
+[Evidence practice](references/evidence-practice.md) and the
+[Research report contract](references/report-contract.md).
+
+Validate question accounting, evidence, limits, and presentation against those
+contracts. Return generated framing before the report; supplied framing needs
+only the report. End with the artifact or structured failure, without applying
+findings or starting another workflow.
 
 ## Delegation contract
 

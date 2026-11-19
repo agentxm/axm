@@ -26,7 +26,7 @@ the operation sets the deliverable.
 
 | Operation | Deliverable                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `design`  | Recommend an extension type and a concrete design from the brief.                                                       |
+| `design`  | Recommend an extension type or set of extensions and explain how the proposed design serves the brief.                  |
 | `create`  | Author a usable draft in its canonical workspace location.                                                              |
 | `review`  | Report the verdict, evidence-backed coverage, and numbered issues, improvements, or pruning opportunities within scope. |
 | `revise`  | Apply the requested change and check the original case and a nearby valid case.                                         |

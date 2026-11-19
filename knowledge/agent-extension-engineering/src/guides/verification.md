@@ -4,8 +4,11 @@ title: "Verifying extension behavior"
 description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
 tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-19T02:16:36Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:33:59Z" }
 sources:
+  - id: trials
+    resource: https://github.com/agentxm/axm/blob/ff0f7380d4b75d02ebfa362c4b23ee3fc9ad1ad1/skills/axe/evals/2026-11-18/README.md
+    title: Skill discovery and execution trials
   - id: eval
     resource: https://developers.openai.com/blog/eval-skills
     title: OpenAI skill evaluation guide
@@ -67,10 +70,11 @@ ship](lifecycle.md#choose-what-ships) while retaining a fixture used in an
 installed example. Judge the finding, its evidence, and respect for scope.
 Different inspection paths can support the same verdict.
 
-Record how the workflow went alongside the verdict. A reviewer might reach
-the right finding after opening three unrelated concepts. Capture the extra
-lookups and what prompted them as trial observations. If the detour recurs,
-try a more specific route or retain the case for the next comparison.
+Record how the workflow went alongside the verdict. In the three archive-review
+cases above, the router was revised to let the reviewer stop once the review
+guide and the supplied evidence settled what it could conclude. Each recheck
+reached the expected verdict with one guide lookup, down from two. The trials
+recorded one ordinary run per case in each condition on one host.[^trials]
 
 ## Try the artifact with a fresh reader
 
@@ -88,3 +92,5 @@ case. Record whether the reader was a person or a model and what they could see.
 [^reader]: Anthropic, reader testing without the drafting conversation.
 
 [^eval]: OpenAI, Testing Agent Skills Systematically with Evals.
+
+[^trials]: Skill discovery and execution trials, “Review a migration-guide reference.”

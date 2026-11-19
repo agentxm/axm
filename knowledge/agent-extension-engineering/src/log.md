@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Revised [Preserve agent judgment](principles/preserve-agent-judgment.md) to make the user's purpose and desired outcome explicit and delegate the approach by default. The [verification guide](guides/verification.md) now cites the archive-review trials.
+
 - Added the candidate [Review the decisions an artifact makes](patterns/review-the-decisions-an-artifact-makes.md) and a [review checklist](guides/reviewing-extensions.md#review-checklist) for finding issues, improvements, and pruning opportunities. Reviewers can apply selected recommendations by number.
 
 ## 2026-11-18

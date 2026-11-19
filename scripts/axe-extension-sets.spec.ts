@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation"],
   boundary: "repository",
   boundaryRationale:
-    "The authored skill, guide index, review guide, and pack composition guide expose routes to the exercises. Reading those routes does not exercise host skill selection.",
+    "The authored skill and the knowledge entry points for design, overlapping intent, pack composition, and review expose routes to the exercises. Reading those routes does not exercise host skill selection.",
   methods: ["static", "review"],
   derivedFrom: [],
   supersedes: [],
@@ -23,7 +23,7 @@ export const specification = defineSpecification({
 });
 
 it.effect(
-  "authors entering through Axe, the index, pack composition, or review reach both traces",
+  "authors can reach the set guidance from Axe and from the decisions that reveal an overlap",
   () =>
     Effect.sync(() => {
       const skill = readFileSync(new URL("../skills/axe/src/SKILL.md", import.meta.url), "utf8");
@@ -37,6 +37,8 @@ it.effect(
       expect(content).toMatch(/^## Trace a request$/m);
       for (const entry of [
         "guides/index.md",
+        "guides/choosing-extensions.md",
+        "patterns/neighboring-intent.md",
         "guides/composing-packs.md",
         "guides/reviewing-extensions.md",
       ]) {

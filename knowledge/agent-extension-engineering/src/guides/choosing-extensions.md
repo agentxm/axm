@@ -4,13 +4,17 @@ title: "Choosing extension boundaries"
 description: "Choose an extension type based on when and where the behavior should apply."
 tags: ["extensions", "boundaries", "design", "skills", "rules", "packs"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:42:23Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T03:27:49Z" }
 ---
 
 # Choosing extension boundaries
 
 Start with a task the agent should handle differently. If an existing command
 already does the work, a link from the place where people need it may suffice.
+
+If an existing extension already handles part of the task, [trace a change
+across the proposed set](extension-sets.md#trace-a-change). If the review
+policy changes, for example, which extension should the author need to edit?
 
 | When is it needed?                                            | What to author                                                                                       |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |

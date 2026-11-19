@@ -1491,7 +1491,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Role: experience
 - Product goals: `authoring-and-creation`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The authored skill, guide index, review guide, and pack composition guide expose routes to the exercises. Reading those routes does not exercise host skill selection.
+- Boundary rationale: The authored skill and the knowledge entry points for design, overlapping intent, pack composition, and review expose routes to the exercises. Reading those routes does not exercise host skill selection.
 - Methods: static, review
 - Assumptions: The engineering skill and knowledge bundle are available together.
 - Source: [`scripts/axe-extension-sets.spec.ts`](../scripts/axe-extension-sets.spec.ts)

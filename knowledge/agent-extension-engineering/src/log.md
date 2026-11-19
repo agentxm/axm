@@ -2,6 +2,8 @@
 
 ## 2026-11-19
 
+- Linked [extension type selection](guides/choosing-extensions.md) and [neighboring intent](patterns/neighboring-intent.md) to the set guide where a proposed extension overlaps an existing one.
+
 - Added [Designing and reviewing sets of extensions](guides/extension-sets.md), with change and request traces for deciding boundaries across a repository, a pack, or an active workspace.
 
 - The [review guide](guides/reviewing-extensions.md) distinguishes a defect in a rule from a lapse in following it. The [decision-review pattern](patterns/review-the-decisions-an-artifact-makes.md) shows how a working case can constrain a repair. [Select from findings](patterns/select-from-findings.md) shows how to choose an alternative remedy by reply.

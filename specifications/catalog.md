@@ -1482,6 +1482,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Source: [`apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts`](../apps/cli/src/root/help/publish-guidance-explains-file-selection.spec.ts)
 
+##### Authors can distinguish designing a domain glossary from looking up a term
+
+- Requirement: `extension-engineering/domain-glossary-guidance`
+- Owner: `axm`
+- Statement: The engineering pack shall direct glossary authors to guidance on LLM-drafted, computationally derived, and hand-authored entries and direct readers looking up extension terminology to the shared glossary.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The authored routes and their destinations establish what guidance the pack makes available. Agent selection and practitioner agreement on definitions require separate evidence.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-domain-glossary.spec.ts`](../scripts/axe-domain-glossary.spec.ts)
+
 ##### Authors can assess boundaries and interactions across sets of extensions
 
 - Requirement: `extension-engineering/extension-set-guidance`

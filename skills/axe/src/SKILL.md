@@ -67,6 +67,7 @@ guide only when there is a relationship between extensions to decide.
 | -------------------------------------------------------------- | --------------------------------------- |
 | Decide how much of the agent’s approach to prescribe           | `principles/preserve-agent-judgment`    |
 | Define or distinguish shared terms                             | `glossary`                              |
+| Design or maintain a glossary for a domain                     | `patterns/domain-glossary`              |
 | Choose an extension type for a task                            | `guides/choosing-extensions`            |
 | Design or review relationships among extensions in a set       | `guides/extension-sets`                 |
 | Write or revise an extension README                            | `guides/authoring-readme`               |

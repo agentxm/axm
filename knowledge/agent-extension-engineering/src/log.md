@@ -4,6 +4,8 @@
 
 - Expanded the [set guide](guides/extension-sets.md) with a whole-repository ownership example and the [review guide](guides/reviewing-extensions.md) with evidence for the selected subject.
 
+- Added [Domain glossary](patterns/domain-glossary.md) for choosing how to draft, derive, or directly author definitions in a bounded context.
+
 - Linked [extension type selection](guides/choosing-extensions.md) and [neighboring intent](patterns/neighboring-intent.md) to the set guide where a proposed extension overlaps an existing one.
 
 - Added [Designing and reviewing sets of extensions](guides/extension-sets.md), with change and request traces for deciding boundaries across a repository, a pack, or an active workspace.

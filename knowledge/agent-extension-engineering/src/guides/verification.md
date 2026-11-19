@@ -4,7 +4,7 @@ title: "Verifying extension behavior"
 description: "Choose evidence for a claim about packaging, routing, runtime behavior, portability, or improvement."
 tags: ["evaluation", "tests", "routing", "smoke", "evidence", "portability"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:42:23Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:16:36Z" }
 sources:
   - id: eval
     resource: https://developers.openai.com/blog/eval-skills
@@ -54,6 +54,11 @@ migration guide is available to a consumer.”
 | A complete archive with a link to a missing guide  | Identify the broken reference and the workflow it blocks.                                           |
 | The same archive with the guide at the linked path | Report that the reference resolves. A clean result can close the review.                            |
 | Only the excerpt containing the link               | Leave availability unresolved and identify the archive or its file listing as the missing evidence. |
+
+To check whether the reviewer can use evidence in another form, supply the same
+link and a complete file listing from the candidate archive. It can settle the
+path question directly. A listing from the checkout alone leaves the shipped
+contents uncertain. Both cases exercise [Preserve agent judgment](../principles/preserve-agent-judgment.md).
 
 Record how the workflow went alongside the verdict. A reviewer might reach
 the right finding after opening three unrelated concepts. Capture the extra

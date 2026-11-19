@@ -2,6 +2,8 @@
 
 ## 2026-11-18
 
+- Added [Preserve agent judgment](principles/preserve-agent-judgment.md) and applied it to skill authoring, scoped instructions, and extension review.
+
 - Clarified how to leave the [next action](patterns/selectable-next-actions.md) visible while awaiting a reply, including on hosts that require a final text response.
 
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.

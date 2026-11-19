@@ -4,7 +4,7 @@ title: "Scoped instructions"
 description: "When a direction applies to only part of a workspace, place it where the host loads it for that work."
 tags: ["instructions", "rules", "agents.md", "claude.md", "scope", "precedence"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-11-18T23:13:12Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-19T02:15:37Z" }
 sources:
   - id: root
     resource: https://github.com/agentxm/axm/blob/03a82fdd2a0aebeb8fb3f38c99afe303bfad77a0/AGENTS.md
@@ -24,6 +24,11 @@ direction specific to one package belongs at the narrowest scope the host
 loads for that work. In AXM, the root instructions identify the documentation
 profile, while the detailed rules for editing the documentation bundle live
 under `docs/`.[^root][^local]
+
+Decide what the instruction needs to settle at that scope. If a package
+generates its search index, name the canonical inputs and explain when the
+index needs rebuilding. An agent fixing an indexed title can then choose how
+to find its source. [Preserve agent judgment](../principles/preserve-agent-judgment.md).
 
 Check the boundary from both sides. For example, a website task should find its
 search-index generator, while a neighboring CLI task should have no reason to

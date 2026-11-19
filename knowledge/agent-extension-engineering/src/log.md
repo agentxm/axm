@@ -2,6 +2,8 @@
 
 ## 2026-11-18
 
+- Updated [Selectable next actions](patterns/selectable-next-actions.md) and the [review template](guides/reviewing-extensions.md#report-the-review) to order choices consistently and label a grounded recommendation in both picker and text.
+
 - Added [Selectable next actions](patterns/selectable-next-actions.md) and a [review template](guides/reviewing-extensions.md#report-the-review) with labeled recommendations and picker or prompt replies.
 
 - Added five [workflow patterns](patterns/index.md) for presenting results, collecting corrections, selecting findings, comparing variants, and handing work forward. Expanded guidance on bare invocation, when to load references, independent assessments, and fresh-reader checks.

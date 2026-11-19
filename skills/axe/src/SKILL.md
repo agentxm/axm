@@ -91,7 +91,9 @@ verification. Use the existing manager workflow for canonical ownership,
 scaffolding, workspace state, projections, and distribution. With AXM, compose
 with the `axm` skill and current CLI help for those operations.
 
-For actionable reviews, label each finding's Recommendation and Evidence,
-then offer one set of next actions through the host's native picker when
-available, with labeled prompt replies. Honor the selected action and findings.
+For actionable reviews, label each finding's Recommendation and Evidence.
+Show the report, then offer the review guide's applicable actions in order.
+When the evidence favors one, put it first and label it `(Recommended)`.
+Use the native picker when available. Keep labels, order, and short replies
+consistent across picker and text. Honor the selected action and findings.
 Report selected routes, evidence, and material limits briefly.

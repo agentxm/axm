@@ -61,7 +61,7 @@ const AssessedExtensionListItemSchema = Schema.Struct({
   assessment: ExtensionAssessmentSchema,
 });
 
-/** How much of the installed inventory the assessment could actually reach. */
+/** Applicable subjects partition into checked and unknown; all others are not applicable. */
 const CoverageSchema = Schema.Struct({
   eligible: Schema.Number,
   checked: Schema.Number,
@@ -114,7 +114,9 @@ const checkedStates: ReadonlyArray<AssessedExtensionListItem["assessment"]["stat
 ];
 
 const coverageFor = (items: ReadonlyArray<AssessedExtensionListItem>) => ({
-  eligible: items.filter((item) => item.installed).length,
+  eligible: items.filter(
+    (item) => checkedStates.includes(item.assessment.state) || item.assessment.state === "unknown",
+  ).length,
   checked: items.filter((item) => checkedStates.includes(item.assessment.state)).length,
   unknown: items.filter((item) => item.assessment.state === "unknown").length,
   notApplicable: items.filter((item) => item.assessment.state === "not-applicable").length,

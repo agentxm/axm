@@ -515,7 +515,9 @@ describe("Skill native inspection over its admitted entry", () => {
         _tag: "Failure",
         failure: {
           _tag: "SkillMaterializationFailed",
-          detail: `Preserved unowned skill artifact at ${target}`,
+          detail: expect.stringContaining(
+            `Preserved unowned skill artifact at ${target} (resolved target: ${foreign})`,
+          ),
         },
       });
       expect({

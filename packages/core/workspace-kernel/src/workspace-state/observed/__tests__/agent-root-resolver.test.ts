@@ -15,6 +15,9 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
+import { makeDiagnostics, type Warning } from "../diagnostics.js";
+import { detectAgentRootCollisions } from "../scanners/agent-root.js";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
 import { absentAll } from "../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../__fixtures__/test-layer.js";
@@ -95,3 +98,35 @@ describe("cross-scope dedup", () => {
     }),
   );
 });
+
+it.effect("explicit shared roots are valid while inferred collisions remain diagnostic", () =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const buffer = yield* Ref.make<ReadonlyArray<Warning>>([]);
+    const diagnostics = makeDiagnostics(buffer);
+    const detection = { project: { markers: [] }, user: { markers: [] } };
+    yield* detectAgentRootCollisions(
+      path,
+      [
+        { id: "qoder", name: "Qoder", rootDir: ".qoder", detection },
+        { id: "qoder-cn", name: "Qoder CN", rootDir: ".qoder", detection },
+      ],
+      diagnostics,
+    );
+    expect(yield* diagnostics.snapshot).toEqual([]);
+    yield* detectAgentRootCollisions(
+      path,
+      [
+        { id: "qoder", name: "Explicit reader", rootDir: ".codex", detection },
+        { id: "codex", name: "Inferred reader", detection },
+      ],
+      diagnostics,
+    );
+    expect(yield* diagnostics.snapshot).toEqual([
+      expect.objectContaining({
+        code: "scanner-config",
+        message: expect.stringContaining('collision on ".codex"'),
+      }),
+    ]);
+  }).pipe(Effect.provide(Path.layer)),
+);

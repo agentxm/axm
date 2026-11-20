@@ -333,6 +333,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts)
 
+##### Lint distinguishes exposed official guidance from declared compatibility
+
+- Requirement: `cli/lint/reports-exposed-official-skill-freshness`
+- Owner: `workspace-features`
+- Statement: Lint shall warn once per physical official AXM skill tree with incompatible or missing compatibility metadata actually exposed to configured agents, retaining all discovery paths, readers, known version and ownership evidence. This warning shall neither establish ownership nor change the declared-skill compatibility result. Same-named content from another owner and content not exposed to configured agents shall not trigger it.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `agent-interoperability`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lint observes separate project and user trees with multiple native links and preserves their bytes.
+- Methods: example
+- Derived from: `cli/lint/undeclared-official-skill-is-informational`
+- Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-exposed-official-skill-freshness.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-exposed-official-skill-freshness.spec.ts)
+
 ##### Lint preserves workspace files whether the run succeeds or fails
 
 - Requirement: `cli/lint/reports-facts-without-mutation`
@@ -393,7 +407,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/reports-project-outputs-shadowed-by-user-scope`
 - Owner: `workspace-features`
-- Statement: When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.
+- Statement: When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per pair of physical content trees, retaining every reader/path pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `agent-interoperability`
@@ -4629,6 +4643,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace-features/src/inspection/check/includes-required-contributors.spec.ts`](../packages/core/workspace-features/src/inspection/check/includes-required-contributors.spec.ts)
 
+##### Local check evidence follows package and contributor authority
+
+- Requirement: `cli/check/local-evidence-matches-authority`
+- Owner: `workspace-features`
+- Statement: Local checks shall recognize readable portable SKILL.md content without requiring an AXM manifest, join shared-output contributors to their unambiguous desired package identities across workspace and acquired authorities, and exclude unrelated directories that have no package manifest. A configured package whose content is missing shall remain incomplete. Catalog advisories about shared reader roots shall not reduce otherwise complete observation coverage.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production installation, inspection and checks share native temporary workspaces and a deterministic file Registry.
+- Methods: example
+- Derived from: `cli/check/includes-required-contributors`, `cli/check/verdict-requires-complete-selected-evidence`
+- Source: [`packages/core/workspace-features/src/inspection/check/local-evidence-matches-authority.spec.ts`](../packages/core/workspace-features/src/inspection/check/local-evidence-matches-authority.spec.ts)
+
 ##### Local materialization assessment does not acquire missing content
 
 - Requirement: `cli/check/local-materialization-does-not-acquire`
@@ -5090,7 +5118,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/reports-incomplete-assessment`
 - Owner: `workspace-features`
-- Statement: When requested Registry assessment cannot obtain current metadata, AXM shall retain the affected installation with an unknown assessment and its reason, count it as unknown in coverage, and preserve independently assessed results without presenting unavailable evidence as current or active.
+- Statement: When requested Registry assessment cannot obtain current metadata, AXM shall retain the affected installation with an unknown assessment and its reason, count it as unknown in coverage, and preserve independently assessed results without presenting unavailable evidence as current or active. Coverage shall partition applicable subjects into checked and unknown; inline configuration has no external release and is not applicable. Filter summaries shall count confirmed matches separately from unknown results.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -5521,7 +5549,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution`
 - Owner: `workspace-features`
-- Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found.
+- Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found. An unowned native artifact shall be preserved even with --replace-unrecorded; refusal shall name the entry and resolved target, explain missing ownership proof, and direct the owner to preserve content and retire conflicting entries before previewing bundled installation. Owner cleanup shall permit supported recovery without deleting the former target.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
@@ -5764,7 +5792,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/update/plans-coherent-groups-and-explains-blockers`
 - Owner: `workspace-features`
-- Statement: A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.
+- Statement: A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed. Candidate validation or member-selection failures shall refuse their connected group without aborting unrelated work; aggregate projections shall retain the accepted content of refused groups.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `safe-repetition`

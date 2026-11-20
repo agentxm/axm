@@ -122,7 +122,7 @@ const subjectFileNameFor = (type: ExtensionType): string | null => {
 /**
  * Build one occurrence record from a discovered subject directory. Probes
  * the canonical subject file (e.g., `SKILL.md`) when applicable, unless the
- * caller has just read that same file successfully (`subjectFileRead`).
+ * caller has just established that same file is present (`subjectFileKnownPresent`).
  */
 const buildOccurrence = (
   deps: CanonicalExtensionsScannerDeps,
@@ -132,7 +132,7 @@ const buildOccurrence = (
     readonly nameDir: string;
     readonly name?: string;
     readonly owner: Handle | null;
-    readonly subjectFileRead?: boolean;
+    readonly subjectFileKnownPresent?: boolean;
   },
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
   Effect.gen(function* () {
@@ -145,7 +145,7 @@ const buildOccurrence = (
         : Option.some(makeAbsolutePath(path, path.join(args.nameDir, subjectFileName)));
     const subjectFileExists = Option.isNone(subjectFile)
       ? false
-      : args.subjectFileRead === true ||
+      : args.subjectFileKnownPresent === true ||
         (yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectFile.value));
     const contentLocation = makeAbsolutePath(path, args.nameDir);
     const occurrence: CanonicalExtensionOccurrence = {
@@ -268,7 +268,7 @@ const inspectAcquiredDirectory = (
               name: identity.name,
               owner: identity.owner,
               // A subagent's subject file is the manifest this inspection read.
-              subjectFileRead: identity.type === "subagent" && manifestRead,
+              subjectFileKnownPresent: identity.type === "subagent" && manifestRead,
             }),
           ];
         }),
@@ -303,7 +303,7 @@ const inspectAcquiredDirectory = (
               nameDir: dir,
               name: name.value,
               owner: null,
-              subjectFileRead: true,
+              subjectFileKnownPresent: true,
             }),
           ],
         };
@@ -411,6 +411,16 @@ const scanAuthoredType = (
           // `filterDirectories` just classified `packageDir` as a directory.
           const nameDir = isPackageRoot ? packageDir : deps.path.join(packageDir, "src");
           if (
+            isPackageRoot &&
+            !(yield* fileExists(
+              SCANNER_NAME,
+              deps.fs,
+              deps.diagnostics,
+              deps.path.join(packageDir, manifestFilenameForType(extensionType)),
+            ))
+          )
+            return [];
+          if (
             !isPackageRoot &&
             !(yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, nameDir))
           )
@@ -420,6 +430,7 @@ const scanAuthoredType = (
               extensionType,
               origin: "canonical-axm",
               nameDir,
+              subjectFileKnownPresent: extensionType === "subagent",
               name: deps.path.basename(packageDir),
               owner: deps.layout.scope === "project" ? (deps.layout.owner ?? null) : null,
             }),

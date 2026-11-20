@@ -1113,6 +1113,7 @@
               "$ref": "#/definitions/LintRuleSeverity"
             },
             "workspace/project-outputs-not-shadowed": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/exposed-axm-skill-compatible": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/native-output-links-resolve": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/native-outputs-readable": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/user-outputs-have-settings": { "$ref": "#/definitions/LintRuleSeverity" },

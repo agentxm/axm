@@ -21,6 +21,7 @@ import {
 import type { AgentContentEntry } from "../../../../run/agent-scopes.js";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentContentHasSettingsRule } from "../../agent-content-has-settings.js";
+import { exposedAxmSkillCompatibleRule } from "../../exposed-axm-skill-compatible.js";
 import { projectOutputsNotShadowedRule } from "../../project-outputs-not-shadowed.js";
 import { userOutputsHaveSettingsRule } from "../../user-outputs-have-settings.js";
 import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
@@ -805,4 +806,38 @@ export const agentContentHasSettingsConformance: WorkspaceRuleConformanceCase = 
     },
   ],
   inapplicable: () => agentContentContext({ settings: true, entries: unmanagedAgentContent }),
+};
+
+export const exposedAxmSkillCompatibleConformance: WorkspaceRuleConformanceCase = {
+  rule: exposedAxmSkillCompatibleRule,
+  satisfied: () =>
+    contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+      Effect.map((context) => ({ ...context, exposedOfficialSkills: [] })),
+    ),
+  violated: () =>
+    contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+      Effect.map(
+        (context) =>
+          ({
+            ...context,
+            exposedOfficialSkills: [
+              {
+                source: "/home/test/legacy",
+                paths: ["/home/test/.claude/skills/axm"],
+                agents: ["claude-code"],
+                ownership: ["unowned"],
+                compatibility: skillCompatibility("1.2.3"),
+              },
+            ],
+          }) satisfies WorkspaceRuleContext,
+      ),
+    ),
+  expectedFindings: [
+    {
+      message:
+        "Exposed official AXM skill 1.1.0 at /home/test/legacy: AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0. Read by claude-code through /home/test/.claude/skills/axm; ownership: unowned. This exposure does not establish declared-skill compatibility or AXM ownership. Preserve the content and review these discovery entries with their owner before retiring stale links and previewing axm skills install @agentxm/skills/axm --bundled in the appropriate scope.",
+      location: { file: "/home/test/legacy" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };

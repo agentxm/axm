@@ -101,7 +101,9 @@ const listConfig = {
     Flag.atLeast(0),
   ),
   outdated: Flag.Boolean("outdated").pipe(
-    withParameterDescription("Only list installed extensions with available updates"),
+    withParameterDescription(
+      "List available updates and installations whose update status is unknown",
+    ),
     withParameterDefault(false),
   ),
   deprecated: Flag.Boolean("deprecated").pipe(

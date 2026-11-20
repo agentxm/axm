@@ -353,7 +353,7 @@ export const inspectSkillAgentArtifact = (
         (receipt.value.source !== source && !previousSources.includes(receipt.value.source))
       ) {
         return yield* new SkillMaterializationFailed({
-          detail: `Preserved unowned skill artifact at ${agentSkillPath}`,
+          detail: `Preserved unowned skill artifact at ${agentSkillPath}${address.referentPath === undefined ? "" : ` (resolved target: ${address.referentPath})`}. No accepted source link or copy receipt proves ownership. Preserve the target content, then have its owner move this entry outside agent skill discovery directories without deleting its target. Review every other link to that target before retrying installation${args.sanitizedName === "axm" ? " with axm skills install @agentxm/skills/axm --bundled --preview (add --user for user scope)" : ""}. --replace-unrecorded does not authorize replacing this unowned artifact.`,
           cause: undefined,
         });
       }

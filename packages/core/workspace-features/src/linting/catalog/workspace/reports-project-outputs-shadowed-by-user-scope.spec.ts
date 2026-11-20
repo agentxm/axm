@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/reports-project-outputs-shadowed-by-user-scope",
   title: "Lint reports project agent outputs that share a name with a user-scope output",
   statement:
-    "When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.",
+    "When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per pair of physical content trees, retaining every reader/path pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "agent-interoperability"],

@@ -31,6 +31,10 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import { parseSkillMd } from "@agentxm/extension-content";
+import type { AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
+import type { AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   AgentRootResolverLive,
   WorkspaceReadModelConfig,
@@ -218,4 +222,88 @@ export const observeProjectAgentContent = (args: {
         agentIds: [...container.agents].sort(),
       })),
     ].sort((left, right) => left.path.localeCompare(right.path));
+  });
+
+export interface ExposedOfficialSkill {
+  readonly source: string;
+  readonly paths: ReadonlyArray<string>;
+  readonly agents: ReadonlyArray<string>;
+  readonly ownership: ReadonlyArray<AgentOutputObservation["ownership"]>;
+  readonly compatibility: AxmSkillCompatibility;
+}
+
+/** Assess the bytes agents actually read without treating exposure as ownership. */
+export const observeExposedOfficialSkills = (args: {
+  readonly outputs: ReadonlyArray<AgentOutputObservation>;
+  readonly agents: ReadonlySet<string>;
+  readonly policy: AxmSkillCompatibilityPolicyService;
+}) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const groups = new Map<string, Array<AgentOutputObservation>>();
+    for (const output of args.outputs) {
+      if (
+        output.extensionType !== "skill" ||
+        output.entryName !== "axm" ||
+        !output.claimantAgentIds.some((agent) => args.agents.has(agent)) ||
+        output.nativeEntry === undefined ||
+        Result.isFailure(output.nativeEntry)
+      )
+        continue;
+      const source = output.nativeEntry.success.referentPath;
+      if (source === undefined) continue;
+      const group = groups.get(source) ?? [];
+      group.push(output);
+      groups.set(source, group);
+    }
+    const exposed: Array<ExposedOfficialSkill> = [];
+    for (const [source, outputs] of groups) {
+      const root = path.basename(source) === "src" ? path.dirname(source) : source;
+      const manifest = yield* fs.readFileString(path.join(root, "skill.json")).pipe(
+        Effect.flatMap(
+          Schema.decodeUnknownEffect(
+            Schema.fromJsonString(
+              Schema.Struct({
+                owner: Schema.Literal("@agentxm"),
+                name: Schema.Literal("axm"),
+                type: Schema.Literal("skill"),
+                version: Schema.String,
+              }),
+            ),
+          ),
+        ),
+        Effect.result,
+      );
+      // A name alone does not establish official provenance.
+      if (Result.isFailure(manifest)) continue;
+      const content = yield* fs
+        .readFileString(path.join(source, "SKILL.md"))
+        .pipe(Effect.match({ onFailure: () => Option.none<string>(), onSuccess: Option.some }));
+      const skill = Option.flatMap(content, (text) => parseSkillMd(text, "axm"));
+      const compatibility = args.policy.evaluate({
+        fqn: "@agentxm/skills/axm",
+        candidate: {
+          manifestVersion: manifest.success.version,
+          metadata: Option.getOrNull(Option.flatMap(skill, (parsed) => parsed.metadata)),
+          source,
+          authority: null,
+        },
+      });
+      if (compatibility === null || compatibility.status === "compatible") continue;
+      exposed.push({
+        source,
+        paths: [...new Set(outputs.map((output) => output.path))].sort(),
+        agents: [
+          ...new Set(
+            outputs
+              .flatMap((output) => output.claimantAgentIds)
+              .filter((id) => args.agents.has(id)),
+          ),
+        ].sort(),
+        ownership: [...new Set(outputs.map((output) => output.ownership))],
+        compatibility,
+      });
+    }
+    return exposed;
   });

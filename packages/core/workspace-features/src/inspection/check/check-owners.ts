@@ -30,7 +30,9 @@ export interface LocalCheckOwners<
   }) => Effect.Effect<
     {
       readonly findings: ReadonlyArray<LintJsonFinding>;
-      readonly observedPackages: ReadonlyArray<CheckSubject & { readonly observed: boolean }>;
+      readonly observedPackages: ReadonlyArray<
+        CheckSubject & { readonly manifestPath?: string; readonly observed: boolean }
+      >;
       readonly inlineSubjects: ReadonlyArray<CheckSubject>;
     },
     LintError,

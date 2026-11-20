@@ -223,8 +223,9 @@ describe("packs activation", () => {
 
       expect(failure.category).toBe("conflict");
       expect(failure.detail).toContain(
-        "could not determine what should be installed because some pack or axm.json entries are invalid",
+        "could not establish a complete contributor set for the proposed output",
       );
+      expect(failure.detail).toContain("@acme/packs/toolkit");
     }),
   );
 

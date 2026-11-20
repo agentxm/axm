@@ -83,7 +83,7 @@ describe("Unexplained content classification", () => {
             // Only the native content remains unassessable; leftover and
             // undeclared packages are not applicable rather than unknown.
             expect(assessed.document.coverage, filter).toEqual({
-              eligible: 3,
+              eligible: 1,
               checked: 0,
               unknown: 1,
               notApplicable: 2,

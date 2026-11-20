@@ -10,6 +10,7 @@ import {
   WorkspaceLocation,
   formatDesiredIdentity,
   desiredIdentityFqn,
+  desiredStateProblemText,
   observeDesiredCanonical,
   workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -83,20 +84,42 @@ export const captureLocalCheck = <LE, LR, CE, CR>(
           const aggregate = aggregateOwnershipUnits.find(
             ({ unitId }) => unitId === fact.subject.unitId,
           );
+          // Aggregate owners can identify a contributor by its package FQN.
+          // Resolve that identity through the graph, never by stripping an
+          // authority prefix. Ambiguous identities cannot establish coverage.
+          const contributors = fact.authority.contributors.map((identity) =>
+            graph.nodes.filter(
+              (node) =>
+                formatDesiredIdentity(node.identity) === identity ||
+                ((aggregate === undefined || node.type === aggregate.type) &&
+                  Option.getOrUndefined(desiredIdentityFqn(node.identity)) === identity),
+            ),
+          );
+          const blockers =
+            aggregate === undefined ? undefined : contributorSetBlockers(graph, aggregate.type);
+          const missing = fact.authority.contributors.filter(
+            (_, index) => contributors[index]?.length !== 1,
+          );
+          const causes = [
+            ...missing.map((identity) => `Contributor ${identity} has no unique desired identity`),
+            ...(blockers?.problems.map(desiredStateProblemText) ?? []),
+            ...(blockers?.routes.map(
+              (route) =>
+                `${route.pack}: ${route.declared.status === "unknown" ? route.declared.reason : route.routes}`,
+            ) ?? []),
+          ];
           return {
             id: fact.subject.unitId,
+            ...(causes.length === 0
+              ? {}
+              : {
+                  incompleteReason: `${fact.subject.path}: ${causes.join("; ")}. Inspect the named packages with axm show and restore their declarations or readable content before checking again.`,
+                }),
             // Contributor authority and output readability are independent evidence.
             complete:
-              (aggregate === undefined ||
-                contributorSetComplete(contributorSetBlockers(graph, aggregate.type))) &&
-              fact.authority.contributors.every((identity) =>
-                graph.nodes.some((node) => formatDesiredIdentity(node.identity) === identity),
-              ),
-            contributors: graph.nodes
-              .filter((node) =>
-                fact.authority.contributors.includes(formatDesiredIdentity(node.identity)),
-              )
-              .map(({ type, name }) => ({ type, name })),
+              (blockers === undefined || contributorSetComplete(blockers)) &&
+              contributors.every((matches) => matches.length === 1),
+            contributors: contributors.flat().map(({ type, name }) => ({ type, name })),
           };
         }),
       });

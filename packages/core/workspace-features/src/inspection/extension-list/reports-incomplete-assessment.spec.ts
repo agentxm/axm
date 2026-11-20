@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/reports-incomplete-assessment",
   title: "List reports incomplete Registry assessment",
   statement:
-    "When requested Registry assessment cannot obtain current metadata, AXM shall retain the affected installation with an unknown assessment and its reason, count it as unknown in coverage, and preserve independently assessed results without presenting unavailable evidence as current or active.",
+    "When requested Registry assessment cannot obtain current metadata, AXM shall retain the affected installation with an unknown assessment and its reason, count it as unknown in coverage, and preserve independently assessed results without presenting unavailable evidence as current or active. Coverage shall partition applicable subjects into checked and unknown; inline configuration has no external release and is not applicable. Filter summaries shall count confirmed matches separately from unknown results.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -178,3 +178,34 @@ describe("Incomplete Registry assessment", () => {
         .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 });
+
+for (const filter of ["outdated", "deprecated", "archived", "lifecycle"] as const)
+  it.effect(`${filter}: inline MCP entries have no external release`, () => {
+    const fixture = makeInspectionFixture({
+      settings: {
+        mcpServers: {
+          active: { connection: { transport: "stdio", command: "node" } },
+          disabled: { connection: { transport: "stdio", command: "node" }, enabled: false },
+        },
+      },
+    });
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = fixture.snapshot();
+          const result = yield* ListExtensions.query({ filter });
+          expect(result.document).toMatchObject({
+            count: 0,
+            coverage: {
+              eligible: 0,
+              checked: 0,
+              unknown: 0,
+              notApplicable: 2,
+            },
+          });
+          expect(fixture.requests).toEqual([]);
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
+  });

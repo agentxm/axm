@@ -168,6 +168,14 @@ export const detectAgentRootCollisions = (
     }
     for (const [segment, ids] of buckets) {
       if (ids.length < 2) continue;
+      // Explicitly shared roots are supported multi-reader locations. Only
+      // an inferred root makes the attribution ambiguous.
+      if (
+        descriptors
+          .filter((descriptor) => ids.includes(descriptor.id))
+          .every((descriptor) => typeof descriptor.rootDir === "string")
+      )
+        continue;
       yield* diagnostics.append({
         source: "scanner",
         message: `agent-root: collision on "${segment}" across agents: ${ids.join(", ")}`,

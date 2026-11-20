@@ -294,8 +294,8 @@ describe("check convergence and projection facts", () => {
     },
     {
       joined: "helper",
-      subjects: ["rule:review", "subagent:helper"],
-      calls: [["rule:review"], ["rule:review", "subagent:helper"]],
+      subjects: ["rule:review", "rule:style", "subagent:helper"],
+      calls: [["rule:review"], ["rule:review", "rule:style", "subagent:helper"]],
     },
   ])("an expanded scope joining $joined reuses facts only for the same selection", (example) => {
     const workspace = makeSyncFixture({
@@ -354,7 +354,7 @@ describe("check convergence and projection facts", () => {
               }),
           }),
         );
-        expect(calls).toEqual([["rule:review"], ["rule:review"]]);
+        expect(calls).toEqual([["rule:review"], ["rule:review", "rule:style"]]);
         expect(captured.convergence !== undefined && Result.isSuccess(captured.convergence)).toBe(
           true,
         );

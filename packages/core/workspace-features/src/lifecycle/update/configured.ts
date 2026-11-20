@@ -36,6 +36,8 @@ import type * as Scope from "effect/Scope";
 
 import {
   heldBackReleaseWarnings,
+  PackDependencyMissing,
+  PackDependencyUnsatisfied,
   makeConfiguredReleaseAgePolicy,
   classifyConfiguredSource,
   type ConfiguredReleaseAgePolicy,
@@ -161,6 +163,7 @@ import {
 } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
 import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
+import { InstructionMaintenanceFailed } from "@agentxm/workspace-kernel/projection";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -225,6 +228,7 @@ type WorkspaceUpdateCollectorContext =
  */
 interface WorkspaceUpdateNameSelection {
   readonly names: ReadonlySet<string> | undefined;
+  readonly excludedNames?: ReadonlySet<string>;
 }
 
 /** Every type a configured sweep advances entry by entry; Packs advance as groups. */
@@ -247,8 +251,9 @@ const selectedEntries = <TEntry>(
   selection: WorkspaceUpdateNameSelection,
 ): ReadonlyArray<readonly [string, TEntry]> => {
   const { names } = selection;
-  if (names === undefined) return entries;
-  return entries.filter(([name]) => names.has(name));
+  return entries.filter(
+    ([name]) => (names === undefined || names.has(name)) && !selection.excludedNames?.has(name),
+  );
 };
 
 const hasConfiguredSource = <TEntry extends { readonly source?: string | undefined }>(
@@ -498,7 +503,7 @@ interface ConfiguredUpdateIntentArgs<TIntent, R> {
    * The effective constraint the Registry selects within, with the
    * contributors that intersect to it; the declared range is what is recorded.
    */
-  readonly effective: DesiredEffectiveConstraint;
+  readonly effective?: DesiredEffectiveConstraint;
   readonly fallback: (classifiedSource: Source) => Effect.Effect<
     {
       readonly ref: ExtensionRef;
@@ -556,7 +561,7 @@ const prepareUpdateIntent = <TIntent, R>(
     );
     const selectionRange = Option.isSome(acceptedRegistry)
       ? Option.some(decodeVersionRangeSync(acceptedRegistry.value.version))
-      : args.effective.range;
+      : args.effective?.range;
     const declaredSource = yield* classifyConfiguredSource(args.name, args.source, args.type);
     if (!args.reinstall && declaredSource.type === "git") {
       const gitSource = declaredSource;
@@ -647,7 +652,7 @@ const prepareUpdateIntent = <TIntent, R>(
                   subject: resolution.target,
                   latestVersion: resolution.newestVisible,
                   selectedVersion: resolution.ref.version,
-                  contributors: args.effective.contributors,
+                  contributors: args.effective?.contributors ?? [],
                 }),
         } as const;
       }
@@ -793,8 +798,7 @@ const preparePackRef = (
       name,
       source,
       releaseAgeEvaluation,
-      // A Pack is never another Pack's member: its own declaration is its only contributor.
-      effective: { range: Option.none(), contributors: [] },
+      // A Pack has no parent constraints; select within its declared range.
       fallback: (classifiedSource) =>
         resolveConfiguredPack(name, source, releaseAgeEvaluation, undefined, classifiedSource),
       makeIntent: (ref, versionRange) =>
@@ -1110,8 +1114,10 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const graph = yield* readProposedGraph(prospectivePacks);
     // Packs that share a member settle together; packs that share none are
     // independent, so one group's refusal leaves the others free to commit.
+    const acceptedGraph = yield* readProposedGraph([]);
     const groups = packUpdateGroups({
       graph,
+      acceptedGraph,
       prospectivePacks,
       ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
     });
@@ -1143,53 +1149,129 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       });
     });
 
-    const readyAdvances = selected.filter((advance) => !blockedIdentities.has(advance.identity));
-    // Aggregate native projections must include the accepted state of refused
-    // groups, because those groups will never publish their proposed manifests.
-    // Keep the conflict graph for reporting which direct entries they prevent.
-    const readyGraph =
-      blockedGroups.length === 0 || readyAdvances.length === 0
-        ? graph
-        : yield* readProposedGraph(readyAdvances.map(({ intent }) => intent.packToInstall));
-    // Independent Packs can contribute to the same native instruction file.
-    // Select their members before projection preflight so each plan observes
-    // the complete proposed output instead of mixing accepted and new bytes.
-    const selectedGraphs = yield* Effect.forEach(
-      readyAdvances,
-      ({ intent }) =>
-        selectPackGraph({ ...intent, desiredGraph: readyGraph }).pipe(
-          Effect.mapError((cause) => {
-            const failure = conversion.toStepFailure(cause);
-            return installRefused({
-              category: failure.category,
-              detail: failure.detail,
-              suggestions: failure.suggestions,
-              cause,
-            });
-          }),
-          Effect.map((selection) => ({ intent, selection })),
-        ),
-      { concurrency: 16 },
+    const refusedPreparationPacks = new Set(
+      blockedGroups
+        .filter((group) => group.problems.some((problem) => problem.type !== "constraint-conflict"))
+        .flatMap((group) => group.packIdentities),
     );
-    const projectionRefs = selectedGraphs.flatMap(({ selection }) =>
-      selection.kind === "selected" ? selection.refs : [],
-    );
-    const selectedPlans = yield* Effect.forEach(
-      selectedGraphs,
-      ({ intent, selection }) =>
-        planPackInstall({
-          ...intent,
-          desiredGraph: readyGraph,
-          preparedSelection: selection,
-          projectionRefs,
-        }),
-      { concurrency: 16 },
-    );
+    let readyAdvances = selected.filter((advance) => !blockedIdentities.has(advance.identity));
+    let readyGraph = graph;
+    let selectedPlans: ReadonlyArray<Plan<InstallStepRequirements>> = [];
+    // Preparation is read-only. If a candidate fails, discard its entire
+    // connected group and rebuild aggregate outputs using that group's accepted
+    // manifests. Never publish projections prepared with a rejected candidate.
+    while (true) {
+      readyGraph = yield* readProposedGraph(
+        readyAdvances.map(({ intent }) => intent.packToInstall),
+      );
+      const selections = yield* Effect.forEach(
+        readyAdvances,
+        (advance) =>
+          selectPackGraph({ ...advance.intent, desiredGraph: readyGraph }).pipe(
+            Effect.result,
+            Effect.map((result) => ({ advance, result })),
+          ),
+        { concurrency: 16 },
+      );
+      const failed = new Map<string, Plan<InstallStepRequirements>>();
+      const reject = (identity: string, error: Parameters<typeof conversion.toStepFailure>[0]) => {
+        const group = groups.find((group) => group.packIdentities.includes(identity));
+        for (const advance of readyAdvances) {
+          if (advance.identity !== identity && !group?.packIdentities.includes(advance.identity))
+            continue;
+          refusedPreparationPacks.add(advance.identity);
+          for (const member of group?.packIdentities ?? []) refusedPreparationPacks.add(member);
+          const failure = conversion.toStepFailure(error);
+          failed.set(advance.identity, {
+            _tag: "Plan",
+            name: `Block Pack candidate ${advance.name}`,
+            description: Option.none(),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    key: `pack:${advance.name}:planning-error`,
+                    readiness: "error",
+                    label: toTypedLabel("pack", advance.name),
+                    errorMessage: `Rejected candidate ${advance.identity}@${advance.intent.packToInstall.version} during preparation: ${error instanceof PackDependencyMissing ? `Dependency ${error.dependencyTarget} was not found` : error instanceof PackDependencyUnsatisfied ? `Dependency ${error.dependencyTarget} has no visible version satisfying ${error.constraint}` : failure.detail}. This group's accepted state is unchanged; inspect the named dependency and preview the targeted update after correcting its source or constraint.`,
+                  },
+                ],
+              },
+            ],
+          });
+        }
+      };
+      for (const { advance, result } of selections) {
+        if (Result.isFailure(result)) reject(advance.identity, result.failure);
+      }
+      if (failed.size === 0) {
+        const projectionRefs = selections.flatMap(({ result }) =>
+          Result.isSuccess(result) && result.success.kind === "selected" ? result.success.refs : [],
+        );
+        const plans = yield* Effect.forEach(
+          selections,
+          ({ advance, result }) =>
+            Result.isFailure(result)
+              ? Effect.succeed(undefined)
+              : planPackInstall({
+                  ...advance.intent,
+                  desiredGraph: readyGraph,
+                  preparedSelection: result.success,
+                  projectionRefs,
+                }).pipe(
+                  Effect.result,
+                  Effect.map((planned) => ({ advance, planned })),
+                ),
+          { concurrency: 16 },
+        );
+        for (const plan of plans) {
+          if (plan !== undefined && Result.isFailure(plan.planned)) {
+            // A missing shared instruction route is a workspace precondition,
+            // not a rejected candidate. Preserve its scope-specific recovery.
+            if (plan.planned.failure.cause instanceof InstructionMaintenanceFailed)
+              return yield* Effect.fail(plan.planned.failure);
+            reject(plan.advance.identity, plan.planned.failure);
+          }
+        }
+        selectedPlans = plans.flatMap((plan) =>
+          plan !== undefined && Result.isSuccess(plan.planned) ? [plan.planned.success] : [],
+        );
+      }
+      if (failed.size === 0) break;
+      blockPlans.push(...failed.values());
+      readyAdvances = readyAdvances.filter((advance) => !failed.has(advance.identity));
+    }
     const plannedCollections = resolved.flatMap((item) =>
       item.kind === "planned" ? [item.collection] : [],
     );
+    const blockedMembers = [...graph.nodes, ...acceptedGraph.nodes].flatMap((node) =>
+      node.type === "pack"
+        ? []
+        : node.origins.some(
+              (origin) => origin.type === "pack" && refusedPreparationPacks.has(origin.pack.fqn),
+            )
+          ? [{ type: node.type, name: node.name }]
+          : [],
+    );
     return {
-      graph,
+      blockedMembers,
+      graph: {
+        ...readyGraph,
+        problems: [
+          ...readyGraph.problems,
+          ...graph.problems.filter(
+            (problem) =>
+              problem.type === "constraint-conflict" &&
+              !readyGraph.problems.some(
+                (ready) =>
+                  ready.type === "constraint-conflict" &&
+                  ready.extensionType === problem.extensionType &&
+                  ready.name === problem.name,
+              ),
+          ),
+        ],
+      },
       collection: toCollectedWorkspaceUpdatePlans({
         plans: [
           ...plannedCollections.flatMap((collection) => collection.plans),
@@ -1362,9 +1444,46 @@ const sweepConfiguredEntries = Effect.fnUntraced(function* (args: WorkspaceUpdat
   const entryCollections = new Map<WorkspaceUpdatableType, CollectedWorkspaceUpdatePlans>();
   for (const { type, collect } of makeWorkspaceUpdateCollectors()) {
     if (!selectedType(type)) continue;
+    const selection = selectionFor(type);
+    const blockedNames = new Set(
+      (packs?.blockedMembers ?? [])
+        .filter(
+          (member) =>
+            member.type === type &&
+            (selection.names === undefined || selection.names.has(member.name)),
+        )
+        .map(({ name }) => name),
+    );
+    const collected = yield* observeUnit(
+      collectorUnit(type),
+      collect({ ...selection, excludedNames: blockedNames }, graph),
+    );
     entryCollections.set(
       type,
-      yield* observeUnit(collectorUnit(type), collect(selectionFor(type), graph)),
+      toCollectedWorkspaceUpdatePlans({
+        ...collected,
+        plans: [
+          ...collected.plans,
+          ...[...blockedNames].map((name): Plan<InstallStepRequirements> => ({
+            _tag: "Plan",
+            name: `Block member ${name}`,
+            description: Option.none(),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    key: `${type}:${name}:pack-preparation`,
+                    readiness: "error",
+                    label: toTypedLabel(type, name),
+                    errorMessage: `Preserved ${type}:${name} because a Pack sharing it failed preparation; inspect the Pack candidate refusal.`,
+                  },
+                ],
+              },
+            ],
+          })),
+        ],
+      }),
     );
   }
   const collections = installableExtensionTypes.flatMap((type) => {
@@ -1384,6 +1503,10 @@ const sweepConfiguredEntries = Effect.fnUntraced(function* (args: WorkspaceUpdat
   const conversionForMembers = yield* StepFailureConversion;
   for (const node of graph.nodes) {
     if (node.type === "pack" || node.source === undefined) continue;
+    if (
+      packs?.blockedMembers.some((member) => member.type === node.type && member.name === node.name)
+    )
+      continue;
     const binding = accepted.find(
       (candidate) =>
         candidate.type === node.type &&

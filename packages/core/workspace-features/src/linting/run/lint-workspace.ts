@@ -94,6 +94,7 @@ import { observeAuthoredPackages, type AuthoredPackageResolution } from "./autho
 import {
   observeProjectAgentContent,
   observeUserScope,
+  observeExposedOfficialSkills,
   type AgentContentEntry,
   type UserScopeObservation,
 } from "./agent-scopes.js";
@@ -565,6 +566,16 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
           liveView && !projectIsUserHome
             ? Option.some(yield* observeUserScope(userHome, location.nativeDirectoryInputs))
             : Option.none<UserScopeObservation>();
+        const exposedOfficialSkills = liveView
+          ? yield* observeExposedOfficialSkills({
+              outputs: [
+                ...agentOutputs.outputs,
+                ...(Option.isSome(userScope) ? userScope.value.outputs : []),
+              ],
+              agents: new Set(Option.isSome(settings) ? (settings.value.agents ?? []) : []),
+              policy: axmSkillCompatibilityPolicy,
+            })
+          : [];
         const agentContent =
           liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
             ? Option.some(
@@ -602,6 +613,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
                 ownership: Effect.succeed(ownership),
                 agentOutputs: Effect.succeed(agentOutputs),
                 nativeSkills,
+                exposedOfficialSkills,
                 ...(Option.isSome(installRoot)
                   ? { installRoot: Effect.succeed(installRoot.value) }
                   : {}),

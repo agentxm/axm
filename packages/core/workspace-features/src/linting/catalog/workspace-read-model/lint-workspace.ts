@@ -641,6 +641,23 @@ const buildLintWorkspaceView = (
       (type: ExtensionType) =>
       (entry: { readonly name: string }): boolean =>
         !args.defersExtensionRules(type, entry.name);
+    const portableObserved = new Map(
+      yield* Effect.forEach(
+        skillsWithJson.filter((entry) => !entry.info.isNative),
+        (entry) =>
+          entry.info.files.readBytes("SKILL.md").pipe(
+            Effect.match({ onFailure: () => false, onSuccess: () => true }),
+            Effect.map(
+              (observed) =>
+                [
+                  entry.name,
+                  { observed, path: joinManifestPath(entry.info.displayRoot, "SKILL.md") },
+                ] as const,
+            ),
+          ),
+        { concurrency: 16 },
+      ),
+    );
     return {
       view: {
         installedSkills: skillsWithJson.filter(inspected("skill")).map((entry) => entry.info),
@@ -664,8 +681,14 @@ const buildLintWorkspaceView = (
         ...installedManifests.map((entry) => ({
           type: entry.extensionType,
           name: entry.name,
-          manifestPath: entry.manifestPath,
-          observed: entry.manifestJson !== undefined,
+          manifestPath:
+            entry.extensionType === "skill"
+              ? (portableObserved.get(entry.name)?.path ?? entry.manifestPath)
+              : entry.manifestPath,
+          observed:
+            entry.extensionType === "skill" && portableObserved.has(entry.name)
+              ? portableObserved.get(entry.name)?.observed === true
+              : entry.manifestJson !== undefined,
         })),
         ...installedPacksWithJson.map((entry) => ({
           type: entry.installed.key.type,

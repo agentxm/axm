@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   title:
     "A workspace update settles related Pack changes together and names what a refusal prevented",
   statement:
-    "A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.",
+    "A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed. Candidate validation or member-selection failures shall refuse their connected group without aborting unrelated work; aggregate projections shall retain the accepted content of refused groups.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "safe-repetition"],
@@ -362,3 +362,58 @@ describe("A workspace update plans coherent groups", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 });
+
+it.effect(
+  "a candidate with an unavailable member leaves accepted shared output intact while independent work advances",
+  () => {
+    const { workspace, registry, cleanup } = makeInstallWorld({
+      settings: {
+        agents: ["claude-code"],
+        instructionFiles: { fileName: "AGENTS.md" },
+        packs: { broken: "@acme/packs/broken", healthy: "@acme/packs/healthy" },
+        knowledge: { direct: "@acme/knowledge/direct", retained: "@acme/knowledge/retained" },
+      },
+    });
+    const publish = (advance: boolean) => {
+      for (const name of ["retained", "healthy", "direct"])
+        registry.writeKnowledge(name, [
+          { version: "1.0.0", body: `${name} accepted.`, description: `${name} accepted.` },
+          ...(advance
+            ? [{ version: "1.1.0", body: `${name} advanced.`, description: `${name} advanced.` }]
+            : []),
+        ]);
+      registry.writePack("broken", [
+        { version: "1.0.0", dependencies: { "@acme/knowledge/retained": "^1.0.0" } },
+        ...(advance
+          ? [{ version: "1.1.0", dependencies: { "@acme/knowledge/missing": "^1.0.0" } }]
+          : []),
+      ]);
+      registry.writePack("healthy", [
+        { version: "1.0.0", dependencies: { "@acme/knowledge/healthy": "^1.0.0" } },
+        ...(advance
+          ? [{ version: "1.1.0", dependencies: { "@acme/knowledge/healthy": "^1.1.0" } }]
+          : []),
+      ]);
+    };
+    publish(false);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          publish(true);
+          const before = workspace.snapshot();
+          yield* previewUpdate(configuredUpdateRequest({}));
+          expect(workspace.snapshot()).toEqual(before);
+          const applied = expectResolved(yield* applyUpdate(configuredUpdateRequest({})));
+          const counts = countUnitStates(applied.units);
+          expect(counts.blocked, JSON.stringify(applied)).toBeGreaterThan(0);
+          expect(counts.committed).toBeGreaterThan(0);
+          expect(workspace.readFile("AGENTS.md")).toContain("retained accepted.");
+          expect(workspace.readFile("AGENTS.md")).toContain("healthy advanced.");
+          expect(workspace.readFile("AGENTS.md")).toContain("direct advanced.");
+          expect(workspace.readFile("AGENTS.md")).not.toContain("missing");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+  },
+);

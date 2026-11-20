@@ -997,7 +997,9 @@ export const LocalInspection = {
       observationDiagnostics: diagnostics,
       coverage:
         requests.some((result) => result.code !== 0) ||
-        diagnostics.length > 0 ||
+        diagnostics.some(
+          (diagnostic) => diagnostic.code !== "scanner-config" || diagnostic.path !== undefined,
+        ) ||
         items.some(
           (item) =>
             item.desired.coverage.state === "partial" ||

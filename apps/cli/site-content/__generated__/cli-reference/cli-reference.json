@@ -8944,7 +8944,7 @@
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Only list installed extensions with available updates",
+            "description": "List available updates and installations whose update status is unknown",
             "default": false
           },
           {

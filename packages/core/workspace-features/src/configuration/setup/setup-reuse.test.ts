@@ -484,7 +484,10 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
       expect(skillStep(observed.outcome)?.artifact?.targets?.[2]).toEqual({
         action: "blocked",
-        detail: { _tag: "bundledSkill", reason: `Preserved unowned skill artifact at ${leaf}` },
+        detail: {
+          _tag: "bundledSkill",
+          reason: expect.stringContaining(`Preserved unowned skill artifact at ${leaf}`),
+        },
         agentIds: ["claude-code"],
         path: path.join(".claude", "skills", "axm"),
         change: "unchanged",
@@ -514,7 +517,10 @@ describe("Setup resolves each bundled-skill entry once for its plan", () => {
       expect(callCount(observed.calls.reported, "readLink", leaf)).toBe(0);
       expect(skillStep(observed.outcome)?.artifact?.targets?.[2]).toEqual({
         action: "blocked",
-        detail: { _tag: "bundledSkill", reason: `Preserved unowned skill artifact at ${leaf}` },
+        detail: {
+          _tag: "bundledSkill",
+          reason: expect.stringContaining(`Preserved unowned skill artifact at ${leaf}`),
+        },
         agentIds: ["claude-code"],
         path: path.join(".claude", "skills", "axm"),
         change: "unchanged",

@@ -295,11 +295,12 @@ export const listDoc = (options: {
         ? inventorySentence(rows)
         : [
             count(
-              rows.length,
+              rows.filter((row) => row.state !== "unknown").length,
               `${options.filter === "lifecycle" ? "deprecated or archived" : options.filter} extension`,
             ),
             `checked ${String(coverage.checked)}/${String(coverage.eligible)}`,
             `${String(coverage.unknown)} unknown`,
+            `${String(coverage.notApplicable)} not applicable`,
           ],
     mark: (row) => (needsAttention(row) ? "warn" : undefined),
     ...(options.conditions === undefined ? {} : { conditions: options.conditions }),

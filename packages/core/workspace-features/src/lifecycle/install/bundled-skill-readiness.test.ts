@@ -163,7 +163,9 @@ describe("Bundled AXM skill readiness", () => {
       expect(refusal).toBeInstanceOf(OperationRefused);
       expect(refusal).toMatchObject({
         category: "conflict",
-        detail: `Preserved unowned skill artifact at ${nodePath.join(shared.root, ".agents/skills/axm")}`,
+        detail: expect.stringContaining(
+          `Preserved unowned skill artifact at ${nodePath.join(shared.root, ".agents/skills/axm")}`,
+        ),
         recover: "Preserve the conflicting artifact and inspect workspace ownership",
       });
       expect(shared.workspace.readFile(".agents/skills/axm/SKILL.md")).toBe("# mine\n");
@@ -223,7 +225,7 @@ describe("Bundled AXM skill readiness", () => {
       const shared = yield* observe({ agents: SHARED_AGENTS, arrange: unownedArtifact });
 
       expect(shared.key).toBe("bundled-axm-skill-native-artifact");
-      expect(shared.errorMessage).toBe(
+      expect(shared.errorMessage).toContain(
         `Preserved unowned skill artifact at ${nodePath.join(shared.root, ".agents/skills/axm")}`,
       );
       expect(shared.workspace.readFile(".agents/skills/axm/SKILL.md")).toBe("# mine\n");

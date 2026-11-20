@@ -37,7 +37,13 @@ export const projectionErrorToStepFailure = (error: ProjectionFamilyFailure): St
     case "DesiredStateIncomplete":
       return makeStepFailure({
         category: "conflict",
-        detail: `AXM could not determine what should be installed because some pack or axm.json entries are invalid: ${error.problems}`,
+        detail: `AXM could not establish a complete contributor set for the proposed output: ${error.problems}`,
+        suggestions: [
+          {
+            description:
+              "Inspect the named Pack or configuration with axm show. Correct its source, manifest or constraint, then preview the targeted update before retrying the workspace update.",
+          },
+        ],
       });
     case "AuthoredContributorUnsupported":
       return makeStepFailure({

@@ -5,6 +5,7 @@ import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import {
   desiredStateProblemsText,
   type DesiredConstraintConflict,
+  type DesiredStateProblem,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
   desiredPackageKey,
@@ -96,8 +97,8 @@ export interface PackUpdateGroup {
   readonly packIdentities: ReadonlyArray<string>;
   /** The selected Pack identities this group would advance. */
   readonly selectedPackIdentities: ReadonlyArray<string>;
-  /** Constraint conflicts that block the whole group before any write. */
-  readonly problems: ReadonlyArray<DesiredConstraintConflict>;
+  /** Candidate or constraint problems that block the whole group before any write. */
+  readonly problems: ReadonlyArray<DesiredStateProblem>;
 }
 
 /**
@@ -106,10 +107,16 @@ export interface PackUpdateGroup {
  */
 export const packUpdateGroups = (args: {
   readonly graph: DesiredStateGraph;
+  readonly acceptedGraph?: DesiredStateGraph;
   readonly prospectivePacks: ReadonlyArray<PackRef>;
   readonly selectedNames?: ReadonlySet<string>;
 }): ReadonlyArray<PackUpdateGroup> => {
-  const adjacent = packAdjacency(args.graph);
+  // A rejected manifest can hide its members. Accepted membership still
+  // connects every Pack whose shared state must remain unchanged.
+  const adjacent = packAdjacency({
+    ...args.graph,
+    nodes: [...args.graph.nodes, ...(args.acceptedGraph?.nodes ?? [])],
+  });
   const selected = selectedPackIdentities(args.graph, args.prospectivePacks, args.selectedNames);
   const grouped = new Set<string>();
   const groups: Array<PackUpdateGroup> = [];
@@ -118,14 +125,18 @@ export const packUpdateGroups = (args: {
     if (grouped.has(identity)) continue;
     const packIdentities = reachableFrom([identity], adjacent);
     for (const member of packIdentities) grouped.add(member);
+    const hasCandidate = args.prospectivePacks.some((pack) =>
+      packIdentities.has(`${pack.owner}/packs/${pack.pack.name}`),
+    );
     const problems = args.graph.problems.filter(
-      (problem): problem is DesiredConstraintConflict =>
-        problem.type === "constraint-conflict" &&
-        problem.contributors.some(
-          (contributor) =>
-            contributor.dependingPack !== undefined &&
-            packIdentities.has(contributor.dependingPack),
-        ),
+      (problem) =>
+        (hasCandidate && "pack" in problem && packIdentities.has(problem.pack)) ||
+        (problem.type === "constraint-conflict" &&
+          problem.contributors.some(
+            (contributor) =>
+              contributor.dependingPack !== undefined &&
+              packIdentities.has(contributor.dependingPack),
+          )),
     );
     groups.push({
       packIdentities: [...packIdentities].sort(),
@@ -172,7 +183,7 @@ export const PACK_CONSTRAINT_CONFLICT_BLOCKER_ID = "pack-constraint-conflict";
  */
 export const configuredPackConstraintBlockPlan = (args: {
   readonly operation: "install" | "update";
-  readonly problems: ReadonlyArray<DesiredConstraintConflict>;
+  readonly problems: ReadonlyArray<DesiredStateProblem>;
   /**
    * Display labels for the selected Packs the group prevented; omit for an
    * unattributed gate. These are the ledger's own labels, so a blocked row
@@ -181,6 +192,12 @@ export const configuredPackConstraintBlockPlan = (args: {
   readonly blockedPackLabels?: ReadonlyArray<string>;
 }): Plan<InstallStepRequirements> => {
   const deciding = desiredStateProblemsText(args.problems);
+  const constraintConflict = args.problems.every(
+    (problem) => problem.type === "constraint-conflict",
+  );
+  const reason = constraintConflict
+    ? "Configured Pack constraints are unsatisfiable"
+    : "Configured Pack candidate was rejected before any write";
   const blocked = args.blockedPackLabels ?? [];
   const affected = blocked.length === 0 ? "" : `; prevented=${[...blocked].sort().join(", ")}`;
   const steps =
@@ -190,21 +207,25 @@ export const configuredPackConstraintBlockPlan = (args: {
             key: "pack:constraint-gate",
             readiness: "error" as const,
             label: "configured Pack constraint gate",
-            errorMessage: `Configured Pack constraints are unsatisfiable: ${deciding}`,
-            blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID],
+            errorMessage: `${reason}: ${deciding}`,
+            ...(constraintConflict
+              ? { blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID] }
+              : {}),
           },
         ]
       : [...blocked].sort().map((label) => ({
           key: `pack:${label}`,
           readiness: "error" as const,
           label,
-          errorMessage: `Configured Pack constraints are unsatisfiable: ${deciding}${affected}`,
-          blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID],
+          errorMessage: `${reason}: ${deciding}${affected}`,
+          ...(constraintConflict
+            ? { blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID] }
+            : {}),
         }));
   return {
     _tag: "Plan",
     name: `Block configured Pack ${args.operation}`,
-    description: Option.some("Configured Pack constraints cannot be satisfied together"),
+    description: Option.some(reason),
     presentation: operationPresentation(
       {
         imperative: args.operation,

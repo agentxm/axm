@@ -54,6 +54,7 @@ import { installedButNotConfiguredRule } from "./workspace/installed-but-not-con
 import { authoredPackageDeclaredRule } from "./workspace/authored-package-declared.js";
 import { installRootEntriesRecognizedRule } from "./workspace/install-root-entries-recognized.js";
 import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
+import { exposedAxmSkillCompatibleRule } from "./workspace/exposed-axm-skill-compatible.js";
 import { projectOutputsNotShadowedRule } from "./workspace/project-outputs-not-shadowed.js";
 import { userOutputsHaveSettingsRule } from "./workspace/user-outputs-have-settings.js";
 import { agentContentHasSettingsRule } from "./workspace/agent-content-has-settings.js";
@@ -117,6 +118,7 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,
+  exposedAxmSkillCompatibleRule,
   nativeOutputLinksResolveRule,
   nativeOutputsReadableRule,
   userOutputsHaveSettingsRule,
@@ -153,6 +155,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,
+  exposedAxmSkillCompatibleRule,
   nativeOutputLinksResolveRule,
   nativeOutputsReadableRule,
   userOutputsHaveSettingsRule,

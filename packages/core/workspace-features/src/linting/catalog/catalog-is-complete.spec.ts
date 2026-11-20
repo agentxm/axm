@@ -160,6 +160,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/authored-package-declared", "warning", workspaceView],
   ["workspace/install-root-entries-recognized", "warning", workspaceView],
   ["workspace/project-outputs-not-shadowed", "warning", workspaceView],
+  ["workspace/exposed-axm-skill-compatible", "warning", workspaceView],
   ["workspace/native-output-links-resolve", "warning", workspaceView],
   ["workspace/native-outputs-readable", "warning", workspaceView],
   ["workspace/user-outputs-have-settings", "warning", workspaceView],

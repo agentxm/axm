@@ -273,7 +273,17 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
 const localAssessment = (
   item: AssessedExtensionListItem,
   record: AcceptedEntry | undefined,
+  graph: DesiredStateGraph,
 ): ExtensionAssessment | undefined => {
+  if (
+    graph.nodes.some(
+      (node) => node.type === item.type && node.name === item.name && node.authority === "inline",
+    )
+  )
+    return {
+      state: "not-applicable",
+      reason: "Inline configuration has no external release; use axm sync to reconcile it.",
+    };
   if (item.installed === null)
     return {
       state: "unknown",
@@ -321,7 +331,7 @@ const assessItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
   const factory = yield* RegistryClientFactory;
   const assess = ({ item, record }: (typeof observations)[number]) =>
     Effect.gen(function* () {
-      const local = localAssessment(item, record);
+      const local = localAssessment(item, record, graph);
       if (local !== undefined) return local;
       if (filter === "outdated" && record !== undefined && isGitAcceptedEntry(record))
         return yield* gitAssessment(item, record);
@@ -338,7 +348,7 @@ const assessItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
       for (const observation of batch) {
         const { record, item } = observation;
         if (
-          localAssessment(item, record) !== undefined ||
+          localAssessment(item, record, graph) !== undefined ||
           record === undefined ||
           !isRegistryAcceptedEntry(record)
         ) {

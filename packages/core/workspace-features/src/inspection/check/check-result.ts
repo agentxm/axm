@@ -124,7 +124,9 @@ export const assessCapturedCheck = (
             (entry) => entry.type === subject.type && entry.name === subject.name,
           );
           if (observed === undefined || !observed.observed)
-            reasons.push(`Package content was not observed for ${subject.type}:${subject.name}`);
+            reasons.push(
+              `Package content was not observed for ${subject.type}:${subject.name}${observed?.manifestPath === undefined ? "" : ` at ${observed.manifestPath}`}. Inspect the package with axm show and restore readable content before checking again.`,
+            );
         }
       }
     } else {

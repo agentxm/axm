@@ -264,6 +264,9 @@ describe("root list", () => {
         expect(text).toContain("review");
         expect(text).toContain("unknown");
         expect(text).toContain("Extension index was not found");
+        expect(text).toContain("0 outdated extensions");
+        expect(text).toContain("1 unknown");
+        expect(text).toContain("checked 0/1");
       }),
     );
   });

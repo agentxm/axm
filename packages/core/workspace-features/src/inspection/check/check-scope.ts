@@ -11,6 +11,7 @@ export interface CheckContributorUnit {
   readonly id: string;
   readonly contributors: ReadonlyArray<CheckSubject>;
   readonly complete: boolean;
+  readonly incompleteReason?: string;
 }
 
 interface CheckScopeEntry extends CheckSubject {
@@ -106,7 +107,7 @@ export const expandCheckScope = (args: {
       if (!unit.complete) {
         incomplete.set(`unit:${unit.id}`, {
           source: unit.id,
-          reason: "Shared-output contributor evidence is incomplete",
+          reason: unit.incompleteReason ?? "Shared-output contributor evidence is incomplete",
         });
       }
       for (const contributor of unit.contributors) {

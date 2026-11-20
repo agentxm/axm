@@ -186,51 +186,71 @@ const typeGroupSubagentUpdate = (name: string) =>
   applyUpdate(configuredUpdateRequest({ type: "subagent", nameFilters: [name] }));
 
 for (const spelling of DECLARATION_SPELLINGS)
-  it.effect(`a targeted Pack update keeps its ${spelling} constraint and spelling`, () => {
-    const { workspace, registry, cleanup } = makeInstallWorld();
-    const dependencies = { "@acme/skills/member": "^1.0.0" };
-    registry.writeSkill("member", [{ version: "1.0.0", body: "Member guidance." }]);
-    registry.writePack("toolkit", [{ version: "1.0.0", dependencies }]);
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          workspace.writeFile(
-            "axm.json",
-            JSON.stringify(withRegistryAlias(readSettings(workspace), registry)),
-          );
-          yield* applyInstall(
-            installRequest({
-              type: "pack",
-              subject: {
-                kind: "source",
-                source: spelled("@acme/packs/toolkit@^1.0.0", spelling, registry.source.name),
-              },
-            }),
-          );
-          const settingsBefore = workspace.readFile("axm.json");
-          registry.writePack("toolkit", [
-            { version: "1.0.0", dependencies },
-            { version: "1.1.0", dependencies },
-            { version: "2.0.0", dependencies },
-          ]);
-          const request = targetedUpdateRequest({ source: "@acme/packs/toolkit" });
-          const before = workspace.snapshot();
-          expect(deriveOperationOutcome(expectResolved(yield* previewUpdate(request)))).toBe(
-            "previewed",
-          );
-          expect(workspace.snapshot()).toEqual(before);
-          const applied = expectResolved(yield* applyUpdate(request));
-          expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
-          expect(workspace.readFile("axm.lock")).toContain('version = "1.1.0"');
-          expect(workspace.readFile("axm.lock")).not.toContain('version = "2.0.0"');
-          expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-          const current = workspace.snapshot();
-          expect(deriveOperationOutcome(expectResolved(yield* applyUpdate(request)))).toBe("no-op");
-          expect(workspace.snapshot()).toEqual(current);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
-  });
+  for (const mode of ["targeted", "root", "typed"] as const)
+    for (const range of ["1.0.0", "^1.0.0", ">=1.0.0 <2.0.0"] as const)
+      it.effect(
+        `${mode} Pack update keeps its ${spelling} ${range} constraint and spelling`,
+        () => {
+          const { workspace, registry, cleanup } = makeInstallWorld();
+          const dependencies = { "@acme/skills/member": "^1.0.0" };
+          registry.writeSkill("member", [{ version: "1.0.0", body: "Member guidance." }]);
+          registry.writePack("toolkit", [{ version: "1.0.0", dependencies }]);
+          return workspace
+            .provide(
+              Effect.gen(function* () {
+                workspace.writeFile(
+                  "axm.json",
+                  JSON.stringify(withRegistryAlias(readSettings(workspace), registry)),
+                );
+                yield* applyInstall(
+                  installRequest({
+                    type: "pack",
+                    subject: {
+                      kind: "source",
+                      source: spelled(
+                        `@acme/packs/toolkit@${range}`,
+                        spelling,
+                        registry.source.name,
+                      ),
+                    },
+                  }),
+                );
+                const settingsBefore = workspace.readFile("axm.json");
+                registry.writePack("toolkit", [
+                  { version: "1.0.0", dependencies },
+                  { version: "1.1.0", dependencies },
+                  { version: "2.0.0", dependencies },
+                ]);
+                const request =
+                  mode === "targeted"
+                    ? targetedUpdateRequest({ source: "@acme/packs/toolkit" })
+                    : configuredUpdateRequest(
+                        mode === "typed" ? { type: "pack", nameFilters: ["toolkit"] } : {},
+                      );
+                const before = workspace.snapshot();
+                expect(deriveOperationOutcome(expectResolved(yield* previewUpdate(request)))).toBe(
+                  "previewed",
+                );
+                expect(workspace.snapshot()).toEqual(before);
+                const applied = expectResolved(yield* applyUpdate(request));
+                expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe(
+                  range === "1.0.0" ? "no-op" : "applied",
+                );
+                expect(workspace.readFile("axm.lock")).toContain(
+                  `version = "${range === "1.0.0" ? "1.0.0" : "1.1.0"}"`,
+                );
+                expect(workspace.readFile("axm.lock")).not.toContain('version = "2.0.0"');
+                expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+                const current = workspace.snapshot();
+                expect(deriveOperationOutcome(expectResolved(yield* applyUpdate(request)))).toBe(
+                  "no-op",
+                );
+                expect(workspace.snapshot()).toEqual(current);
+              }),
+            )
+            .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+        },
+      );
 
 it.effect(
   "a type-group subagent update preserves the declared range while advancing within it",

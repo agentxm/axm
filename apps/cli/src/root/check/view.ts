@@ -18,14 +18,18 @@ const groupedCondition = (
 ): ReadonlyArray<CalloutNode> =>
   lines.length === 0 ? [] : [conditionDoc({ tone, title, body: lines })];
 
-const coverageGaps = (result: LocalCheckDocument): ReadonlyArray<string> =>
-  result.assessments.flatMap((assessment) =>
-    assessment.coverage.state === "incomplete"
-      ? assessment.coverage.reasons.map((reason) => `${assessment.kind}: ${reason}`)
-      : assessment.coverage.state === "not-applicable"
-        ? [`${assessment.kind}: ${assessment.coverage.reason}`]
-        : [],
-  );
+const coverageGaps = (result: LocalCheckDocument): ReadonlyArray<string> => {
+  const gaps = new Map<string, Array<string>>();
+  for (const assessment of result.assessments) {
+    if (assessment.coverage.state !== "incomplete") continue;
+    for (const reason of assessment.coverage.reasons) {
+      const checks = gaps.get(reason) ?? [];
+      if (!checks.includes(assessment.kind)) checks.push(assessment.kind);
+      gaps.set(reason, checks);
+    }
+  }
+  return [...gaps].map(([reason, checks]) => `${checks.join(", ")}: ${reason}`);
+};
 
 const unresolvedSelections = (result: LocalCheckDocument): ReadonlyArray<string> =>
   result.selection.requests

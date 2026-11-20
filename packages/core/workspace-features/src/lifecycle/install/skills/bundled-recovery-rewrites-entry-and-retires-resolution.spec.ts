@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as nodePath from "node:path";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -21,14 +24,19 @@ import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { readSettings } from "../test-helpers.js";
 import { BundledAxmSkillAsset } from "@agentxm/extension-kinds/skills";
 import { bundledAxmSkillAsset } from "../../testing.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
+import {
+  applyInstall,
+  previewInstall,
+  installRequest,
+  makeInstallWorld,
+} from "../../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution",
   title:
     "Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution",
   statement:
-    "When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found.",
+    "When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found. An unowned native artifact shall be preserved even with --replace-unrecorded; refusal shall name the entry and resolved target, explain missing ownership proof, and direct the owner to preserve content and retire conflicting entries before previewing bundled installation. Owner cleanup shall permit supported recovery without deleting the former target.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "actionable-diagnostics"],
@@ -236,3 +244,46 @@ describe("Bundled official-skill recovery", () => {
     }),
   );
 });
+
+for (const replaceUnrecorded of [false, true])
+  it.effect(
+    `preserves unowned legacy links and recovers after owner cleanup (replace: ${replaceUnrecorded})`,
+    () => {
+      const { workspace, cleanup } = makeInstallWorld({ settings: { agents: ["claude-code"] } });
+      workspace.writeFile(
+        "legacy/axm/src/SKILL.md",
+        "---\nname: axm\ndescription: Legacy guidance\n---\nKeep this original.\n",
+      );
+      for (const dir of [".claude/skills", ".agents/skills"]) {
+        fs.mkdirSync(nodePath.join(workspace.root, dir), { recursive: true });
+        fs.symlinkSync("../../legacy/axm/src", nodePath.join(workspace.root, dir, "axm"));
+      }
+      const request = installRequest({ type: "skill", subject: { kind: "bundled" }, all: false });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = workspace.snapshot();
+            const preview = yield* previewInstall(request).pipe(Effect.result);
+            const detail = JSON.stringify(preview);
+            expect(detail).toContain("Preserved unowned skill artifact");
+            expect(detail).toContain("resolved target:");
+            expect(detail).toContain("No accepted source link or copy receipt");
+            expect(detail).toContain("without deleting its target");
+            expect(workspace.snapshot()).toEqual(before);
+            yield* applyInstall(request).pipe(Effect.result);
+            expect(workspace.snapshot()).toEqual(before);
+            // Explicit owner action, outside AXM's mutation authority, retires only links.
+            for (const dir of [".claude/skills", ".agents/skills"])
+              fs.unlinkSync(nodePath.join(workspace.root, dir, "axm"));
+            const recovered = yield* applyInstall(request);
+            expect(deriveOperationOutcome(recovered), JSON.stringify(recovered)).toBe("applied");
+            expect(workspace.readFile("legacy/axm/src/SKILL.md")).toContain("Keep this original.");
+          }),
+        )
+        .pipe(
+          Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded }),
+          Effect.provide(NodeServices.layer),
+          Effect.ensuring(Effect.sync(cleanup)),
+        );
+    },
+  );

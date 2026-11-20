@@ -32,7 +32,11 @@ import type {
   WorkspaceReadModel,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { AuthoredPackageObservation } from "./run/authored-packages.js";
-import type { AgentContentEntry, UserScopeObservation } from "./run/agent-scopes.js";
+import type {
+  AgentContentEntry,
+  UserScopeObservation,
+  ExposedOfficialSkill,
+} from "./run/agent-scopes.js";
 import type { OfficialAxmSkillAssessment } from "@agentxm/workspace-kernel/resolution";
 
 /**
@@ -99,6 +103,7 @@ export interface WorkspaceRuleContext {
   readonly authoredPackages?: Effect.Effect<ReadonlyArray<AuthoredPackageObservation>>;
   /** The user scope's agent outputs and settings readability; absent when it is the project itself. */
   readonly userScope?: Effect.Effect<UserScopeObservation>;
+  readonly exposedOfficialSkills?: ReadonlyArray<ExposedOfficialSkill>;
   /** Agent-native content in a project folder without workspace settings. */
   readonly agentContent?: Effect.Effect<ReadonlyArray<AgentContentEntry>>;
   /**

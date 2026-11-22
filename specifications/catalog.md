@@ -4242,6 +4242,21 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Additional evidence: process via [`apps/cli-e2e/src/publication-timeout.e2e.test.ts`](../apps/cli-e2e/src/publication-timeout.e2e.test.ts) — The compiled CLI uses its production five-minute publication deadline over a real socket. The server commits but never answers the PUT; independent arrival and publication journals distinguish readback settlement from replay.
 - Source: [`packages/core/workspace-features/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts`](../packages/core/workspace-features/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts)
 
+##### The authoritative preflight carries only what the uploads need
+
+- Requirement: `cli/publish/preflight-admits-only-pending-versions`
+- Owner: `workspace-features`
+- Statement: Publish shall ask the Registry to admit only the selected versions it would upload and the already published versions a publishing pack depends on, shall send no preflight when nothing remains to upload, and, when the Registry does not decide a preflight because of a retryable failure, shall report the pending versions with an exact publish command that retries only them.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files; a controlled HTTP port stands for the Registry so the preflight request itself is observed.
+- Methods: example
+- Derived from: `cli/publish/existing-versions-skip-before-preparation`, `docs/architecture/commands/publish.md`
+- Assumptions: A version the Registry already has was settled as a successful skip by its presence alone, so the Registry's admission of the remaining uploads does not depend on it unless a publishing pack reads its visibility.
+- Source: [`packages/core/workspace-features/src/publishing/preflight/preflight-admits-only-pending-versions.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/preflight-admits-only-pending-versions.spec.ts)
+
 ##### One failed publish preflight blocks the whole selection
 
 - Requirement: `cli/publish/preflight-blocks-the-whole-selection`

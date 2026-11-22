@@ -69,7 +69,7 @@ export const renderPublishFailure = (failure: PublishFailure | AuthError): StepF
   kernelFailureToStepFailure(failure);
 
 /** True when the request policy proved the failure worth retrying. */
-const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
+export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
   renderPublishFailure(failure).metadata?.requestPolicy?.retryable === true;
 
 /** The Registry problem code, when the failure carried one. */

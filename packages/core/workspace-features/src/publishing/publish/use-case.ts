@@ -97,6 +97,7 @@ import {
 
 import {
   aggregatePublishFailure,
+  isRetryablePublishFailure,
   publishCause,
   publishFailureLifecycleReason,
   type PublishFailure,
@@ -568,6 +569,9 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
           ? {}
           : { preview: authoritativeFailurePreview }),
       ...(authoritativeFailure === undefined ? {} : { blocked: authoritativeFailure }),
+      nothingToAdmit:
+        shouldPreviewAuthoritatively &&
+        !sourceAssessedCandidates.some((candidate) => candidate.action === "publish"),
     });
     const candidatesByTarget = new Map(
       candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
@@ -640,6 +644,17 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
       ...(authoritativeFailure === undefined ? [] : [authoritativeFailure]),
     ];
     if (allPreflightFailures.length > 0) {
+      // A preflight the Registry never decided — it timed out or was
+      // unavailable — leaves only the pending versions to retry, by name.
+      const pendingAfterRetryablePreflight =
+        preflightFailures.length === 0 &&
+        authoritativeFailure !== undefined &&
+        authoritativeFailurePreview === undefined &&
+        isRetryablePublishFailure(authoritativeFailure)
+          ? preflightResults
+              .filter((result) => result.status === "blocked")
+              .map((result) => result.id)
+          : [];
       const preparation: PublishPreparation = {
         _tag: "Settled",
         outcome: {
@@ -647,6 +662,15 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(
           selection: selectionOutput,
           publicationSet: publicationSetOutput,
           results: preflightResults,
+          ...(pendingAfterRetryablePreflight.length === 0
+            ? {}
+            : {
+                recovery: {
+                  description: "Retry publish for the versions the preflight left pending",
+                  remainingItems: pendingAfterRetryablePreflight,
+                  blockedDependents: [],
+                },
+              }),
           ...(authoritativeFailure === undefined
             ? {}
             : { failure: publishCause(authoritativeFailure) }),

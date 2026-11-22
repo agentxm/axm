@@ -150,6 +150,8 @@ interface CandidateVersion extends SelectedEntry {
  */
 interface ExistingVersionCandidate extends CandidateVersion {
   readonly action: "skip";
+  /** The visibility the Registry reported for the extension when presence was read. */
+  readonly existingVisibility?: ExtensionVisibility;
 }
 
 /** A selected version absent from the Registry, prepared for upload. */
@@ -912,7 +914,13 @@ export const prepareCandidateForAssessment = Effect.fn("axm.publish.prepareCandi
     index.value.versions.some((entry) => entry.version === manifest.version)
   ) {
     return {
-      candidate: { ...version, action: "skip" } satisfies ExistingVersionCandidate,
+      candidate: {
+        ...version,
+        action: "skip",
+        ...(index.value.visibility === undefined
+          ? {}
+          : { existingVisibility: index.value.visibility }),
+      } satisfies ExistingVersionCandidate,
       source: {},
     };
   }

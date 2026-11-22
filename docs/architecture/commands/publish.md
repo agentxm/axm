@@ -104,7 +104,12 @@ relaxes the pack's publication requirements.
 
 Preview and apply report three separate layers: local selection decisions, the
 Registry-admitted publication set, and execution outcomes. Preview is
-speculative; apply reconstructs and validates its own set. Once admitted, packs
+speculative; apply reconstructs and validates its own set. The Registry is asked
+to admit only the versions an invocation uploads and the already published
+versions a publishing pack depends on; other already published versions are
+settled skips and stay out of the request, and a selection with nothing to
+upload sends none. When the Registry cannot decide the preflight, the result
+names the pending versions to retry. Once admitted, packs
 wait only for included dependencies they reference. A failed dependency blocks
 those packs while independent candidates continue.
 
@@ -123,7 +128,7 @@ Publish gains no verification step after upload; its bounded readback settles
 only an ambiguous upload. Upload acknowledgement is a settlement of the publish
 invocation, not a verification finding, and a publication-set item with
 `participation: "verified-existing"` records only that the version was present
-at preview. Neither is archive verification. A caller who needs a durable
+when the selection was read. Neither is archive verification. A caller who needs a durable
 record of what a Registry holds runs `axm verify` and keeps its result; AXM
 writes no receipt file for it.
 

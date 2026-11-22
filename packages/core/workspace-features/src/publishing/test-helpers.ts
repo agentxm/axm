@@ -516,7 +516,54 @@ export interface RemotePublishWorldOptions {
   readonly ownerResponse?: (owner: string) => Response;
   /** Publish signed out; the default seeds a session for the remote Registry. */
   readonly signedOut?: boolean;
+  /** Versions the Registry already has, by fully qualified name; the default has none. */
+  readonly published?: Readonly<Record<string, string>>;
+  /** Answer the authoritative preview; the default admits every descriptor sent. */
+  readonly preview?: (request: HttpClientRequest.HttpClientRequest) => Effect.Effect<Response>;
 }
+
+/** A selection read against a Registry that has exactly the given versions. */
+const publishedSelectionResponse = (
+  request: HttpClientRequest.HttpClientRequest,
+  published: Readonly<Record<string, string>>,
+): Response => {
+  if (request.body._tag !== "Uint8Array") throw new Error("Expected encoded selection request");
+  const input = Schema.decodeUnknownSync(Schema.fromJsonString(ResolutionMetadataRequestSchema))(
+    new TextDecoder().decode(request.body.body),
+  );
+  return Response.json({
+    schemaVersion: 2,
+    purpose: "select",
+    selectionPolicyVersion: "1",
+    observedAt: "2026-11-13T12:00:00Z",
+    results: input.items.map(({ key, identity }) => {
+      const version = published[formatFqn(identity)];
+      return version === undefined
+        ? { key, outcome: "unavailable" }
+        : {
+            key,
+            outcome: "metadata",
+            page: {
+              publisherBindingId: "hbnd_example",
+              visibility: "private",
+              archival: null,
+              deprecation: null,
+              revision: "revision-one",
+              observedAt: "2026-11-13T12:00:00Z",
+              validUntil: "2026-11-13T12:01:00Z",
+              versions: [
+                {
+                  version,
+                  published: "2026-11-01T12:00:00Z",
+                  integrity: "sha512-published",
+                },
+              ],
+              continuation: null,
+            },
+          };
+    }),
+  });
+};
 
 /**
  * A publish world whose target is a remote Registry and whose person is signed
@@ -526,6 +573,7 @@ export interface RemotePublishWorldOptions {
 export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) => {
   const requests: Array<HttpClientRequest.HttpClientRequest> = [];
   const uploads: Array<HttpClientRequest.HttpClientRequest> = [];
+  const previewRequests: Array<PreviewPublicationSetRequest> = [];
   let previewed: PreviewPublicationSetRequest | undefined;
   const previewedSet = (): PreviewPublicationSetRequest => {
     if (previewed === undefined) throw new Error("Expected an authoritative publication preview");
@@ -619,13 +667,23 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
       }
       const url = new URL(request.url);
       if (request.method === "POST" && url.pathname === "/v1/resolutions") {
-        return HttpClientResponse.fromWeb(request, unpublishedSelectionResponse(request));
+        return HttpClientResponse.fromWeb(
+          request,
+          options.published === undefined
+            ? unpublishedSelectionResponse(request)
+            : publishedSelectionResponse(request, options.published),
+        );
       }
       if (request.method === "POST" && url.pathname === "/v1/publish-previews") {
         if (request.body._tag !== "Uint8Array") {
           throw new Error("Expected an encoded preview request body");
         }
-        const response = previewResponse(JSON.parse(new TextDecoder().decode(request.body.body)));
+        const body: unknown = JSON.parse(new TextDecoder().decode(request.body.body));
+        if (Schema.is(PreviewPublicationSetRequestSchema)(body)) previewRequests.push(body);
+        if (options.preview !== undefined) {
+          return HttpClientResponse.fromWeb(request, yield* options.preview(request));
+        }
+        const response = previewResponse(body);
         yield* options.beforePreviewResponse ?? Effect.void;
         return HttpClientResponse.fromWeb(request, response);
       }
@@ -672,8 +730,10 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
     uploads,
     /** The publication set the Registry previewed. */
     previewed: previewedSet,
+    /** Every publication set the run asked the Registry to preview, in order. */
+    previewRequests,
     /** How many authoritative previews the run asked the Registry for. */
-    previewCount: (): number => (previewed === undefined ? 0 : 1),
+    previewCount: (): number => previewRequests.length,
   };
 };
 

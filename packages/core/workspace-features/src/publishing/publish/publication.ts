@@ -201,8 +201,31 @@ const resolvedPublishPreview = (
       );
 
 /**
- * Ask the Registry to admit the complete publication set before any upload.
- * A blocked set fails here: no candidate in it is attempted.
+ * The candidates the Registry must evaluate to admit this invocation's
+ * uploads: every upload, and each already published version a publishing pack
+ * depends on, whose visibility the pack's admission reads. Any other already
+ * published version was settled as a skip by its presence alone, so sending it
+ * would only lengthen the preflight.
+ */
+const admissionCandidates = (
+  candidates: ReadonlyArray<PublishCandidate>,
+): ReadonlyArray<PublishCandidate> => {
+  const packDependencies = new Set(
+    candidates.flatMap((candidate) =>
+      candidate.action === "publish" && candidate.type === "pack"
+        ? Object.keys(candidate.dependencies ?? {})
+        : [],
+    ),
+  );
+  return candidates.filter(
+    (candidate) => candidate.action === "publish" || packDependencies.has(candidate.fqn),
+  );
+};
+
+/**
+ * Ask the Registry to admit the publication set before any upload. A blocked
+ * set fails here: no candidate in it is attempted. A selection with nothing to
+ * upload sends no request.
  */
 export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function* (
   candidates: ReadonlyArray<PublishCandidate>,
@@ -210,11 +233,15 @@ export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(f
   visibility: Option.Option<ExtensionVisibility>,
   workspaceDefaultVisibility: Option.Option<ExtensionVisibility>,
 ) {
+  const admitted = admissionCandidates(candidates);
   const publicationSet = yield* publicationSetForCandidates(
-    candidates,
+    admitted,
     visibility,
     workspaceDefaultVisibility,
   );
+  if (!admitted.some((candidate) => candidate.action === "publish")) {
+    return { candidates, publicationSet };
+  }
   const preview = yield* client.previewExtensionPublishes(publicationSet);
   if (preview.status === "blocked") {
     const packErrors = preview.packs.flatMap((pack) =>
@@ -249,8 +276,10 @@ export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(f
     resultsByTarget.set(key, result);
   }
 
+  const admittedTargets = new Set(admitted.map(publishTargetKey));
   const prepared: ReadonlyArray<PublishCandidate> = yield* Effect.forEach(candidates, (candidate) =>
     Effect.gen(function* () {
+      if (!admittedTargets.has(publishTargetKey(candidate))) return candidate;
       const result = resultsByTarget.get(publishTargetKey(candidate));
       const visibilityInput = visibilityByTarget.get(publishTargetKey(candidate));
       if (result === undefined || visibilityInput === undefined) {

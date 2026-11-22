@@ -19,6 +19,7 @@ import {
   unitIdOf,
   type OperationJournalState,
 } from "@agentxm/workspace-kernel/operations";
+import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry";
 
 import {
@@ -219,9 +220,7 @@ export const selectedResult = (
       phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
-      ...(candidate.publishPreview === undefined
-        ? {}
-        : { visibility: candidate.publishPreview.visibility }),
+      ...reportedVisibility(candidate),
     };
   }
   return {
@@ -288,10 +287,32 @@ export const failedCandidateResult = (
   ...(candidate.action === "publish" ? uploadEvidence(candidate) : {}),
 });
 
+/**
+ * The visibility a candidate reports: the Registry's preview when it was
+ * admitted, else — for a version it already has — the visibility the Registry
+ * reported when presence was read, which a skip preserves.
+ */
+const reportedVisibility = (
+  candidate: PublishCandidate,
+): { readonly visibility?: PublishVisibility } =>
+  candidate.publishPreview !== undefined
+    ? { visibility: candidate.publishPreview.visibility }
+    : candidate.action === "skip" && candidate.existingVisibility !== undefined
+      ? {
+          visibility: {
+            value: candidate.existingVisibility,
+            disposition: "preserve",
+            source: "existing",
+          },
+        }
+      : {};
+
 export const publicationSetResult = (options: {
   readonly candidates: ReadonlyArray<PublishCandidate>;
   readonly preview?: PreviewPublicationSetResponse;
   readonly blocked?: PublishFailure;
+  /** The preflight ran and found nothing to upload, so no Registry request was needed. */
+  readonly nothingToAdmit?: boolean;
 }): PublishPublicationSet => {
   const packResultsById = new Map(
     (options.preview?.packs ?? []).map((pack) => [publishItemId(pack.target), pack]),
@@ -314,9 +335,11 @@ export const publicationSetResult = (options: {
     status:
       options.blocked !== undefined
         ? "blocked"
-        : options.preview === undefined
-          ? "unavailable"
-          : options.preview.status,
+        : options.preview !== undefined
+          ? options.preview.status
+          : options.nothingToAdmit === true
+            ? "admitted"
+            : "unavailable",
     items: options.candidates.map((candidate, selectionOrder) => {
       const pack = packResultsById.get(candidate.fqn);
       const dependencyIds = Object.keys(candidate.dependencies ?? {});
@@ -341,9 +364,7 @@ export const publicationSetResult = (options: {
               Math.max(
                 ...dependencyIds.map((dependencyId) => candidateOrder.get(dependencyId) ?? -1),
               ),
-        ...(candidate.publishPreview === undefined
-          ? {}
-          : { visibility: candidate.publishPreview.visibility }),
+        ...reportedVisibility(candidate),
       };
     }),
     findings:

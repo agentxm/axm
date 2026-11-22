@@ -30,6 +30,17 @@ import { resolveProjectWorkspaceLayout } from "./layout.js";
 import type { LockEntry } from "./lock-entry.js";
 import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materialized-tree.js";
 
+/** Whether the temporary directory folds case, so a case-fold collision cannot be created there. */
+const tmpdirFoldsCase = ((): boolean => {
+  const probe = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-case-probe-"));
+  try {
+    nodeFs.writeFileSync(nodePath.join(probe, "probe"), "");
+    return nodeFs.existsSync(nodePath.join(probe, "PROBE"));
+  } finally {
+    nodeFs.rmSync(probe, { recursive: true, force: true });
+  }
+})();
+
 const otherIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"1".repeat(64)}`,
 );
@@ -210,7 +221,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("accepted canonical reu
     }),
   );
 
-  it.effect("hands over nothing when its walk failed", () =>
+  it.effect.skipIf(tmpdirFoldsCase)("hands over nothing when its walk failed", () =>
     Effect.gen(function* () {
       const { capture } = yield* observeDrifted((canonical) => {
         nodeFs.writeFileSync(nodePath.join(canonical, "src", "notes.md"), "a");

@@ -28,6 +28,17 @@ import {
 } from "../workspace-state/index.js";
 import { exactVersion, extensionName, handle } from "../workspace-state/testing.js";
 
+/** Whether the temporary directory folds case, so a case-fold collision cannot be created there. */
+const tmpdirFoldsCase = ((): boolean => {
+  const probe = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-case-probe-"));
+  try {
+    nodeFs.writeFileSync(nodePath.join(probe, "probe"), "");
+    return nodeFs.existsSync(nodePath.join(probe, "PROBE"));
+  } finally {
+    nodeFs.rmSync(probe, { recursive: true, force: true });
+  }
+})();
+
 class InjectedFailure extends Data.TaggedError("InjectedFailure")<{
   readonly detail: string;
 }> {}
@@ -755,7 +766,7 @@ describe("canonical publication work", () => {
     );
 
   for (const unsafe of [false, true])
-    it.effect(
+    it.effect.skipIf(unsafe && tmpdirFoldsCase)(
       unsafe
         ? "refuses an unsafe staged tree before comparing it with the expected tree"
         : "refuses a staged tree that differs from the expected tree before publication",

@@ -103,6 +103,13 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     group: "skill",
     views: bothViews,
   },
+  {
+    id: "skill/named-extensions-declared",
+    enabledByDefault: false,
+    defaultSeverity: "warning",
+    group: "skill",
+    views: bothViews,
+  },
   { id: "pack/manifest-present", defaultSeverity: "error", group: "pack", views: bothViews },
   {
     id: "pack/manifest-schema-valid",

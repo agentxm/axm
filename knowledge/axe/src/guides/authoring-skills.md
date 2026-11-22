@@ -40,7 +40,11 @@ the decisions that matter for this use case.
    Here the requested consumer check and the package artifact identify the job.
 3. Try a [neighboring intent](../patterns/neighboring-intent.md). A request to
    repair the link changes the deliverable and the authority required.
-4. [Route after inspection](../patterns/route-after-inspection.md) when the
+4. Check each extension the skill names. [Name a neighbor](../patterns/neighboring-intent.md#naming-a-neighbor)
+   only when the manifests declare the relationship; otherwise state the work
+   that differs. A link checker that defers to “the release skill” breaks in a
+   workspace that installs a different one.
+5. [Route after inspection](../patterns/route-after-inspection.md) when the
    procedure depends on the evidence supplied. An archive can establish whether
    a path exists. An excerpt warrants a narrower verdict.
 

@@ -2,7 +2,8 @@
  * `skill/*` rule catalog.
  *
  * Ordinary lint checks management obligations; the two frontmatter
- * conformance rules run only when explicitly configured:
+ * conformance rules and `skill/named-extensions-declared` run only when
+ * explicitly configured:
  *
  * | ID                                     | Severity | Autofix |
  * | -------------------------------------- | -------- | ------- |
@@ -14,6 +15,7 @@
  * | `skill/manifest-keys-recognized`       | error    | —       |
  * | `skill/standalone-declaration-valid`   | warning  | —       |
  * | `skill/recommended-packs-valid`        | warning  | —       |
+ * | `skill/named-extensions-declared`      | warning  | —       |
  *
  * The `skill.json` rules are the shared manifest envelope (`./skill/envelope.ts`),
  * interleaved with the skill content rules. They apply to native skills only;
@@ -31,6 +33,7 @@ import { skillMdPresentRule } from "./skill/skill-md-present.js";
 import { skillEnvelopeRules } from "./skill/envelope.js";
 import { frontmatterParseableRule } from "./skill/frontmatter-parseable.js";
 import { frontmatterStandardValidRule } from "./skill/frontmatter-standard-valid.js";
+import { namedExtensionsDeclaredRule } from "./skill/named-extensions-declared.js";
 
 /**
  * Ordered `skill/*` rule catalog. Declaration order is the evaluation
@@ -48,4 +51,5 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillEnvelopeRules.manifestKeysRecognized,
   skillEnvelopeRules.standaloneDeclarationValid,
   skillEnvelopeRules.recommendedPacksValid,
+  namedExtensionsDeclaredRule,
 ];

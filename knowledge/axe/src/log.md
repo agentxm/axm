@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-21
+
+- Added [Naming a neighbor](patterns/neighboring-intent.md#naming-a-neighbor): name another extension only when the manifests declare the relationship, and otherwise draw the boundary by the work that differs. The [skill authoring](guides/authoring-skills.md), [set](guides/extension-sets.md), and [README](guides/authoring-readme.md) guides link to it.
+
 ## 2026-11-19
 
 - Adopted `@agentxm/knowledge/axe` as the bundle identity. Existing concept IDs stay the same.

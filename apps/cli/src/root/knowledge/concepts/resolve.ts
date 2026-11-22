@@ -3,6 +3,8 @@ import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 
+import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-kernel/operations";
+
 import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeDiscovery,
@@ -61,6 +63,15 @@ export const handleKnowledgeConceptResolve = Effect.fnUntraced(function* (
     return yield* makeAppError({
       code: "not_found",
       detail: "No installed Knowledge concept matched the supplied reference",
+      ...("compactForm" in resolved && resolved.compactForm !== undefined
+        ? {
+            recover: `Separate the concept ID from its bundle with #: ${resolved.compactForm}`,
+            invocation: {
+              command: ["knowledge", "concepts", "resolve"],
+              arguments: [recoveryPositional(publicRecoveryValue(resolved.compactForm))],
+            },
+          }
+        : {}),
     });
   }
   const output = resolved.document;

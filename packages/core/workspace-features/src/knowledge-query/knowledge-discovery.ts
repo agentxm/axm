@@ -43,6 +43,29 @@ import {
 
 const decodeRevision = Schema.decodeUnknownResult(KnowledgeRevisionSchema);
 
+const pathStyleReference = /^(@[^/#]+\/knowledge\/[^/#]+)\/([^#]+)$/;
+
+/**
+ * The compact `#` reference a path-style input such as
+ * `@owner/knowledge/name/guides/topic` names, when that concept is installed.
+ * Only a syntactic correction of the same identity qualifies; similarly named
+ * concepts never do.
+ */
+const compactFormOfPathReference = (
+  snapshot: Parameters<typeof getKnowledgeIndexConcept>[0],
+  input: string,
+): string | undefined => {
+  const match = pathStyleReference.exec(input);
+  if (match === null) return undefined;
+  const compact = `${match[1]}#${match[2]}`;
+  const parsed = parseConceptRef(compact);
+  if (!Result.isSuccess(parsed)) return undefined;
+  return getKnowledgeIndexConcept(snapshot, parsed.success.bundle, parsed.success.conceptId) ===
+    undefined
+    ? undefined
+    : compact;
+};
+
 const conceptDocument = (
   indexed: KnowledgeIndexedConcept,
   raw: boolean,
@@ -173,9 +196,11 @@ export const KnowledgeDiscovery = {
       request.fuzzy === true,
     );
     if (resolved.outcome === "not-found") {
+      const compactForm = compactFormOfPathReference(captured.snapshot, request.input);
       return {
         outcome: "not-found",
         document: { outcome: "not-found" } satisfies KnowledgeConceptResolveOutput,
+        ...(compactForm === undefined ? {} : { compactForm }),
       } as const;
     }
     const document: KnowledgeConceptResolveOutput =

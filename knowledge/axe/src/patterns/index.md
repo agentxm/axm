@@ -6,7 +6,7 @@ Choose the decision you are making. Patterns from different groups can be used t
 
 - [Invocation policy](invocation-policy.md) — Choose who can start a skill based on who owns the timing and whether a named command is useful.
 - [Trigger cues](trigger-cues.md) — Describe the evidence a model can recognize when deciding whether to select a skill.
-- [Neighboring intent](neighboring-intent.md) — When requests share vocabulary, use the smallest difference in outcome, destination, or authority to choose the skill.
+- [Neighboring intent](neighboring-intent.md) — When requests share vocabulary, use the smallest difference in outcome, destination, or authority to choose the skill, and name a neighbor only when the manifests declare the relationship.
 
 ## How does the caller specify the work?
 

@@ -111,8 +111,8 @@ Choose an approach that fits the user's purpose, evidence, and authority.
 Prescribe a method when the outcome depends on it. Review alone is
 read-only; remediation includes assessment, authorized changes, and closure
 verification. Use the existing manager workflow for canonical ownership,
-scaffolding, workspace state, projections, and distribution. With AXM, compose
-with the `axm` skill and current CLI help for those operations.
+scaffolding, workspace state, projections, and distribution. With AXM, use its
+current CLI help for those operations.
 
 Report the selected routes, evidence, and material limits briefly. Follow the
 review guide for coverage, findings, and follow-up choices. Wait for the

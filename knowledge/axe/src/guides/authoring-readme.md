@@ -46,7 +46,8 @@ When companions are required, lead with the pack install command and explain
 what the companion supplies. For a standalone member, show how to use it
 directly and explain what installing the pack adds. In AXM, check both
 `standalone` and `recommendedPacks` in the member manifest. A recommended
-pack can include a member that also works independently.
+pack can include a member that also works independently. The same fields
+decide which extensions a skill's description and body [may name](../patterns/neighboring-intent.md#naming-a-neighbor).
 
 [^skills]: Anthropic Skills README, Claude Code example.
 

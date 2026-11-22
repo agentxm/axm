@@ -1481,6 +1481,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `apps/cli/src/root/version/command.ts`
 - Source: [`packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts`](../packages/core/workspace-features/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts)
 
+##### A skill names another extension only through a declared relationship
+
+- Requirement: `skills/lint/named-extensions-declared`
+- Owner: `extension-content`
+- Statement: When explicitly configured, AXM lint shall warn when a Skill's SKILL.md names a qualified extension identity other than its own that its manifest does not declare: a pack the manifest does not recommend, or any other extension when the manifest recommends no pack.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `knowledge/axe/src/patterns/neighboring-intent.md`
+- Assumptions: Membership of a recommended pack is not checked, because the lint run may not include that pack's manifest.
+- Source: [`packages/core/extension-content/src/lint/catalog/skill/named-extensions-declared.spec.ts`](../packages/core/extension-content/src/lint/catalog/skill/named-extensions-declared.spec.ts)
+
 #### Human factors
 
 ##### Authors can decide which files a release needs
@@ -1523,6 +1537,20 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: static, review
 - Assumptions: The engineering skill and knowledge bundle are available together.
 - Source: [`scripts/axe-extension-sets.spec.ts`](../scripts/axe-extension-sets.spec.ts)
+
+##### Authors learn when an extension may name another extension
+
+- Requirement: `extension-engineering/naming-neighbors-guidance`
+- Owner: `axm`
+- Statement: The engineering pack shall guide authors to name another extension only through a relationship the manifests declare, and otherwise to draw the boundary by the work that differs, from the skill authoring, extension set, and README guides.
+- Class: human-factors
+- Role: experience
+- Product goals: `authoring-and-creation`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The shipped pattern holds the rule and the guides an author follows link to it. Reading those routes does not exercise host skill selection.
+- Methods: static, review
+- Assumptions: The engineering skill and knowledge bundle are available together.
+- Source: [`scripts/axe-naming-neighbors.spec.ts`](../scripts/axe-naming-neighbors.spec.ts)
 
 ##### Callers can select a recommended or alternative remedy in one reply
 
@@ -2453,6 +2481,20 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-graph.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace-features/src/knowledge-query/graph/resolves-exact-reference.spec.ts`](../packages/core/workspace-features/src/knowledge-query/graph/resolves-exact-reference.spec.ts)
+
+##### A path-style reference to an installed concept suggests its compact form
+
+- Requirement: `cli/knowledge/concepts/suggests-compact-form-for-path-references`
+- Owner: `workspace-features`
+- Statement: When a concept reference writes its concept ID as a path after the bundle identity and that concept is installed, AXM shall still report not found and shall suggest the same identity in its compact # form.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge resolution discovers and reads authored documents from a native temporary workspace; the suggestion depends on the installed corpus, not on the reference's syntax alone.
+- Methods: example
+- Derived from: `apps/cli/src/root/knowledge/concepts/resolve.ts`
+- Source: [`packages/core/workspace-features/src/knowledge-query/index/suggests-compact-form-for-path-references.spec.ts`](../packages/core/workspace-features/src/knowledge-query/index/suggests-compact-form-for-path-references.spec.ts)
 
 ##### Knowledge lint reports source findings without changing content
 

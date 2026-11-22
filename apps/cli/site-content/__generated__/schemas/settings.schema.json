@@ -1004,6 +1004,7 @@
             "skill/manifest-keys-recognized": { "$ref": "#/definitions/LintRuleSeverity" },
             "skill/standalone-declaration-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "skill/recommended-packs-valid": { "$ref": "#/definitions/LintRuleSeverity" },
+            "skill/named-extensions-declared": { "$ref": "#/definitions/LintRuleSeverity" },
             "pack/manifest-present": { "$ref": "#/definitions/LintRuleSeverity" },
             "pack/manifest-schema-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "pack/manifest-keys-recognized": { "$ref": "#/definitions/LintRuleSeverity" },

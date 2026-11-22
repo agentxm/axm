@@ -278,6 +278,15 @@ const skillCases: ReadonlyArray<RuleConformanceCase<SkillRuleContext>> = [
     inapplicable: missingSkillManifestContext,
     location: "skill.json",
   },
+  {
+    ruleId: "skill/named-extensions-declared",
+    satisfied: validSkillContext,
+    violated: makeSkillContext({
+      skillMarkdown: `${validSkillMarkdown}\nDefer to \`@acme/skills/neighbor\`.\n`,
+    }),
+    inapplicable: missingSkillManifestContext,
+    location: "SKILL.md",
+  },
 ];
 registerConformance("skill", skillRules, skillCases);
 

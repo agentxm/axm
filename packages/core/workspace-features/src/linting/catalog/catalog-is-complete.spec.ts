@@ -57,6 +57,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["skill/manifest-keys-recognized", "error", bothViews],
   ["skill/standalone-declaration-valid", "warning", bothViews],
   ["skill/recommended-packs-valid", "warning", bothViews],
+  ["skill/named-extensions-declared", "warning", bothViews],
   ["pack/manifest-present", "error", bothViews],
   ["pack/manifest-schema-valid", "error", bothViews],
   ["pack/manifest-keys-recognized", "error", bothViews],

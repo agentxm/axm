@@ -27,6 +27,7 @@ import { resolutionBatches } from "./resolution-batches.js";
 import { indexFromMetadata } from "./selection-metadata.js";
 
 import * as Schema from "effect/Schema";
+import type * as SchemaAST from "effect/SchemaAST";
 import {
   sanitizeSuggestedAction,
   type SuggestedAction,
@@ -525,8 +526,7 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
         replaySafety: safe,
-        mapError: (error, nowMillis) =>
-          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+        mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
       },
     ).pipe(
       Effect.flatMap((response) => {
@@ -545,7 +545,7 @@ export const createRemoteRegistryClient = (
         }
         return mapToExtensionIndex(responseValue).pipe(
           Effect.map(Option.some),
-          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+          Effect.mapError((cause) => mapDiscoveryError(cause)),
         );
       }),
     );
@@ -575,7 +575,7 @@ export const createRemoteRegistryClient = (
             }
             return decodeExactExtensionVersion(response).pipe(
               Effect.map(Option.some),
-              Effect.mapError((error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY")),
+              Effect.mapError((error) => mapDiscoveryError(error)),
             );
           }),
           Effect.catch((error) =>
@@ -590,8 +590,7 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/${args.version}`,
         replaySafety: safe,
-        mapError: (error, nowMillis) =>
-          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+        mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
         policy: SETTLEMENT_READ_REQUEST_POLICY,
       },
     );
@@ -600,11 +599,7 @@ export const createRemoteRegistryClient = (
   /**
    * Map all discovery/read errors to typed registry failures.
    */
-  const mapDiscoveryError = (
-    e: unknown,
-    _prefix: string,
-    nowMillis?: number,
-  ): RegistryClientFailure => {
+  const mapDiscoveryError = (e: unknown, nowMillis?: number): RegistryClientFailure => {
     return mapFailure(
       e,
       {
@@ -615,6 +610,34 @@ export const createRemoteRegistryClient = (
       nowMillis,
     );
   };
+
+  /**
+   * Exchange an encoded payload with POST /v1/resolutions and decode the
+   * HTTP 200 evidence with the caller's response schema and options.
+   */
+  const postResolutions = <S extends Schema.Top>(
+    payload: typeof GeneratedRegistryClient.ResolutionsPostResolutionsRequestJson.Encoded,
+    responseSchema: S,
+    decodeOptions?: SchemaAST.ParseOptions,
+  ) =>
+    Effect.gen(function* () {
+      const [response, transport] = yield* client.ResolutionsPostResolutions({
+        payload,
+        config: { includeResponse: true },
+      });
+      if (transport.status !== 200)
+        return yield* new HttpClientError.HttpClientError({
+          reason: new HttpClientError.DecodeError({
+            request: transport.request,
+            response: transport,
+            description: "Resolution evidence requires HTTP 200",
+          }),
+        });
+      const encoded = yield* Schema.encodeEffect(
+        GeneratedRegistryClient.ResolutionsPostResolutions200,
+      )(response);
+      return yield* Schema.decodeUnknownEffect(responseSchema)(encoded, decodeOptions);
+    });
 
   const getResolutionMetadata = Effect.fnUntraced(function* (request: ResolutionMetadataRequest) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -628,22 +651,7 @@ export const createRemoteRegistryClient = (
                 Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostResolutionsRequestJson),
               ),
             );
-            const [response, transport] = yield* client.ResolutionsPostResolutions({
-              payload,
-              config: { includeResponse: true },
-            });
-            if (transport.status !== 200)
-              return yield* new HttpClientError.HttpClientError({
-                reason: new HttpClientError.DecodeError({
-                  request: transport.request,
-                  response: transport,
-                  description: "Resolution evidence requires HTTP 200",
-                }),
-              });
-            const encoded = yield* Schema.encodeEffect(
-              GeneratedRegistryClient.ResolutionsPostResolutions200,
-            )(response);
-            return yield* Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)(encoded);
+            return yield* postResolutions(payload, ResolutionMetadataResponseSchema);
           }),
           {
             operation: "read resolution metadata",
@@ -652,8 +660,7 @@ export const createRemoteRegistryClient = (
             method: "POST",
             path: "/v1/resolutions",
             replaySafety: safe,
-            mapError: (error, nowMillis) =>
-              mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+            mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
           },
         ),
       );
@@ -755,7 +762,7 @@ export const createRemoteRegistryClient = (
       summaries,
       (summary) =>
         decodeExtensionIdentity(summary).pipe(
-          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+          Effect.mapError((cause) => mapDiscoveryError(cause)),
           Effect.flatMap(getExtensionIndex),
         ),
       { concurrency: REGISTRY_READ_CONCURRENCY },
@@ -786,8 +793,7 @@ export const createRemoteRegistryClient = (
           method: "GET",
           path: `/v1/extensions/${owner}`,
           replaySafety: safe,
-          mapError: (error, nowMillis) =>
-            mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+          mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
         },
       ),
     );
@@ -812,8 +818,7 @@ export const createRemoteRegistryClient = (
           method: "GET",
           path: `/v1/extensions/${owner}/${toExtensionTypePlural(type)}`,
           replaySafety: safe,
-          mapError: (error, nowMillis) =>
-            mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+          mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
         },
       ),
     );
@@ -870,22 +875,7 @@ export const createRemoteRegistryClient = (
           executeRemoteRequest(
             Effect.gen(function* () {
               const payload = yield* Schema.encodeEffect(ExactContentRequestSchema)(submitted);
-              const [result, transport] = yield* client.ResolutionsPostResolutions({
-                payload,
-                config: { includeResponse: true },
-              });
-              if (transport.status !== 200)
-                return yield* new HttpClientError.HttpClientError({
-                  reason: new HttpClientError.DecodeError({
-                    request: transport.request,
-                    response: transport,
-                    description: "Resolution evidence requires HTTP 200",
-                  }),
-                });
-              const encoded = yield* Schema.encodeEffect(
-                GeneratedRegistryClient.ResolutionsPostResolutions200,
-              )(result);
-              return yield* Schema.decodeUnknownEffect(ExactContentResponseSchema)(encoded, {
+              return yield* postResolutions(payload, ExactContentResponseSchema, {
                 onExcessProperty: "error",
               });
             }),
@@ -896,8 +886,7 @@ export const createRemoteRegistryClient = (
               method: "POST",
               path: "/v1/resolutions",
               replaySafety: safe,
-              mapError: (error, nowMillis) =>
-                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+              mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
             },
           ),
         );
@@ -967,7 +956,7 @@ export const createRemoteRegistryClient = (
       }
 
       const index = yield* mapToExtensionIndex(indexResult).pipe(
-        Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+        Effect.mapError((cause) => mapDiscoveryError(cause)),
       );
       const entry = resolveVersionEntry(index.versions, args.version);
       if (Option.isNone(entry)) {
@@ -1457,8 +1446,7 @@ export const createRemoteRegistryClient = (
               method: "POST",
               path: "/v1/discovery",
               replaySafety: safe,
-              mapError: (error, nowMillis) =>
-                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+              mapError: (error, nowMillis) => mapDiscoveryError(error, nowMillis),
             },
           ),
         { concurrency: 1 },

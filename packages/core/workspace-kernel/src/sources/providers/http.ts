@@ -7,7 +7,7 @@ import type { HttpSource } from "@agentxm/extension-model/unstable/sources/types
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HttpArtifactSnapshot } from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { discoverConventionRefs } from "./convention-discovery.js";
-import { AcceptedSourceAcquisitions } from "./git.js";
+import { AcceptedSourceAcquisitions } from "../shared-acquisitions.js";
 import type {
   FindOptions,
   SourceHostProvider,

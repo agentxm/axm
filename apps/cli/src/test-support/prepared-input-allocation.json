@@ -14201,11 +14201,12 @@
           "evidence": {
             "tests": [
               "packages/core/workspace-features/src/lifecycle/update/configured.test.ts",
-              "packages/core/workspace-kernel/src/sources/providers/git.test.ts"
+              "packages/core/workspace-kernel/src/sources/shared-acquisitions.test.ts"
             ],
             "sources": [
               "packages/core/workspace-features/src/lifecycle/update/configured.ts",
-              "packages/core/workspace-kernel/src/sources/providers/git.ts"
+              "packages/core/workspace-kernel/src/sources/providers/git.ts",
+              "packages/core/workspace-kernel/src/sources/shared-acquisitions.ts"
             ]
           }
         },
@@ -14330,6 +14331,7 @@
             "sources": [
               "packages/core/workspace-kernel/src/sources/providers/git.ts",
               "packages/core/workspace-kernel/src/sources/providers/http.ts",
+              "packages/core/workspace-kernel/src/sources/shared-acquisitions.ts",
               "packages/core/workspace-kernel/src/resolution/pack-dependency-resolution.ts",
               "packages/core/workspace-features/src/lifecycle/install/accepted-request.ts"
             ]

@@ -14,7 +14,7 @@ platform eligibility, requires installation ownership before release selection,
 and decides the action shared by preview and application. It owns the
 `InstallationInspection` and `CliReleaseCatalog` contracts, the invocation
 directory, command evidence, and typed upgrade failures. The
-`./self-update/adapters/releases` implementation validates GitHub's latest-release
+`self-update/adapters/releases` implementation validates GitHub's latest-release
 redirect and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
 without HTTP, installation state, or a CLI. Native host implementations live

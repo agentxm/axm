@@ -33,9 +33,8 @@ import {
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
-  nativeConfigObservationReason,
 } from "../projection/index.js";
-import { NativeWriteAuthority } from "../agent-adapters/index.js";
+import { NativeWriteAuthority, nativeConfigObservationReason } from "../agent-adapters/index.js";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   DesiredStateReader,

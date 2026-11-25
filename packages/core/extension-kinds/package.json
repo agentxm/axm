@@ -51,11 +51,6 @@
       "axm-source": "./src/packs/index.ts",
       "default": "./dist/src/packs/index.js"
     },
-    "./packs/live": {
-      "types": "./dist/src/packs/live.d.ts",
-      "axm-source": "./src/packs/live.ts",
-      "default": "./dist/src/packs/live.js"
-    },
     "./live": {
       "types": "./dist/src/live.d.ts",
       "axm-source": "./src/live.ts",

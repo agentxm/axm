@@ -27,8 +27,8 @@ import {
   observeAgentOutputs,
   deriveAgentOutputAuthority,
   type AgentOutputObservation,
-  type NativeConfigObservationDiagnostic,
 } from "@agentxm/workspace-kernel/projection";
+import type { NativeConfigObservationDiagnostic } from "@agentxm/workspace-kernel/agent-adapters";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";

@@ -9,10 +9,10 @@ import {
   observeAgentOutputs,
   captureAgentOutputAuthority,
   nativePackageReferences,
-  nativeConfigObservationReason,
   type AgentOutputInventory,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
+import { nativeConfigObservationReason } from "../agent-adapters/index.js";
 import {
   acceptedCanonicalObservation,
   LockfileReader,

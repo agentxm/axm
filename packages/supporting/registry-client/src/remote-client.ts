@@ -36,7 +36,6 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import {
-  toAuthor,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   type ExtensionName,
@@ -53,7 +52,6 @@ import {
   type AgentExtensionRecommendation,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import {
-  packagesToPackageUrlParts,
   ExtensionIndexSchema,
   type ExtensionIndex,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
@@ -73,6 +71,7 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionLifecycleWarnings } from "./utils.js";
+import { pageScopeResults, registryManifestFromIndex } from "./registry-manifest.js";
 import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { collectResolutionMetadataPages } from "./resolution-metadata-pages.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
@@ -99,7 +98,6 @@ import type {
   PublishPreviewResult,
   RegistryClient,
   AccessibleContent,
-  RegistryExtensionManifest,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 import { isRegistryClientError, hasTagSuffix, getTag } from "./error-mapping.js";
@@ -325,40 +323,6 @@ const mapToExtensionIndex = Effect.fnUntraced(function* (response: ExtensionsGet
     versions,
   });
 });
-
-/**
- * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.
- */
-const toRegistryManifest = (
-  index: ExtensionIndex,
-  versionRange: Option.Option<string>,
-): Option.Option<RegistryExtensionManifest> => {
-  const selected = resolveVersionEntry(index.versions, versionRange);
-  if (Option.isNone(selected)) return Option.none();
-
-  const latest = selected.value;
-  const lifecycleWarnings = extensionLifecycleWarnings(index, latest);
-
-  return Option.some({
-    owner: index.owner,
-    type: index.type,
-    name: index.name,
-    publisherBindingId: index.publisherBindingId,
-    ...(index.visibility === undefined ? {} : { visibility: index.visibility }),
-    description: Option.fromUndefinedOr(index.description),
-    repository: Option.fromUndefinedOr(index.repository),
-    bugs: Option.fromUndefinedOr(index.bugs),
-    license: Option.fromUndefinedOr(index.license),
-    authors: index.authors === undefined ? [] : index.authors.map((author) => toAuthor(author)),
-    dependencies: latest.dependencies ?? {},
-    version: latest.version,
-    integrity: latest.integrity,
-    packages: packagesToPackageUrlParts(latest.packages),
-    ...(index.archival === null ? {} : { archival: index.archival }),
-    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
-    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-  });
-};
 
 // -----------------------------------------------------------------------------
 // Remote Registry Client
@@ -743,23 +707,12 @@ export const createRemoteRegistryClient = (
     }
 
     const indexed = allIndexes.flatMap((index) =>
-      Option.match(toRegistryManifest(index, Option.none()), {
+      Option.match(registryManifestFromIndex(index, Option.none()), {
         onNone: () => [],
         onSome: (manifest) => [{ index, manifest }],
       }),
     );
-    const total = indexed.length;
-    const sliced = indexed.slice(args.offset);
-    const page = Option.match(args.limit, {
-      onNone: () => sliced,
-      onSome: (limit) => sliced.slice(0, limit),
-    });
-
-    return {
-      extensions: page.map(({ manifest }) => manifest),
-      indexes: page.map(({ index }) => index),
-      total,
-    };
+    return pageScopeResults(indexed, args.offset, args.limit);
   });
 
   const getListModeExtensions = Effect.fnUntraced(function* (

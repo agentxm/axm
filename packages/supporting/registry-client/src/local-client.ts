@@ -25,7 +25,6 @@ import { VerifiedArchive } from "./verified-archive.js";
 import type {
   AccessibleContent,
   RegistryClient,
-  RegistryExtensionManifest,
   GetExtensionPackageArgs,
   GetExtensionsByOwnerArgs,
   GetExtensionIndexArgs,
@@ -35,15 +34,12 @@ import type {
   PublishExtensionArgs,
   UpdateExtensionVisibilityArgs,
   ExtensionExistsArgs,
-  GetExtensionsByOwnerResponse,
   PreviewExtensionPublishesArgs,
   DiscoverPackagesArgs,
   PublishPreviewResult,
 } from "./client.js";
 import {
   ExtensionFqnSchema,
-  toAuthor,
-  type Author,
   type ExtensionType,
   type ExtensionVisibility,
 } from "@agentxm/extension-model/unstable/extensions";
@@ -71,6 +67,11 @@ import {
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { extensionDir, extensionLifecycleWarnings } from "./utils.js";
+import {
+  pageScopeResults,
+  registryManifestFromIndex,
+  type IndexedManifest,
+} from "./registry-manifest.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type {
   PublishVisibility,
@@ -308,49 +309,11 @@ const readExtensionIndex = Effect.fnUntraced(function* (
   );
 });
 
-const indexToManifest = (
-  index: ExtensionIndex,
-  versionRange: Option.Option<string>,
-): Option.Option<RegistryExtensionManifest> => {
-  const selectedVersion = resolveVersionEntry(index.versions, versionRange);
-  if (Option.isNone(selectedVersion)) return Option.none();
-
-  const ver = selectedVersion.value;
-  const lifecycleWarnings = extensionLifecycleWarnings(index, ver);
-  return Option.some({
-    owner: index.owner,
-    type: index.type,
-    name: index.name,
-    publisherBindingId: index.publisherBindingId,
-    ...(index.visibility === undefined ? {} : { visibility: index.visibility }),
-    description: Option.fromUndefinedOr(index.description),
-    repository: Option.fromUndefinedOr(index.repository),
-    bugs: Option.fromUndefinedOr(index.bugs),
-    license: Option.fromUndefinedOr(index.license),
-    authors: Option.match(Option.fromUndefinedOr(index.authors), {
-      onNone: (): ReadonlyArray<Author> => [],
-      onSome: (authors) => authors.map((author) => toAuthor(author)),
-    }),
-    dependencies: ver.dependencies ?? {},
-    version: ver.version,
-    integrity: ver.integrity,
-    packages: packagesToPackageUrlParts(ver.packages),
-    ...(index.archival === null ? {} : { archival: index.archival }),
-    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
-    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-  } satisfies RegistryExtensionManifest);
-};
-
 /**
  * Process a single name directory within a registry owner/type directory.
  * Reads the index.json, validates it, and selects a matching version.
  * Returns the selected manifest with the index read for it, or None.
  */
-interface IndexedManifest {
-  readonly index: ExtensionIndex;
-  readonly manifest: RegistryExtensionManifest;
-}
-
 const processNameDir = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -364,7 +327,10 @@ const processNameDir = Effect.fnUntraced(function* (
   if (!idxExists) return Option.none();
 
   const index = yield* readExtensionIndex(fs, idxPath);
-  return Option.map(indexToManifest(index, versionRange), (manifest) => ({ index, manifest }));
+  return Option.map(registryManifestFromIndex(index, versionRange), (manifest) => ({
+    index,
+    manifest,
+  }));
 });
 
 const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
@@ -823,23 +789,13 @@ export const createLocalRegistryClient = (
             .filter((index) => args.types.length === 0 || args.types.includes(index.type))
             .filter((index) => args.names.length === 0 || args.names.includes(index.name))
             .map((index) =>
-              Option.map(indexToManifest(index, Option.none()), (manifest) => ({
+              Option.map(registryManifestFromIndex(index, Option.none()), (manifest) => ({
                 index,
                 manifest,
               })),
             ),
         );
-        const total = indexed.length;
-        const sliced = indexed.slice(args.offset);
-        const page = Option.match(args.limit, {
-          onNone: () => sliced,
-          onSome: (l) => sliced.slice(0, l),
-        });
-        return {
-          extensions: page.map(({ manifest }) => manifest),
-          indexes: page.map(({ index }) => index),
-          total,
-        } satisfies GetExtensionsByOwnerResponse;
+        return pageScopeResults(indexed, args.offset, args.limit);
       }
 
       const requestedTypes: ReadonlyArray<ExtensionType> =
@@ -877,19 +833,7 @@ export const createLocalRegistryClient = (
         { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
       ).pipe(Effect.map(Array.getSomes));
 
-      const total = all.length;
-      const offset = args.offset;
-      const sliced = all.slice(offset);
-      const page = Option.match(args.limit, {
-        onNone: () => sliced,
-        onSome: (l) => sliced.slice(0, l),
-      });
-
-      return {
-        extensions: page.map(({ manifest }) => manifest),
-        indexes: page.map(({ index }) => index),
-        total,
-      } satisfies GetExtensionsByOwnerResponse;
+      return pageScopeResults(all, args.offset, args.limit);
     }),
 
     ownerExists: Effect.fnUntraced(function* (owner: Parameters<RegistryClient["ownerExists"]>[0]) {

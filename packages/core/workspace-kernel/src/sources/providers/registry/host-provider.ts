@@ -26,6 +26,8 @@ import {
   RegistryClientFactory,
   RegistryOperationFailed,
   extensionLifecycleWarnings,
+  registryManifestForVersion,
+  registryManifestFromIndex,
   VerifiedArchive,
   withBufferedArchiveBudget,
   type RegistryClient,
@@ -33,14 +35,9 @@ import {
   type GetExtensionPackageArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
-import {
-  packagesToPackageUrlParts,
-  type ExtensionIndex,
-  type VersionEntry,
-} from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
-import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import {
   SourceNetworkFailure,
   SourceNotResolvable,
@@ -51,7 +48,6 @@ import {
   decodeExtensionNameSync,
   ExtensionNameSchema,
   toExtensionTypePlural,
-  toAuthor,
   type Author,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
@@ -127,56 +123,19 @@ const getSupportedExtensionRefs = (
 ): ReadonlyArray<ExtensionRef> =>
   Array.getSomes(entries.map((entry) => toExtensionRef(entry, source)));
 
-const needsIndexBackedResolution = (options: FindOptions): boolean =>
-  Option.isSome(options.versionRange);
-
 /**
  * An index-backed find is an attended request for whatever the range names:
  * release-age admission belongs to named resolution, which every unattended
  * route reaches through `resolveNamedRegistry`.
  */
-const manifestFromIndex = (
-  index: ExtensionIndex,
-  versionRange: Option.Option<string>,
-): Option.Option<RegistryExtensionManifest> =>
-  Option.map(resolveVersionEntry(index.versions, versionRange), (version) =>
-    manifestForVersion(index, version),
-  );
+const needsIndexBackedResolution = (options: FindOptions): boolean =>
+  Option.isSome(options.versionRange);
 
 const namedTarget = (options: NamedRegistryFindOptions): string =>
   `${options.owner}/${toExtensionTypePlural(options.type)}/${options.name}`;
 
 const isOfficialAxmSkill = (options: NamedRegistryFindOptions): boolean =>
   options.type === "skill" && options.owner === "@agentxm" && options.name === "axm";
-
-const manifestForVersion = (
-  index: ExtensionIndex,
-  version: VersionEntry,
-): RegistryExtensionManifest => {
-  const lifecycleWarnings = extensionLifecycleWarnings(index, version);
-  return {
-    owner: index.owner,
-    type: index.type,
-    name: index.name,
-    publisherBindingId: index.publisherBindingId,
-    ...(index.visibility === undefined ? {} : { visibility: index.visibility }),
-    description: Option.fromUndefinedOr(index.description),
-    repository: Option.fromUndefinedOr(index.repository),
-    bugs: Option.fromUndefinedOr(index.bugs),
-    license: Option.fromUndefinedOr(index.license),
-    authors: Option.match(Option.fromUndefinedOr(index.authors), {
-      onNone: (): ReadonlyArray<Author> => [],
-      onSome: (authors) => authors.map((author) => toAuthor(author)),
-    }),
-    dependencies: version.dependencies ?? {},
-    version: version.version,
-    integrity: version.integrity,
-    packages: packagesToPackageUrlParts(version.packages),
-    ...(index.archival === null ? {} : { archival: index.archival }),
-    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
-    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-  };
-};
 
 /** The index entry a policy decision names; the decision came from this index. */
 const entryForVersion = (
@@ -201,7 +160,7 @@ const probeAxmSkillCompatibility = Effect.fnUntraced(function* (
   index: ExtensionIndex,
   version: VersionEntry,
 ) {
-  const manifest = manifestForVersion(index, version);
+  const manifest = registryManifestForVersion(index, version);
   const ref = toExtensionRef(manifest, source);
   if (Option.isNone(ref) || ref.value.type !== "skill") {
     return yield* new SourceNotResolvable({
@@ -386,7 +345,7 @@ const resolveNamedFromClient = Effect.fnUntraced(function* (
   }
 
   const version = yield* entryForVersion(index, decision.version, target);
-  const manifest = manifestForVersion(index, version);
+  const manifest = registryManifestForVersion(index, version);
   const ref = toExtensionRef(manifest, source);
   if (Option.isNone(ref)) {
     return yield* new SourceNotResolvable({
@@ -462,7 +421,7 @@ const findWithVersionRange = (
             toRegistrySearchOptions(owner, options),
           );
           const resolved = result.indexes.map((index) =>
-            manifestFromIndex(index, options.versionRange),
+            registryManifestFromIndex(index, options.versionRange),
           );
 
           return getSupportedExtensionRefs(Array.getSomes(resolved), source);
@@ -491,7 +450,9 @@ const findWithVersionRange = (
                                 onNone: () =>
                                   Effect.succeed(Option.none<RegistryExtensionManifest>()),
                                 onSome: (index) =>
-                                  Effect.succeed(manifestFromIndex(index, options.versionRange)),
+                                  Effect.succeed(
+                                    registryManifestFromIndex(index, options.versionRange),
+                                  ),
                               }),
                             ),
                           ),

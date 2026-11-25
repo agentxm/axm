@@ -84,6 +84,7 @@ export {
 
 // Utilities
 export { extensionLifecycleWarnings } from "./utils.js";
+export { registryManifestForVersion, registryManifestFromIndex } from "./registry-manifest.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export {

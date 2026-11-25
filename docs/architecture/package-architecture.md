@@ -335,14 +335,12 @@ cleanup. A metadata failure preserves the verified new executable and its backup
 acceptance releases the backup. A failed verification after restoration identifies
 the restored executable, rather than claiming the consumed backup still exists.
 
-`cli-update` retains its current placement while native inspection and the
-remaining preview/progress bindings are separated. Its installer adapters own
-command grammar, process execution, response decoding, downloads, and filesystem
-resources; composition selects those adapters and metadata storage. Package and
-script execution can both run without host services, but the combined preview and
-upgrade entry still selects native recovery guidance.
-The remaining operation-vocabulary dependency does not make self-update
-strategically core.
+Installer adapters own command grammar, process execution, response decoding,
+downloads, and filesystem resources; `self-update/composition/native` selects
+those adapters and metadata storage. Preview and upgrade reach native inspection through
+`InstallationInspection`, recovery guidance through `InstallerInstructions`, and
+progress through `UpgradeExecutionObserver`. Package and script execution both
+run without host services.
 
 The kernel order is enforced, so the graph between packages and slices is
 small:
@@ -481,9 +479,9 @@ services.
 `packages/generic/` — `domain:generic`. They may depend only on other generic
 packages; every strategic tier may import them subject to the role matrix.
 
-| Package                    | Role              | Owns                                                                                                                                                                                                                                                                                                                                                          |
-| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, filesystem absence reads, SRI digests, credential redaction, the file-location codec, lexical path containment, process-environment readers, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
+| Package                    | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, filesystem absence reads, SRI digests, credential redaction, the file-location codec, lexical path containment, process-environment readers, network-disabled invocation policy, the Git child-process environment boundary, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
 
 The `@agentxm/host-primitives/work-observation` entry is a shared application
 API for reporting bounded work facts and selecting diagnostic detail. It owns

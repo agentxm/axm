@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { fromFileLocation, redactCredentialText } from "@agentxm/host-primitives";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { resolveHookImplementation } from "@agentxm/extension-model/unstable/hooks/resolution";
@@ -51,29 +51,13 @@ import {
   WorkspaceReadViews,
   type TreeIntegrity,
 } from "../../workspace-state/index.js";
-
-/** Visit decoded declarations only. Environment references remain symbolic. */
-export const secretReferences = (value: unknown): string[] => {
-  if (typeof value !== "object" || value === null) return [];
-  if (Array.isArray(value)) return value.flatMap(secretReferences);
-  return Object.entries(value).flatMap(([key, child]) =>
-    key === "env" && typeof child === "string" ? [child] : secretReferences(child),
-  );
-};
-
-export const destination = (value: unknown): string => {
-  if (typeof value !== "string") return "symbolic endpoint";
-  try {
-    const url = new URL(value);
-    url.username = "";
-    url.password = "";
-    url.search = "";
-    url.hash = "";
-    return redactCredentialText(url.href);
-  } catch {
-    return "endpoint unavailable";
-  }
-};
+import {
+  describeExecutionSource,
+  describeHookBindings,
+  describeMcpConnection,
+  destination,
+  secretReferences,
+} from "./execution-declaration.js";
 
 /** Input requests of a Hook's accepted configuration and the bindings its targets select. */
 const hookReferences = (
@@ -380,21 +364,9 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                     Option.some(hookReferences(reviewed, accepted, targets, location.scope)),
                   );
                 }
-                for (const agent of targets) {
-                  if (!isConfigurableAgentId(agent)) continue;
-                  const selection = resolveHookImplementation(manifest, agent, {
-                    scope: location.scope,
-                    platform: platform(),
-                  });
-                  if (selection.status !== "selected" && selection.status !== "conditional")
-                    continue;
-                  for (const binding of selection.implementation.bindings) {
-                    details.push(
-                      `${agent}: ${binding.event}, ${binding.handler.runtime} ${binding.handler.entrypoint}`,
-                    );
-                    symbolic.push(...secretReferences(binding.handler));
-                  }
-                }
+                const hook = describeHookBindings(manifest, targets, location.scope);
+                details.push(...hook.details);
+                symbolic.push(...hook.references);
                 symbolic.push(...secretReferences(configured));
               } else {
                 const proposed = step.executionPreferences?.find(
@@ -462,31 +434,14 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
                       detail:
                         "MCP execution cannot be resolved for review; configure its required inputs.",
                     });
-                  const connection = invocation.connection;
                   configured = {
                     distribution: invocation.distribution,
                     bindings: preference?.bindings,
                     auth: preference?.auth,
                   };
-                  details.push(
-                    connection.transport === "stdio"
-                      ? `stdio: ${redactCredentialText(connection.command)}`
-                      : `${connection.transport}: ${destination(connection.url)}`,
-                  );
-                  const distribution = selectMcpDistribution({
-                    manifest,
-                    selector: invocation.distribution,
-                  });
-                  if (
-                    distribution._tag !== "blocked" &&
-                    distribution.candidate.kind === "package"
-                  ) {
-                    const pkg = distribution.candidate.package;
-                    details.push(
-                      `${pkg.registryType}: ${redactCredentialText(pkg.identifier)}${pkg.version === undefined ? " (version unspecified)" : `@${pkg.version}`}`,
-                    );
-                  }
-                  symbolic = secretReferences(connection);
+                  const connection = describeMcpConnection(manifest, invocation);
+                  details.push(...connection.details);
+                  symbolic = connection.references;
                 }
               }
               const unchangedRegistration =
@@ -584,14 +539,7 @@ const reviewExposure = Effect.fnUntraced(function* (plan: Plan<unknown, unknown>
               return {
                 extensionType: ref.type,
                 name,
-                source:
-                  ref.refType === "registry"
-                    ? `${ref.source.location.href} ${ref.owner}/${ref.name}@${ref.version}`
-                    : ref.refType === "git-hosted"
-                      ? `Git ${destination(ref.source.url.href)}@${ref.gitCommitSha}`
-                      : ref.refType === "http"
-                        ? `HTTPS ${destination(ref.source.url.href)}`
-                        : "local external package",
+                source: describeExecutionSource(ref),
                 contentIdentity: `${tree}; configuration-sha256:${configurationIdentity}`,
                 targets,
                 registrations,

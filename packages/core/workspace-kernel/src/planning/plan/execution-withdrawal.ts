@@ -1,17 +1,15 @@
-import { platform } from "node:os";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { redactCredentialText } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
-import { resolveHookImplementation } from "@agentxm/extension-model/unstable/hooks/resolution";
+import {
+  manifestFilenameForType,
+  type ExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import {
   decodeMcpServerManifestAt,
   readPluginMcpDefinition,
   resolveMcpInvocation,
-  selectMcpDistribution,
 } from "../../agent-adapters/index.js";
 import type { ExecutionChange, JobStepArtifact, Plan } from "../../operations/index.js";
 import {
@@ -22,7 +20,13 @@ import {
   SettingsReader,
   WorkspaceLocation,
 } from "../../workspace-state/index.js";
-import { destination, secretReferences } from "./execution-exposure.js";
+import {
+  describeExecutionSource,
+  describeHookBindings,
+  describeMcpConnection,
+  destination,
+  secretReferences,
+} from "./execution-declaration.js";
 
 export interface ExecutionWithdrawalSubject {
   readonly type: ExtensionType;
@@ -134,13 +138,7 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
   );
   const source = Option.isNone(ref)
     ? "Accepted source details unavailable"
-    : ref.value.refType === "registry"
-      ? `${ref.value.source.location.href} ${ref.value.owner}/${ref.value.name}@${ref.value.version}`
-      : ref.value.refType === "git-hosted"
-        ? `Git ${destination(ref.value.source.url.href)}@${ref.value.gitCommitSha}`
-        : ref.value.refType === "http"
-          ? `HTTPS ${destination(ref.value.source.url.href)}`
-          : "local external package";
+    : describeExecutionSource(ref.value);
   const declaration = yield* Effect.gen(function* () {
     if (
       Option.isNone(canonical) ||
@@ -153,20 +151,9 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
       const { manifest } = yield* readExtensionManifest(canonical.value, "hook");
       const location = yield* WorkspaceLocation;
       references = secretReferences((yield* settings.entries("hook"))[subject.name]?.configuration);
-      for (const agent of targets) {
-        if (!isConfigurableAgentId(agent)) continue;
-        const selection = resolveHookImplementation(manifest, agent, {
-          scope: location.scope,
-          platform: platform(),
-        });
-        if (selection.status !== "selected" && selection.status !== "conditional") continue;
-        for (const binding of selection.implementation.bindings) {
-          details.push(
-            `${agent}: ${binding.event}, ${binding.handler.runtime} ${binding.handler.entrypoint}`,
-          );
-          references.push(...secretReferences(binding.handler));
-        }
-      }
+      const hook = describeHookBindings(manifest, targets, location.scope);
+      details.push(...hook.details);
+      references.push(...hook.references);
     } else {
       const preference = (yield* settings.entries("mcp-server"))[subject.name];
       if (preference?.nativeComponent !== undefined) {
@@ -177,23 +164,14 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
         if (definition.kind !== "remote") return undefined;
         details.push(`${definition.transport}: ${destination(definition.url)}`);
       } else {
-        const manifest = yield* decodeMcpServerManifestAt(path.join(canonical.value, "mcp.json"));
+        const manifest = yield* decodeMcpServerManifestAt(
+          path.join(canonical.value, manifestFilenameForType("mcp-server")),
+        );
         const invocation = resolveMcpInvocation({ manifest, ...preference });
         if (invocation._tag === "blocked") return undefined;
-        const connection = invocation.connection;
-        details.push(
-          connection.transport === "stdio"
-            ? `stdio: ${redactCredentialText(connection.command)}`
-            : `${connection.transport}: ${destination(connection.url)}`,
-        );
-        const distribution = selectMcpDistribution({ manifest, selector: invocation.distribution });
-        if (distribution._tag !== "blocked" && distribution.candidate.kind === "package") {
-          const pkg = distribution.candidate.package;
-          details.push(
-            `${pkg.registryType}: ${redactCredentialText(pkg.identifier)}${pkg.version === undefined ? " (version unspecified)" : `@${pkg.version}`}`,
-          );
-        }
-        references = secretReferences(connection);
+        const connection = describeMcpConnection(manifest, invocation);
+        details.push(...connection.details);
+        references = connection.references;
       }
     }
     return { details, references: [...new Set(references)].sort() };

@@ -513,6 +513,46 @@ const emptyCredentialFile: CredentialFile = {
   registries: {},
 };
 
+/** Saving an account deactivates every other account for the registry. */
+const activateAccount = (
+  registry: RegistryAccounts | undefined,
+  handle: Handle,
+  credentials: Parameters<CredentialStoreService["save"]>[2],
+): RegistryAccounts => {
+  const registryEntry = registry ?? { accounts: {} };
+  const updatedAccounts: Record<string, CredentialEntry> = {};
+  for (const [h, entry] of Object.entries(registryEntry.accounts)) {
+    if (entry !== undefined) {
+      updatedAccounts[h] = { ...entry, active: false };
+    }
+  }
+  updatedAccounts[handle] = {
+    access_token: credentials.access_token,
+    refresh_token: credentials.refresh_token,
+    expires_at: credentials.expires_at,
+    active: true,
+  };
+  return { accounts: updatedAccounts };
+};
+
+/** Loading returns the registry's first active account. */
+const activeCredentials = (
+  registry: RegistryAccounts | undefined,
+): Option.Option<StoredCredentials> => {
+  if (!registry) return Option.none<StoredCredentials>();
+  for (const [handle, entry] of Object.entries(registry.accounts)) {
+    if (entry?.active) {
+      return Option.some<StoredCredentials>({
+        handle: decodeHandleSync(handle),
+        access_token: entry.access_token,
+        refresh_token: entry.refresh_token,
+        expires_at: entry.expires_at,
+      });
+    }
+  }
+  return Option.none<StoredCredentials>();
+};
+
 const keychainAccount = (registryUrl: string): string => `registry:${registryUrl}`;
 
 const readKeychainCredentialFile = (
@@ -808,23 +848,9 @@ export const CredentialStoreLive = Layer.effect(
             : yield* readStoredSnapshot();
         const file = Option.getOrElse(stored.file, () => emptyCredentialFile);
 
-        const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
-        const updatedAccounts: Record<string, CredentialEntry> = {};
-        for (const [h, entry] of Object.entries(registryEntry.accounts)) {
-          if (entry !== undefined) {
-            updatedAccounts[h] = { ...entry, active: false };
-          }
-        }
-        updatedAccounts[handle] = {
-          access_token: credentials.access_token,
-          refresh_token: credentials.refresh_token,
-          expires_at: credentials.expires_at,
-          active: true,
-        };
-
         const usedTier = yield* saveCredentialFile(
           registryUrl,
-          { accounts: updatedAccounts },
+          activateAccount(file.registries[registryUrl], handle, credentials),
           stored.snapshot,
         );
         if (usedTier === "keychain") {
@@ -838,21 +864,7 @@ export const CredentialStoreLive = Layer.effect(
         const existing = yield* loadCredentialFile(registryUrl, () => locked(readStoredFile()));
         if (Option.isNone(existing)) return Option.none<StoredCredentials>();
 
-        const registry = existing.value.registries[registryUrl];
-        if (!registry) return Option.none<StoredCredentials>();
-
-        for (const [handle, entry] of Object.entries(registry.accounts)) {
-          if (entry?.active) {
-            return Option.some<StoredCredentials>({
-              handle: decodeHandleSync(handle),
-              access_token: entry.access_token,
-              refresh_token: entry.refresh_token,
-              expires_at: entry.expires_at,
-            });
-          }
-        }
-
-        return Option.none<StoredCredentials>();
+        return activeCredentials(existing.value.registries[registryUrl]);
       },
     );
     const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(function* (
@@ -973,21 +985,7 @@ export const CredentialStoreTest = (
   const refreshLock = Semaphore.makeUnsafe(1);
 
   const read = (registryUrl: string) =>
-    Effect.sync(() => {
-      const registry = data.registries[registryUrl];
-      if (!registry) return Option.none<StoredCredentials>();
-      for (const [handle, entry] of Object.entries(registry.accounts)) {
-        if (entry?.active) {
-          return Option.some<StoredCredentials>({
-            handle: decodeHandleSync(handle),
-            access_token: entry.access_token,
-            refresh_token: entry.refresh_token,
-            expires_at: entry.expires_at,
-          });
-        }
-      }
-      return Option.none<StoredCredentials>();
-    });
+    Effect.sync(() => activeCredentials(data.registries[registryUrl]));
 
   return Layer.succeed(CredentialStore, {
     tier,
@@ -999,24 +997,11 @@ export const CredentialStoreTest = (
     save: (registryUrl, handle, credentials) =>
       persistedCredentialsAllowed
         ? Effect.sync(() => {
-            const registryEntry = data.registries[registryUrl] ?? { accounts: {} };
-            const updatedAccounts: Record<string, CredentialEntry> = {};
-            for (const [h, entry] of Object.entries(registryEntry.accounts)) {
-              if (entry !== undefined) {
-                updatedAccounts[h] = { ...entry, active: false };
-              }
-            }
-            updatedAccounts[handle] = {
-              access_token: credentials.access_token,
-              refresh_token: credentials.refresh_token,
-              expires_at: credentials.expires_at,
-              active: true,
-            };
             data = {
               ...data,
               registries: {
                 ...data.registries,
-                [registryUrl]: { accounts: updatedAccounts },
+                [registryUrl]: activateAccount(data.registries[registryUrl], handle, credentials),
               },
             };
           })

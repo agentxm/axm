@@ -3,7 +3,7 @@ import type * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
-import { NpmPackagesUninitialized } from "./release-publication.js";
+import { NpmPackagesUninitialized } from "./release-npm-publication.js";
 
 export type NpmPublicationAuth =
   | { readonly kind: "oidc" }

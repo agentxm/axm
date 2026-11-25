@@ -35,15 +35,17 @@ import {
   observePublication,
   publishImmutableCohort,
   publishImmutableInDependencyOrder,
-  readNpmPublication,
-  verifyNpmDownload,
-  npmPropagationTimeoutMs,
   releaseCohortTarballPath,
   releaseBoundaryError,
-  reconcileNpmStableTag,
   PublicationUnconfirmed,
   type PublicationBoundary,
 } from "./release-publication.js";
+import {
+  readNpmPublication,
+  verifyNpmDownload,
+  npmPropagationTimeoutMs,
+  reconcileNpmStableTag,
+} from "./release-npm-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
 import { loadHomebrewPublicationToken, readHomebrewFormula } from "./release-homebrew.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";

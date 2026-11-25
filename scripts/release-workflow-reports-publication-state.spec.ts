@@ -26,7 +26,7 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
     verifies:
       "Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.",
   },

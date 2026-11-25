@@ -23,7 +23,7 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
     verifies:
       "Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.",
   },

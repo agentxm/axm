@@ -10,7 +10,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { validateRunnerCommandFile } from "./classify-ci-changes.js";
 import { requireFullSha } from "./release-identity.js";
 import { validateReleasePreparationSource } from "./release-preflight.js";
-import { requireInitializedNpmPackages } from "./release-publication.js";
+import { requireInitializedNpmPackages } from "./release-npm-publication.js";
 import { captureReleaseCommand, releaseValidation, runReleaseCommand } from "./release-process.js";
 import { ReleaseSnapshot, releaseSnapshotLayer, readReleaseVersion } from "./release-runtime.js";
 

@@ -19,13 +19,15 @@ import {
 import {
   contentIntegrity,
   isTransientPublicationError,
-  npmPropagationTimeoutMs,
   observePublication,
   PublicationUnconfirmed,
   publishImmutableInDependencyOrder,
+} from "./release-publication.js";
+import {
+  npmPropagationTimeoutMs,
   readNpmDistTag,
   readNpmPublication,
-} from "./release-publication.js";
+} from "./release-npm-publication.js";
 import { derivePreviewVersion } from "./release-preview-version.js";
 import {
   AXM_SKILL_DOCUMENT_PATH,

@@ -18,7 +18,7 @@ import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-t
 /**
  * Map of agent IDs to their subagent renderer function.
  *
- * Roo Code is also special (mode entry, not file) and is not in this map.
+ * Agents without a portable renderer are not in this map.
  */
 const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
   antigravity: renderMarkdownYaml,
@@ -51,20 +51,18 @@ const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
 /**
  * Select the appropriate renderer for an agent ID.
  *
- * Returns undefined for agents that need special handling (roo).
+ * Returns undefined for agents without a portable renderer.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const selectSubagentRenderer = (agentId: string): SubagentRenderer | undefined => {
-  if (agentId === "roo") return undefined;
-  return rendererMap[agentId];
-};
+export const selectSubagentRenderer = (agentId: string): SubagentRenderer | undefined =>
+  rendererMap[agentId];
 
 /**
  * Render a subagent for a given agent ID.
  *
  * Delegates to the appropriate format-family renderer.
- * Returns undefined for roo (which requires special read-modify-write handling).
+ * Returns undefined for agents without a portable renderer.
  *
  * @experimental This API is unstable and may change without notice.
  */

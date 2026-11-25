@@ -78,7 +78,6 @@ import {
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import {
   retireCanonicalDirectory,
-  configuredMcpServersToDiskRefs,
   sourceRefContentKey,
 } from "@agentxm/workspace-kernel/acquisition";
 
@@ -454,11 +453,9 @@ export const McpServerManagerLive = Layer.effect(
           return yield* listMaterializableFromDisk({
             type: "mcp-server",
             records: phase?.records ?? records,
-            toDiskRefs: configuredMcpServersToDiskRefs,
             env: {
               fs: phase?.fileSystem ?? fs,
               path,
-              baseDir,
               scope: location.scope,
               layout: currentLayout(),
             },

@@ -4,9 +4,9 @@
  * Acquisition of extension content into the workspace: the verified source
  * trees a transition retains, the bounded acquisition queue, the operation
  * scratch budget and tree measurement, canonical package staging, copy,
- * reuse, and swap, registry package fetch, verify, and extract, on-disk
- * materializability, the archive include predicate, the inherited Git
- * transport context, and the package materialization failure family.
+ * reuse, and swap, registry package fetch, verify, and extract, the archive
+ * include predicate, the inherited Git transport context, and the package
+ * materialization failure family.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -35,7 +35,7 @@ export {
   makeOperationScratchBudget,
 } from "./scratch-budget.js";
 
-// Canonical package staging, copy, reuse, and on-disk materializability
+// Canonical package staging, copy, and reuse
 export { prepareCanonicalParents, retireCanonicalDirectory } from "./canonical-parent-receipts.js";
 export {
   canonicalMaterializationPaths,
@@ -52,12 +52,6 @@ export {
   materializeRegistryPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "./registry-materialization.js";
-export {
-  configuredMcpServersToDiskRefs,
-  configuredPacksToDiskRefs,
-  configuredSkillsToDiskRefs,
-  configuredSubagentsToDiskRefs,
-} from "./materializable-from-disk.js";
 
 // Which archive paths a package includes
 export { computeDistributionTreeIntegrity } from "./distribution-tree.js";

@@ -3,10 +3,11 @@
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   DesiredStateReader,
@@ -17,8 +18,11 @@ import {
   workspaceReadPhaseFor,
   type WorkspaceLocationService,
   configuredRowsByName,
+  enabledConfiguredEntries,
   isObservedInstalled,
   prepareAcceptedCanonicalTransition,
+  resolveWorkspaceExtensionRef,
+  SCANNER_IO_CONCURRENCY,
   usableAcceptedCanonical,
   usableAcceptedCanonicalRef,
   type ConfiguredRecordRow,
@@ -201,27 +205,48 @@ export const listMaterializableFromAccepted = <T extends InstallableExtensionTyp
 export interface DiskRefEnvironment {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
-  readonly baseDir: string;
   readonly scope: WorkspaceScope;
   readonly layout: WorkspaceLayout;
 }
 
-export const listMaterializableFromDisk = <TRef extends ExtensionRef>(args: {
-  readonly type: TRef["type"];
+/**
+ * The configured `args.type` entries whose enabled workspace source resolves
+ * on disk to a ref of that type, in configured order.
+ */
+export const listMaterializableFromDisk = <T extends InstallableExtensionType>(args: {
+  readonly type: T;
   readonly records: WorkspaceRecordsService;
   /** A caller composing disk and accepted refs may already have read the rows. */
   readonly configured?: Readonly<Record<string, ConfiguredRecordRow>>;
-  readonly toDiskRefs: (
-    env: DiskRefEnvironment,
-    configured: Readonly<Record<string, ConfiguredRecordRow>>,
-  ) => Effect.Effect<ReadonlyArray<TRef>, ExtensionManagerFailure>;
   readonly env: DiskRefEnvironment;
 }): Effect.Effect<
-  ReadonlyArray<TRef>,
+  ReadonlyArray<RefFor<T>>,
   ExtensionManagerFailure,
   FileSystem.FileSystem | Path.Path
 > =>
   (args.configured === undefined
     ? args.records.rows(args.type).pipe(Effect.map(configuredRowsByName))
     : Effect.succeed(args.configured)
-  ).pipe(Effect.flatMap((configured) => args.toDiskRefs(args.env, configured)));
+  ).pipe(
+    Effect.flatMap((configured) =>
+      Effect.forEach(
+        enabledConfiguredEntries(configured),
+        ([settingsName, entry]) =>
+          entry.source !== undefined && isWorkspaceSourceLocator(entry.source)
+            ? resolveWorkspaceExtensionRef({
+                settingsName,
+                source: entry.source,
+                expectedType: args.type,
+                layout: args.env.layout,
+                scope: args.env.scope,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, args.env.fs),
+                Effect.provideService(Path.Path, args.env.path),
+                Effect.map(Option.liftPredicate(isExtensionRefOfType(args.type))),
+              )
+            : Effect.succeed(Option.none<RefFor<T>>()),
+        { concurrency: SCANNER_IO_CONCURRENCY },
+      ),
+    ),
+    Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)),
+  );

@@ -266,13 +266,11 @@ export {
   extensionPathSourceFromLockEntry,
   lockEntryToRef,
   lockEntryToSourceParams,
-  lockEntryMatchesSourceLocator,
   lockEntryVersion,
   isGitLockEntry,
   isPathLockEntry,
   isRegistryLockEntry,
   type LockEntry,
-  type LockEntryToRefError,
 } from "./workspace/lock-entry.js";
 export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity.js";
 

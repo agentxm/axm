@@ -81,7 +81,6 @@ import {
 import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 import {
   acquiredDirectoryForRef,
-  configuredSubagentsToDiskRefs,
   retireCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
@@ -1213,11 +1212,9 @@ export const SubagentManagerLive = Layer.effect(
           return yield* listMaterializableFromDisk({
             type: "subagent",
             records: phase?.records ?? records,
-            toDiskRefs: configuredSubagentsToDiskRefs,
             env: {
               fs: phase?.fileSystem ?? fs,
               path,
-              baseDir,
               scope: location.scope,
               layout: currentLayout(),
             },

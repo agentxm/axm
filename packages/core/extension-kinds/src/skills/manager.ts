@@ -68,10 +68,7 @@ import {
   removeSkillAgentArtifact,
   removeSkillAgentArtifactForSources,
 } from "./materialization.js";
-import {
-  configuredSkillsToDiskRefs,
-  retireCanonicalDirectory,
-} from "@agentxm/workspace-kernel/acquisition";
+import { retireCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -543,11 +540,9 @@ export const SkillManagerLive = Layer.effect(
           type: "skill",
           records: currentRecords,
           configured: configuredWithoutBundled,
-          toDiskRefs: configuredSkillsToDiskRefs,
           env: {
             fs: phase?.fileSystem ?? fs,
             path,
-            baseDir,
             scope: location.scope,
             layout: diskLayout,
           },

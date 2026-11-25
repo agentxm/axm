@@ -1191,7 +1191,7 @@
               "packages/core/workspace-features/src/authoring/import/import-native-extension.ts",
               "packages/core/workspace-kernel/src/acquisition/canonical-directory.ts",
               "packages/core/workspace-kernel/src/reconciliation/extensions/operations.ts",
-              "packages/core/workspace-kernel/src/acquisition/materializable-from-disk.ts",
+              "packages/core/workspace-kernel/src/materialization/manager-kit.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/configured-entry-resolution/workspace-ref.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/package-hash.ts"
             ]

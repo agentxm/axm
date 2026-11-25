@@ -50,10 +50,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import {
-  retireCanonicalDirectory,
-  configuredPacksToDiskRefs,
-} from "@agentxm/workspace-kernel/acquisition";
+import { retireCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // Build pack SetPackArgs from a registry ref
@@ -363,11 +360,9 @@ export const PackManagerLive = Layer.effect(
           return yield* listMaterializableFromDisk({
             type: "pack",
             records: phase?.records ?? records,
-            toDiskRefs: configuredPacksToDiskRefs,
             env: {
               fs: phase?.fileSystem ?? fs,
               path,
-              baseDir,
               scope: location.scope,
               layout: currentLayout(),
             },

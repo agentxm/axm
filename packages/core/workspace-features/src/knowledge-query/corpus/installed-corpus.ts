@@ -12,7 +12,6 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
@@ -21,18 +20,11 @@ import {
   KnowledgeBundleFqnSchema,
   type KnowledgeBundleFqn,
 } from "@agentxm/extension-model/unstable/knowledge";
-import {
-  InstalledKnowledgeUnavailable,
-  selectInstalledKnowledgeBundles,
-} from "@agentxm/workspace-kernel/projection";
-import {
-  capturedManifestFor,
-  withWorkspaceReadView,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { KnowledgeCorpusUnavailable } from "../errors.js";
 import { captureKnowledgeIndexBundles } from "../knowledge-capture.js";
 import { KnowledgeIndex, type KnowledgeIndexSnapshot } from "../knowledge-index.js";
+import { selectInstalledCorpusBundles } from "./selected-bundles.js";
 
 /** One captured bundle: its workspace name, published identity, and version. */
 export interface CapturedInstalledBundle {
@@ -59,31 +51,15 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
   readonly bundle?: string;
 }) {
   const index = yield* KnowledgeIndex;
-  const path = yield* Path.Path;
-  // The desired graph and the accepted resolutions read one document phase;
-  // bundle content is captured after it ends, under its own double read.
-  const selected = yield* selectInstalledKnowledgeBundles({
-    ...(options?.bundle === undefined ? {} : { name: options.bundle }),
-    captureManifests: true,
-  }).pipe(
-    Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
-      Effect.fail(
-        new KnowledgeCorpusUnavailable({
-          reason: failure.reason,
-          detail: failure.detail,
-          ...(failure.bundle === undefined ? {} : { bundle: failure.bundle }),
-        }),
-      ),
-    ),
-    withWorkspaceReadView,
-  );
+  // Bundle content is captured after the selection's document phase ends,
+  // under its own double read.
+  const selected = yield* selectInstalledCorpusBundles(options?.bundle);
   const prepared = yield* Effect.forEach(
     selected,
     (entry) =>
       Effect.flatMap(
-        // The decode the selection's observation made of this package's
-        // manifest; otherwise the manifest is read here.
-        Option.match(capturedManifestFor(path, entry.manifest, entry.packageRoot, "knowledge"), {
+        // The captured manifest; otherwise the manifest is read here.
+        Option.match(entry.manifest, {
           onSome: Effect.succeed,
           onNone: () =>
             Effect.map(readKnowledgePackageManifest(entry.packageRoot), ({ manifest }) => manifest),

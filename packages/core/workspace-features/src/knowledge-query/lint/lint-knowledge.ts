@@ -19,16 +19,9 @@ import {
   inspectKnowledgePackageWithManifest,
   type KnowledgeDiagnostic,
 } from "@agentxm/extension-content/knowledge";
-import {
-  InstalledKnowledgeUnavailable,
-  selectInstalledKnowledgeBundles,
-} from "@agentxm/workspace-kernel/projection";
-import {
-  capturedManifestFor,
-  WorkspaceLocation,
-  withWorkspaceReadView,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
+import { selectInstalledCorpusBundles } from "../corpus/selected-bundles.js";
 import type { KnowledgeLintQueryResult } from "../documents.js";
 import { KnowledgeCorpusUnavailable, KnowledgeRequestInvalid } from "../errors.js";
 
@@ -69,30 +62,13 @@ const inspectAuthored = Effect.fnUntraced(function* (packagePath: string) {
 });
 
 const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
-  const path = yield* Path.Path;
-  // The desired graph and the accepted resolutions read one document phase;
-  // bundle content is inspected after it ends.
-  const selected = yield* selectInstalledKnowledgeBundles({
-    ...(bundle === undefined ? {} : { name: bundle }),
-    captureManifests: true,
-  }).pipe(
-    Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
-      Effect.fail(
-        new KnowledgeCorpusUnavailable({
-          reason: failure.reason,
-          detail: failure.detail,
-          ...(failure.bundle === undefined ? {} : { bundle: failure.bundle }),
-        }),
-      ),
-    ),
-    withWorkspaceReadView,
-  );
+  // Bundle content is inspected after the selection's document phase ends.
+  const selected = yield* selectInstalledCorpusBundles(bundle);
   return yield* Effect.forEach(
     selected,
     (entry) =>
-      // The decode the selection's observation made of this package's
-      // manifest; otherwise the inspection reads it.
-      Option.match(capturedManifestFor(path, entry.manifest, entry.packageRoot, "knowledge"), {
+      // The captured manifest; otherwise the inspection reads it.
+      Option.match(entry.manifest, {
         onSome: (manifest) => inspectKnowledgePackageWithManifest(entry.packageRoot, manifest),
         onNone: () => inspectKnowledgePackage(entry.packageRoot),
       }).pipe(

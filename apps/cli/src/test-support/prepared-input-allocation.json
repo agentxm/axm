@@ -2995,6 +2995,7 @@
             ],
             "sources": [
               "packages/core/workspace-features/src/knowledge-query/lint/lint-knowledge.ts",
+              "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
               "packages/core/workspace-kernel/src/projection/knowledge/installed-bundles.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/canonical-observation.ts",
               "packages/core/extension-content/src/knowledge/package-inspection.ts"
@@ -8770,6 +8771,7 @@
       "publication": "None: read-only owner.",
       "sources": [
         "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts",
+        "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
         "packages/core/workspace-features/src/knowledge-query/corpus/corpus-capabilities.ts",
         "packages/core/workspace-features/src/knowledge-query/knowledge-capture.ts",
         "packages/core/workspace-features/src/knowledge-query/knowledge-discovery.ts",
@@ -8785,7 +8787,7 @@
       "reads": [
         {
           "purpose": "preparation",
-          "source": "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts",
+          "source": "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
           "requirement": "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
           "note": "The desired graph and the accepted resolutions that select enabled bundles are read in one documents-only workspace read phase per capture."
         },
@@ -8796,7 +8798,7 @@
         },
         {
           "purpose": "preparation",
-          "source": "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts",
+          "source": "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
           "note": "Each bundle manifest is taken from the observation's capture when it is the knowledge manifest at the expected package path; otherwise it is read live."
         },
         {
@@ -8843,6 +8845,7 @@
             ],
             "sources": [
               "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts",
+              "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
               "packages/core/workspace-kernel/src/projection/knowledge/installed-bundles.ts"
             ]
           }
@@ -8884,7 +8887,8 @@
               "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus-phase.test.ts"
             ],
             "sources": [
-              "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts"
+              "packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts",
+              "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts"
             ]
           }
         },
@@ -15718,6 +15722,7 @@
             ],
             "sources": [
               "packages/core/workspace-features/src/knowledge-query/lint/lint-knowledge.ts",
+              "packages/core/workspace-features/src/knowledge-query/corpus/selected-bundles.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts"
             ]
           }

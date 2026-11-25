@@ -102,5 +102,6 @@ export {
 // Which Packs hold the newest release of an updated extension back.
 export { heldBackReleaseWarnings } from "./update/held-back-releases.js";
 
-// The deprecation and lifecycle notices a registry ref carries.
-export { extensionRefLifecycleWarnings } from "./lifecycle-warnings.js";
+// The deprecation and lifecycle notices a registry ref carries, and the
+// deprecation guidance sentence they render.
+export { extensionRefLifecycleWarnings, formatDeprecationWarning } from "./lifecycle-warnings.js";

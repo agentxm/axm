@@ -647,8 +647,7 @@ the same project, or a package root from its `./live` entry. Focused ESLint
   directly, while leaving contract types importable for rendering. The bans
   name the writers in `@agentxm/workspace-kernel/workspace-state`, plan
   construction in `/operations` and `/planning`, and every value from
-  `/settlement`, `/sources`, and the Registry client, except its
-  `formatDeprecationWarning` sentence;
+  `/settlement`, `/sources`, and the Registry client;
 - restrict the transaction closure API in `@agentxm/workspace-kernel/settlement`
   to the kernel's `planning` slice (and `settlement` itself); and
 - forbid imports through another package's `src`, `dist`, or other undeclared

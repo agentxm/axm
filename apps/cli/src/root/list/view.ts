@@ -4,7 +4,7 @@ import type {
   ExtensionListDocument,
   ExtensionListFilter,
 } from "@agentxm/workspace-features/inspection";
-import { formatDeprecationWarning } from "@agentxm/registry-client";
+import { formatDeprecationWarning } from "@agentxm/workspace-kernel/resolution";
 import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import {

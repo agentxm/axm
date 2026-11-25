@@ -1,7 +1,7 @@
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vitest";
 
-import { formatDeprecationWarning } from "./deprecation-warning.js";
+import { formatDeprecationWarning } from "./lifecycle-warnings.js";
 
 const deprecatedAt = DateTime.makeUnsafe("2026-09-25T00:00:00.000Z");
 const source = "@acme/skills/old";

@@ -1,13 +1,8 @@
 import { withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command } from "effect/cli";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import {
-  collectCleanupStep,
-  collectInstructionStep,
-  StepFailureConversion,
-} from "@agentxm/workspace-kernel/reconciliation";
 import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
+import { SyncWorkspace } from "@agentxm/workspace-features/sync";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import { acceptWarningsFlag, discardModifiedFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -50,22 +45,10 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     return;
   }
 
-  // The reconciliation feature plans the cleanup of the outputs only the
-  // departing agents reached, against the membership the workspace holds
-  // once they leave; the configuration feature applies it inside the
-  // membership closure, so a cleanup that cannot complete leaves the agent
-  // configured.
-  const cleanup = yield* collectCleanupStep({
+  const withdrawal = yield* SyncWorkspace.planAgentWithdrawal({
     expectedNames: candidate.reconciliation.expectedNames,
     desiredAgentIds: candidate.reconciliation.desiredAgentIds,
-    adapter: yield* StepFailureConversion,
-  }).pipe(Effect.mapError(toAppError));
-
-  const instructions = yield* collectInstructionStep({
     configuredAgents: candidate.configuredAgents,
-    projectionFacts: [],
-    touchesRule: false,
-    adapter: yield* StepFailureConversion,
   }).pipe(Effect.mapError(toAppError));
 
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
@@ -74,9 +57,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     args.force ? ["accept-warnings"] : [],
   );
   const resolution = yield* ConfigureAgents.remove
-    .previewOrApply(candidate, execution, {
-      steps: [...Option.toArray(cleanup), ...Option.toArray(instructions)],
-    })
+    .previewOrApply(candidate, execution, { steps: withdrawal.steps })
     .pipe(Effect.mapError(failureToAppError));
 
   yield* emitOperationResolution(resolution, {

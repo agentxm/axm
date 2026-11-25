@@ -58,6 +58,7 @@ import {
   projectionParticipantSelectionKey,
   WorkspaceInvariantFacts,
   withMcpInspectionReadView,
+  type ExpectedProjectionNames,
   type PreparedProjectionFacts,
   type ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
@@ -236,6 +237,39 @@ const selectionTouches = (
   }
   return false;
 };
+
+/**
+ * Plan the cleanup of the outputs only the departing agents reached, against
+ * the membership the workspace holds once they leave; the configuration
+ * feature applies it inside the membership closure, so a cleanup that cannot
+ * complete leaves the agent configured.
+ */
+const planAgentWithdrawal = (args: {
+  readonly expectedNames: ExpectedProjectionNames;
+  readonly desiredAgentIds: ReadonlySet<string>;
+  readonly configuredAgents: ReadonlyArray<string>;
+}): Effect.Effect<
+  { readonly steps: ReadonlyArray<PlannedJobStep<SyncStepRequirements>> },
+  | Effect.Error<ReturnType<typeof collectCleanupStep>>
+  | Effect.Error<ReturnType<typeof collectInstructionStep>>,
+  | StepFailureConversion
+  | Effect.Services<ReturnType<typeof collectCleanupStep>>
+  | Effect.Services<ReturnType<typeof collectInstructionStep>>
+> =>
+  Effect.gen(function* () {
+    const cleanup = yield* collectCleanupStep({
+      expectedNames: args.expectedNames,
+      desiredAgentIds: args.desiredAgentIds,
+      adapter: yield* StepFailureConversion,
+    });
+    const instructions = yield* collectInstructionStep({
+      configuredAgents: args.configuredAgents,
+      projectionFacts: [],
+      touchesRule: false,
+      adapter: yield* StepFailureConversion,
+    });
+    return { steps: [...Option.toArray(cleanup), ...Option.toArray(instructions)] };
+  });
 
 /**
  * Plan the materialization half of a sweep on its own.
@@ -741,4 +775,5 @@ export const SyncWorkspace = {
   prepare: prepareSyncWorkspace,
   previewOrApply: previewOrApplySyncWorkspace,
   planMaterialization: planWorkspaceMaterialization,
+  planAgentWithdrawal,
 } as const;

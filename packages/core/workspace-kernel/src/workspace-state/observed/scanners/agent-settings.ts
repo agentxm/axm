@@ -4,10 +4,10 @@
  *
  * Per Decision 5, scanner output is occurrence-shaped. Each occurrence
  * represents one observable settings file — present and readable on disk —
- * keyed by `agentId`. The per-file payload is intentionally not parsed here:
- * Phase 8's per-agent modules decode the typed `nativeConfig` shape through
- * their own schemas. The scanner's contract is "this agent has a settings
- * file at this absolute path", not "this settings file is well-formed".
+ * keyed by `agentId`. The per-file payload is intentionally not parsed, here
+ * or elsewhere in the read model. The scanner's contract is "this agent has
+ * a settings file at this absolute path", not "this settings file is
+ * well-formed".
  *
  * Per-file partial failures (e.g., unreadable directory) become diagnostic
  * warnings rather than errors. The error channel stays empty.

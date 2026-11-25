@@ -107,6 +107,5 @@ export interface ExtensionStateReader<TDeclared, TResolved, TActual> {
 // `service.ts` (Phase 9) defines the real `ScopedStateApi`,
 // `ScopedSourceHostsApi`, `ScopedOwnerApi`, and `WorkspaceReadModel`
 // surfaces. They attach payload types from per-subject modules under
-// `extensions/` and per-agent modules under `agents/`, which would create
-// import cycles if defined here. `ScopedAgentsApi` is owned by
-// `agents/index.ts` for the same reason.
+// `extensions/` and from `agents.ts`, which would create import cycles if
+// defined here. `ScopedAgentsApi` is owned by `agents.ts` for the same reason.

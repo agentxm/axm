@@ -25,8 +25,11 @@ import {
   type WorkspaceLayout,
 } from "../workspace/layout.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
-import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
-import { type AgentScannerObservations } from "./agents/types.js";
+import {
+  makeScopedAgentsApi,
+  type AgentScannerObservations,
+  type ScopedAgentsApi,
+} from "./agents.js";
 import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.js";
 import { WorkspaceRootEscape } from "./errors.js";
 import type { LockfileIoError, LockfileVersionUnsupported } from "../desired/lockfile/errors.js";

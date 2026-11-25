@@ -48,6 +48,7 @@ export {
   type LintCatalogRuleMetadata,
   type LintCatalogView,
   allLintCatalogRuleIds,
+  extensionLintCatalogRuleMetadata,
   lintCatalogRuleMetadata,
 } from "./catalog-metadata.js";
 export { type Evaluated, evaluateContexts } from "./evaluate.js";

@@ -6,7 +6,7 @@ import { allCatalogRuleMetadata } from "./index.js";
 import { workspaceRules } from "./workspace.js";
 
 describe("executable lint catalog metadata", () => {
-  it("matches the static configuration contract exactly", () => {
+  it("pins the executable workspace rules and composition order to the static workspace contract", () => {
     expect(allCatalogRuleMetadata).toEqual(lintCatalogRuleMetadata);
   });
 

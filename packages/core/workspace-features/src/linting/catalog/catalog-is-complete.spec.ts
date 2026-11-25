@@ -28,7 +28,7 @@ export const specification = defineSpecification({
 
 // The generated settings schema is held to this same inventory by ordinary
 // tests rather than by this specification: `catalog-metadata.test.ts` pins the
-// executable catalog to the static configuration contract, and
+// executable workspace rules to the static workspace contract, and
 // `generated-schema.test.ts` pins the published `lint.rules` properties to
 // that contract. Generation freshness is mechanism, not a decided rule.
 

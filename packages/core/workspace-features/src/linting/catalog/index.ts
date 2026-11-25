@@ -6,17 +6,8 @@
  */
 
 import {
-  type LintCatalogGroup,
   type LintCatalogRuleMetadata,
-  type LintCatalogView,
-  skillRules,
-  packRules,
-  subagentRules,
-  mcpServerRules,
-  hookRules,
-  ruleRules,
-  knowledgeRules,
-  type LintRule,
+  extensionLintCatalogRuleMetadata,
 } from "@agentxm/extension-content/lint";
 import { workspaceRules } from "./workspace.js";
 import { repositoryWorkspaceRules } from "./workspace.js";
@@ -26,30 +17,11 @@ export { buildLintWorkspace } from "./workspace-read-model/lint-workspace.js";
 const repositoryViews = Object.freeze(["filesystem", "git-index"] as const);
 const liveWorkspaceView = Object.freeze(["filesystem"] as const);
 
-const describeRules = <C>(
-  group: LintCatalogGroup,
-  rules: ReadonlyArray<LintRule<C>>,
-  views: ReadonlyArray<LintCatalogView>,
-): ReadonlyArray<LintCatalogRuleMetadata> =>
-  rules.map((rule) => ({
-    id: rule.id,
-    defaultSeverity: rule.severity,
-    ...(rule.enabledByDefault === false ? { enabledByDefault: false as const } : {}),
-    group,
-    views,
-  }));
-
 const repositoryWorkspaceRuleIds = new Set(repositoryWorkspaceRules.map((rule) => rule.id));
 
-/** Metadata derived from the executable rules and their view catalogs. */
+/** Extension-type metadata plus metadata derived from the executable workspace rules. */
 export const allCatalogRuleMetadata: ReadonlyArray<LintCatalogRuleMetadata> = Object.freeze([
-  ...describeRules("skill", skillRules, repositoryViews),
-  ...describeRules("pack", packRules, repositoryViews),
-  ...describeRules("subagent", subagentRules, repositoryViews),
-  ...describeRules("mcp-server", mcpServerRules, repositoryViews),
-  ...describeRules("hook", hookRules, repositoryViews),
-  ...describeRules("rule", ruleRules, repositoryViews),
-  ...describeRules("knowledge", knowledgeRules, repositoryViews),
+  ...extensionLintCatalogRuleMetadata,
   ...workspaceRules.map((rule) => ({
     id: rule.id,
     defaultSeverity: rule.severity,

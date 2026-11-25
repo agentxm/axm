@@ -1,17 +1,24 @@
 /**
- * Static metadata for every lint rule accepted by workspace settings.
+ * Metadata for every lint rule accepted by workspace settings.
  *
- * This catalog is deliberately independent of executable rule modules. The
- * settings schema and generated JSON Schema must know the complete rule-id
- * vocabulary without relying on catalog imports or module-load side effects.
- * Executable catalogs are checked against this contract separately.
+ * Extension-type metadata derives from the executable catalogs in this
+ * package. Only `workspace/*` metadata is static, because those rules execute
+ * in workspace-features, which the kernel settings schema cannot import.
+ * workspace-features checks its executable workspace rules against this list.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { Severity } from "./rule.js";
+import { hookRules } from "./catalog/hook.js";
+import { knowledgeRules } from "./catalog/knowledge.js";
+import { mcpServerRules } from "./catalog/mcp-server.js";
+import { packRules } from "./catalog/pack.js";
+import { ruleRules } from "./catalog/rule.js";
+import { skillRules } from "./catalog/skill.js";
+import { subagentRules } from "./catalog/subagent.js";
+import type { LintRule, Severity } from "./rule.js";
 
 /** A rule-catalog namespace: every extension type plus the workspace itself. */
 export type LintCatalogGroup = ExtensionType | "workspace";
@@ -31,9 +38,9 @@ export interface LintCatalogRuleMetadata {
 const bothViews = Object.freeze(["filesystem", "git-index"] as const);
 const filesystemView = Object.freeze(["filesystem"] as const);
 
-const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMetadata>>(
-  entries: Entries,
-) => {
+const defineLintCatalog = (
+  entries: ReadonlyArray<LintCatalogRuleMetadata>,
+): ReadonlyArray<LintCatalogRuleMetadata> => {
   const ids = new Set<string>();
   for (const entry of entries) {
     if (ids.has(entry.id)) {
@@ -55,463 +62,31 @@ const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMe
   return Object.freeze(entries);
 };
 
-/**
- * Complete ordered lint-rule contract.
- *
- * Order is the public reporting order: extension catalogs first, then
- * workspace rules. A rule listed for `git-index` must also be listed for the
- * live `filesystem` view.
- */
-export const lintCatalogRuleMetadata = defineLintCatalog([
-  { id: "skill/skill-md-present", defaultSeverity: "error", group: "skill", views: bothViews },
-  { id: "skill/manifest-present", defaultSeverity: "error", group: "skill", views: bothViews },
-  {
-    id: "skill/frontmatter-parseable",
-    enabledByDefault: false,
-    defaultSeverity: "error",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/frontmatter-standard-valid",
-    enabledByDefault: false,
-    defaultSeverity: "error",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "skill",
-    views: bothViews,
-  },
-  {
-    id: "skill/named-extensions-declared",
-    enabledByDefault: false,
-    defaultSeverity: "warning",
-    group: "skill",
-    views: bothViews,
-  },
-  { id: "pack/manifest-present", defaultSeverity: "error", group: "pack", views: bothViews },
-  {
-    id: "pack/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "pack",
-    views: bothViews,
-  },
-  {
-    id: "pack/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "pack",
-    views: bothViews,
-  },
-  {
-    id: "subagent/manifest-present",
-    defaultSeverity: "error",
-    group: "subagent",
-    views: bothViews,
-  },
-  {
-    id: "subagent/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "subagent",
-    views: bothViews,
-  },
-  {
-    id: "subagent/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "subagent",
-    views: bothViews,
-  },
-  {
-    id: "subagent/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "subagent",
-    views: bothViews,
-  },
-  {
-    id: "subagent/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "subagent",
-    views: bothViews,
-  },
-  {
-    id: "mcp-server/manifest-present",
-    defaultSeverity: "error",
-    group: "mcp-server",
-    views: bothViews,
-  },
-  {
-    id: "mcp-server/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "mcp-server",
-    views: bothViews,
-  },
-  {
-    id: "mcp-server/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "mcp-server",
-    views: bothViews,
-  },
-  {
-    id: "mcp-server/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "mcp-server",
-    views: bothViews,
-  },
-  {
-    id: "mcp-server/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "mcp-server",
-    views: bothViews,
-  },
-  { id: "hook/manifest-present", defaultSeverity: "error", group: "hook", views: bothViews },
-  {
-    id: "hook/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "hook",
-    views: bothViews,
-  },
-  {
-    id: "hook/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "hook",
-    views: bothViews,
-  },
-  {
-    id: "hook/native-bindings-supported",
-    defaultSeverity: "error",
-    group: "hook",
-    views: bothViews,
-  },
-  { id: "hook/referenced-files-exist", defaultSeverity: "error", group: "hook", views: bothViews },
-  {
-    id: "hook/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "hook",
-    views: bothViews,
-  },
-  {
-    id: "hook/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "hook",
-    views: bothViews,
-  },
-  { id: "rule/manifest-present", defaultSeverity: "error", group: "rule", views: bothViews },
-  {
-    id: "rule/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "rule",
-    views: bothViews,
-  },
-  {
-    id: "rule/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "rule",
-    views: bothViews,
-  },
-  {
-    id: "rule/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "rule",
-    views: bothViews,
-  },
-  {
-    id: "rule/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "rule",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/manifest-present",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/manifest-schema-valid",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/manifest-keys-recognized",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/standalone-declaration-valid",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/recommended-packs-valid",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/bundle-too-large",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/file-too-large",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/invalid-tags", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/missing-root-index",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-okf-version",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-title",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-description",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-manifest-description",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/empty-bundle",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-tags",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/symbolic-link", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/too-many-files",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/unsupported-okf-version",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/missing-type", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/invalid-frontmatter",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/case-collision",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/dangerous-uri", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/detected-secret",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/unsafe-path", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  { id: "knowledge/invalid-index", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  { id: "knowledge/invalid-log", defaultSeverity: "error", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/invalid-resource",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/escaping-resource",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/unresolved-resource",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/broken-internal-link",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/escaping-link",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/unreachable-concept",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-index-entry",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/stale-index-entry",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/embedded-html",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/duplicate-resource",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/inconsistent-type",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/large-concept",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  { id: "knowledge/large-index", defaultSeverity: "warning", group: "knowledge", views: bothViews },
-  {
-    id: "knowledge/unreferenced-asset",
-    defaultSeverity: "warning",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-sources",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-generated",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-verified",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-status",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-stale-after",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/invalid-attestation",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-frontmatter",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/superseded-timestamp",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/superseded-citations",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/missing-index-heading",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/unexpected-log-frontmatter",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
-  {
-    id: "knowledge/unordered-log-dates",
-    defaultSeverity: "error",
-    group: "knowledge",
-    views: bothViews,
-  },
+const describe = <C>(
+  group: ExtensionType,
+  rules: ReadonlyArray<LintRule<C>>,
+): ReadonlyArray<LintCatalogRuleMetadata> =>
+  rules.map((rule) => ({
+    id: rule.id,
+    defaultSeverity: rule.severity,
+    ...(rule.enabledByDefault === false ? { enabledByDefault: false as const } : {}),
+    group,
+    views: bothViews,
+  }));
+
+/** Extension-type rule metadata, derived from the executable catalogs in group order. */
+export const extensionLintCatalogRuleMetadata: ReadonlyArray<LintCatalogRuleMetadata> =
+  Object.freeze([
+    ...describe("skill", skillRules),
+    ...describe("pack", packRules),
+    ...describe("subagent", subagentRules),
+    ...describe("mcp-server", mcpServerRules),
+    ...describe("hook", hookRules),
+    ...describe("rule", ruleRules),
+    ...describe("knowledge", knowledgeRules),
+  ]);
+
+const workspaceLintCatalogRuleMetadata: ReadonlyArray<LintCatalogRuleMetadata> = [
   { id: "workspace/initialized", defaultSeverity: "error", group: "workspace", views: bothViews },
   {
     id: "workspace/settings-schema-valid",
@@ -765,7 +340,19 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     group: "workspace",
     views: bothViews,
   },
-] satisfies ReadonlyArray<LintCatalogRuleMetadata>);
+];
+
+/**
+ * Complete ordered lint-rule contract.
+ *
+ * Order is the public reporting order: extension catalogs first, then
+ * workspace rules. A rule listed for `git-index` must also be listed for the
+ * live `filesystem` view.
+ */
+export const lintCatalogRuleMetadata = defineLintCatalog([
+  ...extensionLintCatalogRuleMetadata,
+  ...workspaceLintCatalogRuleMetadata,
+]);
 
 /** Every accepted lint-rule identity, in catalog/reporting order. */
 export const allLintCatalogRuleIds = Object.freeze(

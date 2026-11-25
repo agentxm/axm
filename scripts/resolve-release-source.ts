@@ -7,8 +7,7 @@ import { capture } from "./release-command.js";
 import {
   isReleaseLikeSubject,
   parseReleaseCommitSubject,
-  readPackageVersionAtRef,
-  releaseCommitOnOriginMain,
+  readVersionFromJson,
   releaseVersionFromTag,
   requireFullSha,
   validateReleaseTag,
@@ -24,6 +23,27 @@ interface PublicationSelection {
 }
 
 const currentHead = (): string => capture("git", ["rev-parse", "HEAD"]);
+
+/** Find one canonical release commit in the fetched main history. */
+const releaseCommitOnOriginMain = (tag: string): string => {
+  const rows = capture("git", ["log", "origin/main", "--format=%H%x09%s"]);
+  const matches = rows
+    .split("\n")
+    .filter((row) => row.length > 0)
+    .flatMap((row) => {
+      const separator = row.indexOf("\t");
+      if (separator < 0) return [];
+      const subject = row.slice(separator + 1);
+      return parseReleaseCommitSubject(subject)?.tag === tag ? [row.slice(0, separator)] : [];
+    });
+  if (matches.length !== 1 || matches[0] === undefined) {
+    throw new Error(`Expected exactly one canonical release commit for ${tag} on origin/main.`);
+  }
+  return matches[0];
+};
+
+const readPackageVersionAtRef = (ref: string, path: string): string =>
+  readVersionFromJson(capture("git", ["show", `${ref}:${path}`]), `${ref}:${path}`);
 
 const resolveSelection = (env: NodeJS.ProcessEnv): PublicationSelection => {
   const toolingSha = currentHead();

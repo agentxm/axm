@@ -68,11 +68,7 @@ describe("classifyCiChanges", () => {
   it("classifies a cold checkout before workspace dependencies or outputs exist", () => {
     const checkout = fs.mkdtempSync(path.join(os.tmpdir(), "axm-ci-bootstrap-"));
     try {
-      for (const file of [
-        "scripts/classify-ci-changes.ts",
-        "scripts/release-identity.ts",
-        "scripts/release-command.ts",
-      ]) {
+      for (const file of ["scripts/classify-ci-changes.ts", "scripts/release-identity.ts"]) {
         const destination = path.join(checkout, file);
         fs.mkdirSync(path.dirname(destination), { recursive: true });
         fs.copyFileSync(path.join(repoRoot, file), destination);

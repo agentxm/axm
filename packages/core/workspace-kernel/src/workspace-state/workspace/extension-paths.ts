@@ -25,6 +25,7 @@ import {
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import {
+  localPackageRoot,
   retainedPackageId,
   type RetainedPackageLocation,
   type SourceAddressInvalid,
@@ -80,18 +81,14 @@ const retainedPackageLocation = (
   name: string,
 ): RetainedPackageLocation => {
   switch (source.refType) {
-    case "local": {
-      const selected = source.sourcePath ?? source.source.path;
-      const component = source.distribution?.componentPath;
-      const suffix = component === undefined || component === "." ? "" : `/${component}`;
-      const packageRoot =
-        selected === component
-          ? "."
-          : suffix !== "" && selected.endsWith(suffix)
-            ? selected.slice(0, -suffix.length) || "."
-            : selected;
-      return { type: "path", path: packageRoot };
-    }
+    case "local":
+      return {
+        type: "path",
+        path: localPackageRoot(
+          source.sourcePath ?? source.source.path,
+          source.distribution?.componentPath,
+        ),
+      };
     case "registry":
       return {
         type: "registry",

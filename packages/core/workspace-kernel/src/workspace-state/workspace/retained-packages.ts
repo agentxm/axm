@@ -11,7 +11,7 @@ import {
 import { lockEntries } from "./entry-accessors.js";
 import { acquiredPackageRelativePath } from "./extension-paths.js";
 import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
-import { decodeSourceSegment, SourceAddressInvalid } from "./source-address.js";
+import { decodeSourceSegment, localPackageRoot, SourceAddressInvalid } from "./source-address.js";
 
 /**
  * Stable in-memory package identity. It excludes selectors, accepted snapshots
@@ -73,16 +73,11 @@ const retainedPackageSourceForRef = (
       portable: ref.portable,
       format,
     };
-  const selected = ref.sourcePath ?? ref.source.path;
-  const component = ref.distribution?.componentPath;
-  const suffix = component === undefined || component === "." ? "" : `/${component}`;
-  const root =
-    selected === component
-      ? "."
-      : suffix !== "" && selected.endsWith(suffix)
-        ? selected.slice(0, -suffix.length) || "."
-        : selected;
-  return { type: "path", path: root, format };
+  return {
+    type: "path",
+    path: localPackageRoot(ref.sourcePath ?? ref.source.path, ref.distribution?.componentPath),
+    format,
+  };
 };
 
 export const retainedPackageKeyForRef = (

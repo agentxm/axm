@@ -229,6 +229,16 @@ export type RetainedPackageLocation =
       readonly path: string;
     };
 
+/** The complete local package root that a selected component path names. */
+export const localPackageRoot = (path: string, componentPath: string | undefined): string => {
+  const suffix = componentPath === undefined || componentPath === "." ? "" : `/${componentPath}`;
+  return path === componentPath
+    ? "."
+    : suffix.length > 0 && path.endsWith(suffix)
+      ? path.slice(0, -suffix.length) || "."
+      : path;
+};
+
 const boundarySegments = (boundary: string): ReadonlyArray<string> =>
   boundary === "." || boundary === "" ? [] : boundary.split("/");
 

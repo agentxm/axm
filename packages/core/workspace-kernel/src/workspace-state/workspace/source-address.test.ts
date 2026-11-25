@@ -5,6 +5,7 @@ import {
   localSourceCoordinates,
   encodeSourcePath,
   encodeSourceSegment,
+  localPackageRoot,
   sourceUrlCoordinates,
 } from "./source-address.js";
 
@@ -118,4 +119,17 @@ describe("local source coordinates", () => {
       expect(Result.isFailure(localSourceCoordinates(source))).toBe(true);
     },
   );
+});
+
+describe("local package root", () => {
+  it.each([
+    ["skills/review", "skills/review", "."],
+    ["vendor/plugin/skills/review", "skills/review", "vendor/plugin"],
+    ["/skills/review", "skills/review", "."],
+    ["vendor/plugin", ".", "vendor/plugin"],
+    ["vendor/plugin", undefined, "vendor/plugin"],
+    ["vendor/plugin", "skills/review", "vendor/plugin"],
+  ])("selects %s with component %s at %s", (path, componentPath, root) => {
+    expect(localPackageRoot(path, componentPath)).toBe(root);
+  });
 });

@@ -21,6 +21,7 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import {
+  localPackageRoot,
   localSourceCoordinates,
   retainedPackageId,
   type SourceAddressInvalid,
@@ -833,15 +834,6 @@ const isRegistryEntry = (
 ): entry is Extract<AnyLockEntry, { readonly source: { readonly type: "registry" } }> =>
   entry.source.type === "registry";
 
-const packageRootOf = (path: string, componentPath: string | undefined): string => {
-  const suffix = componentPath === undefined || componentPath === "." ? "" : `/${componentPath}`;
-  return path === componentPath
-    ? "."
-    : suffix.length > 0 && path.endsWith(suffix)
-      ? path.slice(0, -suffix.length) || "."
-      : path;
-};
-
 /** The retained package one accepted binding of `type` selects a component of. */
 export const packageSourceForEntry = (
   type: ExtensionTypePlural,
@@ -876,7 +868,7 @@ export const packageSourceForEntry = (
     };
   return {
     type: "path",
-    path: packageRootOf(source.path, source.distribution?.componentPath),
+    path: localPackageRoot(source.path, source.distribution?.componentPath),
     format,
   };
 };

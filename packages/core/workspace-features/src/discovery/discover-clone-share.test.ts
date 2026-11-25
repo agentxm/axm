@@ -10,11 +10,8 @@ import * as FileSystem from "effect/FileSystem";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 
 import { discover } from "./discover.js";
-import {
-  makeRecordedRegistryPort,
-  makeTemporaryProject,
-  registryFactoryForClient,
-} from "./test-helpers.js";
+import { makeRecordedRegistryPort, registryFactoryForClient } from "./test-helpers.js";
+import { makeDiscoveryProject } from "./testing.js";
 
 const writeJson = (root: string, relativePath: string, value: unknown) => {
   const file = nodePath.join(root, relativePath);
@@ -64,7 +61,7 @@ interface Recommendation {
 
 /** Discover the recommendations a detected dependency declares from the fixture repository. */
 const discoverFrom = (recommendations: ReadonlyArray<Recommendation>) => {
-  const project = makeTemporaryProject();
+  const project = makeDiscoveryProject();
   const repository = makeRepository();
   project.writeJson("package.json", { dependencies: { react: "18.2.0" } });
   project.writeJson("node_modules/react/package.json", {

@@ -12,11 +12,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { discover } from "../discover.js";
 import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
-import {
-  makeRecordedRegistryPort,
-  makeTemporaryProject,
-  registryFactoryForClient,
-} from "../test-helpers.js";
+import { makeRecordedRegistryPort, registryFactoryForClient } from "../test-helpers.js";
+import { makeDiscoveryProject } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/discover/identifies-local-only-recommendations",
@@ -41,7 +38,7 @@ export const specification = defineSpecification({
 
 describe("Local-only discovery", () => {
   it.effect("preserves package declarations while the Registry stays unavailable", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     project.writeJson("package.json", { dependencies: { react: "18.2.0" } });
     project.writeJson("node_modules/react/package.json", {
       name: "react",
@@ -93,7 +90,7 @@ describe("Local-only discovery", () => {
   });
 
   it.effect("resolves Git and workspace-relative path recommendations without a Registry", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     const gitRoot = fs.realpathSync(
       fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-recommendation-")),
     );

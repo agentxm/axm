@@ -7,11 +7,8 @@ import * as Logger from "effect/Logger";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
 
 import { discover } from "./discover.js";
-import {
-  makeRecordedRegistryPort,
-  makeTemporaryProject,
-  registryFactoryForClient,
-} from "./test-helpers.js";
+import { makeRecordedRegistryPort, registryFactoryForClient } from "./test-helpers.js";
+import { makeDiscoveryProject } from "./testing.js";
 
 /**
  * Discover over a real project directory whose installed npm dependencies are
@@ -21,7 +18,7 @@ const discoverInstalled = (
   dependencies: Readonly<Record<string, string>>,
   files: Readonly<Record<string, unknown>>,
 ) => {
-  const project = makeTemporaryProject();
+  const project = makeDiscoveryProject();
   project.writeJson("package.json", { dependencies });
   for (const [relativePath, value] of Object.entries(files)) {
     project.writeJson(relativePath, value);

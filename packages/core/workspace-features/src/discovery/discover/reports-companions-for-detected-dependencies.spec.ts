@@ -7,11 +7,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { discover } from "../discover.js";
 import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
-import {
-  makeRecordedRegistryPort,
-  makeTemporaryProject,
-  registryFactoryForClient,
-} from "../test-helpers.js";
+import { makeRecordedRegistryPort, registryFactoryForClient } from "../test-helpers.js";
+import { makeDiscoveryProject } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/discover/reports-companions-for-detected-dependencies",
@@ -51,7 +48,7 @@ const companion = {
 
 describe("Dependency-backed companion discovery", () => {
   it.effect("runs actual manifest detection and filters an unrelated Registry response", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     project.writeJson("package.json", {
       dependencies: { react: "18.2.0" },
       devDependencies: { vite: "5.0.0" },
@@ -128,7 +125,7 @@ describe("Dependency-backed companion discovery", () => {
   });
 
   it.effect("reports an empty project without making a Registry request", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     const registry = makeRecordedRegistryPort(() => ({ body: { results: [] } }));
     return Effect.gen(function* () {
       const client = yield* registry.client;
@@ -139,7 +136,7 @@ describe("Dependency-backed companion discovery", () => {
   });
 
   it.effect("an explicit project directory selects its package and leaves both untouched", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     project.writeJson("package.json", { dependencies: { react: "18.2.0" } });
     project.writeJson("node_modules/react/package.json", { name: "react", version: "18.2.0" });
     project.writeJson("packages/app/package.json", { dependencies: { vite: "5.0.0" } });
@@ -217,7 +214,7 @@ describe("Dependency-backed companion discovery", () => {
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
   });
   it.effect("uses installed versions and alias locations in a hoisted project", () => {
-    const project = makeTemporaryProject();
+    const project = makeDiscoveryProject();
     project.writeJson("packages/app/package.json", {
       dependencies: {
         modern: "npm:react@^18.0.0",
@@ -280,7 +277,7 @@ describe("Dependency-backed companion discovery", () => {
   it.effect(
     "reads linked workspace and explicit local packages from their observed locations",
     () => {
-      const project = makeTemporaryProject();
+      const project = makeDiscoveryProject();
       project.writeJson("package.json", {
         dependencies: {
           workspace: "workspace:*",

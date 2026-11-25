@@ -31,11 +31,15 @@ import {
   AXM_SKILL_DOCUMENT_PATH,
   AXM_SKILL_GENERATED_PATH,
   AXM_SKILL_MANIFEST_PATH,
-  RELEASE_NX_ENV,
-} from "./release-shared.js";
+} from "./release-skill-compatibility.js";
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 import { readProductionPackages } from "./production-packages.js";
-import { captureReleaseCommand, releaseValidation, runReleaseCommand } from "./release-process.js";
+import {
+  captureReleaseCommand,
+  RELEASE_NX_ENV,
+  releaseValidation,
+  runReleaseCommand,
+} from "./release-process.js";
 import {
   ReleaseSnapshot,
   releaseSnapshotLayer,

@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -11,7 +13,19 @@ import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { captureReleaseCommand } from "./release-process.js";
+import { RELEASE_COHORT_TAG } from "./release-cohort.js";
 import { makeReleaseSnapshot, releaseRepository } from "./release-runtime.js";
+
+const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
+  value != null && typeof value === "object";
+
+const readJsonRecord = (path: string): Record<PropertyKey, unknown> => {
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (!isRecord(parsed)) throw new Error(`Expected ${path} to contain a JSON object.`);
+  return parsed;
+};
+
+const preparedRuntimeFile = "packages/core/extension-model/dist/src/unstable/extensions/common.js";
 
 const declaration = (name: string, tags: readonly string[] = ["release:cli"]) =>
   JSON.stringify({ name, tags });
@@ -166,7 +180,8 @@ describe("release snapshot ownership", () => {
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-release-import-" });
       const imports = [
         "release-cohort.ts",
-        "release-shared.ts",
+        "release-skill-compatibility.ts",
+        "release-ci-provenance.ts",
         "release-runtime.ts",
         "release-notes.ts",
       ].map((file) => JSON.stringify(path.join(import.meta.dirname, file)));
@@ -248,4 +263,100 @@ describe("release repository configuration", () => {
       expect(String(failure)).toContain("Configuration unavailable");
     }),
   );
+});
+
+describe("release tag helpers", () => {
+  it.effect("derives the cohort from the release group nx.json selects", () =>
+    Effect.gen(function* () {
+      const { packages: cohort } = yield* makeReleaseSnapshot();
+      const nxJson = readJsonRecord("nx.json");
+      const release = Reflect.get(nxJson, "release");
+      if (!isRecord(release)) throw new Error("Expected a release configuration in nx.json.");
+
+      // Derivation reads the `release:cli` tag directly, so Nx must still select
+      // the release group by that same tag for the two to describe one cohort.
+      expect(Reflect.get(release, "projects")).toEqual([`tag:${RELEASE_COHORT_TAG}`]);
+      expect(Reflect.get(release, "projectsRelationship")).toBe("fixed");
+      expect(cohort.map(({ name }) => name).sort()).toEqual([
+        "@agentxm/extension-content",
+        "@agentxm/extension-model",
+        "@agentxm/registry-protocol",
+        "@agentxm/specification-metadata",
+        "@agentxm/workspace-conventions",
+        "axm.sh",
+      ]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("publishes every cohort member after the members its manifest depends on", () =>
+    Effect.gen(function* () {
+      const { packages: cohort } = yield* makeReleaseSnapshot();
+      const releaseOrder = new Map(cohort.map(({ name }, index) => [name, index]));
+
+      for (const releasePackage of cohort) {
+        const packageJson = readJsonRecord(releasePackage.path);
+        const dependencies = Reflect.get(packageJson, "dependencies");
+        if (!isRecord(dependencies)) continue;
+
+        const packageIndex = releaseOrder.get(releasePackage.name);
+        if (packageIndex === undefined)
+          throw new Error(`Missing ${releasePackage.name} in release order.`);
+
+        for (const dependencyName of Object.keys(dependencies)) {
+          const dependencyIndex = releaseOrder.get(dependencyName);
+          if (dependencyIndex !== undefined) expect(dependencyIndex).toBeLessThan(packageIndex);
+        }
+      }
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it("uses the shared cohort in the canonical publication helper", () => {
+    const workflow = readFileSync(".github/workflows/publish.yml", "utf8");
+    expect(workflow).toContain("axm:distribute-release");
+    const publisher = readFileSync("scripts/distribute-release.ts", "utf8");
+    expect(publisher).toContain("yield* ReleaseSnapshot");
+    expect(workflow).not.toContain("release_packages=(");
+  });
+
+  it("emits release metadata through the root target without rebuilding prepared runtime", () => {
+    const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
+    const cliPackageJson = readJsonRecord("apps/cli/package.json");
+    if (typeof cliPackageJson["version"] !== "string") throw new Error("Expected CLI version.");
+    const tag = `cli-v${cliPackageJson["version"]}`;
+    const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    }).trim();
+    const output = execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "nx",
+        "run",
+        "axm:resolve-release-meta",
+        "--excludeTaskDependencies",
+        "--outputStyle=stream-without-prefixes",
+        "--",
+        tag,
+        headSha,
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          NX_TUI: "false",
+          NX_DEFAULT_OUTPUT_STYLE: "stream-without-prefixes",
+          NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+          NX_SKIP_NX_CACHE: "true",
+        },
+      },
+    );
+
+    expect(output).toContain(`tag=${tag}`);
+    expect(output).toContain(`version=${cliPackageJson["version"]}`);
+    const runtimeAfter = statSync(preparedRuntimeFile, { bigint: true });
+    expect(runtimeAfter.ino).toBe(runtimeBefore.ino);
+    expect(runtimeAfter.mtimeNs).toBe(runtimeBefore.mtimeNs);
+  });
 });

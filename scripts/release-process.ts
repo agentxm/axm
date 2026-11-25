@@ -5,6 +5,12 @@ import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
+export const RELEASE_NX_ENV = {
+  NX_TUI: "false",
+  NX_DEFAULT_OUTPUT_STYLE: "static",
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+};
+
 export class ReleaseCommandFailed extends Data.TaggedError("ReleaseCommandFailed")<{
   readonly command: string;
   readonly exitCode: number;

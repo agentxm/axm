@@ -18,11 +18,11 @@ import {
 import {
   AXM_SKILL_DOCUMENT_PATH,
   AXM_SKILL_MANIFEST_PATH,
-  RELEASE_NX_ENV,
   stampSkillCompatibilityContent,
   stampSkillManifestContent,
-} from "./release-shared.js";
+} from "./release-skill-compatibility.js";
 import {
+  RELEASE_NX_ENV,
   releaseValidation,
   ReleaseValidationFailed,
   runReleaseCommand,

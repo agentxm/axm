@@ -14,15 +14,17 @@ import {
   AXM_SKILL_DOCUMENT_PATH,
   AXM_SKILL_GENERATED_PATH,
   AXM_SKILL_MANIFEST_PATH,
-  parseCiArtifacts,
-  parseGitHubRuns,
   readGeneratedSkillCompatibilityFromContent,
   readSkillCompatibilityFromContent,
   requireMatchingReleaseCompatibility,
+} from "./release-skill-compatibility.js";
+import {
+  parseCiArtifacts,
+  parseGitHubRuns,
   validateCiRunDetails,
   validateExactCiRunDetails,
   type VerifiedGitHubRun,
-} from "./release-shared.js";
+} from "./release-ci-provenance.js";
 import {
   captureReleaseCommand,
   makeReleaseCommandCapture,

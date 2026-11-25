@@ -26,6 +26,7 @@ import {
   acquiredPackageRelativePath,
   LockfileReader,
   WorkspaceLocation,
+  retainedBindingMatchesRef,
   retainedPackageBindings,
   retainedPackageKeyForRef,
   computeExtensionPathsForLayout,
@@ -276,14 +277,7 @@ export const SourceHostProvidersLive: Layer.Layer<
                 const binding = retainedPackageBindings(lock).find(
                   (entry) => entry.packageKey === retainedPackageKeyForRef(ref),
                 );
-                if (
-                  binding === undefined ||
-                  (ref.refType === "http"
-                    ? JSON.stringify(binding.entry.resolved) !== JSON.stringify(ref.snapshot)
-                    : !("commit" in binding.entry.resolved) ||
-                      binding.entry.resolved.commit !== ref.gitCommitSha ||
-                      binding.entry.resolved.tree !== ref.gitTreeSha)
-                )
+                if (binding === undefined || !retainedBindingMatchesRef(binding.entry, ref))
                   return undefined;
                 const layout = yield* Ref.get(workspace.value.layout);
                 const canonicalPath = computeExtensionPathsForLayout(

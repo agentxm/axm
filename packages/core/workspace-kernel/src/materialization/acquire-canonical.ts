@@ -21,6 +21,7 @@ import {
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   LockfileReader,
+  retainedBindingMatchesRef,
   retainedPackageBindings,
   retainedPackageKeyForRef,
 } from "../workspace-state/index.js";
@@ -149,15 +150,11 @@ export const acquireCanonicalForRef = <E = never>(
       if (accepted !== undefined) {
         const entry = accepted.entry;
         const sameSnapshot =
-          ref.refType === "git-hosted"
-            ? "commit" in entry.resolved &&
-              entry.resolved.commit === ref.gitCommitSha &&
-              entry.resolved.tree === ref.gitTreeSha
-            : ref.refType === "http"
-              ? JSON.stringify(entry.resolved) === JSON.stringify(ref.snapshot)
-              : (yield* computeMaterializedTreeIntegrity(
-                  yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)),
-                )) === entry.treeIntegrity;
+          ref.refType === "git-hosted" || ref.refType === "http"
+            ? retainedBindingMatchesRef(entry, ref)
+            : (yield* computeMaterializedTreeIntegrity(
+                yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)),
+              )) === entry.treeIntegrity;
         if (!sameSnapshot)
           return yield* new MaterializedTreeInvalid({
             root: destination,

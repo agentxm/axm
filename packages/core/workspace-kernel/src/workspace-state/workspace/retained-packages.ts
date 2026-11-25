@@ -95,6 +95,17 @@ export const retainedPackageBindings = (lockfile: Lockfile) =>
     })),
   );
 
+/** Whether an accepted immutable snapshot matches the retained binding. */
+export const retainedBindingMatchesRef = (
+  entry: ReturnType<typeof retainedPackageBindings>[number]["entry"],
+  ref: Extract<ExtensionRef, { readonly refType: "http" | "git-hosted" }>,
+): boolean =>
+  ref.refType === "git-hosted"
+    ? "commit" in entry.resolved &&
+      entry.resolved.commit === ref.gitCommitSha &&
+      entry.resolved.tree === ref.gitTreeSha
+    : JSON.stringify(entry.resolved) === JSON.stringify(ref.snapshot);
+
 export interface PackageAddressClaim {
   readonly packageKey: string;
   readonly address: string;

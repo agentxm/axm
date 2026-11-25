@@ -46,6 +46,7 @@ export { ArchiveIntegritySchema, LOCK_ENTRY_SCHEMA_BY_TYPE } from "./desired/loc
 export {
   retainedPackageKeyForRef,
   retainedPackageBindings,
+  retainedBindingMatchesRef,
   packageAddressClaimForRef,
   acceptedPackageAddressClaims,
   validatePackageAddressClaims,

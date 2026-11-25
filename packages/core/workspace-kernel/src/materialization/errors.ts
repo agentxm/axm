@@ -51,7 +51,7 @@ import type {
   WorkspaceNotInitialized,
   WorkspaceSourceInvalid,
 } from "../workspace-state/index.js";
-import type { SkillDiscoveryRootInvalid, SubagentScanFailed } from "../workspace-state/index.js";
+import type { SubagentScanFailed } from "../workspace-state/index.js";
 import type { LockfileResolvedVersionInvalid } from "../workspace-state/index.js";
 import type { InstallStateMissing } from "./accepted-resolution.js";
 import type { ExtensionKindFailure } from "./kind-failure.js";
@@ -104,7 +104,6 @@ export type ExtensionManagerFailure =
   | SupersededCanonicalRemovalFailed
   | PackageContentHashFailed
   | WorkspaceSourceInvalid
-  | SkillDiscoveryRootInvalid
   | SubagentScanFailed
   | LockfileResolvedVersionInvalid
   | FqnInvalidError

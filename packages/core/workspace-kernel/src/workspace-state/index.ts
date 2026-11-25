@@ -293,11 +293,7 @@ export {
   type ExtensionInventoryLifecycle,
   type ExtensionInventoryRow,
 } from "./observed/extensions/inventory.js";
-export {
-  scanAllSubagentFiles,
-  skillsInDir,
-  type AgentSubagentSummary,
-} from "./observed/discovery/index.js";
+export { scanAllSubagentFiles, type AgentSubagentSummary } from "./observed/discovery/index.js";
 export type {
   ActualMcpServer,
   ActualPack,
@@ -376,11 +372,7 @@ export {
 } from "./workspace/contracts.js";
 
 // Read-model, settings-read, and lockfile-read failure families
-export {
-  SkillDiscoveryRootInvalid,
-  SubagentScanFailed,
-  WorkspaceRootEscape,
-} from "./observed/errors.js";
+export { SubagentScanFailed, WorkspaceRootEscape } from "./observed/errors.js";
 export {
   LockfileDecodeError,
   LockfileIoError,

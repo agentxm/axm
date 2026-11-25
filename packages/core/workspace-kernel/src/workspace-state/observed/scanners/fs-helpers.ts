@@ -34,7 +34,7 @@ import type { Diagnostics } from "../diagnostics.js";
 
 // Reuse the local filesystem allowance of sixteen. Scanners share this owner,
 // so nested traversals and fixed outer catalogs cannot multiply filesystem
-// operations in flight; discovery/skills.test.ts verifies the aggregate limit.
+// operations in flight; fs-helpers.test.ts verifies the aggregate limit.
 export const SCANNER_IO_CONCURRENCY = 16;
 
 export const makeScannerFileSystem = (fs: FileSystem.FileSystem) =>

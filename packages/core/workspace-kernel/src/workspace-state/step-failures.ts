@@ -50,11 +50,7 @@ import {
 import { ConfiguredAgentOutcomesUnavailable } from "./workspace/configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./workspace/contracts.js";
 import { MaterializedTreeInvalid } from "./workspace/materialized-tree.js";
-import {
-  SkillDiscoveryRootInvalid,
-  SubagentScanFailed,
-  WorkspaceRootEscape,
-} from "./observed/errors.js";
+import { SubagentScanFailed, WorkspaceRootEscape } from "./observed/errors.js";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -273,7 +269,6 @@ type WorkspaceStateFailure =
   | SupersededCanonicalRemovalFailed
   | PackageContentHashFailed
   | WorkspaceSourceInvalid
-  | SkillDiscoveryRootInvalid
   | SubagentScanFailed
   | MaterializedTreeInvalid
   | PathTraversalDetected
@@ -502,15 +497,6 @@ const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepF
         recover: "Restore a valid canonical workspace package or update the settings source.",
         cause: error.cause,
       });
-    case "SkillDiscoveryRootInvalid":
-      return makeStepFailure({
-        category: "internal",
-        detail:
-          error.problem === "inaccessible"
-            ? `Directory does not exist or is not accessible: ${error.searchRoot}`
-            : `Path is not a directory: ${error.searchRoot}`,
-        cause: error.cause,
-      });
     case "SubagentScanFailed":
       return makeStepFailure({
         category: "internal",
@@ -557,7 +543,6 @@ export const workspaceStateFailures = defineFailureFamily({
       SupersededCanonicalRemovalFailed,
       PackageContentHashFailed,
       WorkspaceSourceInvalid,
-      SkillDiscoveryRootInvalid,
       SubagentScanFailed,
       MaterializedTreeInvalid,
       PathTraversalDetected,

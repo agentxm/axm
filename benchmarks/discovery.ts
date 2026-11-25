@@ -27,7 +27,6 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import {
   AgentRootResolverLive,
   makeWorkspaceReadModel,
-  skillsInDir,
   WorkspaceReadModelConfig,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -69,7 +68,6 @@ const createFixtures = Effect.gen(function* () {
   };
   for (let index = 0; index < 512; index++) {
     const name = `skill-${String(index).padStart(4, "0")}`;
-    yield* write(`wide/skills/${name}/SKILL.md`, skill(name));
     yield* write(
       `workspace/skills/${name}/skill.json`,
       JSON.stringify({ name, type: "skill", owner: "@bench" }),
@@ -81,10 +79,6 @@ const createFixtures = Effect.gen(function* () {
       JSON.stringify({ name, type: "skill", owner: "@bench" }),
     );
     yield* write(`acquired/agent_extensions/@bench/skills/${name}/src/SKILL.md`, skill(name));
-  }
-  for (let branch = 0; branch < 32; branch++) {
-    const name = `deep-${String(branch).padStart(4, "0")}`;
-    yield* write(`deep/branch-${branch}/one/two/three/${name}/SKILL.md`, skill(name));
   }
   yield* write("workspace/axm.json", JSON.stringify({ owner: "@bench", agents: ["claude-code"] }));
   yield* write("acquired/axm.json", JSON.stringify({ owner: "@bench", agents: ["claude-code"] }));
@@ -160,8 +154,6 @@ const measureAll = Effect.gen(function* () {
     const order = [...admissions.slice(repeat), ...admissions.slice(0, repeat)];
     for (const admission of order) {
       for (const scenario of [
-        "wide-skills",
-        "deep-skills",
         "workspace-scanners",
         "acquired-scanner",
         "registry-names",
@@ -195,35 +187,24 @@ const measureAll = Effect.gen(function* () {
                 Effect.provide(AgentRootResolverLive),
                 Effect.provideService(FileSystem.FileSystem, measured.fs),
               )
-            : scenario === "wide-skills" || scenario === "deep-skills"
-              ? skillsInDir(
-                  path.join(root, scenario === "wide-skills" ? "wide" : "deep"),
-                  Option.none(),
-                  { fullDepth: true, includeInternal: false },
-                ).pipe(
-                  Effect.map((rows) => rows.map((row) => row.skill.name)),
-                  Effect.provideService(FileSystem.FileSystem, measured.fs),
-                )
-              : client
-                  .getExtensionsByScope({
-                    owner: scenario === "registry-owners" ? "*" : decodeHandleSync("@owner-0"),
-                    names:
-                      scenario === "registry-owners"
-                        ? []
-                        : Array.from({ length: 32 }, (_, index) =>
-                            decodeExtensionNameSync(`extension-${String(index).padStart(4, "0")}`),
-                          ),
-                    types: ["skill", "subagent", "rule"],
-                    limit: Option.none(),
-                    offset: 0,
-                  })
-                  .pipe(
-                    Effect.map((result) =>
-                      result.extensions.map(
-                        (entry) => `${entry.owner}/${entry.type}/${entry.name}`,
-                      ),
-                    ),
-                  );
+            : client
+                .getExtensionsByScope({
+                  owner: scenario === "registry-owners" ? "*" : decodeHandleSync("@owner-0"),
+                  names:
+                    scenario === "registry-owners"
+                      ? []
+                      : Array.from({ length: 32 }, (_, index) =>
+                          decodeExtensionNameSync(`extension-${String(index).padStart(4, "0")}`),
+                        ),
+                  types: ["skill", "subagent", "rule"],
+                  limit: Option.none(),
+                  offset: 0,
+                })
+                .pipe(
+                  Effect.map((result) =>
+                    result.extensions.map((entry) => `${entry.owner}/${entry.type}/${entry.name}`),
+                  ),
+                );
         const start = yield* Clock.currentTimeNanos;
         const result = yield* operation;
         const finish = yield* Clock.currentTimeNanos;

@@ -1,7 +1,8 @@
 /**
  * Source provider for local filesystem paths.
  *
- * Wraps the existing `skillsInDir` logic into the `SourceHostProvider` interface.
+ * Discovers convention and manifest references through `discoverConventionRefs`
+ * behind the `SourceHostProvider` interface.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

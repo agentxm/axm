@@ -95,7 +95,6 @@ import {
   SettingsParseError,
   SettingsWriteError,
   RuntimeIgnoreWriteError,
-  SkillDiscoveryRootInvalid,
   SubagentScanFailed,
   SupersededCanonicalRemovalFailed,
   SymlinkCreationError,
@@ -439,9 +438,6 @@ const representatives: Representatives = {
   ],
   WorkspaceSourceInvalid: [
     new WorkspaceSourceInvalid({ source: "workspace:x", detail: "missing manifest" }),
-  ],
-  SkillDiscoveryRootInvalid: [
-    new SkillDiscoveryRootInvalid({ searchRoot: "/w/skills", problem: "not-directory" }),
   ],
   SubagentScanFailed: [new SubagentScanFailed({ agentName: "claude-code", cause: ioCause })],
   MaterializedTreeInvalid: [

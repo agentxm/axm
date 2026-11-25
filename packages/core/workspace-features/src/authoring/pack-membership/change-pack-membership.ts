@@ -61,7 +61,7 @@ import {
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
 import { settingsRelativePath } from "../create/authoring-owner.js";
-import { addToPack } from "./add-to-pack.js";
+import { editPackDependencies } from "./edit-pack-dependencies.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 import {
   isGlobPattern,
@@ -78,7 +78,6 @@ import {
   PackOwnerUnconfigured,
   PackSourceMissing,
 } from "./membership-errors.js";
-import { removeFromPack } from "./remove-from-pack.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
@@ -272,30 +271,28 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
   // The step takes the prepared text and decode; nothing here reads the
   // manifest after this point, and the step derives its update from a copy.
   const prepared = { text: manifestContent, manifest };
-  const run =
-    request.change === "add"
-      ? addToPack({
-          name: "add-to-pack",
-          args: {
-            packName: pack,
-            packOwner,
-            additions: Object.fromEntries(
-              packMembership.members.flatMap((member) =>
-                member.after === null ? [] : [[member.member, member.after]],
+  const run = editPackDependencies({
+    name: "edit-pack-dependencies",
+    args: {
+      packName: pack,
+      packOwner,
+      prepared,
+      edit:
+        request.change === "add"
+          ? {
+              _tag: "Add",
+              additions: Object.fromEntries(
+                packMembership.members.flatMap((member) =>
+                  member.after === null ? [] : [[member.member, member.after]],
+                ),
               ),
-            ),
-            prepared,
-          },
-        })
-      : removeFromPack({
-          name: "remove-from-pack",
-          args: {
-            packName: pack,
-            packOwner,
-            removals: packMembership.members.map((member) => member.member),
-            prepared,
-          },
-        });
+            }
+          : {
+              _tag: "Remove",
+              removals: packMembership.members.map((member) => member.member),
+            },
+    },
+  });
   const step: PlannedJobStep<PackMembershipRequirements> = {
     readiness: "ready",
     label: pack,

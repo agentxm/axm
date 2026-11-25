@@ -1,5 +1,6 @@
 /**
- * Remove-from-pack operation — applies a precomputed manifest-remove delta to a pack manifest.
+ * Edit-pack-dependencies operation — applies a precomputed dependency delta
+ * (additions or removals) to a pack manifest.
  *
  * Validates manifest precondition (stale check) before writing.
  *
@@ -12,7 +13,11 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import { authoringStepFailure } from "../step-failure.js";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions";
+import type {
+  Handle,
+  PackMemberConstraint,
+  PackMemberConstraintMap,
+} from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "@agentxm/workspace-kernel/planning";
 import type { Operation, JobStepResult } from "@agentxm/workspace-kernel/operations";
 import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
@@ -26,6 +31,7 @@ import {
   type PackManifest,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { packManifestArtifact } from "./artifact.js";
+import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { authoringRefused } from "../errors.js";
 
@@ -34,15 +40,30 @@ import { authoringRefused } from "../errors.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the remove-from-pack operation.
+ * The precomputed manifest delta: dependencies to add, or dependencies to remove.
  */
-interface RemoveFromPackOperationArgs {
+type PackDependencyEdit =
+  | {
+      readonly _tag: "Add";
+      /** FQN -> version range entries to add. */
+      readonly additions: Readonly<Record<string, string>>;
+    }
+  | {
+      readonly _tag: "Remove";
+      /** Extension names to remove. */
+      readonly removals: ReadonlyArray<string>;
+    };
+
+/**
+ * Args for the edit-pack-dependencies operation.
+ */
+interface EditPackDependenciesOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
   readonly packOwner: Handle;
-  /** Precomputed manifest delta: extension names to remove. */
-  readonly removals: ReadonlyArray<string>;
+  /** Precomputed manifest delta. */
+  readonly edit: PackDependencyEdit;
   /**
    * The manifest as the plan read it: its exact text, compared with the text
    * read under the workspace lock, and its decoded value, from which the
@@ -55,27 +76,86 @@ interface RemoveFromPackOperationArgs {
 }
 
 /**
- * Remove extensions from a pack manifest.
+ * Add extensions to, or remove extensions from, a pack manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPackOperationArgs>;
+export type EditPackDependenciesOperation = Operation<
+  "edit-pack-dependencies",
+  EditPackDependenciesOperationArgs
+>;
+
+// -----------------------------------------------------------------------------
+// Per-edit rules
+// -----------------------------------------------------------------------------
+
+/** What differs between adding and removing pack dependencies. */
+interface PackDependencyEditRules {
+  /** Number of requested entries; zero short-circuits the edit. */
+  readonly count: number;
+  /** Success message when there is nothing to change. */
+  readonly emptyMessage: string;
+  /** Derive the updated dependencies from the prepared ones without modifying them. */
+  readonly apply: (dependencies: PackMemberConstraintMap) => PackMemberConstraintMap;
+  /** Whether the written dependencies reflect the requested edit. */
+  readonly retained: (dependencies: PackMemberConstraintMap) => boolean;
+  /** Postcondition failure detail when they do not. */
+  readonly retainFailure: string;
+  /** Success message after the manifest is written. */
+  readonly successMessage: string;
+}
+
+const editRules = (edit: PackDependencyEdit): PackDependencyEditRules => {
+  if (edit._tag === "Add") {
+    const { additions } = edit;
+    const count = Object.keys(additions).length;
+    return {
+      count,
+      emptyMessage: "No pack entries added",
+      apply: (manifestDependencies) => {
+        const dependencies: Record<string, PackMemberConstraint> = { ...manifestDependencies };
+        for (const [fqn, version] of Object.entries(additions)) {
+          dependencies[fqn] = decodeVersionRangeSync(version);
+        }
+        return dependencies satisfies PackMemberConstraintMap;
+      },
+      retained: (dependencies) =>
+        Object.entries(additions).every(([fqn, constraint]) => dependencies[fqn] === constraint),
+      retainFailure: `Updated pack manifest did not retain the requested dependencies`,
+      successMessage: `Added ${count} extension${count === 1 ? "" : "s"} to pack`,
+    };
+  }
+  const { removals } = edit;
+  return {
+    count: removals.length,
+    emptyMessage: "No pack entries removed",
+    apply: (manifestDependencies) => {
+      const removalSet = new Set(removals);
+      return Object.fromEntries(
+        Object.entries(manifestDependencies).filter(([name]) => !removalSet.has(name)),
+      );
+    },
+    retained: (dependencies) => removals.every((fqn) => dependencies[fqn] === undefined),
+    retainFailure: `Updated pack manifest retained a removed dependency`,
+    successMessage: `Removed ${removals.length} extension${removals.length === 1 ? "" : "s"} from pack`,
+  };
+};
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * Remove-from-pack operation handler.
+ * Edit-pack-dependencies operation handler.
  *
- * 1. Short-circuit if removals list is empty (no-op)
+ * 1. Short-circuit if the delta is empty (no-op)
  * 2. Read current manifest under the workspace lock
  * 3. Compare it with the prepared text (stale check)
- * 4. Apply removals to manifest
+ * 4. Apply the delta to manifest
  * 5. Write updated manifest
  */
-export const removeFromPack: OperationHandler<
-  RemoveFromPackOperation,
+export const editPackDependencies: OperationHandler<
+  EditPackDependenciesOperation,
   FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | WorkspaceTransactionScope
 > = (op) =>
   Effect.gen(function* () {
@@ -89,7 +169,7 @@ export const removeFromPack: OperationHandler<
         detail: "Authored packs can only be edited in a project workspace",
       });
     }
-    const { packName, packOwner, removals, prepared } = op.args;
+    const { packName, packOwner, edit, prepared } = op.args;
     const configured = (yield* (yield* SettingsReader).entries("pack"))[packName];
     if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
       return yield* authoringRefused({
@@ -98,12 +178,12 @@ export const removeFromPack: OperationHandler<
         recover: "Only workspace-authored packs can be edited in place.",
       });
     }
-    // 1. Short-circuit if nothing to remove
-    if (removals.length === 0) {
-      return { result: "success", message: "No pack entries removed" } satisfies JobStepResult;
+    const rules = editRules(edit);
+    // 1. Short-circuit if nothing to change
+    if (rules.count === 0) {
+      return { result: "success", message: rules.emptyMessage } satisfies JobStepResult;
     }
 
-    // 2. Read current manifest
     const manifestPath = path.join(
       layout.authoredRoot("pack"),
       packName,
@@ -112,6 +192,7 @@ export const removeFromPack: OperationHandler<
     yield* runWorkspaceTransaction({
       targets: [manifestPath],
       transition: Effect.gen(function* () {
+        // Read and stale-check under the workspace lock.
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(
           Effect.mapError((e) =>
             authoringRefused({
@@ -132,12 +213,10 @@ export const removeFromPack: OperationHandler<
           });
         }
 
-        // 4. Apply removals to a copy of the prepared manifest
+        // 4. Apply the delta to a copy of the prepared manifest
         const manifest = prepared.manifest;
-        const removalSet = new Set(removals);
-        const dependencies = Object.fromEntries(
-          Object.entries(manifest.dependencies).filter(([name]) => !removalSet.has(name)),
-        );
+        const dependencies = rules.apply(manifest.dependencies);
+
         const updatedManifest = {
           ...manifest,
           owner: manifest.owner,
@@ -186,11 +265,11 @@ export const removeFromPack: OperationHandler<
           ),
           Effect.flatMap(Schema.decodeUnknownEffect(PackManifestSchema)),
           Effect.flatMap((manifest) =>
-            removals.every((fqn) => manifest.dependencies[fqn] === undefined)
+            rules.retained(manifest.dependencies)
               ? Effect.void
               : authoringRefused({
                   category: "internal",
-                  detail: `Updated pack manifest retained a removed dependency`,
+                  detail: rules.retainFailure,
                 }),
           ),
           Effect.mapError((cause) =>
@@ -205,7 +284,7 @@ export const removeFromPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Removed ${removals.length} extension${removals.length === 1 ? "" : "s"} from pack`,
+      message: rules.successMessage,
       artifact: packManifestArtifact({
         owner: packOwner,
         name: packName,

@@ -1426,13 +1426,11 @@
       "resource": "The authored pack manifest of a workspace-authored pack.",
       "publication": "Whole-file write of the pack manifest inside a workspace transaction.",
       "sources": [
-        "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
-        "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.ts",
+        "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts",
         "packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts"
       ],
       "publicationSites": [
-        "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
-        "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.ts"
+        "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts"
       ],
       "requirements": [
         "cli/packs/add/preview-is-pure",
@@ -1455,19 +1453,19 @@
         },
         {
           "purpose": "fresh-conflict-or-route-check",
-          "source": "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
+          "source": "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts",
           "note": "Under the lock the manifest is read and compared with the prepared text; a differing text refuses as stale.",
           "requirement": "cli/mutations-are-closure-atomic"
         },
         {
           "purpose": "post-write-verification",
-          "source": "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
+          "source": "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts",
           "note": "After the write the manifest is read back, decoded and checked for the requested dependencies.",
           "requirement": "cli/packs/add/records-member-as-pack-dependency"
         },
         {
           "purpose": "post-write-verification",
-          "source": "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.ts",
+          "source": "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts",
           "note": "After the write the manifest is read back, decoded and checked for the removed dependencies.",
           "requirement": "cli/packs/remove/removes-only-selected-dependencies"
         }
@@ -1501,8 +1499,7 @@
             ],
             "sources": [
               "packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts",
-              "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
-              "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.ts"
+              "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts"
             ]
           }
         },
@@ -1513,8 +1510,7 @@
           "evidence": {
             "requirements": ["cli/mutations-are-closure-atomic"],
             "sources": [
-              "packages/core/workspace-features/src/authoring/pack-membership/add-to-pack.ts",
-              "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.ts"
+              "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.ts"
             ]
           }
         }

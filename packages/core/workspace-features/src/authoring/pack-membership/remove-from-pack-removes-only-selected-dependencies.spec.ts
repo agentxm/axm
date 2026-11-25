@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.",
   derivedFrom: [
-    "packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.test.ts",
+    "packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.test.ts",
     "packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts",
   ],
   supersedes: [],

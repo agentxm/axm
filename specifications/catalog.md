@@ -1350,7 +1350,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: platform; selection: per-change
 - Boundary rationale: The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.
 - Methods: example, decision-table
-- Derived from: `packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.test.ts`, `packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts`
+- Derived from: `packages/core/workspace-features/src/authoring/pack-membership/edit-pack-dependencies.test.ts`, `packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts`
 - Source: [`packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack-removes-only-selected-dependencies.spec.ts`](../packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack-removes-only-selected-dependencies.spec.ts)
 
 ##### Unpack keeps members installed as direct declarations

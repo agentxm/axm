@@ -408,12 +408,6 @@ export {
   WorkspaceSourceInvalid,
 } from "./workspace/errors.js";
 
-export { setupScopeSupport } from "./workspace/setup-scope-support.js";
-export {
-  configuredAgentLifecycleOutcomes,
-  EXTENSION_CONFIGURED_AGENT_POLICY,
-} from "./workspace/configured-agent-outcomes.js";
-
 export { lockEntrySemanticallyEqual, stableJson } from "./workspace/accepted-resolution-writer.js";
 
 export {

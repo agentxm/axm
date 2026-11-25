@@ -268,7 +268,9 @@ Knowledge discovery table. The destructive sweep of rendered files belongs to
 `workspace-kernel/agent-adapters` owns installed-agent detection and the
 native format mechanics used by projection: coding-agent adapters, subagent
 rendering, MCP configuration, hook-group editing, region fences, and the
-YAML, TOML, and JSON codecs used by those writers. Its inputs are plain data,
+YAML, TOML, and JSON codecs used by those writers. It also owns capability
+scope support and the configured-agent lifecycle outcome policy derived from
+the coding-agent capability catalog. Its inputs are plain data,
 and native writes use the `NativeWriteAuthority` port so the enclosing workspace
 transaction protects and records every target.
 

@@ -112,7 +112,6 @@ import {
   withFreshWorkspaceObservationReadView,
   withWorkspaceReadView,
   withLiveWorkspaceObservations,
-  configuredAgentLifecycleOutcomes,
   resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesProviderService,
   candidateFingerprintFailedToStepFailure,
@@ -121,6 +120,7 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
+import { configuredAgentLifecycleOutcomes } from "../../agent-adapters/index.js";
 import {
   nativeUnitKey,
   nativeUnitReference,

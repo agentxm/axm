@@ -24,7 +24,10 @@ import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  setupScopeSupport,
+  type NativeWriteAuthority,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -50,7 +53,6 @@ import {
   resolveUserWorkspaceRoot,
   resolveUserHome,
   scanAllSubagentFiles,
-  setupScopeSupport,
   type AgentSubagentSummary,
   type LocatedWorkspace,
   type Settings,

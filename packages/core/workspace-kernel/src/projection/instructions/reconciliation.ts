@@ -24,7 +24,10 @@ import {
   type ConfiguredAgentOutcome,
 } from "../../operations/index.js";
 import type { ProjectionUnitObservation } from "../units.js";
-import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
+import {
+  configuredAgentLifecycleOutcomes,
+  type NativeWriteAuthority,
+} from "../../agent-adapters/index.js";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -42,7 +45,6 @@ import {
   AcceptedResolutionWriter,
   LockfileReader,
   recordedProjectionRows,
-  configuredAgentLifecycleOutcomes,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,

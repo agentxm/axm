@@ -25,7 +25,7 @@ import type { CanonicalObservation, CapturedManifest } from "./canonical-observa
 import type { LockEntry } from "./lock-entry.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { WorkspaceReadPhaseState } from "./read-phase.js";
-import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
+import { configuredAgentLifecycleOutcomes } from "../../agent-adapters/index.js";
 
 /**
  * A provider could not produce its outcomes. The implementation owns the

@@ -67,6 +67,13 @@ export {
 // Scope wording
 export { userScopeRefusal } from "./scope-refusal.js";
 
+// Capability scope support
+export { setupScopeSupport } from "./setup-scope-support.js";
+export {
+  configuredAgentLifecycleOutcomes,
+  EXTENSION_CONFIGURED_AGENT_POLICY,
+} from "./configured-agent-outcomes.js";
+
 // Coding-agent adapters
 export {
   type AddSubagentArgs,

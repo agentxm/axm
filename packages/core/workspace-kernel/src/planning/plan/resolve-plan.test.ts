@@ -72,7 +72,6 @@ import {
 import {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
-  configuredAgentLifecycleOutcomes,
   DesiredStateReader,
   ExtensionPaths,
   LockfileReader,
@@ -84,6 +83,7 @@ import {
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
+import { configuredAgentLifecycleOutcomes } from "../../agent-adapters/index.js";
 
 import {
   type ExecutionCandidate,

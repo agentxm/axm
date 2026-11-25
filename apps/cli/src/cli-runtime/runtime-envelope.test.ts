@@ -11,6 +11,7 @@ import {
   StepFailure,
   makeOperationResolution,
 } from "@agentxm/workspace-kernel/operations";
+import { WorkspaceInitializationCancelled } from "@agentxm/workspace-features/configuration";
 
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -19,7 +20,6 @@ import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
-import * as Data from "effect/Data";
 import { processOutcome } from "./process-outcome.js";
 import { captureTelemetry, telemetryReporterLayer } from "../test-support/telemetry-harness.js";
 import { TelemetryClientTest } from "../telemetry/index.js";
@@ -30,15 +30,6 @@ import {
   writeExpectedCliError,
 } from "./runtime-envelope.js";
 import { emitOperationResolution } from "../operation-output.js";
-
-/**
- * Structural stand-in for the workspace configuration feature's typed
- * cancellation: the envelope dispatches on the tag alone, and the residue may
- * not depend on feature packages.
- */
-class WorkspaceInitializationCancelled extends Data.TaggedError(
-  "WorkspaceInitializationCancelled",
-)<{ readonly message: string }> {}
 
 // ---------------------------------------------------------------------------
 // Helpers

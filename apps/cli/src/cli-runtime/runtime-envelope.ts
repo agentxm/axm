@@ -16,19 +16,7 @@ import { AppError, ExitCode, exitCodeFor, appErrorCodeForExit } from "../app-err
 import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { InstallSelectionCancelled } from "@agentxm/workspace-kernel/operations";
-
-/**
- * Structural shape of the workspace configuration feature's typed
- * initialization cancellation. The envelope dispatches on the tag alone, so
- * it does not import the feature package (the transitional residue may not
- * depend on features).
- *
- * @public Inferred types in this package name it in emitted declarations.
- */
-export interface WorkspaceInitializationCancelled {
-  readonly _tag: "WorkspaceInitializationCancelled";
-  readonly message: string;
-}
+import type { WorkspaceInitializationCancelled } from "@agentxm/workspace-features/configuration";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { processOutcome, isProcessOutcome } from "./process-outcome.js";
 import { resolveFormat } from "./resolve-format.js";

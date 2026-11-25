@@ -3,15 +3,18 @@ import * as Effect from "effect/Effect";
 import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 import {
   KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS,
+  KNOWLEDGE_DIAGNOSTIC_CODES,
+  KNOWLEDGE_DIAGNOSTIC_SEVERITIES,
   type KnowledgeDiagnosticCode,
+  type KnowledgeDiagnosticSeverity,
 } from "../../../knowledge/index.js";
 import type { KnowledgeRuleContext } from "../../context.js";
-import type { AdvisoryFinding, AdvisoryRule, Severity } from "../../rule.js";
+import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 interface DiagnosticRuleDefinition {
   readonly code: KnowledgeDiagnosticCode;
-  readonly severity: Severity;
+  readonly severity: KnowledgeDiagnosticSeverity;
 }
 
 /** The rule set a diagnostic code checks, as its lint rule states it. */
@@ -61,55 +64,11 @@ const makeDiagnosticRule = (
   };
 };
 
-export const knowledgeDiagnosticRuleDefinitions = [
-  { code: "bundle-too-large", severity: "error" },
-  { code: "file-too-large", severity: "error" },
-  { code: "invalid-tags", severity: "error" },
-  { code: "missing-root-index", severity: "error" },
-  { code: "missing-okf-version", severity: "error" },
-  { code: "missing-title", severity: "warning" },
-  { code: "missing-description", severity: "warning" },
-  { code: "missing-manifest-description", severity: "warning" },
-  { code: "empty-bundle", severity: "warning" },
-  { code: "missing-tags", severity: "warning" },
-  { code: "symbolic-link", severity: "error" },
-  { code: "too-many-files", severity: "error" },
-  { code: "unsupported-okf-version", severity: "error" },
-  { code: "missing-type", severity: "error" },
-  { code: "invalid-frontmatter", severity: "error" },
-  { code: "case-collision", severity: "error" },
-  { code: "dangerous-uri", severity: "error" },
-  { code: "detected-secret", severity: "error" },
-  { code: "unsafe-path", severity: "error" },
-  { code: "invalid-index", severity: "error" },
-  { code: "invalid-log", severity: "error" },
-  { code: "invalid-resource", severity: "error" },
-  { code: "escaping-resource", severity: "error" },
-  { code: "unresolved-resource", severity: "warning" },
-  { code: "broken-internal-link", severity: "warning" },
-  { code: "escaping-link", severity: "warning" },
-  { code: "unreachable-concept", severity: "warning" },
-  { code: "missing-index-entry", severity: "warning" },
-  { code: "stale-index-entry", severity: "warning" },
-  { code: "embedded-html", severity: "warning" },
-  { code: "duplicate-resource", severity: "warning" },
-  { code: "inconsistent-type", severity: "warning" },
-  { code: "large-concept", severity: "warning" },
-  { code: "large-index", severity: "warning" },
-  { code: "unreferenced-asset", severity: "warning" },
-  { code: "invalid-sources", severity: "error" },
-  { code: "invalid-generated", severity: "error" },
-  { code: "invalid-verified", severity: "error" },
-  { code: "invalid-status", severity: "error" },
-  { code: "invalid-stale-after", severity: "error" },
-  { code: "invalid-attestation", severity: "error" },
-  { code: "missing-frontmatter", severity: "error" },
-  { code: "superseded-timestamp", severity: "error" },
-  { code: "superseded-citations", severity: "error" },
-  { code: "missing-index-heading", severity: "error" },
-  { code: "unexpected-log-frontmatter", severity: "error" },
-  { code: "unordered-log-dates", severity: "error" },
-] as const satisfies ReadonlyArray<DiagnosticRuleDefinition>;
+export const knowledgeDiagnosticRuleDefinitions: ReadonlyArray<DiagnosticRuleDefinition> =
+  KNOWLEDGE_DIAGNOSTIC_CODES.map((code) => ({
+    code,
+    severity: KNOWLEDGE_DIAGNOSTIC_SEVERITIES[code],
+  }));
 
 export const knowledgeDiagnosticRules: ReadonlyArray<AdvisoryRule<KnowledgeRuleContext>> =
   knowledgeDiagnosticRuleDefinitions.map(makeDiagnosticRule);

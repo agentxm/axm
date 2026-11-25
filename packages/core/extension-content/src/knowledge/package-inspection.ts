@@ -18,7 +18,6 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
 const missingManifestDescription = (): KnowledgeDiagnostic =>
   knowledgeDiagnostic({
     code: "missing-manifest-description",
-    severity: "warning",
     relativePath: manifestFilenameForType("knowledge"),
     message: `${manifestFilenameForType("knowledge")} should include a concise bundle description for discovery.`,
   });

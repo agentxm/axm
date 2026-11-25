@@ -245,6 +245,66 @@ export const KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS: {
   "superseded-citations": profile,
 };
 
+/** The severity a Knowledge diagnostic carries. */
+export type KnowledgeDiagnosticSeverity = "error" | "warning";
+
+/**
+ * The AgentXM default severity of every diagnostic code, used both when
+ * inspection reports the diagnostic and as its lint rule's default. The
+ * annotation makes a new code fail to compile until it has a severity here.
+ */
+export const KNOWLEDGE_DIAGNOSTIC_SEVERITIES: {
+  readonly [Code in KnowledgeDiagnosticCode]: KnowledgeDiagnosticSeverity;
+} = {
+  "bundle-too-large": "error",
+  "file-too-large": "error",
+  "invalid-tags": "error",
+  "missing-root-index": "error",
+  "missing-okf-version": "error",
+  "missing-title": "warning",
+  "missing-description": "warning",
+  "missing-manifest-description": "warning",
+  "empty-bundle": "warning",
+  "missing-tags": "warning",
+  "symbolic-link": "error",
+  "too-many-files": "error",
+  "unsupported-okf-version": "error",
+  "missing-type": "error",
+  "invalid-frontmatter": "error",
+  "case-collision": "error",
+  "dangerous-uri": "error",
+  "detected-secret": "error",
+  "unsafe-path": "error",
+  "invalid-index": "error",
+  "invalid-log": "error",
+  "invalid-resource": "error",
+  "escaping-resource": "error",
+  "unresolved-resource": "warning",
+  "broken-internal-link": "warning",
+  "escaping-link": "warning",
+  "unreachable-concept": "warning",
+  "missing-index-entry": "warning",
+  "stale-index-entry": "warning",
+  "embedded-html": "warning",
+  "duplicate-resource": "warning",
+  "inconsistent-type": "warning",
+  "large-concept": "warning",
+  "large-index": "warning",
+  "unreferenced-asset": "warning",
+  "invalid-sources": "error",
+  "invalid-generated": "error",
+  "invalid-verified": "error",
+  "invalid-status": "error",
+  "invalid-stale-after": "error",
+  "invalid-attestation": "error",
+  "missing-frontmatter": "error",
+  "superseded-timestamp": "error",
+  "superseded-citations": "error",
+  "missing-index-heading": "error",
+  "unexpected-log-frontmatter": "error",
+  "unordered-log-dates": "error",
+};
+
 export interface KnowledgeFrontmatterParseDetails {
   readonly kind: "frontmatter-parse";
   readonly reason: string;
@@ -256,7 +316,8 @@ export interface KnowledgeDiagnostic {
   readonly ruleSet: KnowledgeRuleSet;
   /** The §11 rule failed; present exactly when `ruleSet` is `okf-conformance`. */
   readonly conformanceRule?: KnowledgeConformanceRule;
-  readonly severity: "error" | "warning";
+  /** The default severity of `code`, from `KNOWLEDGE_DIAGNOSTIC_SEVERITIES`. */
+  readonly severity: KnowledgeDiagnosticSeverity;
   readonly relativePath: string;
   readonly line?: number;
   readonly column?: number;
@@ -264,13 +325,16 @@ export interface KnowledgeDiagnostic {
   readonly details?: KnowledgeFrontmatterParseDetails;
 }
 
-/** Build a diagnostic whose rule set is always the classification of its code. */
+/**
+ * Build a diagnostic whose rule set and severity are always those of its code.
+ */
 export const knowledgeDiagnostic = ({
   code,
   ...fields
-}: Omit<KnowledgeDiagnostic, "ruleSet" | "conformanceRule">): KnowledgeDiagnostic => ({
+}: Omit<KnowledgeDiagnostic, "ruleSet" | "conformanceRule" | "severity">): KnowledgeDiagnostic => ({
   code,
   ...KNOWLEDGE_DIAGNOSTIC_CLASSIFICATIONS[code],
+  severity: KNOWLEDGE_DIAGNOSTIC_SEVERITIES[code],
   ...fields,
 });
 
@@ -296,7 +360,6 @@ export const frontmatterParseDiagnostic = (
         : (["invalid-frontmatter", "Invalid YAML frontmatter"] as const);
   return knowledgeDiagnostic({
     code,
-    severity: "error",
     relativePath,
     ...(failure.line === undefined ? {} : { line: failure.line }),
     ...(failure.column === undefined ? {} : { column: failure.column }),
@@ -550,7 +613,6 @@ const classifyResource = (value: string, allowScope: boolean): ResourceKind => {
 interface ResourceIssue {
   readonly code:
     "invalid-resource" | "invalid-sources" | "escaping-resource" | "unresolved-resource";
-  readonly severity: "error" | "warning";
   readonly message: string;
 }
 
@@ -577,7 +639,6 @@ const inspectResource = (
       kind,
       issue: {
         code: options.invalidCode,
-        severity: "error",
         message: `${options.label} must be a safe absolute URI${options.allowScope ? ", contained path, or scope description" : " or contained path"}.`,
       },
     };
@@ -590,7 +651,6 @@ const inspectResource = (
       kind: "invalid",
       issue: {
         code: options.invalidCode,
-        severity: "error",
         message: `${options.label} must be a safe absolute URI${options.allowScope ? ", contained path, or scope description" : " or contained path"}.`,
       },
     };
@@ -600,7 +660,6 @@ const inspectResource = (
       kind,
       issue: {
         code: "escaping-resource",
-        severity: "error",
         message: `${options.label} escapes the Knowledge bundle.`,
       },
     };
@@ -612,7 +671,6 @@ const inspectResource = (
       identity,
       issue: {
         code: "unresolved-resource",
-        severity: "warning",
         message: `${options.label} points to missing bundle path ${resourcePathPortion(target)}.`,
       },
     };
@@ -670,14 +728,13 @@ const sourcesIssues = (
     return [
       {
         code: "invalid-sources",
-        severity: "error",
         message: "sources must be a list of source entries.",
       },
     ];
   }
   const issues: ResourceIssue[] = [];
   const invalid = (message: string): void => {
-    issues.push({ code: "invalid-sources", severity: "error", message });
+    issues.push({ code: "invalid-sources", message });
   };
   const ids = new Map<string, number>();
   value.forEach((entry: unknown, index) => {
@@ -948,14 +1005,12 @@ export const inspectKnowledgeEntries = <E>(
       if (headings.length === 0) {
         report({
           code: "invalid-index",
-          severity: "error",
           relativePath,
           message: `${relativePath} must group its entries under at least one section heading.`,
         });
       } else if (!headings.some(({ level }) => level === 1)) {
         report({
           code: "missing-index-heading",
-          severity: "error",
           relativePath,
           message: `${relativePath} must contain at least one level-one section heading.`,
         });
@@ -972,7 +1027,6 @@ export const inspectKnowledgeEntries = <E>(
       if (invalid !== undefined) {
         report({
           code: "invalid-log",
-          severity: "error",
           relativePath,
           line: invalid.line,
           message: `${relativePath} date headings must use valid ISO 8601 YYYY-MM-DD dates.`,
@@ -982,7 +1036,6 @@ export const inspectKnowledgeEntries = <E>(
       if (dates.some((date, index) => index > 0 && date > (dates[index - 1] ?? date))) {
         report({
           code: "unordered-log-dates",
-          severity: "error",
           relativePath,
           message: `${relativePath} date headings must be newest first.`,
         });
@@ -995,7 +1048,6 @@ export const inspectKnowledgeEntries = <E>(
     if (entries.length > MAX_BUNDLE_FILES) {
       report({
         code: "too-many-files",
-        severity: "error",
         relativePath: ".",
         message: `Knowledge bundle contains ${entries.length} files; the safety limit is ${MAX_BUNDLE_FILES}.`,
       });
@@ -1004,7 +1056,6 @@ export const inspectKnowledgeEntries = <E>(
     if (totalBytes > MAX_BUNDLE_BYTES) {
       report({
         code: "bundle-too-large",
-        severity: "error",
         relativePath: ".",
         message: "Knowledge bundle exceeds the 10 MiB uncompressed safety limit.",
       });
@@ -1020,7 +1071,6 @@ export const inspectKnowledgeEntries = <E>(
       ) {
         report({
           code: "unsafe-path",
-          severity: "error",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} is not a safe bundle-relative path.`,
         });
@@ -1032,7 +1082,6 @@ export const inspectKnowledgeEntries = <E>(
       if (entry.type === "SymbolicLink") {
         report({
           code: "symbolic-link",
-          severity: "error",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} is a symbolic link; knowledge bundles must be self-contained.`,
         });
@@ -1040,7 +1089,6 @@ export const inspectKnowledgeEntries = <E>(
       if (entry.size > MAX_FILE_BYTES) {
         report({
           code: "file-too-large",
-          severity: "error",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} exceeds the 1 MiB per-file safety limit.`,
         });
@@ -1054,7 +1102,6 @@ export const inspectKnowledgeEntries = <E>(
       ) {
         report({
           code: "large-index",
-          severity: "warning",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} is unusually large for progressive discovery.`,
         });
@@ -1065,7 +1112,6 @@ export const inspectKnowledgeEntries = <E>(
       ) {
         report({
           code: "large-concept",
-          severity: "warning",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} is unusually large and may be expensive to consume.`,
         });
@@ -1075,7 +1121,6 @@ export const inspectKnowledgeEntries = <E>(
       if (new Set(colliding).size > 1) {
         report({
           code: "case-collision",
-          severity: "error",
           relativePath: colliding[0] ?? ".",
           message: `Bundle paths collide on case-insensitive filesystems: ${colliding.join(", ")}.`,
         });
@@ -1084,7 +1129,6 @@ export const inspectKnowledgeEntries = <E>(
     if (!files.includes("index.md")) {
       report({
         code: "missing-root-index",
-        severity: "error",
         relativePath: "index.md",
         message: "AgentXM knowledge bundles require src/index.md as their discovery root.",
       });
@@ -1103,7 +1147,6 @@ export const inspectKnowledgeEntries = <E>(
       if (foundSecretLine !== undefined) {
         report({
           code: "detected-secret",
-          severity: "error",
           relativePath,
           line: foundSecretLine,
           message: `${relativePath} contains a high-confidence credential or private key pattern.`,
@@ -1113,7 +1156,6 @@ export const inspectKnowledgeEntries = <E>(
         if (activeScheme(link.target)) {
           report({
             code: "dangerous-uri",
-            severity: "error",
             relativePath,
             line: link.line,
             message: `${relativePath} contains a dangerous active URI scheme.`,
@@ -1124,7 +1166,6 @@ export const inspectKnowledgeEntries = <E>(
       if (activeHtmlUri !== null) {
         report({
           code: "dangerous-uri",
-          severity: "error",
           relativePath,
           line: raw.slice(0, activeHtmlUri.index).split(/\r?\n/).length,
           message: `${relativePath} contains a dangerous active URI scheme.`,
@@ -1133,7 +1174,6 @@ export const inspectKnowledgeEntries = <E>(
       if (/<\/?(?:script|iframe|object|embed|form|style|video|audio|svg|math)\b[^>]*>/i.test(raw)) {
         report({
           code: "embedded-html",
-          severity: "warning",
           relativePath,
           message: `${relativePath} contains embedded HTML; consumers must sanitize it.`,
         });
@@ -1157,7 +1197,6 @@ export const inspectKnowledgeEntries = <E>(
           if (metadata !== undefined && (!isMetadata || Array.isArray(metadata))) {
             report({
               code: "invalid-index",
-              severity: "error",
               relativePath,
               message: `${relativePath} frontmatter must be a mapping that declares only okf_version.`,
             });
@@ -1166,7 +1205,6 @@ export const inspectKnowledgeEntries = <E>(
             if (extraKeys.length > 0) {
               report({
                 code: "invalid-index",
-                severity: "error",
                 relativePath,
                 message: `${relativePath} frontmatter may declare only okf_version; found ${extraKeys.join(", ")}.`,
               });
@@ -1175,7 +1213,6 @@ export const inspectKnowledgeEntries = <E>(
         } else if (findFrontmatterBoundaries(raw) !== undefined) {
           report({
             code: "invalid-index",
-            severity: "error",
             relativePath,
             message: `${relativePath} is a reserved index and must not contain frontmatter.`,
           });
@@ -1186,7 +1223,6 @@ export const inspectKnowledgeEntries = <E>(
         if (findFrontmatterBoundaries(raw) !== undefined) {
           report({
             code: "unexpected-log-frontmatter",
-            severity: "error",
             relativePath,
             message: `${relativePath} is a reserved log and must not contain frontmatter.`,
           });
@@ -1225,7 +1261,6 @@ export const inspectKnowledgeEntries = <E>(
       if (isMetadata && "tags" in metadata && metadata.tags !== undefined && tags === undefined) {
         report({
           code: "invalid-tags",
-          severity: "error",
           relativePath,
           message: `${relativePath} tags must be an array of strings.`,
         });
@@ -1236,14 +1271,12 @@ export const inspectKnowledgeEntries = <E>(
         if (declaredVersion === undefined) {
           report({
             code: "missing-okf-version",
-            severity: "error",
             relativePath,
             message: `src/index.md requires okf_version: ${OKF_VERSION} in YAML frontmatter.`,
           });
         } else if (declaredVersion !== OKF_VERSION) {
           report({
             code: "unsupported-okf-version",
-            severity: "error",
             relativePath,
             message: `Unsupported OKF version ${declaredVersion}; expected ${OKF_VERSION}.`,
           });
@@ -1258,7 +1291,6 @@ export const inspectKnowledgeEntries = <E>(
           resourceInspection?.issue ??
           ({
             code: "invalid-resource",
-            severity: "error",
             message: `${relativePath} resource must be a safe absolute URI or contained path.`,
           } satisfies ResourceIssue);
         report({ ...issue, relativePath });
@@ -1266,7 +1298,6 @@ export const inspectKnowledgeEntries = <E>(
       if (!RESERVED_BASENAMES.has(baseName) && timestampValue !== undefined) {
         report({
           code: "superseded-timestamp",
-          severity: "error",
           relativePath,
           message: `${relativePath} timestamp is superseded in OKF 0.2; use generated.at.`,
         });
@@ -1307,7 +1338,6 @@ export const inspectKnowledgeEntries = <E>(
           for (const issue of sourcesIssues(sourcesValue, relativePath, allFilePaths)) {
             report({
               code: issue.code,
-              severity: issue.severity,
               relativePath,
               message: `${relativePath} ${issue.message}`,
             });
@@ -1317,7 +1347,6 @@ export const inspectKnowledgeEntries = <E>(
           for (const issue of usageWindowIssues(usageWindowValue)) {
             report({
               code: "invalid-sources",
-              severity: "error",
               relativePath,
               message: `${relativePath} ${issue}`,
             });
@@ -1327,7 +1356,6 @@ export const inspectKnowledgeEntries = <E>(
           for (const issue of actorRecordIssues(generatedValue, "generated")) {
             report({
               code: "invalid-generated",
-              severity: "error",
               relativePath,
               message: `${relativePath} ${issue}`,
             });
@@ -1340,7 +1368,6 @@ export const inspectKnowledgeEntries = <E>(
             for (const issue of actorRecordIssues(record, label)) {
               report({
                 code: "invalid-verified",
-                severity: "error",
                 relativePath,
                 message: `${relativePath} ${issue}`,
               });
@@ -1353,7 +1380,6 @@ export const inspectKnowledgeEntries = <E>(
         ) {
           report({
             code: "invalid-status",
-            severity: "error",
             relativePath,
             message: `${relativePath} status must be one of ${[...CONCEPT_STATUSES].join(", ")}.`,
           });
@@ -1363,7 +1389,6 @@ export const inspectKnowledgeEntries = <E>(
           if (issue !== undefined) {
             report({
               code: "invalid-stale-after",
-              severity: "error",
               relativePath,
               message: `${relativePath} ${issue}`,
             });
@@ -1373,7 +1398,6 @@ export const inspectKnowledgeEntries = <E>(
           for (const issue of attestationIssues(metadata, parsedValue.body)) {
             report({
               code: "invalid-attestation",
-              severity: "error",
               relativePath,
               message: `${relativePath} ${issue}`,
             });
@@ -1383,14 +1407,12 @@ export const inspectKnowledgeEntries = <E>(
       if (!RESERVED_BASENAMES.has(baseName) && findFrontmatterBoundaries(raw) === undefined) {
         report({
           code: "missing-frontmatter",
-          severity: "error",
           relativePath,
           message: `${relativePath} is an OKF concept and requires a YAML frontmatter block with a non-empty type.`,
         });
       } else if (!RESERVED_BASENAMES.has(baseName) && type === undefined) {
         report({
           code: "missing-type",
-          severity: "error",
           relativePath,
           message: `${relativePath} is an OKF concept and requires a non-empty frontmatter type.`,
         });
@@ -1405,7 +1427,6 @@ export const inspectKnowledgeEntries = <E>(
       if (frontmatterTitle === undefined && authoredTitle === undefined) {
         report({
           code: "missing-title",
-          severity: "warning",
           relativePath,
           message: `${relativePath} should include a frontmatter title or one level-one heading for a stable display title.`,
         });
@@ -1413,7 +1434,6 @@ export const inspectKnowledgeEntries = <E>(
       if (!RESERVED_BASENAMES.has(baseName) && description === undefined) {
         report({
           code: "missing-description",
-          severity: "warning",
           relativePath,
           message: `${relativePath} should include a concise frontmatter description.`,
         });
@@ -1421,7 +1441,6 @@ export const inspectKnowledgeEntries = <E>(
       if (!RESERVED_BASENAMES.has(baseName) && tags === undefined) {
         report({
           code: "missing-tags",
-          severity: "warning",
           relativePath,
           message: `${relativePath} should include frontmatter tags for discovery.`,
         });
@@ -1448,7 +1467,6 @@ export const inspectKnowledgeEntries = <E>(
       if (citationHeading !== undefined && !RESERVED_BASENAMES.has(baseName)) {
         report({
           code: "superseded-citations",
-          severity: "error",
           relativePath,
           line: citationHeading.line,
           message: `${relativePath} # Citations is superseded in OKF 0.2; use sources frontmatter.`,
@@ -1498,7 +1516,6 @@ export const inspectKnowledgeEntries = <E>(
             authoredLinks.push(link);
             report({
               code: "escaping-link",
-              severity: "warning",
               relativePath: sourcePath,
               line: link.line,
               message: `${sourcePath} links outside the Knowledge bundle.`,
@@ -1510,7 +1527,6 @@ export const inspectKnowledgeEntries = <E>(
               code: sourcePath.toLowerCase().endsWith("index.md")
                 ? "stale-index-entry"
                 : "broken-internal-link",
-              severity: "warning",
               relativePath: sourcePath,
               line: link.line,
               message: `${sourcePath} links to missing bundle path ${link.target}.`,
@@ -1548,7 +1564,6 @@ export const inspectKnowledgeEntries = <E>(
       ) {
         report({
           code: "unreachable-concept",
-          severity: "warning",
           relativePath: concept.relativePath,
           message: `${concept.relativePath} is not reachable from the root index.`,
         });
@@ -1562,7 +1577,6 @@ export const inspectKnowledgeEntries = <E>(
         ) {
           report({
             code: "missing-index-entry",
-            severity: "warning",
             relativePath: nearestIndex,
             message: `${nearestIndex} does not link to ${concept.relativePath}.`,
           });
@@ -1577,7 +1591,6 @@ export const inspectKnowledgeEntries = <E>(
       ) {
         report({
           code: "unreferenced-asset",
-          severity: "warning",
           relativePath: entry.relativePath,
           message: `${entry.relativePath} is not referenced by any Markdown document.`,
         });
@@ -1588,7 +1601,6 @@ export const inspectKnowledgeEntries = <E>(
         for (const relativePath of matching) {
           report({
             code: "duplicate-resource",
-            severity: "warning",
             relativePath,
             message: `${relativePath} shares canonical resource ${resource} with another concept.`,
           });
@@ -1599,7 +1611,6 @@ export const inspectKnowledgeEntries = <E>(
       if (spellings.size > 1) {
         report({
           code: "inconsistent-type",
-          severity: "warning",
           relativePath: ".",
           message: `Concept type spellings differ only by casing: ${[...spellings].sort().join(", ")}.`,
         });
@@ -1608,7 +1619,6 @@ export const inspectKnowledgeEntries = <E>(
     if (!concepts.some((concept) => !isReserved(concept.relativePath))) {
       report({
         code: "empty-bundle",
-        severity: "warning",
         relativePath: "index.md",
         message: "Knowledge bundle contains no concept documents to discover.",
       });

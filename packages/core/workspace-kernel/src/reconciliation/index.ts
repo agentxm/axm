@@ -33,6 +33,7 @@ export {
   type ResolveInstallRequirements,
 } from "./install-vocabulary.js";
 export { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
+export { planInstructionContributorInstall } from "./instruction-contributor-install.js";
 export { projectionExposureRefs } from "./projection-exposure.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 export {

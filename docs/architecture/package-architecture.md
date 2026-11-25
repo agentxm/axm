@@ -235,8 +235,9 @@ lifecycle, sync, and authoring slices of `@agentxm/workspace-features` invoke
 it as peer features. It owns the policy that joins declarations, accepted
 content, and native outputs into a coherent transition. The
 [shared reconciliation decision](decisions/shared-desired-state-reconciliation.md)
-explains why that policy has its own module boundary. Its `live` entry
-registers the kind managers as projection participants and provides the
+explains why that policy has its own module boundary. It also owns the install
+closure shared by instruction-region contributors (Rules and Knowledge). Its
+`live` entry registers the kind managers as projection participants and provides the
 configured-agent-outcomes provider over them. It also lists the kernel slices'
 failure families, whose failures form the closed `KernelFailure` union, renders
 a failure through the family that recognizes it with

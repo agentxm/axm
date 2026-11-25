@@ -8449,6 +8449,7 @@
               "packages/core/workspace-kernel/src/projection/instructions/instructions.ts",
               "packages/core/extension-kinds/src/instructions/lifecycle/install/plan.ts",
               "packages/core/extension-kinds/src/knowledge/lifecycle/install/plan.ts",
+              "packages/core/workspace-kernel/src/reconciliation/instruction-contributor-install.ts",
               "packages/core/extension-kinds/src/packs/lifecycle/install/plan.ts"
             ]
           }

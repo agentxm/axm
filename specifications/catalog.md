@@ -5513,7 +5513,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: example
-- Derived from: `packages/core/workspace-features/src/configuration/setup/initialization.ts`
+- Derived from: `packages/core/workspace-features/src/configuration/setup/agent-selection.ts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts`](../packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts)
 
 ##### Setup discloses effective telemetry before changes

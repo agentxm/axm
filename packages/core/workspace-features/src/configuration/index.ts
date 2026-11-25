@@ -13,7 +13,8 @@ export { configurationRefused } from "./errors.js";
 // Setup
 // -----------------------------------------------------------------------------
 
-export { bootstrapWorkspace, undetectedAgentOffer } from "./setup/initialization.js";
+export { bootstrapWorkspace } from "./setup/initialization.js";
+export { undetectedAgentOffer } from "./setup/agent-selection.js";
 
 export type {
   InstructionSourceChoice,

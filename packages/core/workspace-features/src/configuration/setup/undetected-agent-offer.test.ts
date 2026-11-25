@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 
-import { undetectedAgentOffer } from "./initialization.js";
+import { undetectedAgentOffer } from "./agent-selection.js";
 
 describe("undetectedAgentOffer", () => {
   it("offers agents without suggestions when no evidence exists", () => {

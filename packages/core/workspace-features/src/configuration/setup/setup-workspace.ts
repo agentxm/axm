@@ -84,11 +84,8 @@ import {
   type SetupPlanDetail,
   WorkspaceInitializationInteraction,
 } from "./initialization-interaction.js";
-import {
-  bootstrapWorkspace,
-  setupCompletesInstructionChoice,
-  type SetupAgentCandidate,
-} from "./initialization.js";
+import { bootstrapWorkspace, setupCompletesInstructionChoice } from "./initialization.js";
+import type { SetupAgentCandidate } from "./agent-selection.js";
 import { configurationRefused } from "../errors.js";
 
 /** Every failure a setup run can settle into. */

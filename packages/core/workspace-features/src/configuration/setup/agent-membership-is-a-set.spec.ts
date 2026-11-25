@@ -21,7 +21,7 @@ export const specification = defineSpecification({
     "Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.",
   boundary: "platform",
   methods: ["example"],
-  derivedFrom: ["packages/core/workspace-features/src/configuration/setup/initialization.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/configuration/setup/agent-selection.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

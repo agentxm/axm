@@ -16106,7 +16106,7 @@
               "apps/cli/src/root/shared/first-use.ts",
               "apps/cli/src/root/install/command.ts",
               "apps/cli/src/root/skills/handoff.ts",
-              "packages/core/workspace-features/src/configuration/setup/initialization.ts",
+              "packages/core/workspace-features/src/configuration/setup/agent-selection.ts",
               "packages/core/workspace-kernel/src/agent-adapters/detection.ts"
             ]
           }

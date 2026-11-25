@@ -21,6 +21,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
 import { afterEach, beforeEach } from "vitest";
+import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 import {
   applyInstructionProjection,
   assertInstructionsGitignoreSafe,
@@ -434,6 +435,23 @@ describe("agent instructions", () => {
 
         expect([...broad.status.roots].sort()).toEqual([docs, tempDir].sort());
         expect(explicit.status.roots).toEqual([cacheWorkspace]);
+      }),
+    ),
+  );
+
+  it.effect("skips acquired and authored extension roots in project discovery", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+        for (const root of ["agent_extensions", ...extensionTypePluralSegments]) {
+          const nested = path.join(tempDir, root, "x");
+          fs.mkdirSync(nested, { recursive: true });
+          fs.writeFileSync(path.join(nested, "AGENTS.md"), `# ${root}\n`);
+        }
+
+        const { status } = yield* observe({ configuredAgents: ["claude-code"] });
+
+        expect(status.roots).toEqual([tempDir]);
       }),
     ),
   );

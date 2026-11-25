@@ -30,7 +30,8 @@ import {
   type ProjectionUnitPath,
   type RecordedProjectionRow,
 } from "../../workspace-state/index.js";
-import { createSymlink } from "../../workspace-state/index.js";
+import { ACQUIRED_EXTENSIONS_DIR, createSymlink } from "../../workspace-state/index.js";
+import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -452,15 +453,10 @@ const AGENT_CONVENTION_DIRS: ReadonlySet<string> = new Set(
   ),
 );
 
-const PROJECT_EXTENSION_ROOTS: ReadonlySet<string> = new Set([
-  "agent_extensions",
-  "skills",
-  "mcps",
-  "subagents",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
+// The acquired-extension root and each extension kind's authored root.
+const PROJECT_EXTENSION_ROOTS: ReadonlySet<string> = new Set<string>([
+  ACQUIRED_EXTENSIONS_DIR,
+  ...extensionTypePluralSegments,
 ]);
 
 const shouldSkipDir = (name: string, scope: WorkspaceScope): boolean =>

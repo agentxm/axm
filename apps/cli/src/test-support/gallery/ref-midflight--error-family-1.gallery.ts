@@ -1,4 +1,5 @@
-import { appErrorDoc, makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorDoc } from "../../app-error/view.js";
 import type { Doc } from "../../screen/doc.js";
 import { galleryModule } from "./fixture.js";
 

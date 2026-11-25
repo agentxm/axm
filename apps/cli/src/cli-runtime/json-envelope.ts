@@ -20,8 +20,6 @@ import {
   redactAppErrorMetadata,
   redactSuggestedAction,
 } from "../app-error/index.js";
-// The cause-chain module is read directly: this module evaluates inside the
-// application error boundary's own import cycle, before its index settles.
 import {
   SerializedErrorCauseSchema,
   serializeErrorCauseChain,

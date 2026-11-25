@@ -37,7 +37,7 @@ import { makeAppError } from "./app-error.js";
 import { StepFailureConversion } from "@agentxm/workspace-kernel/reconciliation";
 import { failureToAppError, toAppError } from "./conversions.js";
 import { WorkspaceFailureConversionLive, isWorkspaceFailure } from "./failure-catalog.js";
-import { renderAppError } from "./index.js";
+import { renderAppError } from "./view.js";
 
 describe("rendered step cause retention", () => {
   it("keeps an original cause while adding a missing diagnostic", () => {

@@ -38,6 +38,7 @@ export { type WaitView } from "./wait/wait.js";
 export { FrameLive } from "./frame.js";
 export {
   OutputStreams,
+  /** @public The cli-e2e log-frame fixture composes this layer from the built CLI. */
   OutputStreamsLive,
   CredentialDeliveryFailed,
   OutputWriteFailed,

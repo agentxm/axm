@@ -1,6 +1,7 @@
 import { ScaffoldNameInvalid } from "@agentxm/workspace-features/authoring";
 
-import { appErrorDoc, makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorDoc } from "../../app-error/view.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import type { Doc } from "../../screen/doc.js";
 import { galleryModule } from "./fixture.js";

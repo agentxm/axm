@@ -1,6 +1,7 @@
 import * as Layer from "effect/Layer";
 
-import { OutputStreamsLive, ScreenMachine } from "./index.js";
+import { ScreenMachine } from "./screen.js";
+import { OutputStreamsLive } from "./streams.js";
 
 /** Live Screen layer for machine documents and event streams. */
 export const MachineScreen = (options?: { readonly quiet?: boolean }) => {

@@ -1,6 +1,9 @@
 import * as Layer from "effect/Layer";
 
-import { FrameLive, OutputStreamsLive, ScreenLive, asciiGlyphs, unicodeGlyphs } from "./index.js";
+import { FrameLive } from "./frame.js";
+import { asciiGlyphs, unicodeGlyphs } from "./glyphs.js";
+import { ScreenLive } from "./screen.js";
+import { OutputStreamsLive } from "./streams.js";
 import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
 
 /** Live Screen layer for human terminal output. */

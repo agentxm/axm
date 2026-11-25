@@ -11,12 +11,11 @@ import {
   AppError,
   makeAppError,
   ExitCode,
-  appErrorDoc,
   exitCodeFor,
   effectiveSuggestionsFor,
   redactSuggestedAction,
-  renderAppError,
 } from "../app-error/index.js";
+import { appErrorDoc, renderAppError } from "../app-error/view.js";
 import { isWorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";

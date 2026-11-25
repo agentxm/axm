@@ -12,17 +12,9 @@
 
 export { publishRefused } from "./errors.js";
 
-export { PUBLISHABLE_TYPES, isPublishableType, type PublishableType } from "./publishable-types.js";
+export { type PublishableType } from "./publishable-types.js";
 
 export { planZipArchive } from "./archive.js";
-
-export { publishAuthenticationPreconditions } from "./authorization.js";
-
-export { buildPublishJobs } from "./jobs.js";
-
-export { publishRecoverySelection } from "./recovery.js";
-
-export { findPackPublishDivergenceFindings, validatePublishOwners } from "./preflight.js";
 
 // Typed publish failures and the redacted cause the result reports
 export { publishCause } from "./failure.js";
@@ -45,8 +37,6 @@ export {
   type PublishRequest,
 } from "./publish/model.js";
 
-// Settlement rules that keep an unconfirmed run from reading as a publication
-// The declared visibility one publication carries
 // The publish application API
 export {
   PublishExtensions,

@@ -36,9 +36,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   decodeVersionSync,
-  decodeVersionRangeSync,
   type Version,
-  type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
@@ -265,8 +263,6 @@ export const exactVersion = (value: string): Version => decodeVersionSync(value)
 export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
 
 export const handle = (value: string): Handle => normalizeHandle(value);
-
-export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);
 
 export const dependencyConstraintMap = (
   entries: Readonly<Record<string, string>>,

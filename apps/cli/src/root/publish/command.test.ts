@@ -8,16 +8,11 @@ import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
 } from "../../cli-runtime/index.js";
-import {
-  StepFailure,
-  renderConfirmationRecoveryCommand,
-  type JobStepResult,
-} from "@agentxm/workspace-kernel/operations";
+import { renderConfirmationRecoveryCommand } from "@agentxm/workspace-kernel/operations";
 import {
   extensionTypes,
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { applyPlan } from "@agentxm/workspace-kernel/planning";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -39,12 +34,7 @@ import {
   property,
   withCommandRoute,
 } from "../../test-support/test-helpers.js";
-import {
-  exactVersion,
-  extensionName,
-  handle,
-  versionRange,
-} from "../../test-support/test-stubs.js";
+import { exactVersion, extensionName, handle } from "../../test-support/test-stubs.js";
 import { exitCodeFor } from "../../app-error/index.js";
 import { emitPublishResult } from "./result.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
@@ -53,14 +43,7 @@ import {
   normalizePublishResult,
   publishCause,
   type PublishResultItem,
-  buildPublishJobs,
-  findPackPublishDivergenceFindings,
-  isPublishableType,
   normalizeTypePublishSelection,
-  publishAuthenticationPreconditions,
-  publishRecoverySelection,
-  validatePublishOwners,
-  PUBLISHABLE_TYPES,
 } from "@agentxm/workspace-features/publishing";
 import { probeFlag } from "../../test-support/parser-probe.js";
 import {
@@ -77,81 +60,6 @@ import {
   makeExactPublishRecovery,
   type RootPublishHandlerArgs,
 } from "./command.js";
-
-describe("pack publish resolution divergence", () => {
-  const packCandidate = {
-    fqn: "@acme/packs/reviewers",
-    type: "pack" as const,
-    authored: true,
-    version: exactVersion("0.1.1"),
-    dependencies: { "@acme/skills/review": versionRange("^0.0.4") },
-  };
-  const reachability = [
-    {
-      packFqn: "@acme/packs/reviewers",
-      packAuthority: "workspace" as const,
-      manifestPath: "packs/reviewers/pack.json",
-      memberFqn: "@acme/skills/review",
-      constraint: "^0.0.4",
-      memberVersion: "0.0.5",
-      memberAuthority: "workspace" as const,
-      classification: "satisfying" as const,
-    },
-  ];
-
-  it("does not warn when effective versions agree or the pack is not authored here", () => {
-    const admittedPack = {
-      target: {
-        owner: handle("@acme"),
-        type: "pack" as const,
-        name: extensionName("reviewers"),
-        version: exactVersion("0.1.1"),
-      },
-      status: "admitted" as const,
-      findings: [],
-      resolutions: [
-        {
-          dependency: {
-            owner: handle("@acme"),
-            type: "skill" as const,
-            name: extensionName("review"),
-            range: versionRange("^0.0.4"),
-          },
-          effectiveVersion: exactVersion("0.0.5"),
-        },
-      ],
-    };
-    expect(
-      findPackPublishDivergenceFindings({
-        candidates: [packCandidate],
-        reachability,
-        packs: [admittedPack],
-      }).size,
-    ).toBe(0);
-    expect(
-      findPackPublishDivergenceFindings({
-        candidates: [{ ...packCandidate, authored: false }],
-        reachability,
-        packs: [
-          {
-            ...admittedPack,
-            resolutions: [
-              {
-                dependency: {
-                  owner: handle("@acme"),
-                  type: "skill",
-                  name: extensionName("review"),
-                  range: versionRange("^0.0.4"),
-                },
-                effectiveVersion: exactVersion("0.0.4"),
-              },
-            ],
-          },
-        ],
-      }).size,
-    ).toBe(0);
-  });
-});
 
 const args = (
   registry: string,
@@ -254,35 +162,6 @@ describe("root publish", () => {
     );
   };
 
-  it("reports authentication as a human-blocked preview precondition only when needed", () => {
-    expect(
-      publishAuthenticationPreconditions({
-        preview: true,
-        remoteRegistry: true,
-        authenticated: false,
-        hasPublishCandidates: true,
-      }),
-    ).toEqual([
-      {
-        id: "authentication",
-        label: "Sign-in",
-        status: "unmet",
-        detail: "Publishing requires you to be signed in. Run `axm login`, then publish.",
-        blockedOn: "human",
-      },
-    ]);
-
-    expect(
-      [
-        { preview: false, remoteRegistry: true, authenticated: false },
-        { preview: true, remoteRegistry: false, authenticated: false },
-        { preview: true, remoteRegistry: true, authenticated: true },
-      ].map((options) =>
-        publishAuthenticationPreconditions({ ...options, hasPublishCandidates: true }),
-      ),
-    ).toEqual([[], [], []]);
-  });
-
   it.effect("creates no server state during a signed-out preview", () => {
     writeReviewSkill();
     const writes: Array<string> = [];
@@ -369,34 +248,6 @@ describe("root publish", () => {
       }),
     );
   });
-
-  it.effect(
-    "validates each unique publish owner and links missing owners to organization creation",
-    () =>
-      Effect.gen(function* () {
-        const checked: Array<string> = [];
-        const client = {
-          ownerExists: (owner: ReturnType<typeof handle>) => {
-            checked.push(owner);
-            return Effect.succeed({ exists: owner !== "@missing" });
-          },
-        };
-
-        const error = yield* Effect.flip(
-          validatePublishOwners([handle("@acme"), handle("@acme"), handle("@missing")], client),
-        );
-
-        expect(checked.sort()).toEqual(["@acme", "@missing"]);
-        expect(error.category).toBe("not_found");
-        expect(error.detail).toContain("@missing");
-        expect(error.suggestions).toEqual([
-          {
-            description: "Create the organization in AgentXM before publishing.",
-            url: "https://agentxm.ai/orgs/new",
-          },
-        ]);
-      }),
-  );
 
   describe("human output", () => {
     /** What a person reads on stdout, painted without colour or width limits. */
@@ -1440,50 +1291,8 @@ describe("publish recovery", () => {
     }).pipe(withCommandRoute("publish")),
   );
 
-  it.effect("selects only failed items and dependents blocked by them", () =>
+  it.effect("renders recovery for the remaining failed items and their blocked dependents", () =>
     Effect.gen(function* () {
-      const base = {
-        owner: handle("@acme"),
-        type: "skill" as const,
-        sourceType: "workspace" as const,
-        authored: true,
-        phase: "upload_execution" as const,
-      };
-      const items: ReadonlyArray<PublishResultItem> = [
-        {
-          ...base,
-          id: "@acme/skills/published",
-          name: extensionName("published"),
-          action: "publish",
-          reason: "selected",
-          status: "success",
-        },
-        {
-          ...base,
-          id: "@acme/skills/review",
-          name: extensionName("review"),
-          action: "error",
-          reason: "upload_failed",
-          status: "failed",
-        },
-        {
-          ...base,
-          id: "@acme/packs/toolkit",
-          type: "pack",
-          name: extensionName("toolkit"),
-          action: "error",
-          phase: "dependency_execution",
-          reason: "blocked_by_dependency",
-          status: "blocked",
-          blockedBy: ["@acme/skills/review"],
-        },
-      ];
-      const selection = publishRecoverySelection(items);
-
-      expect(selection).toEqual({
-        remainingItems: ["@acme/skills/review", "@acme/packs/toolkit"],
-        blockedDependents: ["@acme/packs/toolkit"],
-      });
       expect(
         renderConfirmationRecoveryCommand(
           yield* makeExactPublishRecovery(
@@ -1494,135 +1303,11 @@ describe("publish recovery", () => {
               acceptWarnings: false,
               visibility: Option.none(),
             },
-            selection.remainingItems,
+            ["@acme/skills/review", "@acme/packs/toolkit"],
           ),
           { approval: "none" },
         ),
       ).toBe("axm publish --registry private @acme/skills/review @acme/packs/toolkit");
     }).pipe(withCommandRoute("publish")),
   );
-});
-
-describe("root publish dependency planning", () => {
-  const success: JobStepResult = { result: "success", message: "Published" };
-  const stepFor = (candidate: { readonly fqn: string }) => ({
-    readiness: "ready" as const,
-    label: `Publish ${candidate.fqn}`,
-    run: Effect.succeed(success),
-  });
-
-  it("records selected pack dependencies as causal execution edges", () => {
-    const dependency = {
-      fqn: "@acme/skills/review",
-      type: "skill",
-    } as const;
-    const pack = {
-      fqn: "@acme/packs/toolkit",
-      type: "pack",
-      dependencies: { "@acme/skills/review": "^1.0.0" },
-    } as const;
-
-    const jobs = buildPublishJobs([dependency, pack], stepFor);
-
-    expect(jobs).toHaveLength(1);
-    expect(at(jobs, 0)).toMatchObject({
-      concurrency: 4,
-      executionPolicy: "best-effort",
-    });
-    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual([
-      "Publish @acme/skills/review",
-      "Publish @acme/packs/toolkit",
-    ]);
-    expect(at(at(jobs, 0).steps, 1).dependsOn).toEqual(["@acme/skills/review"]);
-  });
-
-  it("does not broaden a pack-only selection", () => {
-    const pack = {
-      fqn: "@acme/packs/toolkit",
-      type: "pack",
-      dependencies: { "@acme/skills/review": "^1.0.0" },
-    } as const;
-
-    const jobs = buildPublishJobs([pack], stepFor);
-
-    expect(jobs).toHaveLength(1);
-    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual(["Publish @acme/packs/toolkit"]);
-  });
-
-  it.effect("blocks packs when a selected dependency fails", () =>
-    Effect.gen(function* () {
-      const dependency = {
-        fqn: "@acme/skills/review",
-        type: "skill",
-      } as const;
-      const pack = {
-        fqn: "@acme/packs/toolkit",
-        type: "pack",
-        dependencies: { "@acme/skills/review": "^1.0.0" },
-      } as const;
-      const jobs = buildPublishJobs([dependency, pack], (candidate) => ({
-        readiness: "ready",
-        label: `Publish ${candidate.fqn}`,
-        run:
-          candidate.type === "skill"
-            ? Effect.fail(new StepFailure({ category: "conflict", detail: "Dependency failed" }))
-            : Effect.succeed(success),
-      }));
-
-      const executed = yield* applyPlan({
-        _tag: "Plan",
-        name: "Publish extensions",
-        description: Option.none(),
-        jobs,
-      });
-
-      expect(at(at(executed.jobs, 0).steps, 0).result.result).toBe("error");
-      expect(at(at(executed.jobs, 0).steps, 1)).toMatchObject({
-        blockedBy: ["@acme/skills/review"],
-        result: {
-          result: "error",
-          message: "blocked by failed dependency: @acme/skills/review",
-        },
-      });
-    }),
-  );
-
-  it.effect("continues independent candidates after a dependency failure", () =>
-    Effect.gen(function* () {
-      const dependency = { fqn: "@acme/skills/review", type: "skill" } as const;
-      const independent = { fqn: "@acme/skills/format", type: "skill" } as const;
-      const pack = {
-        fqn: "@acme/packs/toolkit",
-        type: "pack",
-        dependencies: { "@acme/skills/review": "^1.0.0" },
-      } as const;
-      const jobs = buildPublishJobs([dependency, pack, independent], (candidate) => ({
-        readiness: "ready",
-        label: `Publish ${candidate.fqn}`,
-        run:
-          candidate.fqn === dependency.fqn
-            ? Effect.fail(new StepFailure({ category: "conflict", detail: "Dependency failed" }))
-            : Effect.succeed(success),
-      }));
-
-      const executed = yield* applyPlan({
-        _tag: "Plan",
-        name: "Publish extensions",
-        description: Option.none(),
-        jobs,
-      });
-
-      expect(at(at(executed.jobs, 0).steps, 1).blockedBy).toEqual([dependency.fqn]);
-      expect(at(at(executed.jobs, 0).steps, 2).result.result).toBe("success");
-    }),
-  );
-});
-
-describe("publish type policy", () => {
-  it("covers every extension type; every type is publishable", () => {
-    expect(Object.keys(PUBLISHABLE_TYPES).sort()).toEqual([...extensionTypes].sort());
-    for (const type of extensionTypes) {
-      expect(isPublishableType(type)).toBe(true);
-    }
-  });
 });

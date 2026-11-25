@@ -1,18 +1,12 @@
 /**
- * Candidate preparation and resolution.
+ * Candidate resolution.
  *
- * `prepareExecutionCandidate` turns a plan into the immutable execution
- * candidate every later step refers to: it augments the plan with lockfile
- * reconciliation, projects configured-agent outcomes, scans readiness,
- * assembles the semantic risk conditions, and fingerprints the material
- * preimages. `resolveExecutionCandidate` presents that candidate, fails
- * closed on blockers and missing policies, previews or acquires verified
- * content before confirmation, then acquires the workspace transition,
- * revalidates the same candidate under it, applies it closure by closure,
- * and produces one `OperationResolution` at every termination path.
- * Presentation and prompting live behind the
- * `ResolvePlanInteraction` port; per-type outcome refinement behind the
- * `ConfiguredAgentOutcomesProvider`.
+ * `resolveExecutionCandidate` presents a prepared candidate, fails closed on
+ * blockers and missing policies, previews or acquires verified content before
+ * confirmation, then acquires the workspace transition, revalidates the same
+ * candidate under it, applies it closure by closure, and produces one
+ * `OperationResolution` at every termination path. Presentation and
+ * prompting live behind the `ResolvePlanInteraction` port.
  *
  *
  * @experimental This API is unstable and may change without notice.
@@ -23,7 +17,6 @@ import {
   redactCredentialText,
   OperationRequestBudget,
 } from "@agentxm/host-primitives";
-import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
@@ -51,83 +44,50 @@ import {
   unitIdOf,
   type OperationBlock,
   type OperationFootprintEntry,
-  type OperationPhase,
   type OperationResolution,
   type ResolvedUnit,
   OperationJournal,
   appendResolvedUnit,
   appendStartedUnit,
-  recordJournalPhase,
   recordOperationJournal,
   CurrentOperationUnit,
   observeUnit,
   publishOperationEvent,
-  publishPhaseStarted,
   publishWaitEnded,
   publishWaiting,
   type UnitFailure,
-  type ConfiguredAgentOutcome,
   InterruptionSignalSource,
   ResolvePlanInteraction,
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
-  type ConfiguredAgentOperation,
   type PlanExecution,
 } from "../../operations/index.js";
+import { ProjectionOutputPosture, REPLACE_UNRECORDED_FLAG } from "../../projection/index.js";
 import {
-  ProjectionOutputPosture,
-  REPLACE_UNRECORDED_FLAG,
-  withMcpInspectionReadView,
-} from "../../projection/index.js";
-import { preflightPackagePlacement } from "./package-placement.js";
-import {
+  acquisitionRefsForStep,
   registryExposureRefsForStep,
   validateRegistryExposure,
   withRegistryExposure,
 } from "./registry-exposure.js";
 import { PlanSources } from "./plan-sources.js";
-import { executionExposureRisks } from "./execution-exposure.js";
-import {
-  withExecutionWithdrawals,
-  type ExecutionWithdrawalSubject,
-} from "./execution-withdrawal.js";
 import { applyPlan } from "./apply-plan.js";
-import {
-  isExecutionCandidateFresh,
-  makeExecutionCandidate,
-  observeCompositeChildMaterials,
-  type ExecutionCandidate,
-} from "./execution-candidate.js";
-import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
+import { verifyConfiguredAgentOutcomes } from "./configured-agent-outcomes.js";
+import { isExecutionCandidateFresh, type ExecutionCandidate } from "./execution-candidate.js";
+import { enterPhase, withPhaseSpan } from "./operation-phase.js";
+import { readinessBlockersOf, type prepareExecutionCandidate } from "./prepare-candidate.js";
 import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
 import { isSourceResolutionFailure } from "../../sources/index.js";
 import { resolutionFailureToStepFailure } from "../resolution-step-failure.js";
 
 import {
-  ConfiguredAgentOutcomesProvider,
-  LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-  observeConfiguredTargets,
   withFreshWorkspaceObservationReadView,
-  withWorkspaceReadView,
-  withLiveWorkspaceObservations,
-  resolveConfiguredExtensionObservations,
-  type ConfiguredAgentOutcomesProviderService,
   candidateFingerprintFailedToStepFailure,
   configErrorToStepFailure,
   restorationIncompleteToStepFailure,
-  workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
-import { configuredAgentLifecycleOutcomes } from "../../agent-adapters/index.js";
-import {
-  nativeUnitKey,
-  nativeUnitReference,
-  combineNativeLocationOutcomes,
-  type NativeLocationOutcome,
-} from "../../locations/index.js";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   FootprintRecorder,
   WorkspaceRestorationIncomplete,
@@ -151,570 +111,12 @@ import {
   OperationScratchLimitExceeded,
 } from "../../acquisition/index.js";
 
-/** Publish a phase transition to the lifecycle stream and the journal. */
-const enterPhase = (phase: OperationPhase): Effect.Effect<void, never, OperationJournal> =>
-  publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
-
-/** The executing effect owns the phase interval; lifecycle events remain projections. */
-const withPhaseSpan = <A, E, R>(phase: OperationPhase, effect: Effect.Effect<A, E, R>) =>
-  Effect.flatMap(CurrentWorkObserver, (observer) =>
-    observer === undefined
-      ? effect
-      : effect.pipe(
-          Effect.withSpan(
-            "axm.operation.phase",
-            { attributes: { "axm.operation.phase": phase } },
-            { captureStackTrace: false },
-          ),
-        ),
-  );
-
 interface PlanApplyFailure<Output> {
   readonly error: StepFailure | StaleExecutionCandidate;
   readonly attemptedExecution?: ExecutedPlan<Output>;
   /** The typed restoration-failure fact; present only when rollback did not complete. */
   readonly restoration?: WorkspaceRestorationIncomplete;
 }
-
-const acquisitionRefsForStep = <Requirements, Output>(
-  step: PlannedJobStep<Requirements, Output>,
-) =>
-  step.readiness === "error"
-    ? []
-    : (
-        step.acquisitionRefs ??
-        (step.sourceBinding === undefined
-          ? []
-          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])])
-      ).filter((ref) => ref.refType !== "workspace");
-
-const withPlannedAgentOutcomes = <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  outcomes: ReadonlyMap<
-    PlannedJobStep<Requirements, Output>,
-    ReadonlyArray<ConfiguredAgentOutcome>
-  >,
-): Plan<Requirements, Output> => ({
-  ...plan,
-  jobs: plan.jobs.map((job) => ({
-    ...job,
-    steps: job.steps.map((step): PlannedJobStep<Requirements, Output> => {
-      const effective = step.agentOutcomes?.length
-        ? step.agentOutcomes
-        : step.artifact?.agentOutcomes?.length
-          ? step.artifact.agentOutcomes
-          : (outcomes.get(step) ?? []);
-      const agentOutcomes = effective.map((outcome): ConfiguredAgentOutcome =>
-        step.readiness === "error" && outcome.outcome === "projected"
-          ? {
-              ...outcome,
-              outcome: "blocked",
-              reasonCode: "plan-step-blocked",
-              reason: step.errorMessage,
-            }
-          : outcome,
-      );
-      const reporting = {
-        agentOutcomes,
-        ...(step.artifact === undefined ? {} : { artifact: { ...step.artifact, agentOutcomes } }),
-      };
-      if (step.readiness === "error") return { ...step, ...reporting };
-      const obstruction = agentOutcomes.find(
-        ({ outcome }) => outcome === "blocked" || outcome === "failed",
-      );
-      if (obstruction !== undefined)
-        return { ...step, ...reporting, readiness: "error", errorMessage: obstruction.reason };
-      return { ...step, ...reporting };
-    }),
-  })),
-});
-
-const withExecutedAgentOutcomes = <Output>(
-  plan: ExecutedPlan<Output>,
-  outcomes: ReadonlyArray<ConfiguredAgentOutcome>,
-): ExecutedPlan<Output> => ({
-  ...plan,
-  jobs: plan.jobs.map((job) => ({
-    ...job,
-    steps: job.steps.map((step) => ({
-      ...step,
-      agentOutcomes: outcomes.filter((current) =>
-        step.agentOutcomes?.some(
-          (planned) =>
-            planned.extensionType === current.extensionType &&
-            planned.name === current.name &&
-            planned.agentId === current.agentId,
-        ),
-      ),
-      ...(step.result.result === "success" && step.result.artifact !== undefined
-        ? {
-            result: {
-              ...step.result,
-              artifact: {
-                ...step.result.artifact,
-                agentOutcomes:
-                  step.result.artifact.agentOutcomes === undefined ||
-                  step.result.artifact.agentOutcomes.length === 0
-                    ? outcomes.filter((current) =>
-                        step.agentOutcomes?.some(
-                          (planned) =>
-                            planned.extensionType === current.extensionType &&
-                            planned.name === current.name &&
-                            planned.agentId === current.agentId,
-                        ),
-                      )
-                    : step.result.artifact.agentOutcomes,
-              },
-            },
-          }
-        : {}),
-    })),
-  })),
-});
-
-/**
- * Project the requested lifecycle state, preserving current owner evidence of
- * obstructions. Missing output is work for the prepared plan, not a failed
- * projection; only apply's fresh readback can claim verified currency.
- */
-const outcomesFor = (
-  scope: WorkspaceScope,
-  provider: ConfiguredAgentOutcomesProviderService,
-  configuredAgents: ReadonlyArray<string>,
-  operation: ConfiguredAgentOperation,
-  plannedLocations: ReadonlyArray<NativeLocationOutcome>,
-  plannedTargets: ReadonlySet<string>,
-): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
-  const generic = configuredAgentLifecycleOutcomes({
-    type: operation.extensionType,
-    name: operation.name,
-    agentIds: configuredAgents,
-    scope,
-    state: "projected",
-    targetState: operation.plannedState,
-    installed: true,
-  });
-  if (
-    configuredAgents.length === 0 ||
-    operation.plannedState !== "enabled" ||
-    operation.extensionType === "pack"
-  )
-    return Effect.succeed(generic);
-  return resolveConfiguredExtensionObservations(provider, {
-    type: operation.extensionType,
-    state: "current",
-    scope,
-    agentIds: configuredAgents,
-    rows: [
-      {
-        name: operation.name,
-        targetState: operation.plannedState,
-        installed: true,
-      },
-    ],
-  }).pipe(
-    Effect.map((observations) => {
-      const observed = observations.get(operation.name);
-      return generic.map((planned): ConfiguredAgentOutcome => {
-        const current = observed?.agentOutcomes.find(({ agentId }) => agentId === planned.agentId);
-        const units =
-          observed?.nativeLocations.filter((unit) =>
-            unit.configuredConsumers.includes(planned.agentId),
-          ) ?? [];
-        const nativePlan = plannedLocations.filter((unit) =>
-          unit.configuredConsumers.includes(planned.agentId),
-        );
-        const writtenUnitKeys = new Set(
-          nativePlan
-            .filter(
-              (unit) =>
-                unit.state === "created" || unit.state === "updated" || unit.state === "removed",
-            )
-            .map(nativeUnitKey),
-        );
-        const writesUnit = (unit: NativeLocationOutcome) =>
-          writtenUnitKeys.has(nativeUnitKey(unit)) ||
-          (nativePlan.length === 0 &&
-            (plannedTargets.has(unit.address.path) ||
-              unit.aliases.some((alias) => plannedTargets.has(alias))));
-        const obstruction = units.find(
-          (unit) =>
-            writesUnit(unit) && (unit.ownership === "unowned" || unit.ownership === "unverified"),
-        );
-        const verified = units.filter(
-          (unit) =>
-            (unit.ownership === "owned" || unit.ownership === "declared") &&
-            unit.state === "unchanged",
-        );
-        const supportedByOwner =
-          verified.length > 0 ||
-          nativePlan.some(
-            (unit) =>
-              unit.state === "created" ||
-              unit.state === "updated" ||
-              ((unit.state === "unchanged" || unit.state === "retained") &&
-                (unit.ownership === "owned" || unit.ownership === "declared")),
-          );
-        if (planned.outcome !== "projected" && !supportedByOwner && obstruction === undefined)
-          return planned;
-        if (current?.outcome === "unsupported" && !supportedByOwner) return current;
-        if (
-          observed === undefined ||
-          current?.reasonCode === "native-observation-unavailable" ||
-          (current?.reasonCode === "native-location-unverified" && !supportedByOwner) ||
-          obstruction !== undefined
-        )
-          return {
-            ...planned,
-            outcome: "blocked",
-            reasonCode:
-              obstruction === undefined
-                ? "native-observation-unavailable"
-                : "native-content-conflict",
-            reason:
-              obstruction?.reason ??
-              current?.reason ??
-              "Native ownership could not be verified before planning the projection.",
-            nativeUnits: units.map(nativeUnitReference),
-          };
-        return {
-          ...planned,
-          outcome: "projected",
-          ...(planned.outcome === "unsupported"
-            ? {
-                reasonCode: "planned-native-unit",
-                reason:
-                  "The owner has established a native realization for this agent; runtime selection remains unverified.",
-              }
-            : {}),
-          nativeUnits: combineNativeLocationOutcomes([
-            ...nativePlan,
-            ...verified,
-            ...units.filter(writesUnit),
-          ]).map(nativeUnitReference),
-        };
-      });
-    }),
-    Effect.catchTag("ConfiguredAgentOutcomesUnavailable", (failure) =>
-      Effect.succeed(
-        generic.map((outcome): ConfiguredAgentOutcome =>
-          outcome.outcome === "projected"
-            ? {
-                ...outcome,
-                outcome: "blocked",
-                reasonCode: "native-observation-unavailable",
-                reason: failure.detail,
-              }
-            : outcome,
-        ),
-      ),
-    ),
-  );
-};
-
-/** The readiness blockers a plan's error steps contribute beyond declared conditions. */
-const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Output>) => {
-  const declaredConditionIds = new Set(
-    (plan.riskConditions ?? []).map((condition) => condition.id),
-  );
-  const hasRunnable = plan.jobs.some((job) => job.steps.some((step) => step.readiness !== "error"));
-  return plan.jobs
-    .filter((job) => !hasRunnable || job.executionPolicy !== "best-effort")
-    .flatMap((job) =>
-      job.steps.flatMap((step) =>
-        step.readiness === "error"
-          ? (step.blockingConditionIds ?? []).length > 0 &&
-            (step.blockingConditionIds ?? []).every((id) => declaredConditionIds.has(id))
-            ? []
-            : [
-                {
-                  level: "blocked" as const,
-                  id: step.key ?? step.label,
-                  detail: step.errorMessage,
-                  errorCode: "conflict" as const,
-                },
-              ]
-          : [],
-      ),
-    );
-};
-
-export interface PrepareExecutionCandidateOptions {
-  /** Operations whose configured-agent outcomes the candidate projects and, after apply, verifies. */
-  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
-  /** Subjects losing execution, including Pack members; actual native outcomes determine withdrawals. */
-  readonly executionWithdrawals?: ReadonlyArray<ExecutionWithdrawalSubject>;
-  /** Digest of observations revalidated by the owning use case before apply. */
-  readonly observedInputFingerprint?: string;
-}
-
-/**
- * Augment a plan for sealing: lockfile reconciliation, configured-agent
- * outcomes, placement preflight, execution withdrawals, the external execution
- * review with its preimage when the plan exposes hooks or MCP servers, and
- * every readiness and precondition blocker as a risk condition.
- */
-const augmentExecutionPlan = Effect.fnUntraced(function* <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options?: PrepareExecutionCandidateOptions,
-) {
-  const location = yield* WorkspaceLocation;
-  const lockfile = yield* LockfileReader;
-  const settings = yield* SettingsReader;
-  const provider = yield* ConfiguredAgentOutcomesProvider;
-
-  yield* publishPhaseStarted("planning");
-
-  // Lockfile reconciliation, observed as one planning unit.
-  const augmented = yield* observeUnit(
-    { id: "lockfile-reconciliation", label: "lockfile reconciliation" },
-    augmentPlanWithReconciliation(plan, () => lockfile.state),
-  );
-
-  const operations = options?.configuredAgentOperations ?? [];
-  const configuredAgents = operations.length === 0 ? [] : yield* settings.configuredAgents;
-  const path = yield* Path.Path;
-  const originalSteps = plan.jobs.flatMap((job) => job.steps);
-  const subjectsForStep = (step: PlannedJobStep<Requirements, Output>) =>
-    operations.filter(
-      (operation) =>
-        (originalSteps.length === 1 && originalSteps[0] === step) ||
-        step.key === `${operation.extensionType}:${operation.name}` ||
-        (operation.extensionType === "pack" &&
-          step.key?.startsWith("pack:") === true &&
-          step.key.endsWith(`/${operation.name}`)) ||
-        (step.sourceBinding?.extensionType === operation.extensionType &&
-          step.sourceBinding.target === operation.name) ||
-        (step.key === undefined && step.label === operation.name),
-    );
-  const projectedOutcomes = new Map(
-    yield* Effect.forEach(
-      augmented.plan.jobs.flatMap((job) => job.steps),
-      (step) =>
-        Effect.gen(function* () {
-          // Owner plans have already preflighted their proposed sources and
-          // contributor graph. Current-state fallback must not re-resolve those
-          // sources before this plan has acquired and accepted them.
-          const owned = step.agentOutcomes?.length
-            ? step.agentOutcomes
-            : step.artifact?.agentOutcomes;
-          if (owned !== undefined && owned.length > 0) return [step, owned] as const;
-          const locations = step.artifact?.nativeLocations ?? [];
-          const targets = new Set(
-            (step.artifact?.targets ?? [])
-              .filter((target) => target.change !== "unchanged")
-              .map((target) => path.resolve(location.baseDir, target.path)),
-          );
-          const outcomes = (yield* Effect.forEach(subjectsForStep(step), (operation) =>
-            outcomesFor(location.scope, provider, configuredAgents, operation, locations, targets),
-          )).flat();
-          return [step, outcomes] as const;
-        }),
-    ),
-  );
-  const placement = yield* preflightPackagePlacement(
-    originalSteps.flatMap(acquisitionRefsForStep),
-    originalSteps.flatMap((step) => step.exposureRefs ?? []),
-  ).pipe(Effect.result);
-  const placementPlan: Plan<Requirements, Output> = Result.isSuccess(placement)
-    ? {
-        ...augmented.plan,
-        materialPaths: [...(augmented.plan.materialPaths ?? []), ...placement.success],
-      }
-    : {
-        ...augmented.plan,
-        preconditions: [
-          ...(augmented.plan.preconditions ?? []),
-          {
-            id: "retained-package-placement",
-            label: "Retained package placement",
-            status: "unmet",
-            detail: placement.failure.detail,
-          },
-        ],
-      };
-  const augmentedPlan = yield* withExecutionWithdrawals(
-    operations.length === 0
-      ? placementPlan
-      : withPlannedAgentOutcomes(placementPlan, projectedOutcomes),
-    options?.executionWithdrawals ??
-      operations
-        .filter((operation) => operation.plannedState !== "enabled")
-        .map((operation) => ({ type: operation.extensionType, name: operation.name })),
-  );
-
-  const materialBoundary = {
-    settingsPath: location.settingsPath,
-    lockPath: location.lockPath,
-    baseDir: location.baseDir,
-    ...(options?.observedInputFingerprint === undefined
-      ? {}
-      : { observedInputFingerprint: options.observedInputFingerprint }),
-  };
-  // The reviewed source must not change before its preimage is sealed. Apply's
-  // freshness check then protects the interval from sealing to mutation.
-  const beforeReview = augmentedPlan.jobs.some((job) =>
-    job.steps.some(
-      (step) =>
-        step.readiness !== "error" &&
-        step.exposureRefs?.some(
-          (ref) =>
-            ref.refType !== "workspace" && (ref.type === "hook" || ref.type === "mcp-server"),
-        ),
-    ),
-  )
-    ? yield* withLiveWorkspaceObservations(
-        makeExecutionCandidate(augmentedPlan, materialBoundary, operations),
-      )
-    : undefined;
-
-  // Readiness blockers and unmet preconditions join the declared risk
-  // conditions, so the candidate carries every reason it could be refused.
-  const preconditionBlockers = (augmentedPlan.preconditions ?? []).flatMap((precondition) =>
-    precondition.status === "unmet"
-      ? [
-          {
-            level: "blocked" as const,
-            id: precondition.id,
-            detail: precondition.detail ?? precondition.label,
-            errorCode:
-              precondition.blockedOn === "human"
-                ? ("auth_required" as const)
-                : ("conflict" as const),
-          },
-        ]
-      : [],
-  );
-  const riskConditions = [
-    ...(augmentedPlan.riskConditions ?? []),
-    ...(yield* withLiveWorkspaceObservations(executionExposureRisks(augmentedPlan)).pipe(
-      Effect.catch((cause) =>
-        Effect.succeed([
-          {
-            level: "blocked" as const,
-            id: "execution-review-unavailable",
-            errorCode: "validation" as const,
-            detail:
-              cause instanceof StepFailure
-                ? cause.detail
-                : "External execution review could not establish the exact content and configuration.",
-          },
-        ]),
-      ),
-    )),
-    ...readinessBlockersOf(augmentedPlan),
-    ...preconditionBlockers,
-  ];
-  const candidatePlan: Plan<Requirements, Output> = {
-    ...augmentedPlan,
-    ...(riskConditions.length === 0 ? {} : { riskConditions }),
-  };
-  return { candidatePlan, operations, materialBoundary, beforeReview };
-});
-
-type AugmentedExecutionPlan<Requirements, Output> = Effect.Success<
-  ReturnType<typeof augmentExecutionPlan<Requirements, Output>>
->;
-
-/**
- * Seal an augmented plan: fingerprint every material preimage and derive the
- * candidate identity, refusing a plan whose inputs changed during its review.
- */
-const sealExecutionCandidate = Effect.fnUntraced(function* <Requirements, Output>(
-  planName: string,
-  augmented: AugmentedExecutionPlan<Requirements, Output>,
-) {
-  const candidate = yield* withLiveWorkspaceObservations(
-    makeExecutionCandidate(
-      augmented.candidatePlan,
-      augmented.materialBoundary,
-      augmented.operations,
-    ),
-  );
-  if (
-    augmented.beforeReview !== undefined &&
-    augmented.beforeReview.materialFingerprint !== candidate.materialFingerprint
-  )
-    return yield* new StaleExecutionCandidate({ candidate: planName });
-  return candidate;
-});
-
-/**
- * Prepare the immutable execution candidate for a plan: augment with lockfile
- * reconciliation, project configured-agent outcomes, scan readiness, assemble
- * risk conditions, and fingerprint every material preimage. Preview,
- * confirmation, and apply all refer to the candidate this returns.
- */
-const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options?: PrepareExecutionCandidateOptions,
-) {
-  return yield* sealExecutionCandidate(plan.name, yield* augmentExecutionPlan(plan, options));
-});
-
-export const prepareExecutionCandidate = <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options?: PrepareExecutionCandidateOptions,
-) =>
-  withPhaseSpan(
-    "planning",
-    withWorkspaceReadView(prepareExecutionCandidateInPlanning(plan, options)),
-  );
-
-/**
- * A child plan augmented for a composite operation, which seals one candidate
- * over its children's steps. It carries no identity or fingerprint, so only
- * the composite's own candidate can be previewed, confirmed or applied.
- */
-interface CompositeChildPlan<Requirements = never, Output = never> {
-  readonly plan: Plan<Requirements, Output>;
-  readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
-}
-
-/** A composite child derives no identity, so no observed input enters one. */
-export type CompositeChildPlanOptions = Omit<
-  PrepareExecutionCandidateOptions,
-  "observedInputFingerprint"
->;
-
-const prepareCompositeChildPlanInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options?: CompositeChildPlanOptions,
-) {
-  const augmented = yield* augmentExecutionPlan(plan, options);
-  if (augmented.beforeReview !== undefined) {
-    // The reviewed preimage stays bracketed by this child's own seal: the
-    // review's text travels into the composite's risk conditions.
-    const candidate = yield* sealExecutionCandidate(plan.name, augmented);
-    return {
-      plan: candidate.plan,
-      configuredAgentOperations: candidate.configuredAgentOperations,
-    } satisfies CompositeChildPlan<Requirements, Output>;
-  }
-  // The child's own materials stay observed here; the composite's seal
-  // fingerprints the workspace settings and lockfile and derives the identity.
-  yield* withLiveWorkspaceObservations(
-    observeCompositeChildMaterials(augmented.candidatePlan, augmented.materialBoundary),
-  );
-  return {
-    plan: augmented.candidatePlan,
-    configuredAgentOperations: augmented.operations,
-  } satisfies CompositeChildPlan<Requirements, Output>;
-});
-
-/**
- * Augment a child plan exactly as `prepareExecutionCandidate` does, for a
- * composite operation that keeps only the child's steps, risk conditions and
- * configured-agent operations and seals them in its own candidate.
- */
-export const prepareCompositeChildPlan = <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options?: CompositeChildPlanOptions,
-) =>
-  withPhaseSpan(
-    "planning",
-    withWorkspaceReadView(prepareCompositeChildPlanInPlanning(plan, options)),
-  );
 
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
   /** Additional observations to re-read under the transition before applying. */
@@ -1328,91 +730,13 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
-    return yield* withPhaseSpan(
-      "verification",
-      Effect.gen(function* () {
-        yield* enterPhase("verification");
-        const readbacks = yield* withFreshWorkspaceObservationReadView(
-          withMcpInspectionReadView(
-            observeConfiguredTargets(
-              operations
-                .filter((operation) => operation.plannedState === "enabled")
-                .map((operation) => ({
-                  type: operation.extensionType,
-                  name: operation.name,
-                })),
-              configuredAgents,
-            ),
-          ),
-        ).pipe(
-          Effect.mapError((failure) =>
-            failure._tag === "ConfiguredAgentOutcomesUnavailable"
-              ? new StepFailure({
-                  category: failure.category,
-                  detail: failure.detail,
-                  ...(failure.suggestions === undefined
-                    ? {}
-                    : { suggestions: failure.suggestions }),
-                  ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-                })
-              : workspaceStateReadFailureToStepFailure(failure),
-          ),
-          Effect.mapError((error): PlanApplyFailure<Output> => ({
-            error,
-            // Readback happens after independent closures settle. Preserve
-            // those commits even when no postflight observation is available.
-            attemptedExecution: result,
-          })),
-        );
-        const currentOutcomes = operations.flatMap((operation) => {
-          if (operation.plannedState !== "enabled") {
-            return configuredAgentLifecycleOutcomes({
-              type: operation.extensionType,
-              name: operation.name,
-              agentIds: configuredAgents,
-              scope: location.scope,
-              state: "current",
-              targetState: operation.plannedState,
-              installed: false,
-            });
-          }
-          const observed = readbacks.get(
-            `${operation.extensionType}:${operation.name}`,
-          )?.agentOutcomes;
-          return (
-            observed ??
-            configuredAgentLifecycleOutcomes({
-              type: operation.extensionType,
-              name: operation.name,
-              agentIds: configuredAgents,
-              scope: location.scope,
-              state: "current",
-              targetState: "enabled",
-              installed: false,
-            })
-          );
-        });
-        const incomplete = currentOutcomes.find(
-          ({ outcome }) => outcome === "blocked" || outcome === "failed",
-        );
-        const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
-        // A failed closure already states why its requested output was not realized.
-        // Keep fresh per-agent evidence, including for committed siblings, without
-        // replacing that typed failure and its recovery with a convergence symptom.
-        if (incomplete !== undefined && failedStep === undefined) {
-          return yield* Effect.fail({
-            error: new StepFailure({
-              category: "conflict",
-              detail: `${incomplete.extensionType} ${incomplete.name} did not converge for ${incomplete.agentId}: ${incomplete.reason}`,
-            }),
-            attemptedExecution: executedWithOutcomes,
-          });
-        }
-        return {
-          ...executedWithOutcomes,
-          candidateId: candidate.id,
-        } satisfies ExecutedPlan<Output>;
-      }),
+    return yield* verifyConfiguredAgentOutcomes(
+      result,
+      failedStep,
+      operations,
+      configuredAgents,
+      location.scope,
+      candidate.id,
     );
   });
   const isPlanApplyFailureShape = (value: unknown): value is PlanApplyFailure<Output> =>

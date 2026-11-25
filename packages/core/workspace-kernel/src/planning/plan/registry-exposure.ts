@@ -3,17 +3,23 @@ import { sourceRefContentKey } from "../../acquisition/index.js";
 import { StepFailure, type Plan, type PlannedJobStep } from "../../operations/index.js";
 import { PlanSources } from "./plan-sources.js";
 
+/** The external sources a step's grouped closure or source binding names. */
+const stepSourceRefs = (step: PlannedJobStep<unknown, unknown>) =>
+  step.acquisitionRefs ??
+  (step.sourceBinding === undefined
+    ? []
+    : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]);
+
 export const registryExposureRefsForStep = (step: PlannedJobStep<unknown, unknown>) =>
   (step.readiness === "error"
     ? []
-    : [
-        ...(step.exposureRefs ?? []),
-        ...(step.acquisitionRefs ??
-          (step.sourceBinding === undefined
-            ? []
-            : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])])),
-      ]
+    : [...(step.exposureRefs ?? []), ...stepSourceRefs(step)]
   ).filter((ref) => ref.refType === "registry");
+
+export const acquisitionRefsForStep = (step: PlannedJobStep<unknown, unknown>) =>
+  step.readiness === "error"
+    ? []
+    : stepSourceRefs(step).filter((ref) => ref.refType !== "workspace");
 
 /** Admission belongs to one callback stage, never the lockfile or local content cache. */
 export const withRegistryExposure = <A, E, R>(

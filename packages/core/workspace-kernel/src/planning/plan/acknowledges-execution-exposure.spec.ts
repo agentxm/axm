@@ -12,7 +12,7 @@ import {
   type Plan,
   type PlanPolicyId,
 } from "../../operations/index.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 
 export const specification = defineSpecification({

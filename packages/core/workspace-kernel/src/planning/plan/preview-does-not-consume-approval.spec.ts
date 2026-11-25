@@ -13,7 +13,7 @@ import {
   requestedPlanExecution,
 } from "../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/preview-does-not-consume-approval",

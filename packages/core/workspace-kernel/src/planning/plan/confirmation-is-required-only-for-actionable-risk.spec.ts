@@ -8,7 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 import { deriveOperationOutcome, type Plan } from "../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/confirmation-is-required-only-for-actionable-risk",

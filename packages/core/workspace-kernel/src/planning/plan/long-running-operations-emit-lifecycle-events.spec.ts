@@ -16,7 +16,7 @@ import {
   type Plan,
 } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "./plan-execution-fixtures.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/long-running-operations-emit-lifecycle-events",

@@ -90,7 +90,7 @@ import {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
 } from "./execution-candidate.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 import { SourceNotResolvable } from "../../sources/index.js";
 

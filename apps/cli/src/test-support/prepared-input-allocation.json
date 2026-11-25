@@ -1374,7 +1374,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-candidate.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-features/src/authoring/import/import-native-extension.ts"
             ]
           }
@@ -2401,7 +2401,7 @@
               "packages/core/workspace-kernel/src/reconciliation/materialize.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/canonical-observation.ts",
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts"
             ]
           }
@@ -2416,7 +2416,7 @@
               "workspace/workspace-state/physical-observations-preserve-live-boundaries"
             ],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/canonical-observation.ts"
             ]
@@ -2784,7 +2784,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts"
             ]
           }
         },
@@ -2797,7 +2797,7 @@
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
               "packages/core/workspace-kernel/src/reconciliation/activation.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/extension-kinds/src/knowledge/manager.ts",
               "packages/core/workspace-kernel/src/projection/contributors.ts",
@@ -2860,7 +2860,7 @@
             "sources": [
               "packages/core/workspace-features/src/lifecycle/activation/set-activation.ts",
               "packages/core/workspace-kernel/src/reconciliation/activation.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/extension-kinds/src/instructions/manager.ts",
               "packages/core/workspace-kernel/src/projection/contributors.ts"
@@ -3623,7 +3623,7 @@
               "packages/core/extension-kinds/src/instructions/manager.ts",
               "packages/core/workspace-kernel/src/projection/contributors.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/canonical-observation.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts"
             ]
           }
         },
@@ -3685,7 +3685,7 @@
               "packages/core/workspace-features/src/lifecycle/uninstall/uninstall-extensions.ts",
               "packages/core/workspace-kernel/src/reconciliation/uninstall-artifact.ts",
               "packages/core/workspace-kernel/src/reconciliation/native-output-postconditions.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/accepted-canonical-ref.ts"
             ]
@@ -4039,7 +4039,7 @@
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/configured-agent-outcomes-provider.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/accepted-canonical-ref.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts"
             ]
           }
         },
@@ -4073,7 +4073,7 @@
               "packages/core/workspace-kernel/src/workspace-state/workspace/configured-agent-outcomes-provider.ts",
               "packages/core/workspace-kernel/src/projection/contributors.ts",
               "packages/core/extension-kinds/src/knowledge/manager.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts"
             ]
           }
         },
@@ -5744,7 +5744,7 @@
             "tests": ["packages/core/workspace-kernel/src/workspace-state/step-failures.test.ts"],
             "sources": [
               "packages/core/workspace-kernel/src/workspace-state/workspace/adapters/filesystem/documents.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts"
             ]
           }
         },
@@ -6511,6 +6511,8 @@
       "sources": [
         "packages/core/workspace-kernel/src/planning/plan/execution-candidate.ts",
         "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+        "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
+        "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
         "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
         "packages/core/workspace-kernel/src/planning/plan/registry-exposure.ts",
         "packages/core/workspace-kernel/src/planning/plan/package-placement.ts"
@@ -6532,12 +6534,12 @@
       "reads": [
         {
           "purpose": "preparation",
-          "source": "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+          "source": "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
           "note": "Planning runs in one document read view: lockfile reconciliation, configured agents when a plan carries configured-agent operations (read in preview too, although only post-apply verification consumes them), and current-state agent outcomes only for steps whose owner plan supplied none."
         },
         {
           "purpose": "fresh-conflict-or-route-check",
-          "source": "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+          "source": "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
           "requirement": "workspace/planning/execution-review-rejects-intervening-edits",
           "note": "A plan with a non-workspace Hook or MCP exposure ref fingerprints its materials before the review; the seal must match it or preparation is stale."
         },
@@ -6561,7 +6563,7 @@
         },
         {
           "purpose": "fresh-conflict-or-route-check",
-          "source": "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+          "source": "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
           "requirement": "cli/migrate/acts-on-deprecation",
           "note": "A composite child plan without a review observes only its own materials; the composite's seal covers the settings and lockfile and derives the only identity."
         },
@@ -6585,7 +6587,7 @@
         },
         {
           "purpose": "post-write-verification",
-          "source": "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+          "source": "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
           "note": "After apply, configured-agent outcomes of enabled operations are read back in one fresh observation phase that also shares one MCP inspection read view."
         },
         {
@@ -6618,7 +6620,7 @@
           "evidence": {
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/extension-kinds/src/knowledge/manager.ts"
@@ -6632,7 +6634,7 @@
           "evidence": {
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts"
             ]
@@ -6645,7 +6647,7 @@
           "openQuestion": "Must an apply that leaves no subject enabled still fail when its final readback cannot read or decode the settings, the inherited user-scope settings, the lockfile or an authored Pack manifest?",
           "evidence": {
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts"
             ]
           }
@@ -6657,7 +6659,7 @@
           "openQuestion": "Must a removal whose every operation plans its subject absent still fail when its final readback cannot read or decode the settings, the inherited user-scope settings, the lockfile or an authored Pack manifest?",
           "evidence": {
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-features/src/lifecycle/uninstall/uninstall-extensions.ts"
             ]
@@ -6670,7 +6672,7 @@
           "evidence": {
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-features/src/lifecycle/uninstall/uninstall-extensions.ts"
@@ -6685,7 +6687,10 @@
               "packages/core/workspace-kernel/src/planning/plan/resolve-plan.test.ts",
               "packages/core/workspace-kernel/src/planning/plan/mutations-are-closure-atomic.spec.ts"
             ],
-            "sources": ["packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"]
+            "sources": [
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
+              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+            ]
           }
         },
         "candidate-seals-live-settings-lockfile-bytes": {
@@ -6726,7 +6731,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts"
             ]
           }
         },
@@ -6758,7 +6763,7 @@
             "tests": [
               "packages/core/workspace-kernel/src/planning/plan/execution-review-rejects-intervening-edits.spec.ts"
             ],
-            "sources": ["packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts"]
+            "sources": ["packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts"]
           }
         },
         "plan-level-apply-transaction-claims-no": {
@@ -6875,7 +6880,7 @@
               "packages/core/workspace-kernel/src/planning/plan/execution-review-rejects-intervening-edits.spec.ts"
             ],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/planning/plan/execution-candidate.ts"
             ]
           }
@@ -7524,7 +7529,7 @@
           "openQuestion": "Should an accepted requirement state that the configured-agent outcomes an operation reports for a Hook it leaves enabled come from a fresh observation after every closure settles rather than from a closure's locked readback?",
           "evidence": {
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/extension-kinds/src/hooks/manager.ts",
               "packages/core/workspace-kernel/src/agent-adapters/hooks/native-config.ts"
@@ -9990,7 +9995,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts"
             ]
@@ -10016,7 +10021,7 @@
               "workspace/workspace-state/physical-observations-preserve-live-boundaries"
             ],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts"
@@ -10113,7 +10118,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts"
             ]
@@ -10130,7 +10135,8 @@
             ],
             "sources": [
               "packages/core/workspace-features/src/lifecycle/update/update-extensions.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts"
@@ -10147,7 +10153,7 @@
             "sources": [
               "packages/core/workspace-features/src/lifecycle/uninstall/uninstall-extensions.ts",
               "packages/core/workspace-kernel/src/reconciliation/native-output-postconditions.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts"
@@ -10167,7 +10173,7 @@
               "packages/core/workspace-features/src/sync/sync-workspace.ts",
               "packages/core/workspace-kernel/src/projection/materialization-currency.ts",
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/workspace-kernel/src/projection/mcps/inspection.ts"
             ]
@@ -11184,7 +11190,7 @@
           "evidence": {
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/configured-agent-outcomes.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/selected-configured-observations.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts",
               "packages/core/extension-kinds/src/instructions/manager.ts",
@@ -15858,7 +15864,7 @@
             "requirements": ["workspace/workspace-state/read-phases-have-bounded-lifetimes"],
             "sources": [
               "packages/core/workspace-features/src/publishing/publish/use-case.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts",
               "apps/cli/src/root/publish/command.ts"
             ]
@@ -16020,7 +16026,7 @@
             "sources": [
               "packages/core/workspace-features/src/lifecycle/migrate-deprecated.ts",
               "packages/core/workspace-features/src/lifecycle/uninstall/uninstall-extensions.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts"
             ]
           }
@@ -16036,7 +16042,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts"
             ]
           }
@@ -16051,7 +16057,7 @@
             ],
             "sources": [
               "packages/core/workspace-kernel/src/planning/plan/execution-exposure.ts",
-              "packages/core/workspace-kernel/src/planning/plan/resolve-plan.ts",
+              "packages/core/workspace-kernel/src/planning/plan/prepare-candidate.ts",
               "packages/core/workspace-kernel/src/workspace-state/workspace/read-view.ts",
               "packages/core/workspace-kernel/src/reconciliation/configured-agent-outcomes-provider-live.ts"
             ]

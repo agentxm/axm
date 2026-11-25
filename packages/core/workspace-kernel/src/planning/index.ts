@@ -22,10 +22,9 @@ export { applyPlan, type OperationHandler } from "./plan/apply-plan.js";
 export {
   prepareCompositeChildPlan,
   prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type CompositeChildPlanOptions,
-  type PlanResolutionFailure,
-} from "./plan/resolve-plan.js";
+} from "./plan/prepare-candidate.js";
+export { resolveExecutionCandidate, type PlanResolutionFailure } from "./plan/resolve-plan.js";
 export { executionWithdrawalJudgedRoot } from "./plan/execution-withdrawal.js";
 
 // The plan-execution failure family.

@@ -42,7 +42,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { applyPlanExecution, deriveOperationOutcome, type Plan } from "../../operations/index.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 
 export const specification = defineSpecification({

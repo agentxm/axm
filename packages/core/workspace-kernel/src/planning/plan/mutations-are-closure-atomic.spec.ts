@@ -33,7 +33,7 @@ import {
 } from "../../operations/index.js";
 import { preapprovedPlanExecution, promptablePlanExecution } from "./plan-execution-fixtures.js";
 import { PlanSourcesTest, ResolvePlanInteractionTest } from "../testing.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 import { workspaceTransactionFailureToStepFailure } from "../../workspace-state/index.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 

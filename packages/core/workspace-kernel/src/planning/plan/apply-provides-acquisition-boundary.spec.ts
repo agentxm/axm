@@ -9,7 +9,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 import { StepFailure, deriveOperationOutcome, type Plan } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "./plan-execution-fixtures.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "../index.js";
 import { AcquiredContent } from "../../acquisition/index.js";
 
 export const specification = defineSpecification({

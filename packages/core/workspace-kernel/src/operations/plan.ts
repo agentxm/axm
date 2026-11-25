@@ -343,15 +343,13 @@ export interface AcceptedContentObservation {
   readonly usable?: { readonly path: string; readonly contentKey: string };
 }
 
-export interface ReadyJobStep<Requirements = never, Output = never> {
+interface PlannedStepCommon {
   readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
   readonly materialPaths?: ReadonlyArray<string>;
-  readonly readiness: "ready";
   readonly label: string;
-  readonly message?: string;
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
@@ -364,50 +362,23 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   /** Exact external sources this step makes agent-readable, including retained content. */
   readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
   readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
+}
+
+export interface ReadyJobStep<Requirements = never, Output = never> extends PlannedStepCommon {
+  readonly readiness: "ready";
+  readonly message?: string;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
-export interface WarnJobStep<Requirements = never, Output = never> {
-  readonly transitions?: ReadonlyArray<MaterializationTransition>;
-  readonly key?: string;
-  readonly dependsOn?: ReadonlyArray<string>;
-  /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
-  readonly materialPaths?: ReadonlyArray<string>;
+export interface WarnJobStep<Requirements = never, Output = never> extends PlannedStepCommon {
   readonly readiness: "warn";
   readonly warnMessage: string;
-  readonly label: string;
-  readonly artifact?: JobStepArtifact;
-  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
-  readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly registryBinding?: RegistryBindingProposal;
-  readonly sourceBinding?: SourceBindingProposal;
-  readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
-  readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
-  /** Exact external sources this step makes agent-readable, including retained content. */
-  readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
-  readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
-interface ErrorJobStep {
-  readonly transitions?: ReadonlyArray<MaterializationTransition>;
-  readonly key?: string;
-  readonly dependsOn?: ReadonlyArray<string>;
-  /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
-  readonly materialPaths?: ReadonlyArray<string>;
+interface ErrorJobStep extends PlannedStepCommon {
   readonly readiness: "error";
   readonly errorMessage: string;
-  readonly label: string;
-  readonly artifact?: JobStepArtifact;
-  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
-  readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly registryBinding?: RegistryBindingProposal;
-  readonly sourceBinding?: SourceBindingProposal;
-  readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
-  readonly acceptedContent?: ReadonlyArray<AcceptedContentObservation>;
-  /** Exact external sources this step makes agent-readable, including retained content. */
-  readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
-  readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }

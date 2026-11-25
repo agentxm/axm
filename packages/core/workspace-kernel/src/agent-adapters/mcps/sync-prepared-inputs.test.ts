@@ -28,13 +28,13 @@ import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
 import { workObservations } from "../../locations/testing.js";
 import { makeRecordingNativeWriteAuthority } from "../testing.js";
-import type { McpServerSyncOutcome } from "../agents/coding-agent.js";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
 import {
   prepareMcpServerRemovals,
   removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
+  type McpServerSyncOutcome,
 } from "./sync.js";
 
 const nativeDirectoryInputs = { skillsDirectoryOverrides: {} };

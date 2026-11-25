@@ -23,6 +23,14 @@ import type {
   ContainerReceipt,
 } from "../locations/index.js";
 
+/**
+ * How one native artifact fared during a write.
+ *
+ * Mirrors the workspace-owned artifact-change vocabulary as plain literals so
+ * the integration reports facts without importing core.
+ */
+export type NativeArtifactChange = "created" | "updated" | "unchanged" | "removed";
+
 export interface NativeInsertionTarget {
   readonly path: string;
   readonly unit: string;

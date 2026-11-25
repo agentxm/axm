@@ -20,7 +20,7 @@ import {
 } from "../errors.js";
 import { runWithTransientFileBackup } from "../transient-backup.js";
 import { withNativeConfigReadView } from "../native-config-syntax.js";
-import { NativeWriteAuthority } from "../native-write-authority.js";
+import { NativeWriteAuthority, type NativeArtifactChange } from "../native-write-authority.js";
 import { editNativeTomlMcpEntry, detachNativeTomlMcpEntry } from "./toml-adoption.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml.js";
 import {
@@ -35,7 +35,6 @@ import type {
   McpConfigTarget,
   McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { NativeArtifactChange } from "../agents/coding-agent.js";
 import { isStructuralInsertion, type NativeLocationOutcome } from "../../locations/index.js";
 
 export interface WriteAgentMcpConfigArgs {

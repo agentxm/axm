@@ -1,4 +1,3 @@
-import type { McpDistribution, McpBinding, McpAuth } from "../mcps/connection.js";
 /**
  * The per-agent native adapter contract.
  *
@@ -16,22 +15,12 @@ import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgentFailure } from "../errors.js";
-import type { NativeWriteAuthority } from "../native-write-authority.js";
+import type { NativeArtifactChange, NativeWriteAuthority } from "../native-write-authority.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import type { ResolvedNativeReadLocation } from "../../locations/index.js";
-import type { NativeDirectoryInputs, NativeLocationOutcome } from "../../locations/index.js";
-
-/**
- * How one native artifact fared during a write.
- *
- * Mirrors the workspace-owned artifact-change vocabulary as plain literals so
- * the integration reports facts without importing core.
- */
-export type NativeArtifactChange = "created" | "updated" | "unchanged" | "removed";
 
 /**
  * Inputs for resolving an agent's effective skills directory.
@@ -50,35 +39,6 @@ type ResolveSkillsDirOutcome =
   | { readonly _tag: "unverified"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string };
-
-/**
- * Inputs for adding an MCP server to an agent's configuration.
- */
-export interface AddMcpServerArgs {
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly workspaceRoot: string;
-  readonly scope?: WorkspaceScope;
-  readonly serverName: string;
-  readonly canonicalPath: string;
-  readonly owner: Handle;
-  readonly resolvedVersion: string;
-  readonly enabled?: boolean;
-  readonly distribution?: McpDistribution;
-  readonly bindings?: ReadonlyArray<McpBinding>;
-  readonly auth?: McpAuth;
-}
-
-/**
- * Inputs for removing an MCP server from an agent's configuration.
- */
-export interface RemoveMcpServerArgs {
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly workspaceRoot: string;
-  readonly scope?: WorkspaceScope;
-  readonly serverName: string;
-  readonly disableOnly?: boolean;
-  readonly dryRun?: boolean;
-}
 
 // ---------------------------------------------------------------------------
 // Subagent types
@@ -183,28 +143,6 @@ export type SubagentSyncOutcome =
     }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "conflict"; readonly reason: string };
-
-// ---------------------------------------------------------------------------
-// MCP types
-// ---------------------------------------------------------------------------
-
-export interface McpServerSyncTarget {
-  readonly path: string;
-  readonly change: NativeArtifactChange;
-  readonly nativeLocation?: NativeLocationOutcome;
-}
-
-export type McpServerSyncOutcome = {
-  readonly targets?: ReadonlyArray<McpServerSyncTarget>;
-  readonly warnings?: ReadonlyArray<string>;
-} & (
-  | { readonly _tag: "success" }
-  | { readonly _tag: "fallback"; readonly reason: string }
-  | { readonly _tag: "unsupported"; readonly reason: string }
-  | { readonly _tag: "nothing-runnable"; readonly reason: string }
-  | { readonly _tag: "needs-input"; readonly reason: string }
-  | { readonly _tag: "failed"; readonly reason: string }
-);
 
 /**
  * Agent-specific extension installation behavior.

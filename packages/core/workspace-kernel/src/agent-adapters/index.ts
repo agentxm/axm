@@ -78,8 +78,6 @@ export {
 export {
   type AddSubagentArgs,
   type CodingAgent,
-  type McpServerSyncOutcome,
-  type McpServerSyncTarget,
   type RemoveSubagentArgs,
   type SubagentWriteDecision,
 } from "./agents/coding-agent.js";
@@ -168,6 +166,8 @@ export {
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
   validateInlineMcpServerTargetsInOrder,
+  type McpServerSyncOutcome,
+  type McpServerSyncTarget,
   type SyncInlineMcpServerArgs,
 } from "./mcps/sync.js";
 

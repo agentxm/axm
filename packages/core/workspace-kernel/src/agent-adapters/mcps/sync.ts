@@ -17,7 +17,13 @@ import {
   type McpConfigTarget,
   type McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../locations/index.js";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import {
+  resolveNativeReadLocation,
+  type NativeDirectoryInputs,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
 import {
   withNativeConfigObservationView,
   withNativeConfigReadView,
@@ -31,7 +37,7 @@ import {
 } from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
 import { type McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import type { NativeWriteAuthority } from "../native-write-authority.js";
+import type { NativeArtifactChange, NativeWriteAuthority } from "../native-write-authority.js";
 import {
   removeAgentMcpConfigs,
   renderAgentMcpConfigRemovals,
@@ -53,18 +59,59 @@ import {
   type McpTargetWrite,
 } from "./target-plan.js";
 import { resolveConfiguredMcpTargets, type McpTargetGroup } from "./targeting.js";
-import type {
-  AddMcpServerArgs,
-  McpServerSyncOutcome,
-  McpServerSyncTarget,
-  RemoveMcpServerArgs,
-} from "../agents/coding-agent.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
 import { decodeMcpServerManifestAt } from "./manifest.js";
 import { readPluginMcpDefinition, type PluginMcpDefinition } from "./plugin-definition.js";
 import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { resolveSharedMcpContainer } from "./shared-target.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+
+/**
+ * Inputs for adding an MCP server to an agent's configuration.
+ */
+interface AddMcpServerArgs {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly workspaceRoot: string;
+  readonly scope?: WorkspaceScope;
+  readonly serverName: string;
+  readonly canonicalPath: string;
+  readonly owner: Handle;
+  readonly resolvedVersion: string;
+  readonly enabled?: boolean;
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
+}
+
+/**
+ * Inputs for removing an MCP server from an agent's configuration.
+ */
+interface RemoveMcpServerArgs {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly workspaceRoot: string;
+  readonly scope?: WorkspaceScope;
+  readonly serverName: string;
+  readonly disableOnly?: boolean;
+  readonly dryRun?: boolean;
+}
+
+export interface McpServerSyncTarget {
+  readonly path: string;
+  readonly change: NativeArtifactChange;
+  readonly nativeLocation?: NativeLocationOutcome;
+}
+
+export type McpServerSyncOutcome = {
+  readonly targets?: ReadonlyArray<McpServerSyncTarget>;
+  readonly warnings?: ReadonlyArray<string>;
+} & (
+  | { readonly _tag: "success" }
+  | { readonly _tag: "fallback"; readonly reason: string }
+  | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "nothing-runnable"; readonly reason: string }
+  | { readonly _tag: "needs-input"; readonly reason: string }
+  | { readonly _tag: "failed"; readonly reason: string }
+);
 
 /** Readback proves native content; running-agent selection remains unobservable here. */
 const describePhysicalConsumers = (args: {

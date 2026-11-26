@@ -12,6 +12,7 @@
     "src/**/*.spec.ts",
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
+    "src/**/test-zip-helpers.ts",
     "vitest.config.ts"
   ],
   "references": [

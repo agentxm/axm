@@ -30,11 +30,6 @@
       "types": "./dist/src/lint/index.d.ts",
       "axm-source": "./src/lint/index.ts",
       "default": "./dist/src/lint/index.js"
-    },
-    "./testing": {
-      "types": "./dist/src/testing.d.ts",
-      "axm-source": "./src/testing.ts",
-      "default": "./dist/src/testing.js"
     }
   },
   "files": [

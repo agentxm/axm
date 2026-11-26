@@ -5,8 +5,8 @@ Registry: skill and subagent content parsing (`parseSkillMd`,
 `parseSubagentMd`, frontmatter), manifest resolution and alignment, archive
 guardrails, type-specific package validation, publish input normalization and
 ingest limits (`.`); Knowledge bundle inspection and search (`./knowledge`);
-the lint vocabulary, configuration, evaluator, and per-type rule catalog
-(`./lint`); and deterministic zip builders for tests (`./testing`).
+and the lint vocabulary, configuration, evaluator, and per-type rule catalog
+(`./lint`).
 
 Dependency budget: `@agentxm/extension-model` only. It never depends on the
 Registry protocol, workspace state, or any integration; consumers compose it

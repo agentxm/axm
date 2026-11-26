@@ -6,7 +6,7 @@ description: Local profile and deliberate deviations for the OKF bundle under `d
 
 # AXM documentation bundle
 
-`docs/` is one OKF v0.2 bundle. The `author-okf` skill owns the format —
+`docs/` is one OKF v0.2 bundle. The `okf` skill owns the format —
 conformance, field semantics, type discipline, reserved-file structure, index
 craft, and validation — and the [repository instructions](../AGENTS.md) own
 command policy, review expectations, and the architecture reading rule. This file
@@ -67,7 +67,7 @@ No other field belongs here, including the legacy `version`, `last-reviewed`, an
 
 ## Deviations
 
-Four departures from `author-okf`, in force for this bundle:
+Four departures from `okf`, in force for this bundle:
 
 - **Relative links, not bundle-relative.** The skill prefers `/`-prefixed paths.
   These documents are read directly in GitHub and editors, where
@@ -99,7 +99,6 @@ Four departures from `author-okf`, in force for this bundle:
 - Write prose only for meaning that cannot be recovered reliably from code,
   tests, schemas, or generated contracts. Feature symmetry does not justify a
   document.
-- Before adding or editing a document, use the `author-okf` skill. For prose
-  craft, add `author-docs`, or `author-architecture-docs` under
-  `docs/architecture/`.
+- Before adding or editing a document, use the `okf` skill. For prose craft, add
+  the `docs` skill.
 - Run `pnpm run format`, then the validator, before finishing.

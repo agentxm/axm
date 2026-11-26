@@ -11,7 +11,7 @@ Find AXM's development, delivery, and operating records by subject or task.
 
 - [Providers](providers/index.md) — Supplier relationships and account-authority gaps for repository hosting and distribution.
 - [Repositories](repositories/index.md) — Source, contribution, verification, and delivery discovery for the AXM repository.
-- [Tools](tools/index.md) — Locally adopted task orchestration and the repository-owned CI image.
+- [Tools](tools/index.md) — Locally adopted task orchestration, security scanning, dependency updates, and network profiles.
 - [Environments](environments/index.md) — Native development, Linux CI, and native platform execution boundaries.
 - [Playbooks](playbooks/index.md) — Assessment and response selection for advisory pull-request review.
-- [Runbooks](runbooks/index.md) — Bounded procedures for releases, previews, source execution, and CI images.
+- [Runbooks](runbooks/index.md) — Bounded procedures for releases, integration, source execution, and Linux CI reproduction.

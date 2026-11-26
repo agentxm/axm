@@ -1,7 +1,7 @@
 ---
 type: Playbook
 title: "Automated AXM pull-request review"
-description: "Select and assess advisory PR review, including provider failures and maintainer fallback, while preserving required CI and human approval."
+description: "Select and assess advisory PR review, including provider failures, while preserving required CI and human approval."
 status: draft
 applies-to:
   - ../repositories/axm.md
@@ -29,9 +29,9 @@ First identify the PR/base revision, applicable required checks, finding
 severity, and available provider result. Act on an introduced P0/P1 defect when
 the changed location, trigger, and failure are evidenced. If evidence is
 inconclusive, request maintainer investigation; do not invent a finding or
-broaden provider access. Use native automatic review when configured, the
-manual fallback when an authorized maintainer selects it, and ordinary human
-review during provider outages. Reassess after a follow-up push or accepted fix.
+broaden provider access. Use native automatic review when configured and
+ordinary human review during provider outages. Reassess after a follow-up push
+or accepted fix.
 
 Resolution means the maintainer has disposed of material findings and applicable
 required checks are satisfied for the reviewed change. Unresolved defects or
@@ -54,30 +54,21 @@ owns their current automated-review implementation and operating procedure.
 
 | Process           | Trigger                | Runtime              | Authority     |
 | ----------------- | ---------------------- | -------------------- | ------------- |
-| Linux CI          | Every pull request     | Public pinned image  | Required      |
+| Linux CI          | Every pull request     | GitHub-hosted runner | Required      |
 | Codex review      | Eligible pull requests | Codex managed review | Advisory      |
-| Claude fallback   | Maintainer dispatch    | GitHub-hosted runner | Advisory      |
 | Maintainer review | Branch policy          | GitHub               | Authoritative |
 
-Native Codex review is the primary semantic reviewer and follows the root
+Native Codex review is the semantic reviewer and follows the root
 `AGENTS.md` guidance. Repository owners create/select the repository's Codex
 cloud environment, turn on **Code review**, and enable **Automatic reviews** in
 Codex settings. Use the exact `@codex review` comment for a controlled manual
 smoke before enabling the automatic path. Contributors do not need a provider
 token and should not add one to a branch or pull request.
 
-The Claude workflow is a manual fallback for maintainers. It checks out trusted
-`main`, reads proposed changes through GitHub, and posts one top-level summary.
-It does not check out or execute the pull-request branch. The action uses a
-subscription OAuth secret stored by repository owners and a job-scoped GitHub
-token with read-only repository access plus permission to post the summary.
-Its explicit tool allowlist exposes only PR metadata/files/diff reads and one
-top-level comment; it does not read existing PR comments.
-
 Pullfrog is not part of the initial review path. Neither its hosted product nor
-its orchestration tool is needed while one native automatic reviewer and one
-manual fallback cover the workflow. Reconsider an orchestrator only after
-measured review volume demonstrates a recurring provider-routing, queueing, or
+its orchestration tool is needed while one native automatic reviewer covers the
+workflow. Reconsider an orchestrator only after measured review volume
+demonstrates a recurring provider-routing, queueing, or
 comment-lifecycle problem.
 
 ### Review Checklist
@@ -99,9 +90,7 @@ comment-lifecycle problem.
 
 Enable Codex automatic review only after approving repository-data access. Test
 one controlled pull request and a follow-up push to establish re-review
-behavior. For the fallback, generate an eligible Claude subscription token with
-`claude setup-token`, store it as `CLAUDE_CODE_OAUTH_TOKEN`, and dispatch
-`.github/workflows/claude-review.yml` with a pull-request number.
+behavior.
 
 Provider outages and quota failures are non-blocking. Continue with required CI
 and normal maintainer review rather than moving untrusted code to a persistent
@@ -119,12 +108,8 @@ the simpler topology is insufficient.
 - [ ] **Codex manual trigger** -- `@codex review` posts the expected controlled
       review before automatic review is enabled
 - [ ] **Increment observed** -- Follow-up-push behavior is recorded
-- [ ] **Claude secret scoped** -- OAuth exists only as a repository Actions
-      secret
-- [ ] **Base checkout retained** -- The fallback never checks out PR head code
 - [ ] **Permissions minimal** -- No merge, approval, label, shell, or source-write
       authority is added
-- [ ] **Claude tools narrow** -- Only PR reads and one comment tool are exposed
 - [ ] **Evaluation recorded** -- Provider decisions are based on a 25–50 PR
       sample
 
@@ -136,8 +121,6 @@ the simpler topology is insufficient.
   runner trust boundaries
 - [Codex code review in GitHub](https://learn.chatgpt.com/docs/third-party/github) -
   provider setup and automatic review
-- [Claude Code Action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) -
-  action threat model and hardening guidance
 
 ## Accountability, gaps, and maintenance
 

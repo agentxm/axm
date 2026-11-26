@@ -215,7 +215,6 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   ),
 );
 
-const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0] === "auth";
 const commandTraceIdentity = makeCommandTraceIdentity(rootCommand);
 
 /**
@@ -334,23 +333,14 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
       const commandProgram =
         startupRejection !== undefined
           ? Effect.fail<CommandProgramError>(startupRejection)
-          : usesRetiredAuthCommand(argv)
+          : argv.includes("-vv")
             ? Effect.fail<CommandProgramError>(
                 makeAppError({
                   code: "usage",
-                  detail: "Unrecognized command: auth",
+                  detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
                 }),
               )
-            : argv.includes("-vv")
-              ? Effect.fail<CommandProgramError>(
-                  makeAppError({
-                    code: "usage",
-                    detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
-                  }),
-                )
-              : runCommand(argv, isJson).pipe(
-                  Effect.mapError((error): CommandProgramError => error),
-                );
+            : runCommand(argv, isJson).pipe(Effect.mapError((error): CommandProgramError => error));
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
         stderrIsTTY: stderrIsTTY(),

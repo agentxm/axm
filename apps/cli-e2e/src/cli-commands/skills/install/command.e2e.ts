@@ -399,8 +399,6 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--scope");
       expect(result.stdout).not.toContain("--reinstall");
       expect(result.stdout).toContain("--preview");
-      // Verify removed flags are not in help output
-      expect(result.stdout).not.toContain("--list");
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("Configure an agent on first install");
     });

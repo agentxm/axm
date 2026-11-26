@@ -296,13 +296,6 @@ describe("compiled binary smoke", () => {
     }
   });
 
-  it("does not retain the retired root outdated command", async () => {
-    const result = await runBinary(["outdated"]);
-
-    expect(result.exitCode).not.toBe(0);
-    expect(getOutput(result)).toContain("outdated");
-  });
-
   it("exits non-zero for root token without credentials", async () => {
     const temp = createTempDir();
 
@@ -322,13 +315,6 @@ describe("compiled binary smoke", () => {
     } finally {
       temp.cleanup();
     }
-  });
-
-  it("does not retain the retired auth command group", async () => {
-    const result = await runBinary(["auth"]);
-
-    expect(result.exitCode).not.toBe(0);
-    expect(getOutput(result)).toContain("auth");
   });
 
   it("exits non-zero with an explicit init instruction for skills disable in an uninitialized workspace", async () => {

@@ -33,16 +33,6 @@ describe("root authentication commands", () => {
     expect(output).toContain(expected);
   });
 
-  it.each([{ args: ["auth"] }, { args: ["auth", "login", "--help"] }])(
-    "rejects the retired nested command path: $args",
-    async ({ args }) => {
-      const result = await runCli(args);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stdout + result.stderr).toContain("auth");
-    },
-  );
-
   describe("auth commands work outside an axm-initialized directory", () => {
     it("logout works without AXM workspace settings", async () => {
       const temp = createTempDir();

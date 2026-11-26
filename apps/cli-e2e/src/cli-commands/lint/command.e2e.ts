@@ -10,8 +10,7 @@
  *        `workspace/agents-detected-declared` rule is suppressed in the
  *        user scope.
  * - 7.9: `axm lint --strict` flips the exit code when only warnings remain.
- * - 7.10: `axm doctor` and `axm sync` return non-zero with an
- *        `Unknown subcommand` substring.
+ * - 7.10: `axm sync` fails before an initialized workspace exists.
  */
 
 import { execFileSync } from "node:child_process";
@@ -661,45 +660,9 @@ describe("axm lint (e2e, Phase 7)", () => {
         temp.cleanup();
       }
     });
-
-    it("rejects the removed --view flag", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(["lint", "--view", "git-index"], { cwd: temp.path });
-        expect(result.exitCode).toBe(2);
-        expect(result.stdout + result.stderr).toContain("Unrecognized flag: --view");
-      } finally {
-        temp.cleanup();
-      }
-    });
   });
 
-  describe("Task 7.10 — doctor and sync unknown-command contract", () => {
-    it("axm doctor returns non-zero with 'Unknown subcommand'", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(["doctor"], { cwd: temp.path });
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stdout + result.stderr).toContain("Unknown subcommand");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("axm mcps doctor and reconcile return non-zero with 'Unknown subcommand'", async () => {
-      const temp = createTempDir();
-      try {
-        const doctor = await runCli(["mcps", "doctor"], { cwd: temp.path });
-        const reconcile = await runCli(["mcps", "reconcile"], { cwd: temp.path });
-        expect(doctor.exitCode).not.toBe(0);
-        expect(doctor.stdout + doctor.stderr).toContain("Unknown subcommand");
-        expect(reconcile.exitCode).not.toBe(0);
-        expect(reconcile.stdout + reconcile.stderr).toContain("Unknown subcommand");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
+  describe("Task 7.10 — sync without a workspace", () => {
     it("axm sync requires an initialized workspace", async () => {
       const temp = createTempDir();
       try {

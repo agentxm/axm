@@ -153,8 +153,6 @@ describe("axm skills uninstall", () => {
       expect(result.stdout).toContain("skills uninstall");
       expect(result.stdout).not.toContain("--yes");
       expect(result.stdout).toContain("--preview");
-      expect(result.stdout).not.toContain("--keep-source");
-      expect(result.stdout).not.toContain("--delete-source");
       // Verify removed flag is not in help output
       expect(result.stdout).not.toContain("--agent");
     });

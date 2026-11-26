@@ -1,5 +1,0 @@
-{
-  "hook_event_name": "SessionStart",
-  "session_id": "fixture-outside-worktree",
-  "cwd": "/"
-}

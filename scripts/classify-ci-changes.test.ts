@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyCiChanges,
   detectsReleasePreparation,
+  knownRootFiles,
   parseChangedPaths,
   requiredCiJobs,
   selectCodeVerificationPaths,
@@ -114,7 +115,7 @@ describe("classifyCiChanges", () => {
     ],
     [
       "pull_request",
-      [".github/workflows/claude-review.yml"],
+      [".github/workflows/nx-cache.yml"],
       false,
       ["classify", "secrets", "commit-history", "workflow-validation"],
     ],
@@ -261,6 +262,13 @@ describe("classifyCiChanges", () => {
     });
   });
 
+  it("names only root files the repository holds", () => {
+    // A removal that leaves its classifier entry behind would keep routing a
+    // path that no longer exists; derive the check from the tree instead.
+    const missing = knownRootFiles.filter((file) => !fs.existsSync(path.join(repoRoot, file)));
+    expect(missing).toEqual([]);
+  });
+
   it("treats every markdown a project declares for generation as code", () => {
     // Derived from the manifests rather than restated, so a new markdown
     // generation input outside the classifier's source prefixes fails here
@@ -278,7 +286,7 @@ describe("classifyCiChanges", () => {
   });
 
   it("classifies workflow-only changes without compiling code", () => {
-    expect(classifyCiChanges([".github/workflows/claude-review.yml"])).toMatchObject({
+    expect(classifyCiChanges([".github/workflows/nx-cache.yml"])).toMatchObject({
       code: false,
       workflow: true,
       checks: {
@@ -307,9 +315,7 @@ describe("classifyCiChanges", () => {
   });
 
   it("runs code verification for release and infrastructure inputs", () => {
-    expect(
-      classifyCiChanges(["scripts/reconcile-github-release.ts", "infra/example.ts"]),
-    ).toMatchObject({
+    expect(classifyCiChanges(["scripts/reconcile-github-release.ts", "mise.toml"])).toMatchObject({
       code: true,
       releaseInfrastructure: true,
     });

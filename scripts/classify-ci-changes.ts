@@ -66,7 +66,6 @@ const isDocumentationOnlyPath = (path: string) =>
   isDocumentationPath(path) && !isAgentInstructionPath(path) && !isWorkspaceSourcePath(path);
 const isWorkflowPath = (path: string) => path.startsWith(".github/");
 const isReleaseInfrastructurePath = (path: string) =>
-  path.startsWith("infra/") ||
   path.startsWith("scripts/release-") ||
   path === ".github/workflows/prepare-release.yml" ||
   path === ".github/workflows/publish.yml" ||
@@ -82,14 +81,12 @@ const isCliRuntimePath = (path: string) =>
   path.startsWith("apps/cli-e2e/") ||
   path.startsWith("packages/") ||
   path.startsWith("skills/");
-const knownRootFiles = [
+export const knownRootFiles: readonly string[] = [
   ".gitleaks.toml",
   ".gitleaksignore",
-  ".npmrc",
-  ".nvmrc",
   ".pnpmfile.cjs",
   ".prettierignore",
-  ".prettierrc",
+  ".prettierrc.json",
   "AGENTS.md",
   "CHANGELOG.md",
   "CONTRIBUTING.md",
@@ -111,7 +108,6 @@ const isKnownPath = (path: string) =>
   isAgentInstructionPath(path) ||
   isWorkflowPath(path) ||
   isWorkspaceSourcePath(path) ||
-  path.startsWith("infra/") ||
   path.startsWith("scripts/") ||
   knownRootFiles.includes(path);
 const check = (selected: boolean, selectedReason: string, excludedReason: string) => ({

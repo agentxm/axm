@@ -8,8 +8,6 @@ pnpm-lock.yaml
 # validity (destroying the fixture). Keep contents stable byte-for-byte.
 packages/core/workspace-features/src/linting/__fixtures__/
 
-.nx/self-healing
-
 # AXM acquired packages preserve immutable upstream archive formatting.
 agent_extensions/
 
@@ -27,8 +25,3 @@ benchmarks/evidence/**/*.json
 # Contract snapshots preserve the canonical bytes written by their import targets.
 packages/supporting/registry-client/specs/registry-openapi.json
 apps/cli/specs/telemetry-openapi.json
-
-# Exact generated glossary snapshots; format their canonical knowledge source.
-apps/cli/help/topics/glossary.md
-skills/axm/src/references/glossary.md
-apps/cli/site-content/__generated__/agent-extension-glossary.md

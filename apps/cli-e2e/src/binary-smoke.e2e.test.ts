@@ -6,6 +6,7 @@ import { createBinaryRunner, createTempDir } from "@agentxm/client-e2e-utils";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { resolveBinaryPath, resolveHostBinaryPath } from "./distribution-targets.js";
+import { getOutput } from "./test-helpers.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes. The
@@ -24,9 +25,6 @@ export const executionBinding = {
 const binaryPath = resolveBinaryPath();
 
 const runBinary = createBinaryRunner(binaryPath);
-
-const getOutput = (result: { readonly stdout: string; readonly stderr: string }): string =>
-  result.stdout + result.stderr;
 
 const writeJson = (filePath: string, value: unknown): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });

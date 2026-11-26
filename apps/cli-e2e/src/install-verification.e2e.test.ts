@@ -11,6 +11,7 @@ import {
   resolveHostBinaryPath,
   resolveInstallMode,
 } from "./distribution-targets.js";
+import { getOutput } from "./test-helpers.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes. The
@@ -167,8 +168,6 @@ if (!productionDistribution && installBaseUrl.length === 0) {
 }
 
 const pathSeparator = process.platform === "win32" ? ";" : ":";
-const getOutput = (result: { readonly stdout: string; readonly stderr: string }): string =>
-  result.stdout + result.stderr;
 
 const expectCommandSuccess = (
   label: string,

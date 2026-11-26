@@ -42,12 +42,11 @@ in the engineering knowledge bundle.
 
 ## Behavioral evidence
 
-[The 2026-10-30 baseline and candidate exercises](evals/2026-10-30/README.md)
+[The 2026-10-30 baseline and candidate exercises](https://github.com/agentxm/axm/blob/b9198b243059008a44ee71f98c1f334ba1395dae/skills/axm/evals/2026-10-30/README.md)
 retain synthetic authoring artifacts, planning responses, consulted-source
-hashes, and limits. Evaluation records are repository-only and excluded from
-publication.
+hashes, and limits.
 
-[CLI self-sufficiency evidence](../../benchmarks/evidence/cli-self-sufficiency/README.md)
+[CLI self-sufficiency evidence](https://github.com/agentxm/axm/blob/7d3f44dba337a5a0ab9fbf2787da35b77f8a1e7b/benchmarks/evidence/cli-self-sufficiency/README.md)
 records the built-output comparison, task and activation evaluations, and the
 instruction-by-instruction disposition behind the reduced skill. The CLI owns
 operational discovery and results; the skill retains request recognition and

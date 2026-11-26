@@ -3,9 +3,9 @@
 Use local traces when designing, developing, or troubleshooting a CLI operation
 to locate elapsed time, physical work, reuse, and waits. Capture one invocation,
 retrieve its exact trace, and check completeness before drawing a conclusion.
-The [coverage and evidence ledger](../../benchmarks/evidence/local-observability/README.md)
-records verified claims and remaining gaps. Source instrumentation and a
-successful retrieval do not establish complete coverage of an operation.
+[Known limits](#known-limits) lists what tracing does not yet establish. Source
+instrumentation and a successful retrieval do not establish complete coverage
+of an operation.
 
 Tracing variables are internal development controls, classified in the
 [environment reference](../../apps/cli/help/topics/environment.md).
@@ -317,8 +317,8 @@ effects. Export has a 250 ms deadline. Diagnostic cleanup has a 450 ms body
 deadline and a separate 25 ms descriptor-close deadline; initial receipt open
 and write each have a 100 ms deadline. The predeclared measured cleanup budget
 is 500 ms, checked by the independent upper bound above. These limits do not
-establish successful ingestion. The ledger records actual
-failure-path and overhead verification; configuration is not proof.
+establish successful ingestion. Configuration is not proof: failure-path and
+overhead claims need an executed, retained run.
 
 ## Keep collection local and private
 
@@ -368,7 +368,7 @@ for disabled, summary, and detail modes. They are thresholds, not measurements.
 Compare nearby baseline/candidate runs with matched fixtures, runtime,
 cache state, and semantics. Keep before/after results for every affected
 operation, including no-op and failure paths where applicable. One trace or
-benchmark does not complete the coverage ledger.
+benchmark does not establish coverage of an operation.
 
 The explicit observability suite uses the published uncached benchmark workflow.
 Provide two binary manifests with `binaryPath`, SHA-256 `binarySha256`, full
@@ -691,9 +691,8 @@ Timing validates the printed failure/UUID without repeating the record audit.
 This records the existing refusal and partial restoration; it does not certify
 successful adoption or complete rollback.
 
-The [evidence ledger](../../benchmarks/evidence/local-observability/README.md)
-records completed captures and their provenance. This comparison rule does not
-certify an uncompleted capture or relax product identity checks.
+This comparison rule does not certify an uncompleted capture or relax product
+identity checks.
 
 Keep `report.json`, raw-artifact hashes, receipts and independent oracle records.
 `harness-modules.json` identifies the complete statically resolvable module
@@ -707,8 +706,8 @@ projects a validated volatile field also retain original bytes under
 `raw-projections`; the projection description names the exact field and check.
 Check free storage and Seq's disk reserve before collection; compression does
 not reduce the receiver's retained data. Disk-pressure ingestion failures remain
-incomplete evidence. The ledger distinguishes fixture smoke, final candidate
-verification and measured budget results.
+incomplete evidence. Report fixture smoke, final candidate verification and
+measured budget results separately.
 
 The preflight retains process names and IDs, CPU time/load, memory and available
 artifact-filesystem space before and after each child; timing retains these facts
@@ -733,3 +732,21 @@ is a summary/detail work mismatch or extra waits that an isolated rerun does not
 reproduce. Run fixture and timing campaigns with no other AXM process on the
 account, or inside a private mount namespace that binds an empty directory
 over that `.axm-runtime` directory, and record which was used.
+
+## Known limits
+
+- Isolated repeated elapsed and RSS qualification on the reference host has not
+  run. The [predeclared budgets](../../benchmarks/observability-budgets.json)
+  remain thresholds, not measured results.
+- Four independently allocated native cases have exact per-invocation totals,
+  counts and coverage, but their native serialization byte equivalence and
+  complete attribution remain unproven.
+- Completed captures describe the command and fixture inventory at their
+  captured revisions. Routes or fixture cases added since need their own
+  captures; the [prepared-input reuse ledger](../../benchmarks/evidence/prepared-input-reuse/README.md)
+  records behavior and accounting evidence for the current inventory.
+- Operating-system cache coldness is not controlled or claimed.
+
+The [earlier capture campaigns](https://github.com/agentxm/axm/tree/7d3f44dba337a5a0ab9fbf2787da35b77f8a1e7b/benchmarks/evidence/local-observability)
+and their provenance remain in Git history. They describe their own revisions
+and are not evidence for later changes.

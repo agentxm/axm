@@ -72,8 +72,8 @@ host-dependent skill activation advice and AXM requirements. The collection
 continues to exclude agent-runtime engineering and MCP server implementation.
 No executable helpers, credentials, or external-action authority are added.
 
-The repository retains a bounded before/after evaluation of the AXM core and
-optional authoring routes under `skills/axm/evals/2026-10-30/`. These are independent
+A bounded before/after evaluation of the AXM core and optional authoring routes
+is recorded at [`skills/axm/evals/2026-10-30/`](https://github.com/agentxm/axm/tree/b9198b243059008a44ee71f98c1f334ba1395dae/skills/axm/evals/2026-10-30). These are independent
 agent authoring and planning exercises with synthetic inputs, not automatic host
 activation rates, portability results, or a claim that the pack improves all tasks.
 

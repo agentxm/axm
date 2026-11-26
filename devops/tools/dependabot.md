@@ -60,10 +60,6 @@ verification still run.
   existing toolchain checks remain authoritative; updater scope does not
   include a separate toolchain manager. Raise the `@types/node` ceiling only
   with the runtime floor.
-- Hold `string-argv` below 0.4.0 until Nx resolves packages that export only
-  the `import` condition. Nx locates npm packages through CommonJS resolution,
-  so the newer release drops out of the project graph and fails the module
-  boundary check.
 - Preserve the two TypeScript aliases in the catalog. A grouped proposal
   does not authorize collapsing the compiler and compatibility packages.
 - Review override edits against their advisory and affected range. Overrides
@@ -80,6 +76,12 @@ deliberate maintenance. This configuration adds no replacement dashboard or
 monthly lockfile job. Preserve pnpm's existing release-age rules and
 `pmOnFail: ignore`; security urgency does not silently bypass installation
 policy.
+
+Exact-version `minimumReleaseAgeExclude` entries in
+[pnpm-workspace.yaml](../../pnpm-workspace.yaml) are temporary. Add one only
+for a reviewed release that must land inside the window, and remove it once
+that release is past the window. `check:ci-toolchain` rejects an exclusion or
+`allowBuilds` entry the lockfile no longer holds.
 
 ## Activation and operational evidence
 

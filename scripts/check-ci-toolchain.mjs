@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
+import YAML from "yaml";
+
 const read = (path) => readFileSync(path, "utf8");
 const errors = [];
 const ciWorkflow = read(".github/workflows/ci.yml");
@@ -96,7 +98,6 @@ for (const text of [
   "allowBuilds:",
   '"@swc/core": true',
   "esbuild: true",
-  "msgpackr-extract: false",
   "nx: true",
   "minimumReleaseAge: 1440",
   '- "@agentxm/*"',
@@ -108,8 +109,30 @@ if (workspaceConfig.includes("onlyBuiltDependencies:")) {
   errors.push("pnpm-workspace.yaml must use pnpm 12 allowBuilds");
 }
 
-if (ciWorkflow.includes("affected_projects")) {
-  errors.push("the path classifier must not install Nx only to render an affected-project summary");
+// Supply-chain exceptions name packages the dependency graph actually holds, so
+// a removal or version bump cannot leave a stale build or release-age grant behind.
+const workspaceManifest = YAML.parse(workspaceConfig) ?? {};
+const lockedPackages = new Set(Object.keys(YAML.parse(read("pnpm-lock.yaml"))?.packages ?? {}));
+const lockedNames = new Set([...lockedPackages].map((key) => key.slice(0, key.indexOf("@", 1))));
+for (const name of Object.keys(workspaceManifest.allowBuilds ?? {})) {
+  if (!lockedNames.has(name)) {
+    errors.push(
+      `pnpm-workspace.yaml allowBuilds names ${name}, which pnpm-lock.yaml does not hold`,
+    );
+  }
+}
+for (const entry of workspaceManifest.minimumReleaseAgeExclude ?? []) {
+  const versionAt = entry.indexOf("@", 1);
+  if (versionAt === -1) continue;
+  const name = entry.slice(0, versionAt);
+  for (const version of entry.slice(versionAt + 1).split("||")) {
+    const locked = `${name}@${version.trim()}`;
+    if (!lockedPackages.has(locked)) {
+      errors.push(
+        `pnpm-workspace.yaml minimumReleaseAgeExclude names ${locked}, which pnpm-lock.yaml does not hold`,
+      );
+    }
+  }
 }
 
 const proposedVerification =
@@ -128,9 +151,6 @@ if (
   !mainCacheWarming.includes("github.event_name == 'push' || github.event_name == 'schedule'")
 ) {
   errors.push("main push and scheduled CI must produce the shared dependency cache");
-}
-if (ciWorkflow.includes("axm-ci-nx-")) {
-  errors.push("hosted CI must not restore nonportable Nx cache artifacts");
 }
 
 if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {

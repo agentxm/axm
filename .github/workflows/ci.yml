@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      base: ${{ steps.set-shas.outputs.base }}
+      base: ${{ steps.nx-shas.outputs.base }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       cli-e2e: ${{ steps.classify.outputs.cli_e2e }}
@@ -57,7 +57,7 @@ jobs:
       windows: ${{ steps.classify.outputs.windows }}
       workflow: ${{ steps.classify.outputs.workflow }}
       workflow-security: ${{ steps.classify.outputs.workflow_security }}
-      head: ${{ steps.set-shas.outputs.head }}
+      head: ${{ steps.nx-shas.outputs.head }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,36 +89,14 @@ jobs:
           lookup-strategy: per-commit
           max-commits: 1000
 
-      # Cover all changes since successful CI, including failed or superseded pushes.
-      - name: Select complete affected range
-        id: set-shas
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BASE_SHA: ${{ steps.nx-shas.outputs.base }}
-          PUSH_HEAD_SHA: ${{ github.sha }}
-          NX_BASE_SHA: ${{ steps.nx-shas.outputs.base }}
-          NX_HEAD_SHA: ${{ steps.nx-shas.outputs.head }}
-        run: |
-          if [[ "$EVENT_NAME" == "push" ]]; then
-            base="$PUSH_BASE_SHA"
-            head="$PUSH_HEAD_SHA"
-          else
-            base="$NX_BASE_SHA"
-            head="$NX_HEAD_SHA"
-          fi
-          test -n "$base"
-          test -n "$head"
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          echo "head=$head" >> "$GITHUB_OUTPUT"
-
       - name: Classify changed paths and publish the selection contract
         id: classify
         env:
-          BASE_SHA: ${{ steps.set-shas.outputs.base }}
+          BASE_SHA: ${{ steps.nx-shas.outputs.base }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ steps.set-shas.outputs.head }}
+          HEAD_SHA: ${{ steps.nx-shas.outputs.head }}
           REF_NAME: ${{ github.ref }}
         run: |
           pnpm --config.verify-deps-before-run=warn run classify:ci -- \

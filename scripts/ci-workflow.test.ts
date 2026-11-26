@@ -21,8 +21,6 @@ import { BaseSequencer, createVitest } from "vitest/node";
 import YAML from "yaml";
 import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
 
-import { classifyCiChanges, parseChangedPaths, requiredCiJobs } from "./classify-ci-changes.js";
-
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 const readWorkflow = (): {
@@ -181,131 +179,20 @@ describe("aggregate required verification", () => {
   });
 
   it("derives one broad-fallback affected range for PR classification and verification", () => {
-    const workflow = readWorkflow();
-    const serialized = JSON.stringify(workflow.jobs["classify"]);
-    expect(serialized).toMatch(/"uses":"nrwl\/nx-set-shas@[a-f0-9]{40}"/u);
-    expect(serialized).toContain("git rev-list --max-parents=0 HEAD");
-    expect(serialized).toContain("steps.set-shas.outputs.base");
-    expect(serialized).toContain("steps.set-shas.outputs.head");
-  });
-
-  it("selects CLI and platform checks for an earlier commit in a multi-commit main push", () => {
     const job = readWorkflow().jobs["classify"];
     if (typeof job !== "object" || job === null || !("steps" in job) || !Array.isArray(job.steps))
       throw new Error("Classification must declare its affected-range steps.");
-    const selector: unknown = job.steps.find(
-      (step: unknown) =>
-        typeof step === "object" && step !== null && "id" in step && step.id === "set-shas",
-    );
-    if (
-      typeof selector !== "object" ||
-      selector === null ||
-      !("run" in selector) ||
-      typeof selector.run !== "string"
-    )
-      throw new Error("Classification must select the complete assurance range.");
-    expect(selector).toHaveProperty("env.PUSH_BASE_SHA", "${{ steps.nx-shas.outputs.base }}");
-    expect(selector).toHaveProperty("env.PUSH_HEAD_SHA", "${{ github.sha }}");
-    expect(selector).toHaveProperty("env.NX_BASE_SHA", "${{ steps.nx-shas.outputs.base }}");
-    expect(selector).toHaveProperty("env.NX_HEAD_SHA", "${{ steps.nx-shas.outputs.head }}");
+    const serialized = JSON.stringify(job);
+    expect(serialized).toMatch(/"uses":"nrwl\/nx-set-shas@[a-f0-9]{40}"/u);
+    expect(serialized).toContain("git rev-list --max-parents=0 HEAD");
+    expect(serialized).toContain("steps.nx-shas.outputs.base");
+    expect(serialized).toContain("steps.nx-shas.outputs.head");
     const nx: unknown = job.steps.find(
       (step: unknown) =>
         typeof step === "object" && step !== null && "id" in step && step.id === "nx-shas",
     );
     expect(nx).not.toHaveProperty("if");
-
-    const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-assurance-range-"));
-    const env = withoutLocalGitEnvironment(process.env);
-    const git = (...args: string[]) =>
-      execFileSync("git", args, { cwd: directory, env, encoding: "utf8" });
-    const commit = (message: string) => {
-      git("add", ".");
-      git(
-        "-c",
-        "user.name=Queue fixture",
-        "-c",
-        "user.email=queue@example.test",
-        "-c",
-        "commit.gpgSign=false",
-        "commit",
-        "--quiet",
-        "-m",
-        message,
-      );
-      return git("rev-parse", "HEAD").trim();
-    };
-    try {
-      git("init", "--quiet");
-      fs.mkdirSync(path.join(directory, "contributing"));
-      fs.writeFileSync(path.join(directory, "contributing/guide.md"), "Initial documentation\n");
-      const base = commit("Initial revision");
-      fs.mkdirSync(path.join(directory, "apps/cli/src"), { recursive: true });
-      fs.writeFileSync(path.join(directory, "apps/cli/src/main.ts"), "export {};\n");
-      const finalParent = commit("Change CLI behavior");
-      fs.writeFileSync(path.join(directory, "contributing/guide.md"), "Clarify documentation\n");
-      const head = commit("Clarify documentation");
-      const changedPaths = (from: string, to: string) =>
-        parseChangedPaths(git("diff", "--name-status", "-z", `${from}...${to}`));
-      expect(classifyCiChanges(changedPaths(finalParent, head)).checks["cli-e2e"].selected).toBe(
-        false,
-      );
-
-      const outputPath = path.join(directory, "selection-output");
-      const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", selector.run], {
-        cwd: directory,
-        encoding: "utf8",
-        env: {
-          ...env,
-          EVENT_NAME: "push",
-          PUSH_BASE_SHA: base,
-          PUSH_HEAD_SHA: head,
-          NX_BASE_SHA: finalParent,
-          NX_HEAD_SHA: head,
-          GITHUB_OUTPUT: outputPath,
-        },
-      });
-      expect(execution.status, execution.stderr).toBe(0);
-      const output = Object.fromEntries(
-        fs
-          .readFileSync(outputPath, "utf8")
-          .trim()
-          .split("\n")
-          .map((line) => line.split("=")),
-      );
-      const selectedBase = output["base"];
-      const selectedHead = output["head"];
-      if (typeof selectedBase !== "string" || typeof selectedHead !== "string")
-        throw new Error("Affected selection must publish both revisions.");
-      expect({ selectedBase, selectedHead }).toEqual({ selectedBase: base, selectedHead: head });
-      const selection = classifyCiChanges(changedPaths(selectedBase, selectedHead));
-      expect(selection.code).toBe(true);
-      expect(selection.documentation).toBe(true);
-      expect(selection.checks["cli-e2e"].selected).toBe(true);
-      expect(selection.checks.windows.selected).toBe(true);
-      expect(requiredCiJobs(selection, "push")).toEqual(
-        expect.arrayContaining(["verify-pr", "verify-e2e", "windows-workspace", "binary-smoke"]),
-      );
-      for (const event of ["pull_request", "workflow_dispatch"]) {
-        const nonQueueOutput = path.join(directory, `${event}-output`);
-        const nonQueue = spawnSync("bash", ["-e", "-o", "pipefail", "-c", selector.run], {
-          cwd: directory,
-          encoding: "utf8",
-          env: {
-            ...env,
-            EVENT_NAME: event,
-            PUSH_BASE_SHA: "",
-            PUSH_HEAD_SHA: "",
-            NX_BASE_SHA: finalParent,
-            NX_HEAD_SHA: head,
-            GITHUB_OUTPUT: nonQueueOutput,
-          },
-        });
-        expect(nonQueue.status, nonQueue.stderr).toBe(0);
-        expect(fs.readFileSync(nonQueueOutput, "utf8")).toBe(`base=${finalParent}\nhead=${head}\n`);
-      }
-    } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
+    expect(nx).toHaveProperty("with.lookup-strategy", "per-commit");
   });
 
   it("requires every published job to succeed", () => {

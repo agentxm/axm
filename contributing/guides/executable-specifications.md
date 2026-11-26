@@ -91,6 +91,13 @@ Unexplained removals remain visible in the verdict. Reports and pull requests
 include the rendered specification impact, including the computed
 `No requirement contract changes.` result when applicable.
 
+Removing a command, subcommand, or flag adds no absence test. The
+[command inventory test](../../apps/cli/src/root/shared/command-inventory.test.ts)
+compares registered routes and rendered parameters with the inventory exactly,
+so deleting the inventory entry is the removal's evidence. The accepted
+`cli/unknown-commands-remain-usage-errors` specification already covers retired
+commands.
+
 ## Existing verification bindings
 
 The fast-specification budget currently caps the sum of Vitest file times at

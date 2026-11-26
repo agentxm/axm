@@ -1480,7 +1480,7 @@ export default [
   },
   // Config files are not part of any tsconfig project — disable type-aware linting
   {
-    files: ["vitest.config.ts", "**/vitest*.config.ts"],
+    files: ["**/vitest*.config.ts"],
     languageOptions: {
       parserOptions: {
         projectService: false,

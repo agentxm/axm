@@ -397,16 +397,6 @@
         "cwd": "apps/cli"
       }
     },
-    "compile-host-dev": {
-      "cache": false,
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/dist/dev-bin"],
-      "options": {
-        "command": "bun scripts/compile.ts --host-only --dev-build",
-        "cwd": "apps/cli"
-      }
-    },
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"
     },

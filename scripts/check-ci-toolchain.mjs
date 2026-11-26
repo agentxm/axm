@@ -215,7 +215,7 @@ requireText(
 const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
 for (const text of [
   "pnpm exec nx run-many",
-  "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
+  "-t lint typecheck build test verify-source-hygiene lint-bundled-skill",
 ]) {
   requireText(
     workspaceVerification,
@@ -227,7 +227,7 @@ for (const text of [
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
   "pnpm exec nx affected",
-  "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
+  "-t lint typecheck build test verify-source-hygiene lint-bundled-skill",
 ]) {
   requireText(
     affectedVerification,

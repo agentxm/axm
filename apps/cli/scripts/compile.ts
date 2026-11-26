@@ -40,7 +40,7 @@ export const compileTargets = [
 
 class CompileError extends Data.TaggedError("CompileError")<{ readonly message: string }> {}
 
-/** Each release target owns one binary; host and development builds own separate directories. */
+/** Each release target owns one binary; the host build owns a separate directory. */
 export const selectCompileTargets = (
   args: ReadonlyArray<string>,
   platform: string,
@@ -48,20 +48,11 @@ export const selectCompileTargets = (
 ) =>
   Effect.gen(function* () {
     const hostOnly = args.includes("--host-only");
-    const devBuild = args.includes("--dev-build");
     const explicit = args.filter((arg) => arg.startsWith("--target="));
-    const unknown = args.filter(
-      (arg) => !["--host-only", "--dev-build"].includes(arg) && !arg.startsWith("--target="),
-    );
-    if (
-      unknown.length > 0 ||
-      explicit.length > 1 ||
-      (hostOnly && explicit.length > 0) ||
-      (devBuild && !hostOnly)
-    ) {
+    const unknown = args.filter((arg) => arg !== "--host-only" && !arg.startsWith("--target="));
+    if (unknown.length > 0 || explicit.length > 1 || (hostOnly && explicit.length > 0)) {
       return yield* new CompileError({
-        message:
-          "Use --target=bun-<platform>-<architecture>, --host-only, or --host-only --dev-build",
+        message: "Use --target=bun-<platform>-<architecture> or --host-only",
       });
     }
     const targetName = hostOnly
@@ -75,8 +66,7 @@ export const selectCompileTargets = (
       return yield* new CompileError({ message: `Unsupported compile target ${targetName}` });
     return {
       targets: selected,
-      output: devBuild ? "dev-bin" : hostOnly ? "host-bin" : "bin",
-      devBuild,
+      output: hostOnly ? "host-bin" : "bin",
       cleanDirectory: hostOnly,
     };
   });
@@ -105,7 +95,7 @@ export const compile = Effect.gen(function* () {
         ),
       ),
     );
-  let version = manifest.version;
+  const version = manifest.version;
   const git = (args: ReadonlyArray<string>) =>
     processes.string(ChildProcess.make("git", args, { cwd: packageDir, stderr: "ignore" })).pipe(
       Effect.map((value) => value.trim()),
@@ -116,12 +106,6 @@ export const compile = Effect.gen(function* () {
   const buildRevision =
     Option.isSome(revision) && /^[0-9a-f]{40}$/.test(revision.value) ? revision.value : "unknown";
   const buildDirty = Option.isSome(status) && status.value.length > 0;
-  if (request.devBuild) {
-    version +=
-      buildRevision !== "unknown"
-        ? `-dev+${buildRevision.slice(0, 9)}${buildDirty ? ".dirty" : ""}`
-        : "-dev";
-  }
   if (!(yield* fs.exists(entrypoint)))
     return yield* new CompileError({
       message: `Build output missing: ${entrypoint}. Run cli:build first.`,

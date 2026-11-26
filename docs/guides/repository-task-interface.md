@@ -252,9 +252,8 @@ and advisory-ID filters.
 
 Git secret detection has its own fresh `axm:scan-secrets` target and required CI
 host job, including documentation-only changes. It scans HEAD history, staged
-content, and tracked working changes; its staged configuration also runs in the
-commit hook. `axm:test:secret-scanning` proves native detection and the required
-CI failure behavior without package builds. These checks stay independent of
+content, and tracked working changes. `axm:test:secret-scanning` proves native
+detection and the required CI failure behavior without package builds. These checks stay independent of
 the source/artifact container workflow. [Gitleaks operations](../../devops/tools/gitleaks.md)
 owns installation, exact historical exceptions, diagnostic handling, and limits.
 
@@ -539,7 +538,7 @@ additional global task input; unrelated lockfile changes can retain hits. Each `
 target owns one release binary. `cli:compile-host` depends on its host's platform
 producer and copies that binary into its separately owned staging directory.
 `cli:compile` coordinates all platform producers;
-`compile-host-dev`, E2E, binary smoke, and installation leaves still run fresh.
+E2E, binary smoke, and installation leaves still run fresh.
 A restored entry is trusted only as a deterministic result for its Nx hash.
 Package-store caches supply dependencies, not task verdicts. Exact-SHA verified
 CI artifacts remain the release authority; task-cache presence is insufficient.
@@ -564,14 +563,14 @@ owns handoff, applicable runtime evidence, failure recovery, and GitHub controls
 Root scripts are limited to same-intent aliases, bounded composites, bootstrap
 launchers, and host adapters. These boundaries are intentional:
 
-| Boundary                                                              | Reason                                                                                                                          |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `axm` and `axm:local`                                                 | Launch the source CLI, optionally against an external workspace                                                                 |
-| `classify:ci`, `resolve:release-source`                               | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
-| `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
-| `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
-| `verify:integration`                                                  | Verify the exact Git candidate and remote base before updating main                                                             |
-| release workflow platform steps                                       | Hold credentials, GitHub release state, and platform matrices outside Nx                                                        |
+| Boundary                                           | Reason                                                                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `axm` and `axm:local`                              | Launch the source CLI, optionally against an external workspace                                                                 |
+| `classify:ci`, `resolve:release-source`            | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
+| `test:spec`                                        | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
+| `*:report` through `scripts/with-allure-report.sh` | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
+| `verify:integration`                               | Verify the exact Git candidate and remote base before updating main                                                             |
+| release workflow platform steps                    | Hold credentials, GitHub release state, and platform matrices outside Nx                                                        |
 
 Automation invokes targets directly unless it needs one of these host
 semantics. Direct Vitest, TypeScript, ESLint, Prettier, or Bun invocation is not
@@ -604,8 +603,7 @@ artifacts; installed and published consumers retain the artifact boundary.
 | Gap                                                                          | Current risk                                                              | Retirement condition                                                                                                               |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Cached Allure and JUnit results preserve the originating host and timestamps | A restored report can be mistaken for a current execution                 | Reports carry execution and replay provenance, or evidence-producing tasks run fresh                                               |
-| Root workflow names overlap (`ci`, `ci:workspace`, `verify:*`, `test:all`)   | Callers must translate among similar gates and their membership can drift | One deterministic repository gate and one affected form own source verification; host workflows compose explicit external evidence |
-| Publish workflow repeats the release project list when building and packing  | Release membership has more than one authored copy                        | Build and package selection derive from the `nx.json` release set                                                                  |
+| Root workflow names overlap (`ci`, `ci:workspace`, `verify:*`)               | Callers must translate among similar gates and their membership can drift | One deterministic repository gate and one affected form own source verification; host workflows compose explicit external evidence |
 
 ## Enforcement
 

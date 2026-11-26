@@ -9,11 +9,6 @@
  * - a type that starts *meeting* an obligation whose row is still here also
  *   fails the suite, so fixes cannot leave stale debt behind.
  *
- * `seed: true` marks a row that existed when the ledger was introduced. The
- * `parity-ledger-check` script compares the seeded-row count against `main` and
- * fails when it rises, which makes the ledger shrink-only: a new gap can never
- * be admitted as pre-existing debt.
- *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -29,8 +24,6 @@ export interface ParityExemption {
   readonly reason: string;
   /** Issue tracking the fix. */
   readonly trackedBy: string;
-  /** Present only on rows that existed when the ledger was introduced. */
-  readonly seed?: true;
 }
 
 /**
@@ -43,8 +36,7 @@ export interface ParityExemption {
  * it meets.
  *
  * The ledger is EMPTY: every catalog type meets every mechanically-verified
- * obligation. A future row uses the {@link ParityExemption} shape without
- * `seed: true` (the shrink-only check rejects new seeded rows).
+ * obligation. A future row uses the {@link ParityExemption} shape.
  */
 const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<ParityExemption>> = {
   skill: [],

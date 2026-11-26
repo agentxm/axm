@@ -17,7 +17,6 @@ After the repository's normal toolchain preparation, run
 `pnpm exec nx run axm:scan-secrets` to scan HEAD's complete ancestry, staged
 content, and tracked working changes. Untracked files enter coverage when
 staged; Git-ignored local environment files are outside this source gate.
-`pnpm exec nx run axm:scan-secrets:staged` runs through the commit hook as well.
 Install the pinned scanner with `mise install gitleaks` when needed.
 
 [Required CI](../../.github/workflows/ci.yml) includes a dedicated host job on

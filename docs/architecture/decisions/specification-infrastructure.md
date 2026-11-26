@@ -142,14 +142,14 @@ requirement.
 
 ## Release, artifact, and deployment verification
 
-`verify:release` composes evidence for one exact release candidate named by
-its `cli-v*` tag and fails when no candidate is identified; it applies the
-release policy in `devops/runbooks/release-cli.md` rather than owning
-criteria. `verify:artifact` requires an identified binary artifact and runs
-artifact verification against it. `verify:deployment` requires an identified
-install endpoint and runs the installed-product verification the publish
-workflow uses. None of these report a vacuous pass when their subject is
-absent.
+The owning verification targets enforce subject identity themselves.
+`cli-e2e:binary-smoke-artifact` verifies the binary named by `AXM_BINARY_PATH`
+and fails when no artifact is identified. `cli-e2e:install-verification` in
+production mode (`AXM_INSTALL_DISTRIBUTION=production`) requires
+`AXM_EXPECTED_VERSION` and fails without it. Neither reports a vacuous pass
+when its subject is absent. Release evidence comes only from the authorized
+GitHub Actions flow in `devops/runbooks/release-cli.md`, which owns selection
+and acceptance criteria; no local wrapper composes it.
 
 ## Mutation testing
 

@@ -11,14 +11,12 @@ it.effect("selects one release asset without cleaning sibling target outputs", (
   }),
 );
 
-it.effect("preserves host, Windows asset names, and fresh development builds", () =>
+it.effect("preserves host staging and Windows asset names", () =>
   Effect.gen(function* () {
     const windows = yield* selectCompileTargets(["--host-only"], "win32", "x64");
     expect(windows.targets.map(({ output }) => output)).toEqual(["axm-windows-x64.exe"]);
     expect(windows.output).toBe("host-bin");
-    const dev = yield* selectCompileTargets(["--host-only", "--dev-build"], "linux", "x64");
-    expect(dev.output).toBe("dev-bin");
-    expect(dev.devBuild).toBe(true);
+    expect(windows.cleanDirectory).toBe(true);
   }),
 );
 
@@ -26,7 +24,6 @@ it.effect("rejects unknown targets and contradictory compilation flags", () =>
   Effect.gen(function* () {
     for (const args of [
       ["--target=bun-unknown"],
-      ["--dev-build"],
       ["--host-only", "--target=bun-linux-x64"],
       ["--target=bun-linux-x64", "--target=bun-linux-arm64"],
       ["--unknown"],

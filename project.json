@@ -67,7 +67,7 @@
         "toolchain"
       ],
       "options": {
-        "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0",
+        "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs benchmarks scripts --max-warnings=0",
         "cwd": "."
       }
     },
@@ -283,14 +283,6 @@
         "cwd": "."
       }
     },
-    "parity-ledger-check": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "options": {
-        "command": "bun scripts/parity-ledger-check.ts",
-        "cwd": "."
-      }
-    },
     "verify-source-hygiene": {
       "executor": "nx:run-commands",
       "cache": true,
@@ -433,13 +425,6 @@
         ],
         "parallel": false,
         "cwd": "."
-      },
-      "configurations": {
-        "staged": {
-          "commands": [
-            "mise exec gitleaks -- gitleaks git --config .gitleaks.toml --redact=100 --no-banner --no-color --ignore-gitleaks-allow --staged ."
-          ]
-        }
       }
     },
     "test:secret-scanning": {
@@ -508,14 +493,6 @@
       "dependsOn": ["cli:build:diagnostic-sources"],
       "options": {
         "command": "bash scripts/trace-run.sh",
-        "cwd": "."
-      }
-    },
-    "trace:inspect": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "options": {
-        "command": "bun --conditions=axm-source scripts/trace-inspect.ts",
         "cwd": "."
       }
     },

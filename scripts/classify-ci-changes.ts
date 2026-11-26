@@ -101,7 +101,6 @@ export const knownRootFiles: readonly string[] = [
   "project.json",
   "tsconfig.base.json",
   "tsconfig.json",
-  "vitest.config.ts",
 ];
 const isKnownPath = (path: string) =>
   isDocumentationOnlyPath(path) ||

@@ -81,28 +81,12 @@ describe("repository task interface", () => {
     dependencies = graph.dependencies;
   });
 
-  it("pins the portable authority without requiring the retired bundle", () => {
+  it("pins the portable authority", () => {
     const binding = read("docs/guides/repository-task-interface.md");
     expect(binding).toContain(
       "https://github.com/agentxm/axm/blob/63c26504c7728b5a84d0eb96c55514277771aa5b/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md",
     );
     expect(read("AGENTS.md")).toContain("docs/guides/repository-task-interface.md");
-
-    for (const path of [
-      "AGENTS.md",
-      "CONTRIBUTING.md",
-      ".github/workflows/ci.yml",
-      "docs/index.md",
-      "devops/environments/native-development.md",
-      "devops/environments/linux-ci.md",
-      "devops/environments/native-platform-ci.md",
-      "devops/runbooks/run-source-cli.md",
-      "devops/runbooks/reproduce-linux-ci.md",
-      "scripts/lint-bundled-skill.ts",
-    ]) {
-      expect(read(path), path).not.toContain("command-execution-policy.md");
-      expect(read(path), path).not.toContain("src/command-execution.md");
-    }
   });
 
   it("keeps pre-install host tasks reachable through their published names", () => {
@@ -206,7 +190,7 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0",
+      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs benchmarks scripts --max-warnings=0",
     );
     expect(command.split(/\s+/u)).not.toContain(".");
   });
@@ -264,11 +248,7 @@ describe("repository task interface", () => {
   it("runs host and live-state work fresh", () => {
     for (const project of projects) {
       for (const [targetName, target] of Object.entries(project.data.targets ?? {})) {
-        if (
-          /^(?:bench$|compile-host-dev$|lint-bundled-skill$|release-|sync:|watch$)/u.test(
-            targetName,
-          )
-        ) {
+        if (/^(?:bench$|lint-bundled-skill$|release-|sync:|watch$)/u.test(targetName)) {
           expect(target.cache, `${project.name}:${targetName}`).not.toBe(true);
         }
       }
@@ -354,7 +334,6 @@ describe("repository task interface", () => {
         outputs.push(output);
       }
     }
-    expect(targets?.["compile-host-dev"]?.cache).toBe(false);
   });
 
   it("keeps typecheck writes inside their declared output", () => {
@@ -395,7 +374,6 @@ describe("repository task interface", () => {
     for (const targetName of [
       "bench",
       "lint-bundled-skill",
-      "parity-ledger-check",
       "resolve-release-preparation-source",
       // Candidate generation mutates versioned source and must always execute
       // against the exact checked-out preparation revision.
@@ -538,7 +516,6 @@ describe("repository task interface", () => {
     expect(cli?.data.targets?.["compile-host"]?.dependsOn).toEqual([
       hostCompileTarget(process.platform, process.arch),
     ]);
-    expect(cli?.data.targets?.["compile-host-dev"]?.cache).toBe(false);
     expect(cli?.data.targets?.["compile-host"]?.outputs).toEqual(["{projectRoot}/dist/host-bin"]);
     const e2e = projects.find((project) => project.name === "cli-e2e");
     for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {

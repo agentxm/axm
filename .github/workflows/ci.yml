@@ -338,7 +338,7 @@ jobs:
             # Only test accepts Vitest's native shard argument. Keep the owning
             # static targets on the first shard; each shard builds its dependencies.
             if [[ "$SOURCE_SHARD" == '1/2' ]]; then
-              pnpm exec nx affected -t lint typecheck build verify-source-hygiene parity-ledger-check lint-bundled-skill test:policy-coverage --nxBail --exclude="$SOURCE_EXCLUDE"
+              pnpm exec nx affected -t lint typecheck build verify-source-hygiene lint-bundled-skill test:policy-coverage --nxBail --exclude="$SOURCE_EXCLUDE"
             fi
             pnpm exec nx affected -t test --nxBail --exclude="$SOURCE_EXCLUDE" -- --shard="$SOURCE_SHARD"
           fi
@@ -575,7 +575,7 @@ jobs:
             # shellcheck disable=SC2016
             scripts/with-allure-report.sh bash -euo pipefail -c '
               if [[ "$SOURCE_SHARD" == "1/2" ]]; then
-                pnpm exec nx run-many -t lint typecheck build verify-source-hygiene parity-ledger-check lint-bundled-skill test:policy-coverage verify-artifacts --nxBail --exclude="$SOURCE_EXCLUDE"
+                pnpm exec nx run-many -t lint typecheck build verify-source-hygiene lint-bundled-skill test:policy-coverage verify-artifacts --nxBail --exclude="$SOURCE_EXCLUDE"
               fi
               pnpm exec nx run-many -t test --nxBail --exclude="$SOURCE_EXCLUDE" -- --shard="$SOURCE_SHARD"
             '

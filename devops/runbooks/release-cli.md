@@ -199,9 +199,7 @@ not establish completion of the remaining release channels or installer matrix.
    ```
 
    The prepared commit has the generated release subject, and rebase integration
-   lands it on `main` as `release: cli-v{VERSION}`. CI and
-   publication also recognize the `release: cli-v{VERSION} (#123)` form that
-   earlier squash integration produced.
+   lands it on `main` as `release: cli-v{VERSION}`.
 
 4. Wait for CI and automatic publication on the rebase-merged release commit.
 

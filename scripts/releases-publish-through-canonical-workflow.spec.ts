@@ -250,7 +250,7 @@ describe("Canonical release workflow", () => {
   it.effect("selects only the exact successful merged release revision for automation", () =>
     Effect.sync(() =>
       withPublicationSource(({ commit, select }) => {
-        const sha = commit("release: cli-v1.2.3 (#17)");
+        const sha = commit("release: cli-v1.2.3");
         const result = select({});
         expect(result.status, result.output).toBe(0);
         expect(result.selected).toEqual({
@@ -339,7 +339,7 @@ describe("Canonical release workflow", () => {
     Effect.sync(() =>
       withPublicationSource(({ commit, select }) => {
         commit("release: cli-v1.2.3");
-        commit("release: cli-v1.2.3 (#18)");
+        commit("release: cli-v1.2.3");
         for (const tag of ["", "cli-v9.9.9", "cli-v1.2.3"]) {
           const result = select({
             EVENT_NAME: "workflow_dispatch",

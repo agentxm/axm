@@ -9,7 +9,7 @@ const STABLE_VERSION_REGEX = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u
 const FULL_GIT_SHA = /^[0-9a-f]{40}$/u;
 
 const RELEASE_COMMIT_SUBJECT_REGEX = new RegExp(
-  `^release: (${RELEASE_TAG_PREFIX}(${SEMVER_VERSION_REGEX.source.slice(1, -1)}))(?: \\(#[0-9]+\\))?$`,
+  `^release: (${RELEASE_TAG_PREFIX}(${SEMVER_VERSION_REGEX.source.slice(1, -1)}))$`,
   "u",
 );
 

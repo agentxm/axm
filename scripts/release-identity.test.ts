@@ -19,19 +19,16 @@ describe("release identity", () => {
     expect(releaseTagFromVersion("1.2.3-beta.1+build.7")).toBe(tag);
   });
 
-  it("recognizes exact prepared and squash-merged release subjects", () => {
+  it("recognizes only exact prepared release subjects", () => {
     expect(parseReleaseCommitSubject("release: cli-v0.27.3")).toEqual({
       tag: "cli-v0.27.3",
       version: "0.27.3",
     });
-    expect(parseReleaseCommitSubject("release: cli-v0.27.3 (#188)")).toEqual({
-      tag: "cli-v0.27.3",
-      version: "0.27.3",
-    });
-    expect(parseReleaseCommitSubject("release: cli-v0.27.30 (#188)")).toEqual({
+    expect(parseReleaseCommitSubject("release: cli-v0.27.30")).toEqual({
       tag: "cli-v0.27.30",
       version: "0.27.30",
     });
+    expect(parseReleaseCommitSubject("release: cli-v0.27.3 (#188)")).toBeUndefined();
     expect(parseReleaseCommitSubject("release: cli-v1.2.3-beta.1+build.7")).toEqual({
       tag: "cli-v1.2.3-beta.1+build.7",
       version: "1.2.3-beta.1+build.7",

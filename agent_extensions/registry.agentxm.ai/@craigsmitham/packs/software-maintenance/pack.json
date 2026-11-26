@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.2.2",
+  "description": "Seven standalone skills for explicit maintenance: assess, stabilize, refresh, prune, simplify, modularize, and improve.",
+  "keywords": [
+    "software maintenance",
+    "codebase health",
+    "prioritization",
+    "stabilization",
+    "dependency lifecycle",
+    "pruning",
+    "simplification",
+    "modularity",
+    "improvement",
+    "explicit invocation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/software-maintenance"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "software-maintenance",
+  "dependencies": {
+    "@craigsmitham/skills/assess": ">=0.1.0",
+    "@craigsmitham/skills/stabilize": ">=0.1.0",
+    "@craigsmitham/skills/refresh": ">=0.1.0",
+    "@craigsmitham/skills/prune": ">=0.2.0",
+    "@craigsmitham/skills/simplify": ">=0.1.0",
+    "@craigsmitham/skills/modularize": ">=0.2.0",
+    "@craigsmitham/skills/improve": ">=0.2.0"
+  }
+}

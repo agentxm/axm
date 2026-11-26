@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "stabilize",
+  "version": "0.1.0",
+  "description": "Stabilize a codebase or specified scope by correcting failures and material weaknesses in behavior or engineering feedback.",
+  "keywords": [
+    "reliability",
+    "corrective maintenance",
+    "security",
+    "test quality",
+    "build reliability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/stabilize"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-maintenance"
+  ]
+}

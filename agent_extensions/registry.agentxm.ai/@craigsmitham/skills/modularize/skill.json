@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "modularize",
+  "version": "0.2.0",
+  "description": "Modularize a codebase or a specified part around cohesive responsibilities that can evolve independently.",
+  "keywords": [
+    "modularity",
+    "cohesion",
+    "coupling",
+    "single responsibility",
+    "software design"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/modularize"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-maintenance"
+  ]
+}

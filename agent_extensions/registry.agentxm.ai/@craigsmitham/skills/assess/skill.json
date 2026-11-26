@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "assess",
+  "version": "0.1.0",
+  "description": "Assess maintenance health and prioritize worthwhile interventions in a codebase or specified scope; assessment only.",
+  "keywords": [
+    "maintenance assessment",
+    "prioritization",
+    "codebase health",
+    "technical debt",
+    "read-only"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/assess"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-maintenance"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "refresh",
+  "version": "0.1.0",
+  "description": "Refresh a codebase or specified scope to remain supportable as dependencies, platforms, toolchains, and external contracts evolve.",
+  "keywords": [
+    "adaptive maintenance",
+    "dependencies",
+    "support lifecycle",
+    "migration",
+    "compatibility"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/refresh"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-maintenance"
+  ]
+}

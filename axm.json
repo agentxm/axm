@@ -25,7 +25,8 @@
   "packs": {
     "docs": "agentxm:@craigsmitham/packs/docs",
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "axe": "workspace"
+    "axe": "workspace",
+    "software-maintenance": "agentxm:@craigsmitham/packs/software-maintenance"
   },
   "subagents": {
     "researcher": {

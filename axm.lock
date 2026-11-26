@@ -55,12 +55,39 @@ dependencies = [
 ]
 
 [[package]]
+id = "registry.agentxm.ai/@craigsmitham/packs/software-maintenance"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.2.2"
+archive = "sha512-DAnt1duGEkfasgqGVvLae8vdFwIxbvMhtQ6Dd9HtDIcrawRpFn4Spb+RKEj0eSDW3bTAPaBtI337yugPwqgxDg=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:491325c7f8f8eb927c013f2f9ddc92a77e54e9f672ceeacf2378fbc85b6e21c9"
+manifest-version = "0.2.2"
+manifest-identity = "4a58d80723f4426b797b8a8c0e49f5478d8d12581781b401627fb48002adebbf"
+dependencies = [
+  { name = "@craigsmitham/skills/assess", range = ">=0.1.0" },
+  { name = "@craigsmitham/skills/improve", range = ">=0.2.0" },
+  { name = "@craigsmitham/skills/modularize", range = ">=0.2.0" },
+  { name = "@craigsmitham/skills/prune", range = ">=0.2.0" },
+  { name = "@craigsmitham/skills/refresh", range = ">=0.1.0" },
+  { name = "@craigsmitham/skills/simplify", range = ">=0.1.0" },
+  { name = "@craigsmitham/skills/stabilize", range = ">=0.1.0" },
+]
+
+[[package]]
 id = "registry.agentxm.ai/@craigsmitham/rules/use-effect"
 source = { registry = "https://registry.agentxm.ai" }
 version = "4.0.1"
 archive = "sha512-1TP7gtsCQTEHFwNkNDl76F9AQFj4wPikTW1ekoaYQ3c+fVyNE57kaK2kj2krJR2KFRb8IaioubdYNa4ahPW8Dg=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:b2deb3c6df62bb7b55cc112984074f293a795c41c19fc5bb49d708b104db8cfe"
+
+[[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/assess"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.1.0"
+archive = "sha512-kUfQpCLdcRJgOwK5JubM8jlyIY/+E7yMQ3OlM0M/Izqt+hLuRLwn+A6bK9X3slDIXisTMoGYnwFPYLKQkpMifA=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:ccecca46a0d78776406613a7cbfe5000d0fdd5ee757684ece9f402a2ee20ebfc"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/devops-docs"
@@ -79,12 +106,28 @@ publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:16956fc9014f9ad3dccfbd1e302bdea173b892b0afbf906d080c348186a70317"
 
 [[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/improve"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.2.0"
+archive = "sha512-CcaKODB7PFGj8fC3BbUqBg5+998fhyA8hVRWdtppRoM5SM8xyvON165j1dyZa9uiAw5cjdlrQ8p1NRLsKLjogw=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:83dfc623b0448bd0bef1627ba855cfd8719d8854f0ff34b10ec93f430b30228c"
+
+[[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/improve-whatever"
 source = { registry = "https://registry.agentxm.ai" }
 version = "1.0.4"
 archive = "sha512-+/4ErMOblqv+EDaNiqa+bBJqFqgGLdiXINjdHozlCSMA+ONBCVENYrXxxALcWZpWCTav0XHbhQgXwMLU+wkt5A=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:ac3884a893ef8b5a33e947c46398dfd2d594ce9badc8fb7a6e3b65b6f4a81803"
+
+[[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/modularize"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.2.0"
+archive = "sha512-0fuL9UnoD8Dw9vEF7HriVLGbjYjmPWDMYnYMrTNZvi65q4Wp5NFGIbJyisYmW8qX1/3Fv00uqY2X/Ov2jx/8mw=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:21852950f35fca76035c94fc03e165e66d007224a241d602649136484141272b"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/okf"
@@ -95,12 +138,36 @@ publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:098856d56d157b0d97c2a0ff5f0d134219a21d0f2a3c69b60c96bc38dbadea51"
 
 [[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/prune"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.2.0"
+archive = "sha512-ikex5xEUxmNBBySaSO1xy6BX/gLb/2XJkpsMSp4+5s5g1WDcuMcFtVrzd/YxSPsQSrjOMfiqZ3tkFgoPODVzrg=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:6a849bb8dafb373689d3c0fa5e6cecdbd16d5a167c66046086106a51372ff3d5"
+
+[[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/refresh"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.1.0"
+archive = "sha512-rp6LIXPhB4CiP1G/yBSng09DlrSRtBOAa2i9Kb7QDWVgYQ2k0kw1OZJ+aPzP3PDBjl9WDEpbt/sEVbArtMEBXw=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:61a345578d22e27b606b5845a7b9d79f1d349eae2a3711e5cd67c013833fa1b7"
+
+[[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/research"
 source = { registry = "https://registry.agentxm.ai" }
 version = "3.0.6"
 archive = "sha512-usu/araJZwGjELtppDbi6nhYiFLiW3yIjdAAErgUa7nExNxqsWRF264MOdbd50zJ4HWX7n90Ki8CZPBUfs3NGQ=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:7d68aefb1aa6e5b616e0dcec194a770849c57c16e6519f2bfd1a079633938369"
+
+[[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/simplify"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.1.0"
+archive = "sha512-RBwIpPMDmyWnRTAfzmmOiJZexEOSZLNoHBy9aZZy2n7rq/HDI3yXjyDJ3pzlzdqViBKuhRisxdjbQAbe2D/WEQ=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:52096be31e6359c68df2f013e76ae4e9276c118f8a911fdb0353949dc4d554ef"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/spot-spew"
@@ -110,13 +177,28 @@ archive = "sha512-Ub8MZVVvZ5F37cIg7qxovNhxyrePxQIJp4tIFAzjfa2PD1VytSN9MyfVSMqJXD
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:0b896026b2261b7ea39b478a3eb5f8bbd385dbe88ae77ef20bd1dfff9ed90aaf"
 
+[[package]]
+id = "registry.agentxm.ai/@craigsmitham/skills/stabilize"
+source = { registry = "https://registry.agentxm.ai" }
+version = "0.1.0"
+archive = "sha512-TVVURWsqsvMdU9C9Syg4V65rtCeVFpLkvf8Ut/vAhBphnGT4Vc3A2O6sEyDxyLXDgy3pbi1vNhPluqAN5BZqPA=="
+publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
+tree = "sha256-tree-v2:c3e39f003ebc199718d21b9b9716be66c9098dc910eb410f6663757a7934e859"
+
 [skills]
+assess = { package = "registry.agentxm.ai/@craigsmitham/skills/assess", name = "@craigsmitham/skills/assess" }
 devops-docs = { package = "registry.agentxm.ai/@craigsmitham/skills/devops-docs", name = "@craigsmitham/skills/devops-docs" }
 docs = { package = "registry.agentxm.ai/@craigsmitham/skills/docs", name = "@craigsmitham/skills/docs" }
+improve = { package = "registry.agentxm.ai/@craigsmitham/skills/improve", name = "@craigsmitham/skills/improve" }
 improve-whatever = { package = "registry.agentxm.ai/@craigsmitham/skills/improve-whatever", name = "@craigsmitham/skills/improve-whatever" }
+modularize = { package = "registry.agentxm.ai/@craigsmitham/skills/modularize", name = "@craigsmitham/skills/modularize" }
 okf = { package = "registry.agentxm.ai/@craigsmitham/skills/okf", name = "@craigsmitham/skills/okf" }
+prune = { package = "registry.agentxm.ai/@craigsmitham/skills/prune", name = "@craigsmitham/skills/prune" }
+refresh = { package = "registry.agentxm.ai/@craigsmitham/skills/refresh", name = "@craigsmitham/skills/refresh" }
 research = { package = "registry.agentxm.ai/@craigsmitham/skills/research", name = "@craigsmitham/skills/research" }
+simplify = { package = "registry.agentxm.ai/@craigsmitham/skills/simplify", name = "@craigsmitham/skills/simplify" }
 spot-spew = { package = "registry.agentxm.ai/@craigsmitham/skills/spot-spew", name = "@craigsmitham/skills/spot-spew" }
+stabilize = { package = "registry.agentxm.ai/@craigsmitham/skills/stabilize", name = "@craigsmitham/skills/stabilize" }
 
 [rules]
 use-effect = { package = "registry.agentxm.ai/@craigsmitham/rules/use-effect", name = "@craigsmitham/rules/use-effect" }
@@ -129,6 +211,7 @@ effect = { package = "registry.agentxm.ai/@craigsmitham/knowledge/effect", name 
 [packs]
 docs = { package = "registry.agentxm.ai/@craigsmitham/packs/docs", name = "@craigsmitham/packs/docs" }
 effect = { package = "registry.agentxm.ai/@craigsmitham/packs/effect", name = "@craigsmitham/packs/effect" }
+software-maintenance = { package = "registry.agentxm.ai/@craigsmitham/packs/software-maintenance", name = "@craigsmitham/packs/software-maintenance" }
 
 [projections.rules]
 contract = 1

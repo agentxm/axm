@@ -26,11 +26,6 @@
       "axm-source": "./src/unstable/agent-capabilities/catalog.ts",
       "default": "./dist/src/unstable/agent-capabilities/catalog.js"
     },
-    "./unstable/agent-capabilities/derive": {
-      "types": "./dist/src/unstable/agent-capabilities/derive.d.ts",
-      "axm-source": "./src/unstable/agent-capabilities/derive.ts",
-      "default": "./dist/src/unstable/agent-capabilities/derive.js"
-    },
     "./unstable/agent-capabilities/identity": {
       "types": "./dist/src/unstable/agent-capabilities/identity.d.ts",
       "axm-source": "./src/unstable/agent-capabilities/identity.ts",
@@ -81,11 +76,6 @@
       "axm-source": "./src/unstable/extension-types/schema.ts",
       "default": "./dist/src/unstable/extension-types/schema.js"
     },
-    "./unstable/extension-types/standards": {
-      "types": "./dist/src/unstable/extension-types/standards.d.ts",
-      "axm-source": "./src/unstable/extension-types/standards.ts",
-      "default": "./dist/src/unstable/extension-types/standards.js"
-    },
     "./unstable/extensions": {
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "axm-source": "./src/unstable/extensions/index.ts",
@@ -125,16 +115,6 @@
       "types": "./dist/src/unstable/extensions/installable-types.d.ts",
       "axm-source": "./src/unstable/extensions/installable-types.ts",
       "default": "./dist/src/unstable/extensions/installable-types.js"
-    },
-    "./unstable/extensions/license": {
-      "types": "./dist/src/unstable/extensions/license.d.ts",
-      "axm-source": "./src/unstable/extensions/license.ts",
-      "default": "./dist/src/unstable/extensions/license.js"
-    },
-    "./unstable/extensions/manifest-metadata": {
-      "types": "./dist/src/unstable/extensions/manifest-metadata.d.ts",
-      "axm-source": "./src/unstable/extensions/manifest-metadata.ts",
-      "default": "./dist/src/unstable/extensions/manifest-metadata.js"
     },
     "./unstable/extensions/refs/extension-ref": {
       "types": "./dist/src/unstable/extensions/refs/extension-ref.d.ts",

@@ -168,18 +168,6 @@ export {
   type VendorStatus,
 } from "./schema.js";
 export {
-  DocLinkSchema,
-  LEAF_EXTENSION_TYPES,
-  StandardSchema,
-  UrlSchema,
-  type DocLink,
-  type LeafExtensionType,
-  type Standard,
-  type Url,
-} from "../extension-types/schema.js";
-export { type PerAgentType } from "../extensions/common.js";
-export { STANDARDS } from "../extension-types/standards.js";
-export {
   CAPABILITY_VERIFICATION_BUDGET_DAYS,
   CapabilityVerificationAgeSchema,
   capabilityVerificationAgeReport,

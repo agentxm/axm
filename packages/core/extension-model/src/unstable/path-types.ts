@@ -94,18 +94,3 @@ export const isPathSafe = (path: Path.Path, base: string, target: string): boole
   const resolvedTarget = path.resolve(target);
   return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
 };
-
-/** Resolve a child against its base and reject paths that escape it. */
-export const safeChildPath = (
-  path: Path.Path,
-  base: string,
-  target: string,
-): Option.Option<AbsolutePath> => {
-  const resolvedBase = path.resolve(base);
-  const resolvedTarget = path.isAbsolute(target)
-    ? path.resolve(target)
-    : path.resolve(resolvedBase, target);
-  return isPathSafe(path, resolvedBase, resolvedTarget)
-    ? Option.some(makeAbsolutePath(path, resolvedTarget))
-    : Option.none();
-};

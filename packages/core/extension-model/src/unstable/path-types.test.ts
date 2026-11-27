@@ -10,7 +10,6 @@ import {
   makeWorkspaceRelativePath,
   makeWorkspaceRelativeSourcePath,
   isPathSafe,
-  safeChildPath,
 } from "./path-types.js";
 
 layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
@@ -109,20 +108,6 @@ layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
 
   const pathSafe = (base: string, target: string) =>
     Effect.map(Path.Path, (path) => isPathSafe(path, base, target));
-
-  it.effect("accepts only resolved children in the safe child predicate", () =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      const base = path.resolve("/workspace");
-      expect(Option.getOrNull(safeChildPath(path, base, "skill/readme.md"))).toBe(
-        path.join(base, "skill", "readme.md"),
-      );
-      expect(Option.getOrNull(safeChildPath(path, base, "."))).toBe(base);
-      expect(Option.isNone(safeChildPath(path, base, "../outside"))).toBe(true);
-      expect(Option.isNone(safeChildPath(path, base, path.resolve("/outside")))).toBe(true);
-      expect(Option.isNone(safeChildPath(path, base, path.resolve("/workspace-copy")))).toBe(true);
-    }),
-  );
 
   it.effect("accepts a target within base", () =>
     Effect.map(pathSafe("/a/b", "/a/b/c/d"), (safe) => expect(safe).toBe(true)),

@@ -86,8 +86,6 @@ export const decodeVersionSync = Schema.decodeUnknownSync(VersionSchema);
  */
 export const decodeVersionRangeSync = Schema.decodeUnknownSync(VersionRangeSchema);
 
-const parseSemverVersion = (version: string): semver.SemVer | null => semver.parse(version);
-
 /**
  * Decode a value as a semver version range, or none when it is not one.
  */
@@ -173,23 +171,6 @@ export const intersectVersionConstraints = (
     return candidates.filter((candidate) => semver.minVersion(candidate) !== null);
   });
   return ranges.length === 0 ? undefined : [...new Set(ranges)].join(" || ");
-};
-
-/**
- * Check whether moving from `previousVersion` to `currentVersion` includes at
- * least a minor version bump.
- */
-export const hasMinorOrMajorVersionBump = (
-  previousVersion: string,
-  currentVersion: string,
-): boolean => {
-  const previous = parseSemverVersion(previousVersion);
-  const current = parseSemverVersion(currentVersion);
-  if (previous === null || current === null) {
-    return false;
-  }
-
-  return current.major > previous.major || current.minor > previous.minor;
 };
 
 /**

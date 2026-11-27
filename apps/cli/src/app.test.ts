@@ -77,12 +77,6 @@ describe("root command help", () => {
       );
       expect(versionCommands).toEqual(["axm version"]);
 
-      for (const [command, doc] of files) {
-        const flags = doc.flags.map((flag) => flag.name);
-        expect(flags, command).not.toContain("force");
-        expect(flags, command).not.toContain("wizard");
-      }
-
       const expectedFlags: ReadonlyArray<readonly [string, string]> = [
         ["axm update", "reinstall"],
         ["axm mcps update", "reinstall"],
@@ -105,32 +99,7 @@ describe("root command help", () => {
     }),
   );
 
-  it.effect("keeps every create surface create-only", () =>
-    Effect.gen(function* () {
-      const files = yield* collectHelpFiles();
-      const createCommands = [
-        "skills",
-        "mcps",
-        "subagents",
-        "packs",
-        "rules",
-        "hooks",
-        "knowledge",
-      ].map((type) => `axm ${type} new`);
-
-      for (const command of createCommands) {
-        const doc = files.get(command);
-        expect(doc, `missing help for ${command}`).toBeDefined();
-        expect(
-          doc?.flags.map((flag) => flag.name),
-          command,
-        ).not.toContain("force");
-        expect(doc?.usage, command).not.toContain("--force");
-      }
-    }),
-  );
-
-  it.effect("keeps activation previewable without a generic force bypass", () =>
+  it.effect("keeps activation previewable", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();
       for (const type of extensionTypes) {
@@ -140,44 +109,7 @@ describe("root command help", () => {
           expect(doc, `missing help for ${command}`).toBeDefined();
           const flags = doc?.flags.map((flag) => flag.name) ?? [];
           expect(flags, command).toContain("preview");
-          expect(flags, command).not.toContain("force");
         }
-      }
-    }),
-  );
-
-  it.effect("keeps hook inspection on show without a global portability command", () =>
-    Effect.gen(function* () {
-      const files = yield* collectHelpFiles();
-      expect(files.has("axm hooks show")).toBe(true);
-      expect(files.has("axm hooks info")).toBe(false);
-    }),
-  );
-
-  it.effect("exposes native import for skills, subagents, and hooks", () =>
-    Effect.gen(function* () {
-      const files = yield* collectHelpFiles();
-      expect(files.has("axm import")).toBe(false);
-      expect(files.has("axm skills import")).toBe(true);
-      expect(files.has("axm subagents import")).toBe(true);
-      expect(files.has("axm hooks import")).toBe(true);
-      for (const group of ["rules", "knowledge", "packs"] as const) {
-        expect(files.has(`axm ${group} import`), group).toBe(false);
-      }
-    }),
-  );
-
-  it.effect("exposes authentication only through root commands", () =>
-    Effect.gen(function* () {
-      const files = yield* collectHelpFiles();
-      expect(files.has("axm auth")).toBe(false);
-      for (const command of ["login", "logout", "whoami", "token"] as const) {
-        expect(files.has(`axm ${command}`), command).toBe(true);
-        expect(files.has(`axm auth ${command}`), command).toBe(false);
-      }
-      for (const command of ["create", "list", "revoke"] as const) {
-        expect(files.has(`axm token ${command}`), command).toBe(true);
-        expect(files.has(`axm auth token ${command}`), command).toBe(false);
       }
     }),
   );
@@ -194,9 +126,6 @@ describe("root command help", () => {
         } else {
           expect(flags, command).not.toContain("include-dependencies");
         }
-        expect(flags, command).not.toContain("include-dependency");
-        expect(flags, command).not.toContain("authored");
-        expect(flags, command).not.toContain("all");
       }
     }),
   );

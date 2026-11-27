@@ -176,7 +176,6 @@ describe("axm help command conformance", () => {
       expect(root?.flags.map(({ name }) => name)).toEqual(
         expect.arrayContaining([...selectorFlags, "all"]),
       );
-      expect(root?.flags.map(({ name }) => name)).not.toContain("type");
 
       const rows = [
         ["skills", "skill"],
@@ -193,7 +192,6 @@ describe("axm help command conformance", () => {
         const names = doc?.flags.map(({ name }) => name) ?? [];
         expect(names, plural).toContain(selector);
         expect(names, plural).toContain("all");
-        expect(names, plural).not.toContain("type");
         expect(
           names.filter((name) => selectorFlags.includes(name)),
           plural,

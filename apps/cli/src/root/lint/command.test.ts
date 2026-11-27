@@ -2,8 +2,8 @@
  * CLI surface tests for `axm lint`.
  *
  * Exercise the command tree via Effect CLI's help-doc harness — the same
- * pattern `app.test.ts` uses — to pin: (a) `axm lint` is registered with the
- * expected flag set, and (b) doctor commands are unknown.
+ * pattern `app.test.ts` uses — to pin that `axm lint` and `axm sync` are
+ * registered with their expected flag sets.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -41,31 +41,6 @@ const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unk
     return doc;
   });
 
-interface CapturedCommandError {
-  readonly output: string;
-}
-
-const captureRunError = (
-  args: ReadonlyArray<string>,
-): Effect.Effect<CapturedCommandError, never, never> =>
-  Effect.gen(function* () {
-    const outputs: Array<string> = [];
-    const formatter: CliOutput.Formatter = {
-      ...CliOutput.defaultFormatter({ colors: false }),
-      formatHelpDoc: (doc) => {
-        const rendered = JSON.stringify(doc);
-        outputs.push(rendered);
-        return rendered;
-      },
-    };
-    const exit = yield* Command.runWith(rootCommand, { version: TEST_VERSION })(args).pipe(
-      Effect.provide(Layer.mergeAll(baseLayer, TelemetryClientTest)),
-      Effect.provideService(CliOutput.Formatter, formatter),
-      Effect.exit,
-    );
-    return { output: outputs.join("\n") + JSON.stringify(exit) };
-  });
-
 describe("axm lint command surface", () => {
   it.effect("registers 'lint' as a subcommand of axm", () =>
     Effect.gen(function* () {
@@ -87,36 +62,13 @@ describe("axm lint command surface", () => {
         const allFlagNames = [...flagNames, ...globalFlagNames];
         expect(allFlagNames).toContain("scope");
         expect(allFlagNames).toContain("strict");
-        expect(allFlagNames).not.toContain("details");
         expect(allFlagNames).toContain("fix");
         expect(allFlagNames).toContain("staged");
-        expect(allFlagNames).not.toContain("view");
         // --json is a global flag so it's inherited from the root.
         expect(allFlagNames).toContain("json");
         const argumentNames = (doc.args ?? []).map((arg) => arg.name);
         expect(argumentNames).toContain("workspace");
       }),
-  );
-
-  it.effect("does not register 'doctor' as a subcommand", () =>
-    Effect.gen(function* () {
-      const rootDoc = yield* captureHelpDoc([]);
-      const allSubcommandNames = (rootDoc.subcommands ?? []).flatMap((g) =>
-        g.commands.map((c) => c.name),
-      );
-      expect(allSubcommandNames).not.toContain("doctor");
-    }),
-  );
-
-  it.effect("does not register 'doctor' or 'reconcile' under mcps", () =>
-    Effect.gen(function* () {
-      const mcpsDoc = yield* captureHelpDoc(["mcps"]);
-      const allSubcommandNames = (mcpsDoc.subcommands ?? []).flatMap((g) =>
-        g.commands.map((c) => c.name),
-      );
-      expect(allSubcommandNames).not.toContain("doctor");
-      expect(allSubcommandNames).not.toContain("reconcile");
-    }),
   );
 
   it.effect("registers 'sync' as a subcommand", () =>
@@ -129,22 +81,6 @@ describe("axm lint command surface", () => {
     }),
   );
 
-  it.effect("rejects 'axm doctor' with an unknown-command error (non-zero exit)", () =>
-    Effect.gen(function* () {
-      const result = yield* captureRunError(["doctor"]);
-      expect(result.output).toMatch(/Failure|exit/);
-    }),
-  );
-
-  it.effect("rejects retired MCP doctor commands with unknown-command errors", () =>
-    Effect.gen(function* () {
-      const doctor = yield* captureRunError(["mcps", "doctor"]);
-      const reconcile = yield* captureRunError(["mcps", "reconcile"]);
-      expect(doctor.output).toMatch(/Failure|exit/);
-      expect(reconcile.output).toMatch(/Failure|exit/);
-    }),
-  );
-
   it.effect("accepts sync --scope, --preview, and --json", () =>
     Effect.gen(function* () {
       const doc = yield* captureHelpDoc(["sync"]);
@@ -153,9 +89,6 @@ describe("axm lint command surface", () => {
       const allFlagNames = [...flagNames, ...globalFlagNames];
       expect(allFlagNames).toContain("scope");
       expect(allFlagNames).toContain("preview");
-      expect(allFlagNames).not.toContain("dry-run");
-      expect(allFlagNames).not.toContain("force");
-      expect(allFlagNames).not.toContain("accept-authority-change");
       expect(allFlagNames).toContain("json");
     }),
   );

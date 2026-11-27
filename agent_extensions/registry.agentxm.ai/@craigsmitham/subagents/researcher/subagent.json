@@ -1,0 +1,40 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@craigsmitham",
+  "type": "subagent",
+  "name": "researcher",
+  "version": "0.2.1",
+  "description": "Executes one bounded Research Brief framing or evidence-gathering phase in a fresh, read-only delegated context for the Research skill.",
+  "keywords": [
+    "research",
+    "delegation",
+    "evidence",
+    "citations",
+    "framing",
+    "isolation",
+    "read-only"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/research"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "subagents/researcher"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "core": {
+    "instructions": "src/researcher.md",
+    "name": "researcher"
+  },
+  "implementations": {
+    "codex": {
+      "kind": "customized",
+      "configuration": {
+        "sandbox_mode": "read-only"
+      }
+    }
+  }
+}

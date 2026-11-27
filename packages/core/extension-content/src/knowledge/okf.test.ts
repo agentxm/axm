@@ -5,22 +5,17 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { FrontmatterParseFailure } from "../content/frontmatter.js";
-import { parseKnowledgeSearchQuery } from "./knowledge-search.js";
 import {
   collectKnowledgeBundleEntries,
   frontmatterParseDiagnostic,
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
-  openKnowledgeConcept,
   resolveKnowledgeLink,
-  searchKnowledgeConcepts,
+  type KnowledgeInspection,
 } from "./okf.js";
 
-const search = (concepts: Parameters<typeof searchKnowledgeConcepts>[0], query: string) => {
-  const parsed = parseKnowledgeSearchQuery(query);
-  expect(parsed.ok).toBe(true);
-  return parsed.ok ? searchKnowledgeConcepts(concepts, parsed.query) : [];
-};
+const conceptById = (concepts: KnowledgeInspection["concepts"], id: string) =>
+  concepts.find((concept) => concept.id === id);
 
 layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format bundles", (it) => {
   it.effect("inventories links without traversing their targets or reading link text", () =>
@@ -97,12 +92,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         "payments/refunds",
       ]);
       expect(inspected.concepts.map((concept) => concept.kind)).toEqual(["index", "concept"]);
-      expect(openKnowledgeConcept(inspected.concepts, "index")?.authoredLinks).toEqual([
+      expect(conceptById(inspected.concepts, "index")?.authoredLinks).toEqual([
         { target: "payments/refunds.md", line: 6, resolvedConceptId: "payments/refunds" },
       ]);
-      expect(search(inspected.concepts, '"30 days"')).toHaveLength(1);
-      expect(search(inspected.concepts, "payments")).toHaveLength(2);
-      expect(openKnowledgeConcept(inspected.concepts, "payments/refunds")?.type).toBe("policy");
+      expect(conceptById(inspected.concepts, "payments/refunds")?.type).toBe("policy");
     }).pipe(Effect.scoped),
   );
 
@@ -380,7 +373,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       const inspected = yield* inspectKnowledgeBundle(root);
       expect(inspected.okfVersion).toBe("0.2");
       expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
-      const schema = openKnowledgeConcept(inspected.concepts, "schema");
+      const schema = conceptById(inspected.concepts, "schema");
       expect(schema?.status).toBe("stable");
       expect(schema?.staleAfter).toBe("2026-09-23");
       expect(schema?.generated).toEqual({
@@ -436,7 +429,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
       );
 
-      const complete = openKnowledgeConcept(inspected.concepts, "complete");
+      const complete = conceptById(inspected.concepts, "complete");
       expect(complete?.frontmatter).toEqual({
         type: "reference",
         description: "Complete metadata",
@@ -450,15 +443,15 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         status: "stable",
         body: "# Complete\n\nBody from the same parse.\n",
       });
-      expect(openKnowledgeConcept(inspected.concepts, "invalid")?.frontmatter).toEqual({
+      expect(conceptById(inspected.concepts, "invalid")?.frontmatter).toEqual({
         type: "reference",
         status: "published",
         producer_flag: "retained",
       });
-      expect(openKnowledgeConcept(inspected.concepts, "empty-mapping")?.frontmatter).toEqual({});
-      expect(openKnowledgeConcept(inspected.concepts, "empty")?.frontmatter).toBeUndefined();
-      expect(openKnowledgeConcept(inspected.concepts, "scalar")?.frontmatter).toBeUndefined();
-      expect(openKnowledgeConcept(inspected.concepts, "list")?.frontmatter).toBeUndefined();
+      expect(conceptById(inspected.concepts, "empty-mapping")?.frontmatter).toEqual({});
+      expect(conceptById(inspected.concepts, "empty")?.frontmatter).toBeUndefined();
+      expect(conceptById(inspected.concepts, "scalar")?.frontmatter).toBeUndefined();
+      expect(conceptById(inspected.concepts, "list")?.frontmatter).toBeUndefined();
     }),
   );
 
@@ -555,10 +548,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
       );
 
-      expect(openKnowledgeConcept(inspected.concepts, "concepts/two")?.resource).toBe(
+      expect(conceptById(inspected.concepts, "concepts/two")?.resource).toBe(
         "../assets/./item.json",
       );
-      expect(openKnowledgeConcept(inspected.concepts, "concepts/url")?.resource).toBe(
+      expect(conceptById(inspected.concepts, "concepts/url")?.resource).toBe(
         "https://example.com/item",
       );
       expect(
@@ -608,8 +601,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
       );
       expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
-      expect(openKnowledgeConcept(inspected.concepts, "machine")?.trust).toBe("machine-confirmed");
-      expect(openKnowledgeConcept(inspected.concepts, "plain")?.trust).toBe("unverified");
+      expect(conceptById(inspected.concepts, "machine")?.trust).toBe("machine-confirmed");
+      expect(conceptById(inspected.concepts, "plain")?.trust).toBe("unverified");
     }),
   );
 
@@ -872,7 +865,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         })),
         (relativePath) => Effect.succeed(relativePath === "guides/setup.md" ? body : "# Page\n"),
       );
-      const recorded = openKnowledgeConcept(inspected.concepts, "guides/setup")?.authoredLinks.map(
+      const recorded = conceptById(inspected.concepts, "guides/setup")?.authoredLinks.map(
         (link) => link.resolvedConceptId,
       );
       expect(recorded).toEqual(

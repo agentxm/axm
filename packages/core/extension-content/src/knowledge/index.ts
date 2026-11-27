@@ -9,7 +9,6 @@ export {
   type KnowledgeSearchClause,
   type KnowledgeSearchQuery,
   type KnowledgeSearchQueryParseResult,
-  matchesKnowledgeSearchQuery,
   parseKnowledgeSearchQuery,
   tokenizeKnowledgeSearchText,
 } from "./knowledge-search.js";
@@ -39,9 +38,7 @@ export {
   collectKnowledgeBundleEntries,
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
-  openKnowledgeConcept,
   resolveKnowledgeLink,
-  searchKnowledgeConcepts,
 } from "./okf.js";
 export {
   inspectKnowledgePackage,

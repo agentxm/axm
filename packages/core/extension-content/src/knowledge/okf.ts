@@ -15,7 +15,6 @@ import {
   findFrontmatterBoundaries,
   parseFrontmatterEffect,
 } from "../content/frontmatter.js";
-import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
 /** OKF dialect versions this inspector understands. */
 type OkfVersion = "0.2";
@@ -1644,14 +1643,3 @@ export const inspectKnowledgeBundle = (
       fs.readFileString(path.join(sourceRoot, relativePath)),
     );
   });
-
-export const searchKnowledgeConcepts = (
-  concepts: ReadonlyArray<KnowledgeConcept>,
-  query: KnowledgeSearchQuery,
-): ReadonlyArray<KnowledgeConcept> =>
-  concepts.filter((concept) => matchesKnowledgeSearchQuery(concept, query));
-
-export const openKnowledgeConcept = (
-  concepts: ReadonlyArray<KnowledgeConcept>,
-  id: string,
-): KnowledgeConcept | undefined => concepts.find((concept) => concept.id === id);

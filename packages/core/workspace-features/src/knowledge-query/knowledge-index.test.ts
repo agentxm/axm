@@ -125,6 +125,26 @@ it("does not reward repeated body passages and reports exact phrase spans", () =
   });
 });
 
+it("never matches a phrase or literal by spanning searchable fields", () => {
+  const snapshot = makeKnowledgeIndexSnapshot([
+    bundle([
+      concept("split", "# Specification source", {
+        title: "Specification source",
+        authoredTitle: "Specification source",
+        description: "of truth",
+      }),
+    ]),
+  ]);
+  const matching = (clause: { kind: "phrase" | "literal"; value: string }) =>
+    Result.getOrThrow(
+      queryKnowledgeIndexResult(snapshot, makeKnowledgeQuery("project", [clause]), 0),
+    ).items.map(({ ref }) => ref.conceptId);
+
+  expect(matching({ kind: "phrase", value: "source of truth" })).toEqual([]);
+  expect(matching({ kind: "literal", value: "source of truth" })).toEqual([]);
+  expect(matching({ kind: "phrase", value: "specification source" })).toEqual(["split"]);
+});
+
 it.effect("exposes the in-memory implementation through a replaceable Effect service", () =>
   Effect.gen(function* () {
     const index = yield* KnowledgeIndex;

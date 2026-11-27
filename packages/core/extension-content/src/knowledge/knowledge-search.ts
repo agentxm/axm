@@ -1,5 +1,3 @@
-import type { KnowledgeConcept } from "./okf.js";
-
 export const KNOWLEDGE_SEARCH_TOKENIZER_PROFILE = {
   id: "axm-knowledge-lexical-v1",
   unicodeNormalization: "NFKC",
@@ -21,23 +19,25 @@ export type KnowledgeSearchQueryParseResult =
   | { readonly ok: true; readonly query: KnowledgeSearchQuery }
   | { readonly ok: false; readonly detail: string };
 
+// ECMAScript does not expose Unicode's CaseFolding.txt operation directly.
+// Upper-then-lower handles multi-character folds such as ß -> ss while
+// remaining deterministic and locale-independent.
+const foldCase = (value: string): string => value.toUpperCase().toLowerCase();
+
 const normalizeTokenSource = (value: string): string =>
-  value
-    .normalize("NFKC")
-    .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
-    .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
-    .replace(/(\p{L})(\p{N})/gu, "$1 $2")
-    .replace(/(\p{N})(\p{L})/gu, "$1 $2")
-    // ECMAScript does not expose Unicode's CaseFolding.txt operation directly.
-    // Upper-then-lower handles multi-character folds such as ß -> ss while
-    // remaining deterministic and locale-independent.
-    .toUpperCase()
-    .toLowerCase();
+  foldCase(
+    value
+      .normalize("NFKC")
+      .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
+      .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
+      .replace(/(\p{L})(\p{N})/gu, "$1 $2")
+      .replace(/(\p{N})(\p{L})/gu, "$1 $2"),
+  );
 
 export const tokenizeKnowledgeSearchText = (value: string): ReadonlyArray<string> =>
   normalizeTokenSource(value).match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
 
-const normalizeLiteral = (value: string): string => value.normalize("NFC").toLowerCase();
+const normalizeLiteral = (value: string): string => foldCase(value.normalize("NFKC"));
 
 type QuotedValueResult =
   | { readonly ok: true; readonly value: string; readonly nextIndex: number }
@@ -141,46 +141,4 @@ export const parseKnowledgeSearchQuery = (input: string): KnowledgeSearchQueryPa
   return clauses.length === 0
     ? { ok: false, detail: "Search query must contain at least one term, phrase, or literal." }
     : { ok: true, query: { clauses } };
-};
-
-const containsPhrase = (
-  fieldTokens: ReadonlyArray<string>,
-  phraseTokens: ReadonlyArray<string>,
-): boolean => {
-  if (phraseTokens.length > fieldTokens.length) return false;
-  const finalStart = fieldTokens.length - phraseTokens.length;
-  for (let start = 0; start <= finalStart; start += 1) {
-    if (phraseTokens.every((token, offset) => fieldTokens[start + offset] === token)) return true;
-  }
-  return false;
-};
-
-const searchableFields = (concept: KnowledgeConcept): ReadonlyArray<string> => [
-  concept.id,
-  concept.title,
-  ...(concept.description === undefined ? [] : [concept.description]),
-  ...(concept.tags ?? []),
-  ...(concept.type === undefined ? [] : [concept.type]),
-  concept.body,
-];
-
-export const matchesKnowledgeSearchQuery = (
-  concept: KnowledgeConcept,
-  query: KnowledgeSearchQuery,
-): boolean => {
-  const fields = searchableFields(concept);
-  const tokenFields = fields.map(tokenizeKnowledgeSearchText);
-  const literalFields = fields.map(normalizeLiteral);
-  return query.clauses.every((clause) => {
-    switch (clause.kind) {
-      case "term":
-        return tokenFields.some((tokens) => tokens.includes(clause.token));
-      case "phrase":
-        return tokenFields.some((tokens) => containsPhrase(tokens, clause.tokens));
-      case "literal":
-        return literalFields.some((field) => field.includes(clause.value));
-      default:
-        return clause satisfies never;
-    }
-  });
 };

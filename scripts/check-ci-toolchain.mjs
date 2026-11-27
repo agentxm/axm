@@ -183,16 +183,10 @@ if (
 ) {
   errors.push("the full advisory report must run fresh at every severity");
 }
-for (const [name, source] of [
-  ["ci:workspace", workspaceCi],
-  ["verify:pr:preflight", packageManifest.scripts?.["verify:pr:preflight"] ?? ""],
-]) {
-  requireText(source, "pnpm exec nx run axm:audit:dependencies", `${name} must run the audit gate`);
-}
 requireText(
-  packageManifest.scripts?.["verify:pr:source"] ?? "",
-  "pnpm run verify:pr:preflight",
-  "proposed-change source verification must compose the audited prerequisites",
+  workspaceCi,
+  "pnpm exec nx run axm:audit:dependencies",
+  "ci:workspace must run the audit gate",
 );
 requireText(
   proposedVerification,
@@ -212,51 +206,12 @@ requireText(
   "full CI must compose the E2E phase",
 );
 
+// repository-task-interface.test.ts owns the verify:* composition and phase
+// target lists; this checker keeps only the guards that test does not hold.
 const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
-for (const text of [
-  "pnpm exec nx run-many",
-  "-t lint typecheck build test verify-source-hygiene lint-bundled-skill",
-]) {
-  requireText(
-    workspaceVerification,
-    text,
-    `verify:workspace must retain the bounded workspace phase for ${text}`,
-  );
-}
-
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
-for (const text of [
-  "pnpm exec nx affected",
-  "-t lint typecheck build test verify-source-hygiene lint-bundled-skill",
-]) {
-  requireText(
-    affectedVerification,
-    text,
-    `verify:affected must use the native Nx affected path for ${text}`,
-  );
-}
 if (affectedVerification.includes("-t e2e")) {
   errors.push("verify:affected must remain the fast source-only confidence gate");
-}
-
-// The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
-// developer through the source-verification names, not only the CI job, so a
-// local `pnpm run ci` covers what CI's `extension-lint` job covers.
-for (const [name, source] of [
-  ["verify:workspace", workspaceVerification],
-  ["verify:affected", affectedVerification],
-]) {
-  requireText(
-    source,
-    "lint-bundled-skill",
-    `${name} must run the bundled AXM skill lint alongside the other lint phases`,
-  );
-}
-
-for (const source of [workspaceVerification, affectedVerification]) {
-  if (source.includes("--skip-nx-cache") || source.includes("--excludeTaskDependencies")) {
-    errors.push("verification must preserve graph-owned dependencies and valid cache reuse");
-  }
 }
 
 // Test worker count is a shared Vitest profile, not a per-script flag: a hosted
@@ -287,7 +242,7 @@ if (nxManifest.parallel !== 2) {
 
 const cliE2eTargets = cliE2eProjectManifest.targets ?? {};
 const aggregateDependencies = cliE2eTargets.e2e?.dependsOn ?? [];
-for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+for (const target of ["e2e-main", "binary-smoke", "install-verification"]) {
   if (!aggregateDependencies.includes(target)) {
     errors.push(`the aggregate E2E target must depend on cli-e2e:${target}`);
   }

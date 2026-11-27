@@ -1,5 +1,6 @@
 import { hostCompileTarget } from "./compile-host-plugin.js";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createProjectGraphAsync } from "nx/src/devkit-exports";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -102,15 +103,22 @@ describe("repository task interface", () => {
     const scripts = readObject("package.json")["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
 
-    for (const name of ["verify:affected", "verify:workspace"]) {
+    for (const [name, selection] of [
+      ["verify:affected", "affected"],
+      ["verify:workspace", "run-many"],
+    ] as const) {
       const script = scripts[name];
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
       expect(phases[0]?.trim(), name).toBe(
         "pnpm exec nx run-many -t check unused-code --projects=architecture,axm --nxBail",
       );
-      expect(phases[1], name).toContain("-t lint typecheck build test");
-      expect(phases[1], name).toContain("pnpm exec nx");
+      // The bundled-skill lint is the only gate over `skills/axm/**`. It
+      // reaches the developer through the source-verification names, not only
+      // the CI job, so a local `pnpm run ci` covers CI's `extension-lint` job.
+      expect(phases[1], name).toContain(
+        `pnpm exec nx ${selection} -t lint typecheck build test verify-source-hygiene lint-bundled-skill`,
+      );
       expect(phases[1], name).not.toContain("scripts/profile-nx.ts");
       expect(script, name).not.toContain("--skip-nx-cache");
       expect(script, name).not.toContain("--excludeTaskDependencies");
@@ -119,17 +127,16 @@ describe("repository task interface", () => {
     }
 
     const verifyPr = scripts["verify:pr"];
-    const verifyPrSource = scripts["verify:pr:source"];
     if (typeof verifyPr !== "string") throw new Error("Missing verify:pr script.");
-    if (typeof verifyPrSource !== "string") throw new Error("Missing verify:pr:source script.");
-    expect(verifyPr).toContain("pnpm run verify:pr:source");
-    expect(verifyPrSource).toContain("pnpm run verify:pr:preflight");
+    expect(verifyPr.split("&&").map((stage) => stage.trim())).toEqual([
+      "pnpm run verify:pr:preflight",
+      "pnpm run verify:affected",
+      "pnpm exec nx run axm:verify-artifacts",
+      "pnpm run test:e2e:affected",
+    ]);
     expect(scripts["verify:pr:preflight"]).toContain("pnpm exec nx run axm:audit:dependencies");
     expect(scripts["verify:pr:preflight"]).toContain("pnpm run verify:clean");
     expect(scripts["verify:pr:preflight"]).toContain("pnpm run format:check:affected");
-    expect(verifyPrSource).toContain("pnpm run verify:affected");
-    expect(verifyPrSource).toContain("pnpm exec nx run axm:verify-artifacts");
-    expect(verifyPr).toContain("pnpm run test:e2e:affected");
     expect(scripts["verify:workspace"]).toContain("verify-artifacts");
     expect(scripts["verify:affected"]).not.toContain("verify-artifacts");
 
@@ -138,6 +145,50 @@ describe("repository task interface", () => {
       throw new Error("Missing test:e2e:affected script.");
     }
     expect(affectedE2e).toContain("pnpm exec nx affected -t e2e");
+  });
+
+  it("gives every root script a caller", () => {
+    const scripts = readObject("package.json")["scripts"];
+    if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
+    const files = (directory: string, include: (path: string) => boolean): string[] =>
+      readdirSync(directory, { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => join(entry.parentPath, entry.name))
+        .filter(include);
+    // Workflows, composite actions, documentation, and other root scripts
+    // invoke a script through pnpm; shell host adapters may name it as a word.
+    const invokers = [
+      ...files(".github", () => true),
+      ...["docs", "devops", "contributing"].flatMap((directory) =>
+        files(directory, (path) => path.endsWith(".md")),
+      ),
+      "README.md",
+      "CONTRIBUTING.md",
+    ].map(read);
+    const shellAdapters = [
+      ...files(".husky", (path) => !path.startsWith(join(".husky", "_"))),
+      "scripts/verify-integration.sh",
+    ].map(read);
+    const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    // pnpm runs lifecycle scripts itself.
+    const lifecycle = new Set(["prepare"]);
+    const uncalled = Object.keys(scripts).filter((name) => {
+      if (lifecycle.has(name)) return false;
+      const invocation = new RegExp(
+        String.raw`\bpnpm(?:\s+-{1,2}\S+)*\s+(?:run\s+)?${escape(name)}(?![\w:-])`,
+        "u",
+      );
+      const word = new RegExp(String.raw`(?<![\w:-])${escape(name)}(?![\w:-])`, "u");
+      return !(
+        invokers.some((source) => invocation.test(source)) ||
+        shellAdapters.some((source) => word.test(source)) ||
+        Object.entries(scripts).some(
+          ([caller, command]) =>
+            caller !== name && typeof command === "string" && invocation.test(command),
+        )
+      );
+    });
+    expect(uncalled).toEqual([]);
   });
 
   it("gives every cached resolved target a non-empty input contract", () => {
@@ -248,7 +299,7 @@ describe("repository task interface", () => {
   it("runs host and live-state work fresh", () => {
     for (const project of projects) {
       for (const [targetName, target] of Object.entries(project.data.targets ?? {})) {
-        if (/^(?:bench$|lint-bundled-skill$|release-|sync:|watch$)/u.test(targetName)) {
+        if (/^(?:bench$|lint-bundled-skill$|release-|sync:)/u.test(targetName)) {
           expect(target.cache, `${project.name}:${targetName}`).not.toBe(true);
         }
       }
@@ -290,19 +341,17 @@ describe("repository task interface", () => {
   it("keeps CLI source-build outputs disjoint from compiled binaries", () => {
     const cli = projects.find((project) => project.name === "cli");
     const targets = cli?.data.targets;
-    for (const sourceTargetName of ["build", "watch"]) {
-      const sourceOutputs = targets?.[sourceTargetName]?.outputs ?? [];
-      for (const compileTargetName of Object.keys(targets ?? {}).filter(
-        (name) => name === "compile" || name.startsWith("compile-"),
-      )) {
-        const compileOutputs = targets?.[compileTargetName]?.outputs ?? [];
-        for (const sourceOutput of sourceOutputs) {
-          for (const compileOutput of compileOutputs) {
-            expect(
-              outputsOverlap(sourceOutput, compileOutput),
-              `${sourceTargetName}:${sourceOutput} <> ${compileTargetName}:${compileOutput}`,
-            ).toBe(false);
-          }
+    const sourceOutputs = targets?.["build"]?.outputs ?? [];
+    for (const compileTargetName of Object.keys(targets ?? {}).filter(
+      (name) => name === "compile" || name.startsWith("compile-"),
+    )) {
+      const compileOutputs = targets?.[compileTargetName]?.outputs ?? [];
+      for (const sourceOutput of sourceOutputs) {
+        for (const compileOutput of compileOutputs) {
+          expect(
+            outputsOverlap(sourceOutput, compileOutput),
+            `build:${sourceOutput} <> ${compileTargetName}:${compileOutput}`,
+          ).toBe(false);
         }
       }
     }
@@ -397,7 +446,6 @@ describe("repository task interface", () => {
       "e2e-windows",
       "binary-smoke",
       "binary-smoke-artifact",
-      "install-suite",
       "install-verification",
     ]) {
       expect(targetCache(e2eTargets, targetName), targetName).toBe(false);
@@ -518,7 +566,7 @@ describe("repository task interface", () => {
     ]);
     expect(cli?.data.targets?.["compile-host"]?.outputs).toEqual(["{projectRoot}/dist/host-bin"]);
     const e2e = projects.find((project) => project.name === "cli-e2e");
-    for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+    for (const target of ["e2e-main", "binary-smoke", "install-verification"]) {
       expect(e2e?.data.targets?.[target]?.dependsOn, target).toEqual(["cli:compile-host"]);
     }
   });

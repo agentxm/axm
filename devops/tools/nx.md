@@ -61,7 +61,6 @@ runs after CI completion and does not gate publication. The GitHub caller visits
 each selected lane's eligible graph; native hits avoid recomputation
 while missing hashes are populated. This covers cancelled predecessors and
 expired objects without separate warming state.
-`cache:warm:affected` remains available for an explicit bounded revision range.
 Scheduled source assurance bypasses both local and remote task caches.
 
 Use the setup action and [cache workflow](../../.github/workflows/nx-cache.yml)

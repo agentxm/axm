@@ -28,21 +28,6 @@
         "generatePackageJson": false
       }
     },
-    "watch": {
-      "cache": false,
-      "dependsOn": ["build:diagnostic-sources"],
-      "executor": "@nx/js:tsc",
-      "outputs": ["{projectRoot}/dist/src"],
-      "options": {
-        "main": "apps/cli/src/main.ts",
-        "outputPath": "apps/cli/dist/src",
-        "rootDir": "apps/cli/src",
-        "tsConfig": "apps/cli/tsconfig.lib.json",
-        "clean": true,
-        "generatePackageJson": false,
-        "watch": true
-      }
-    },
     "lint": {
       "dependsOn": ["generate", "build:diagnostic-sources"],
       "inputs": [
@@ -396,9 +381,6 @@
         "command": "bun scripts/compile.ts --host-only",
         "cwd": "apps/cli"
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     },
     "compile-darwin-arm64": {
       "cache": true,

@@ -110,9 +110,9 @@ published benchmark command loads those modules. The lifecycle benchmark's Node
 preload is named in `knip.jsonc` as an entry because its path is selected at
 runtime.
 
-Aggregate targets such as `generate`, `e2e`, and `install-verification` are
-lifecycle nodes: they perform no duplicate check and declare the work they
-aggregate through `dependsOn`.
+Aggregate targets such as `generate` and `e2e` are lifecycle nodes: they
+perform no duplicate check and declare the work they aggregate through
+`dependsOn`.
 
 Placement infers the rest. `scripts/placement-tags-plugin.ts` derives a
 library's `domain:*` tag from `packages/<domain>/<name>` and rejects a project
@@ -188,9 +188,9 @@ and affected CLI E2E. `ci` runs full-workspace source and CLI diagnostics for
 automation and scheduled coverage; it is not the routine substitute for
 `verify:affected`.
 
-`verify:pr:source` owns the source and packed-artifact portion of that gate:
-`verify:pr:preflight`, `verify:affected`, and `axm:verify-artifacts`. CI exposes
-those same phases as separate steps alongside the existing CLI E2E shards,
+`verify:pr` composes that gate as `verify:pr:preflight`, `verify:affected`,
+`axm:verify-artifacts`, and `test:e2e:affected`. CI exposes the source and
+packed-artifact phases as separate steps alongside the existing CLI E2E shards,
 using the same Nx affected range for every partition. This makes setup, checks,
 source computation, packaging, and reporting durations distinguishable. The
 proposed-change job preserves a separate native Nx profile for source,
@@ -230,7 +230,7 @@ partition. Main, scheduled, and recovery verification apply the same source
 partitioning to the full workspace. Locally, `verify:pr` remains the complete
 local reproduction command.
 
-`axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:source`
+`axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:preflight`
 and `ci:workspace`. It fails for high or critical advisories in production
 dependencies. Those are the classes with the clearest runtime exposure; lower
 severities and development dependencies are reported by the fresh
@@ -503,8 +503,6 @@ preserves the command's failure status. Clearing outputs is necessary because
 native `run` ignores initially existing files: a cache hit whose outputs are
 already present would otherwise produce an empty report. Results from unselected
 suites are excluded. This clears generated evidence, not the Nx task cache.
-`test:report` uses that same host boundary for the unit-test workflow; report
-generation is not an Nx dependent that a failed test would skip.
 Direct `axm:allure-report` replaces its generated report directory and remains a
 diagnostic view of the results present on disk. It does not claim a new execution
 or a complete verification workflow.
@@ -516,7 +514,8 @@ declares no `outputs` owns nothing, and a declared output whose tokens do not
 resolve fails the check rather than narrowing its scope. It copies the
 tracked and nonignored workspace view into a disposable snapshot, regenerates
 there, and compares content, executable modes, symlinks, additions, and
-deletions without mutating the developer's index or working tree. `sync:check`
+deletions without mutating the developer's index or working tree. After it
+reports drift, `pnpm run generate` regenerates every owned output. `sync:check`
 separately uses Nx's native synchronization check for Nx-owned synchronization.
 
 Specification evidence records whether runtime code was loaded from `source`
@@ -610,9 +609,13 @@ artifacts; installed and published consumers retain the artifact boundary.
 
 ## Enforcement
 
-`check:ci-toolchain` verifies toolchain pins and verification contracts. Repository
-tooling tests verify hooks, release helpers, source hygiene, the source export
-invariant, explicit dependency preparation, and selected caller relationships.
+`check:ci-toolchain` verifies toolchain pins and the workflow, Nx, and E2E target
+contracts that must hold on every change. Repository tooling tests verify hooks,
+release helpers, source hygiene, the source export invariant, explicit
+dependency preparation, the root `verify:*` compositions, and caller
+relationships: every root script is invoked by a workflow, hook,
+`verify-integration.sh`, another root script, or a documented `pnpm` command
+line, so a script without a caller is removed rather than kept as an alias.
 The uncached `axm:source-cli-smoke` target runs before builds in `verify:clean`,
 proving that the source launcher starts without workspace `dist`.
 Task-interface conformance additionally inspects the resolved Nx graph and

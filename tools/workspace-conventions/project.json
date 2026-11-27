@@ -28,9 +28,6 @@
     },
     "typecheck": {
       "inputs": ["...", "{projectRoot}/src/**/*.mjs", "{projectRoot}/bin/**/*.mjs"]
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

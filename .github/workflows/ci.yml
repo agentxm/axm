@@ -648,8 +648,8 @@ jobs:
             affected-command: pnpm exec nx affected -t e2e-main --nxBail --outputStyle=static -- --shard=2/2
           - id: distribution
             name: binary and install distribution
-            command: pnpm exec nx run-many --projects cli-e2e -t binary-smoke install-suite --nxBail --outputStyle=static
-            affected-command: pnpm exec nx affected -t binary-smoke install-suite --nxBail --outputStyle=static
+            command: pnpm exec nx run-many --projects cli-e2e -t binary-smoke install-verification --nxBail --outputStyle=static
+            affected-command: pnpm exec nx affected -t binary-smoke install-verification --nxBail --outputStyle=static
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

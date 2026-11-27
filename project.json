@@ -160,15 +160,6 @@
       },
       "outputs": ["{workspaceRoot}/test-results/allure-report"]
     },
-    "allure-report-open": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["allure-report"],
-      "options": {
-        "command": "pnpm exec allure open test-results/allure-report",
-        "cwd": "."
-      }
-    },
     "resolve-release-preparation-source": {
       "executor": "nx:run-commands",
       "cache": false,
@@ -391,7 +382,6 @@
             "husky",
             "jsonc-eslint-parser",
             "knip",
-            "lint-staged",
             "nx",
             "prettier",
             "publint",

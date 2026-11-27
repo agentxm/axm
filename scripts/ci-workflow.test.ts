@@ -601,9 +601,9 @@ esac
     expect(e2e).toContain("ubuntu-latest");
     expect(e2e).toContain("scripts/with-allure-report.sh");
     expect(e2e).toContain("cli-e2e:e2e-main");
-    expect(e2e).toContain("binary-smoke install-suite");
+    expect(e2e).toContain("binary-smoke install-verification");
     expect(e2e).toContain("pnpm exec nx affected -t e2e-main");
-    expect(e2e).toContain("pnpm exec nx affected -t binary-smoke install-suite");
+    expect(e2e).toContain("pnpm exec nx affected -t binary-smoke install-verification");
     expect(e2e).toContain("needs.classify.outputs.base");
     expect(e2e).toContain("needs.classify.outputs.head");
     expect(JSON.stringify(jobs["verify-pr"])).toContain("--exclude=cli-e2e");

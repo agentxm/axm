@@ -187,9 +187,6 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:*
         version: link:packages/core/extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:*
-        version: link:packages/core/extension-model
       '@agentxm/host-primitives':
         specifier: workspace:*
         version: link:packages/generic/host-primitives

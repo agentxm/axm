@@ -106,9 +106,7 @@ entry point.
 | Published package membership                                                    | `nx.json` release configuration               |
 
 The root `axm` lint and typecheck targets include `benchmarks/` because the
-published benchmark command loads those modules. The lifecycle benchmark's Node
-preload is named in `knip.jsonc` as an entry because its path is selected at
-runtime.
+published benchmark command loads those modules.
 
 Aggregate targets such as `generate` and `e2e` are lifecycle nodes: they
 perform no duplicate check and declare the work they aggregate through
@@ -376,54 +374,6 @@ external-service target. It is not a dependency of the ordinary `e2e` aggregate 
 main-only integration gate; ordinary host-compatible E2E selection and CI's
 platform assurance remain unchanged. Passing this target establishes only its
 declared tracing boundary on the observed host, not a performance budget.
-
-## CLI output and agent evaluations
-
-`AXM_BENCHMARK_SUITE=output-contracts pnpm bench` captures complete human and
-machine output against explicitly supplied baseline and candidate binary
-manifests. It preserves raw stdout/stderr, source and binary identity, fixture
-state, and independent semantic checks. Capture-only runs make no performance
-claim. Comparative timing requires an isolated Linux reference host, the
-registered warmup and balanced blocks, and review of recorded contention,
-noise, and drift. Output budgets belong to executable specifications; they are
-never runtime truncation limits.
-
-For local assessment, select `assessment-check-1`, `assessment-check-30`,
-`assessment-component-show`, `assessment-component-lint`,
-`assessment-component-sync-preview`, and
-`assessment-component-selected-sync-preview` through the comma-separated
-`AXM_OUTPUT_BENCHMARK_SCENARIOS` variable. The whole-workspace comparison uses
-three component invocations versus one check invocation over the same accepted
-thirty-package fixture. Keep each component's result and cost visible: their
-combined outputs do not provide check's unified coverage and verdict contract.
-The one-subject check has no equivalent old single-command baseline. These
-captures verify complete selected results and unchanged workspace bytes;
-independent I/O and decode accounting requires separate observations at those
-boundaries. A smaller output or fewer commands alone does not establish less
-physical work or a latency improvement.
-
-On Linux with `strace` installed, `AXM_OUTPUT_TRACE_READ_SYSCALLS=1` adds
-independent raw `read`/`pread64` syscall records to a capture-only run. It
-rejects timing mode. Records include process startup and child threads, omit
-buffer contents, and do not measure memory-mapped access, other read APIs, or
-decoding. Keep these diagnostic observations separate from untraced elapsed
-and RSS measurements.
-
-`pnpm exec nx run axm:eval:cli` is an opt-in, uncached Linux agent evaluation.
-It consumes frozen CLI binaries, skill directories, and an explicitly pinned
-Codex distribution; it does not compile them or establish their build
-freshness. Public fixture helpers run from source under `axm-source` and their
-identities are retained. Every paired workspace and initial-context check must
-pass before any model starts. Scored runs require a frozen preregistration and
-digest; `AXM_AGENT_EVALUATION_PREPARE_ONLY=1` checks setup without running task
-models. Activation is a separate phase from announced CLI task trials.
-
-These trials retain transcripts, actual CLI captures, state differences, and
-execution failures for independent semantic review. Successful process exit
-does not assign a passing grade. Keep raw evaluation context private until it
-has been reviewed for credentials and private host instructions. Trials are
-outside the normal integration graph because they require model access and
-stochastic review. Their elapsed times do not establish CLI performance.
 
 ## Edit-loop targets
 

@@ -16,53 +16,13 @@ const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const benchmarksRoot = path.join(repoRoot, "benchmarks");
 const suite = process.env["AXM_BENCHMARK_SUITE"] ?? "all";
-if (
-  suite !== "all" &&
-  suite !== "startup" &&
-  suite !== "lifecycle" &&
-  suite !== "discovery" &&
-  suite !== "output-contracts" &&
-  suite !== "observability"
-) {
-  throw new Error(
-    "AXM_BENCHMARK_SUITE must be all, startup, lifecycle, discovery, output-contracts, or observability.",
-  );
-}
-if (suite === "output-contracts") {
-  const outputBenchmark = await import("../benchmarks/output-contracts.js");
-  await outputBenchmark.runOutputContractBenchmark(repoRoot);
-  process.exit(0);
+if (suite !== "all" && suite !== "observability") {
+  throw new Error("AXM_BENCHMARK_SUITE must be all or observability.");
 }
 if (suite === "observability") {
   const observabilityBenchmark = await import("../benchmarks/observability.js");
   await observabilityBenchmark.runObservabilityBenchmark(repoRoot);
   process.exit(0);
-}
-if (suite === "discovery" || suite === "all") {
-  const discoveryBenchmark = await import("../benchmarks/discovery.js");
-  await discoveryBenchmark.runDiscoveryBenchmark(
-    repoRoot,
-    process.env["AXM_DISCOVERY_BENCHMARK_OUTPUT"] ??
-      path.join(repoRoot, "test-results", "benchmarks", "discovery.json"),
-  );
-  if (suite === "discovery") process.exit(0);
-}
-if (suite !== "lifecycle") {
-  const startupBenchmark = await import("../benchmarks/cli-startup.js");
-  startupBenchmark.runCliStartupBenchmark(
-    repoRoot,
-    process.env["AXM_BENCHMARK_OUTPUT"] ??
-      path.join(repoRoot, "test-results", "benchmarks", "cli-startup.json"),
-  );
-}
-
-if (suite !== "startup") {
-  const lifecycleBenchmark = await import("../benchmarks/lifecycle.js");
-  await lifecycleBenchmark.runLifecycleBenchmark(
-    repoRoot,
-    process.env["AXM_LIFECYCLE_BENCHMARK_OUTPUT"] ??
-      path.join(repoRoot, "test-results", "benchmarks", "lifecycle.json"),
-  );
 }
 
 const hasBenchFiles = (directory: string): boolean => {
@@ -81,7 +41,7 @@ const hasBenchFiles = (directory: string): boolean => {
   return false;
 };
 
-if (suite === "lifecycle" || !hasBenchFiles(benchmarksRoot)) process.exit(0);
+if (!hasBenchFiles(benchmarksRoot)) process.exit(0);
 
 const run = spawnSync("pnpm", ["exec", "vitest", "bench", "--run", "--dir", "benchmarks"], {
   cwd: repoRoot,

@@ -49,12 +49,11 @@
       // independently of npm dependency ownership. The startup TLS fixture
       // also uses the external openssl certificate tool.
       "ignoreBinaries": ["mise", "openssl"],
-      // These are loaded indirectly by Allure, shell launchers, the benchmark
-      // runner and its child processes, and specification discovery.
+      // These are loaded indirectly by Allure, shell launchers, the Vitest
+      // benchmark runner, and specification discovery.
       "entry": [
         "allurerc.ts",
         "benchmarks/**/*.bench.ts",
-        "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",
         "specifications/product-goals.ts",
         "tools/architecture/check.mjs",

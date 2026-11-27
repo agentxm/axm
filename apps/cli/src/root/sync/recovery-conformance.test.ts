@@ -1,8 +1,8 @@
 /**
- * Exhaustive restoring-transition contracts for shipped lint errors and
- * operation blockers. The registry is deliberately test-only: product code
- * owns the executable identifier inventories, while this suite owns recovery
- * evidence.
+ * Recovery-evidence registry for shipped lint errors and operation blockers.
+ * The registry is deliberately test-only: product code owns the executable
+ * identifier inventories, while this suite requires every identifier to name
+ * its recovery owner and the executable evidence that restores it.
  */
 
 import * as nodeFs from "node:fs";
@@ -19,78 +19,17 @@ import { syncRecoveryIdentifiers } from "@agentxm/workspace-kernel/reconciliatio
 import { packUninstallRecoveryIdentifiers } from "@agentxm/extension-kinds/packs";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
-type StateField =
-  "authoredIntent" | "lockAuthority" | "canonicalContent" | "ownedProjection" | "unownedContent";
-
-interface RecoveryState {
-  readonly revisions: Readonly<Record<StateField, number>>;
-  readonly diagnostics: ReadonlyArray<string>;
-  readonly suppressedDiagnostics: ReadonlyArray<string>;
-}
 
 interface RecoveryConformanceEntry {
   readonly id: string;
-  readonly authoritativeInputs: ReadonlyArray<StateField>;
-  readonly validBaseState: RecoveryState;
-  readonly perturbationField: StateField;
-  readonly expectedDiagnostics: ReadonlyArray<string>;
-  readonly suppressedDiagnostics: ReadonlyArray<string>;
   readonly recoveryOwner: RecoveryOwner;
-  readonly permittedStateDelta: ReadonlyArray<StateField>;
-  readonly forbiddenEffects: ReadonlyArray<StateField>;
-  readonly postRecoveryDiagnostics: ReadonlyArray<string>;
-  readonly postRecoveryState: RecoveryState;
   readonly evidence: ReadonlyArray<string>;
-  readonly aggregateCoverage?: Readonly<
-    Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>
-  >;
 }
 
-interface RecoveryEntryOptions {
-  readonly owner: RecoveryOwner;
-  readonly field: StateField;
-  readonly evidence: ReadonlyArray<string>;
-  readonly suppressed?: ReadonlyArray<string>;
-  readonly aggregateCoverage?: RecoveryConformanceEntry["aggregateCoverage"];
-}
-
-const stateFields: ReadonlyArray<StateField> = [
-  "authoredIntent",
-  "lockAuthority",
-  "canonicalContent",
-  "ownedProjection",
-  "unownedContent",
-];
-
-const validBaseState = (): RecoveryState => ({
-  revisions: {
-    authoredIntent: 0,
-    lockAuthority: 0,
-    canonicalContent: 0,
-    ownedProjection: 0,
-    unownedContent: 0,
-  },
-  diagnostics: [],
-  suppressedDiagnostics: [],
-});
-
-const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConformanceEntry => ({
-  id,
-  authoritativeInputs: stateFields,
-  validBaseState: validBaseState(),
-  perturbationField: options.field,
-  expectedDiagnostics: [id],
-  suppressedDiagnostics: options.suppressed ?? [],
-  recoveryOwner: options.owner,
-  permittedStateDelta: [options.field],
-  forbiddenEffects: stateFields.filter((field) => field !== options.field),
-  postRecoveryDiagnostics: [],
-  postRecoveryState: validBaseState(),
-  evidence: options.evidence,
-  ...(options.aggregateCoverage === undefined
-    ? {}
-    : { aggregateCoverage: options.aggregateCoverage }),
-});
+const makeEntry = (
+  id: string,
+  options: { readonly owner: RecoveryOwner; readonly evidence: ReadonlyArray<string> },
+): RecoveryConformanceEntry => ({ id, recoveryOwner: options.owner, evidence: options.evidence });
 
 const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("skill/")) {
@@ -102,7 +41,7 @@ const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("knowledge/")) {
     return ["packages/core/workspace-features/src/linting/catalog/knowledge.test.ts"];
   }
-  return ["tools/extension-type-parity/src/parity.test.ts"];
+  return ["packages/core/extension-content/src/lint/catalog/manifest-envelope-conformance.test.ts"];
 };
 
 const packageLintErrorIds = [
@@ -167,7 +106,6 @@ const packageLintErrorIds = [
 const packageLintEntries = packageLintErrorIds.map((id) =>
   makeEntry(id, {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: packageLintEvidence(id),
   }),
 );
@@ -192,49 +130,38 @@ const aggregateCoverage = {
 const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   makeEntry("workspace/initialized", {
     owner: "intent-command",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
-    suppressed: ["workspace/settings-schema-valid", "workspace/lockfile-valid"],
   }),
   makeEntry("workspace/settings-schema-valid", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
-    suppressed: ["workspace/settings-keys-recognized", "workspace/desired-state-reconcilable"],
   }),
   makeEntry("workspace/settings-keys-recognized", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/lockfile-valid", {
     owner: "sync",
-    field: "lockAuthority",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/desired-state-reconcilable", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/axm-skill-compatible", {
     owner: "sync",
-    field: "canonicalContent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/agents-recognized", {
     owner: "intent-command",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/instructions-source-present", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/projection-ownership-valid", {
     owner: "direct-correction",
-    field: "ownedProjection",
     evidence: [
       "apps/cli/src/root/sync/handler.test.ts",
       "packages/core/workspace-kernel/src/projection/invariant-facts.test.ts",
@@ -242,56 +169,46 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   }),
   makeEntry("workspace/skills-declarations-valid", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/packs-declarations-valid", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/packs-shared-members-distributable", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: [
       "packages/core/workspace-features/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
     ],
   }),
   makeEntry("workspace/configured-but-not-installed", {
     owner: "sync",
-    field: "canonicalContent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/knowledge-state-valid", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/skills-lockfile-aligned", {
     owner: "sync",
-    field: "lockAuthority",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/source-endpoints-aligned", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: [
       "packages/core/workspace-features/src/linting/catalog/workspace/conformance/reconciliation/test-helpers.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {
     owner: "sync",
-    field: "canonicalContent",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/skills-artifacts-correct", {
     owner: "sync",
-    field: "ownedProjection",
     evidence: workspaceEvidence,
   }),
   makeEntry("workspace/packs-dependencies-resolved", {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
 ];
@@ -300,12 +217,10 @@ const syncEvidence = ["apps/cli/src/root/sync/handler.test.ts"] as const;
 const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   makeEntry("pack:manifest-divergence", {
     owner: "sync",
-    field: "canonicalContent",
     evidence: ["apps/cli/src/root/sync/handler.test.ts"],
   }),
   makeEntry("extension:constraint-mismatch", {
     owner: "sync",
-    field: "lockAuthority",
     evidence: [
       "packages/core/workspace-kernel/src/projection/constraint-invariant-fact.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
@@ -313,7 +228,6 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   }),
   makeEntry(INCOMPLETE_DESIRED_STATE_BLOCKER_ID, {
     owner: "direct-correction",
-    field: "authoredIntent",
     evidence: [
       "packages/core/workspace-kernel/src/projection/planning.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
@@ -321,17 +235,14 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   }),
   makeEntry("mcp-server:inline", {
     owner: "manual-preservation",
-    field: "unownedContent",
     evidence: syncEvidence,
   }),
   makeEntry("hook:projections", {
     owner: "sync",
-    field: "ownedProjection",
     evidence: syncEvidence,
   }),
   makeEntry("instruction:reconcile", {
     owner: "sync",
-    field: "ownedProjection",
     evidence: syncEvidence,
   }),
 ];
@@ -340,7 +251,6 @@ const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
   packUninstallRecoveryIdentifiers.map((id) =>
     makeEntry(id, {
       owner: "direct-correction",
-      field: "canonicalContent",
       // The blocker and its recovery now live with the uninstall use case:
       // that specification blocks on an incomplete graph, retires the
       // unreadable pack when every other pack is intact, and reaches the same
@@ -420,32 +330,6 @@ const adversarialContracts = [
   ],
 ] as const;
 
-const perturb = (entry: RecoveryConformanceEntry, state: RecoveryState): RecoveryState => ({
-  ...state,
-  revisions: {
-    ...state.revisions,
-    [entry.perturbationField]: state.revisions[entry.perturbationField] + 1,
-  },
-  diagnostics: entry.expectedDiagnostics,
-  suppressedDiagnostics: entry.suppressedDiagnostics,
-});
-
-const diagnose = (entry: RecoveryConformanceEntry, state: RecoveryState): ReadonlyArray<string> =>
-  state.revisions[entry.perturbationField] === 0 ? [] : entry.expectedDiagnostics;
-
-const recover = (entry: RecoveryConformanceEntry, state: RecoveryState): RecoveryState => {
-  if (diagnose(entry, state).length === 0) return state;
-  return {
-    ...state,
-    revisions: { ...state.revisions, [entry.perturbationField]: 0 },
-    diagnostics: entry.postRecoveryDiagnostics,
-    suppressedDiagnostics: [],
-  };
-};
-
-const changedFields = (before: RecoveryState, after: RecoveryState): ReadonlyArray<StateField> =>
-  stateFields.filter((field) => before.revisions[field] !== after.revisions[field]);
-
 const missingRecoveryIds = (
   lintErrorIds: ReadonlyArray<string>,
   syncIds: ReadonlyArray<string>,
@@ -495,25 +379,8 @@ describe("recovery-conformance registry", () => {
     ).toEqual(["workspace/test-only-injected-error"]);
   });
 
-  it.each(recoveryRegistry)("executes the restoring transition for $id", (entry) => {
-    const invalid = perturb(entry, entry.validBaseState);
-    expect(diagnose(entry, invalid)).toEqual(entry.expectedDiagnostics);
-    expect(invalid.suppressedDiagnostics).toEqual(entry.suppressedDiagnostics);
-
-    const restored = recover(entry, invalid);
-    expect(changedFields(invalid, restored)).toEqual(entry.permittedStateDelta);
-    for (const forbidden of entry.forbiddenEffects) {
-      expect(restored.revisions[forbidden]).toBe(invalid.revisions[forbidden]);
-    }
-    expect(diagnose(entry, restored)).toEqual(entry.postRecoveryDiagnostics);
-    expect(restored.diagnostics).toEqual(entry.postRecoveryDiagnostics);
-    expect(restored).toEqual(entry.postRecoveryState);
-    expect(recover(entry, restored)).toEqual(restored);
-  });
-
   it("binds every recovery contract to executable behavior evidence", () => {
     for (const entry of recoveryRegistry) {
-      expect(entry.authoritativeInputs.length, entry.id).toBeGreaterThan(0);
       expect(entry.evidence.length, entry.id).toBeGreaterThan(0);
       for (const relativePath of entry.evidence) {
         expect(nodeFs.existsSync(nodePath.join(repositoryRoot, relativePath)), relativePath).toBe(

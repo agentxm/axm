@@ -164,5 +164,5 @@ non-interleaving (`cli/changes-do-not-interleave`), and closure-atomic mutation
 (`cli/mutations-are-closure-atomic`). The
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.
-Exhaustive blocker restoration is internal verification owned by the
+Recovery evidence for every blocker is internal verification registered by the
 recovery-conformance registry in `apps/cli/src/root/sync/`.

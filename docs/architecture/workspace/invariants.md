@@ -173,15 +173,14 @@ invalid-state handling: `cli/settings-validity-gates-operations`,
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.
 
-Exhaustive restoring-transition coverage is internal verification: a test-only
+Recovery-evidence completeness is internal verification: a test-only
 recovery-conformance registry in `apps/cli/src/root/sync/` is keyed by
 every lint error and sync blocker, and a completeness check fails when a
-shipped error or blocker lacks a recovery contract. Each entry captures the
-minimal perturbation, expected diagnostic facts and dependent-rule
-suppression, the recovery owner, permitted and forbidden state changes,
-post-recovery state, and second-run idempotence.
+shipped error or blocker lacks an entry. Each entry names the recovery owner
+and the executable tests or specifications that exercise the restoring
+transition; the registry checks that every named evidence file exists.
 
-The registry's cross-type projection family exercises missing, stale,
+Cross-type projection coverage exercises missing, stale,
 obsolete, unowned collision, ambiguous ownership, safe owned removal,
 authored inventory outside desired state, unreachable managed content, and
 unclassifiable canonical content wherever applicable; type-specific cases add

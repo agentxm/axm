@@ -2,7 +2,7 @@
  * Structural conformance gate for projection planning.
  *
  * Recovery coverage for aggregate ownership units is registered by the
- * exhaustive recovery-conformance suite. This file retains code-boundary
+ * recovery-conformance suite. This file retains code-boundary
  * checks that keep construction and application inside shared planning.
  */
 

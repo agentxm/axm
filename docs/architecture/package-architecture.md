@@ -503,15 +503,15 @@ and reporting entries of `@agentxm/test-reporting`.
 | `@agentxm/test-support`           | Shared deterministic test-world adapters                                                                                                                                                                         |
 | `@agentxm/client-e2e-utils`       | Shared end-to-end utilities (`tools/e2e-utils`)                                                                                                                                                                  |
 | `@agentxm/test-reporting`         | The shared Vitest execution profile, per-file purpose labelling, and the JUnit, Allure, failure-summary, and specification-evidence reporters every Vitest suite runs under                                      |
-| `@agentxm/workspace-conventions`  | Engineering conventions for Nx and pnpm TypeScript workspaces: the capability-boundary ESLint preset the root configuration composes and a reusable Git-index gate template for consuming workspaces             |
+| `@agentxm/workspace-conventions`  | Engineering conventions for Nx and pnpm TypeScript workspaces: the capability-boundary ESLint preset the root configuration composes                                                                             |
 
 `specification-metadata` and `workspace-conventions` ship with the release
-cohort so other repositories author specifications, lint capability
-boundaries, and gate commits against them. That does not make them runtime
+cohort so other repositories author specifications and lint capability
+boundaries against them. That does not make them runtime
 contracts: they are engineering support, and the role matrix keeps them out of
 production source. The
 [workspace-conventions README](../../tools/workspace-conventions/README.md)
-describes how to configure the preset and install the gate.
+describes how to configure the preset.
 
 ## Applications
 

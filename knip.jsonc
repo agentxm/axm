@@ -32,8 +32,7 @@
   },
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
-  // The published workspace-conventions template invokes lint-staged in consumer repositories.
-  "ignoreDependencies": ["@typescript/native", "lint-staged"],
+  "ignoreDependencies": ["@typescript/native"],
   "vitest": {
     "config": [
       "vitest*.config.{js,mjs,ts,cjs,mts,cts}",
@@ -83,10 +82,8 @@
     },
     "tools/workspace-conventions": {
       "includeEntryExports": false,
-      // Node's test runner loads the tests through the project's test target,
-      // a Git hook starts the gate launcher, and the gate hands lint-staged its
-      // configuration by path.
-      "entry": ["src/*.test.mjs", "bin/check-staged.mjs", "src/check-staged.config.mjs"],
+      // Node's test runner loads the tests through the project's test target.
+      "entry": ["src/*.test.mjs"],
       // eslint-plugin-boundaries loads the resolver the preset's settings name.
       "ignoreDependencies": ["eslint-import-resolver-typescript"],
     },

@@ -99,7 +99,7 @@ entry point.
 | CLI compilation                                                                 | `cli`                                         |
 | CLI end-to-end and binary/install verification                                  | `cli-e2e`                                     |
 | The specification metadata contract                                             | `specification-metadata`                      |
-| The capability-boundary ESLint preset and the staged commit gate                | `workspace-conventions`                       |
+| The capability-boundary ESLint preset                                           | `workspace-conventions`                       |
 | Shared Vitest execution profile, purpose labelling, and test reporting          | `test-reporting`                              |
 | Specification discovery, catalog, verdict, selection, and cross-project hygiene | `axm`                                         |
 | Repository tooling, release helpers, and reports                                | `axm`                                         |
@@ -274,10 +274,8 @@ the published packages turn that off because their entry points are public API,
 so only their internal module exports are checked. An export consumed only
 where Knip cannot trace it carries a `@public` tag that says why: a type
 dependents must name for declaration emit, a configuration file another tool
-loads, or a declaration a check reads from source. Generated clients,
-type-test assertions, and the lint-staged configuration of the commit-index
-template, which other workspaces copy unchanged, are exempt. Member and
-duplicate reports remain available through the same target with `--include=enumMembers,namespaceMembers,duplicates`;
+loads, or a declaration a check reads from source. Generated clients and
+type-test assertions are exempt. Member and duplicate reports remain available through the same target with `--include=enumMembers,namespaceMembers,duplicates`;
 review those findings against the published API before pruning. The compiler and ESLint continue to
 own unused local bindings. Knip does not replace architectural dependency or
 cycle enforcement.

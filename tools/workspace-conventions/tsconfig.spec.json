@@ -7,5 +7,5 @@
     "module": "preserve",
     "moduleResolution": "bundler"
   },
-  "include": ["src/**/*.mjs", "bin/**/*.mjs"]
+  "include": ["src/**/*.mjs"]
 }

@@ -12,7 +12,6 @@
       "dependsOn": [],
       "inputs": [
         "{projectRoot}/src/**/*",
-        "{projectRoot}/bin/**/*",
         "{projectRoot}/README.md",
         "{projectRoot}/package.json",
         {
@@ -27,7 +26,7 @@
       }
     },
     "typecheck": {
-      "inputs": ["...", "{projectRoot}/src/**/*.mjs", "{projectRoot}/bin/**/*.mjs"]
+      "inputs": ["...", "{projectRoot}/src/**/*.mjs"]
     }
   }
 }

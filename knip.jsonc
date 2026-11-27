@@ -49,10 +49,11 @@
       // independently of npm dependency ownership. The startup TLS fixture
       // also uses the external openssl certificate tool.
       "ignoreBinaries": ["mise", "openssl"],
-      // These are loaded indirectly by Allure, shell launchers, benchmark child
-      // processes, and specification discovery.
+      // These are loaded indirectly by Allure, shell launchers, the benchmark
+      // runner and its child processes, and specification discovery.
       "entry": [
         "allurerc.ts",
+        "benchmarks/**/*.bench.ts",
         "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",
         "specifications/product-goals.ts",
@@ -65,7 +66,7 @@
         "{scripts,benchmarks,specifications,tools/architecture}/**/*.{ts,mts,cts,js,mjs,cjs}",
       ],
       "vitest": {
-        "config": ["vitest*.config.ts", "scripts/vitest.config.ts"],
+        "config": ["scripts/vitest.config.ts"],
       },
     },
     "packages/core/extension-model": {
@@ -101,18 +102,10 @@
     },
     "apps/cli": {
       "includeEntryExports": false,
-      // Explicit roots for source-conditioned Bun launchers, compiler-only
-      // tests, and the gallery fixture modules the gallery discovers by name.
-      "entry": [
-        "src/main.ts",
-        "src/**/*.type-test.ts",
-        "src/**/*.gallery.ts",
-        "scripts/generate-agent-catalog.ts",
-        "scripts/generate-cli-reference.ts",
-        "scripts/generate-schemas.ts",
-        "scripts/generate-type-enumerations.ts",
-        "scripts/lab/main.ts",
-      ],
+      // Explicit roots for compiler-only tests and the gallery fixture modules
+      // the gallery discovers by name. The root Nx plugin finds the Bun
+      // launchers through this project's targets.
+      "entry": ["src/**/*.type-test.ts", "src/**/*.gallery.ts"],
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],
     },

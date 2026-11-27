@@ -184,7 +184,7 @@ describe("module-boundary constraint reachability", () => {
     const eslint = new ESLint({ cwd: repoRoot });
     for (const file of [
       "packages/core/workspace-kernel/src/materialization/index.ts",
-      "packages/core/extension-kinds/src/skills/source-hash.test.ts",
+      "packages/core/extension-kinds/src/skills/manager.test.ts",
     ]) {
       const config: unknown = await eslint.calculateConfigForFile(file);
       const rules: unknown =
@@ -216,7 +216,7 @@ describe("module-boundary constraint reachability", () => {
   it("reports an extension kind importing a feature", async () => {
     for (const filePath of [
       "packages/core/extension-kinds/src/skills/index.ts",
-      "packages/core/extension-kinds/src/skills/source-hash.test.ts",
+      "packages/core/extension-kinds/src/skills/manager.test.ts",
     ]) {
       expect(
         await boundaryViolations(

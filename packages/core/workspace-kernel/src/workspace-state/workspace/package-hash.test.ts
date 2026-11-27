@@ -1,6 +1,7 @@
 import { withDetailedWork } from "../../locations/testing.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
@@ -9,6 +10,37 @@ import * as PlatformError from "effect/PlatformError";
 import { computePackageContentHash } from "./package-hash.js";
 
 layer(NodeServices.layer)("package content hashing", (it) => {
+  it.effect("distinguishes paths and contents that collide with newline delimiters", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const first = yield* fs.makeTempDirectoryScoped();
+      const second = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(path.join(first, "a"), "b");
+      yield* fs.writeFileString(path.join(first, "c"), "");
+      yield* fs.writeFileString(path.join(second, "a"), "b\nc\n");
+
+      expect(yield* computePackageContentHash(first)).not.toBe(
+        yield* computePackageContentHash(second),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("changes when a nested subdirectory file changes", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.makeDirectory(path.join(root, "sub"));
+      yield* fs.writeFileString(path.join(root, "SKILL.md"), "# skill\n");
+      yield* fs.writeFileString(path.join(root, "sub", "nested.md"), "v1");
+      const before = yield* computePackageContentHash(root);
+      yield* fs.writeFileString(path.join(root, "sub", "nested.md"), "v2");
+
+      expect(yield* computePackageContentHash(root)).not.toBe(before);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("retains the change marker for a mixed package tree", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -166,5 +198,24 @@ layer(NodeServices.layer)("package content hashing", (it) => {
       ).toBe(linked);
       expect(received).toEqual([]);
     }).pipe(Effect.scoped),
+  );
+});
+
+fastCheckIt.prop(
+  { contents: FastCheck.uniqueArray(FastCheck.string(), { minLength: 2, maxLength: 2 }) },
+  { numRuns: 100, seed: 0x41584d },
+)("package content hashing changes when arbitrary file content changes", ({ contents }) => {
+  const [firstContent = "", secondContent = ""] = contents;
+  // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const file = path.join(yield* fs.makeTempDirectoryScoped(), "SKILL.md");
+      yield* fs.writeFileString(file, firstContent);
+      const first = yield* computePackageContentHash(path.dirname(file));
+      yield* fs.writeFileString(file, secondContent);
+      expect(yield* computePackageContentHash(path.dirname(file))).not.toBe(first);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

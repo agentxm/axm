@@ -3,15 +3,11 @@ import * as Option from "effect/Option";
 
 import {
   StepFailure,
-  deriveOperationOutcome,
   makeOperationResolution,
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
-import { operationOk, resolutionExitCode } from "./operation-exit-code.js";
-
-const ok = (value: OperationResolution): boolean =>
-  operationOk(value, deriveOperationOutcome(value));
+import { resolutionExitCode } from "./operation-exit-code.js";
 
 const unit = (
   id: string,
@@ -100,10 +96,9 @@ describe("operationExitCode", () => {
     expect(resolutionExitCode(resolution({ mode: "preview", units: [] }))).toBe(0);
   });
 
-  it("a flag-requested divergence on a preview exits 1 with ok:false", () => {
+  it("a flag-requested divergence on a preview exits 1", () => {
     const value = resolution({ mode: "preview", divergence: true, units: [unit("a", "ready")] });
     expect(resolutionExitCode(value)).toBe(1);
-    expect(ok(value)).toBe(false);
   });
 
   it("C-07: a retained failure never exits 0", () => {
@@ -163,12 +158,11 @@ describe("operationExitCode", () => {
     ).toBe(143);
   });
 
-  it("C-38: ok is true exactly when the exit is 0", () => {
-    const zero = resolution({ units: [unit("a", "unchanged")] });
-    expect(ok(zero)).toBe(true);
-    const one = resolution({ units: [unit("a", "committed"), unit("b", "failed")] });
-    expect(ok(one)).toBe(false);
-    const cancelled = resolution({ declined: true });
-    expect(ok(cancelled)).toBe(true);
+  it("C-38: unchanged and declined resolutions exit 0, a partial failure does not", () => {
+    expect(resolutionExitCode(resolution({ units: [unit("a", "unchanged")] }))).toBe(0);
+    expect(
+      resolutionExitCode(resolution({ units: [unit("a", "committed"), unit("b", "failed")] })),
+    ).not.toBe(0);
+    expect(resolutionExitCode(resolution({ declined: true }))).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-import type { Doc } from "../screen/index.js";
+import { urlSpan, type Doc } from "../screen/index.js";
 
 /**
  * The masthead root help opens with: the wordmark and its tagline as one
@@ -24,11 +24,7 @@ export const brandingDoc: Doc = [
     children: [
       {
         _tag: "paragraph",
-        text: [
-          { text: "https://axm.sh", kind: "url" },
-          { text: " | " },
-          { text: "https://agentxm.ai", kind: "url" },
-        ],
+        text: [urlSpan("https://axm.sh"), { text: " | " }, urlSpan("https://agentxm.ai")],
       },
     ],
   },

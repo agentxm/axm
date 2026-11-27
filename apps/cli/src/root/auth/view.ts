@@ -6,7 +6,7 @@ import type {
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import type { Doc, WaitView } from "../../screen/index.js";
-import { headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
+import { headlineDoc, paragraphDoc, successDoc, urlSpan } from "../../screen/index.js";
 
 export interface AuthViewEntry {
   readonly doc: Doc;
@@ -91,7 +91,7 @@ const browserSignInBrief = (handoff: {
         ? "To sign in, finish in the browser that opened, or open this link:"
         : "To sign in, open this link in a browser:",
   },
-  { _tag: "paragraph", inset: true, text: [{ text: handoff.authorizeUrl, kind: "url" }] },
+  { _tag: "paragraph", inset: true, text: [urlSpan(handoff.authorizeUrl)] },
   { _tag: "next", actions: [deviceCodeAction] },
 ];
 
@@ -147,7 +147,7 @@ const terminalSignInBrief = (handoff: {
   {
     _tag: "paragraph",
     inset: true,
-    text: [{ text: handoff.verificationUriComplete, kind: "url" }],
+    text: [urlSpan(handoff.verificationUriComplete)],
   },
   {
     _tag: "paragraph",

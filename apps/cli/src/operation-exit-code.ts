@@ -9,7 +9,6 @@ import {
   deriveOperationOutcome,
   type BlockingClass,
   type ErrorCode,
-  type OperationOutcome,
   type SettledOutcome,
   type OperationResolution,
 } from "@agentxm/workspace-kernel/operations";
@@ -79,7 +78,3 @@ export const operationExitCode = (verdict: OperationVerdict, outcome: SettledOut
 /** The exit code of a resolution, from its derived outcome. */
 export const resolutionExitCode = (resolution: OperationResolution<unknown>): number =>
   operationExitCode(resolution, deriveOperationOutcome(resolution));
-
-/** The machine envelope's `ok`: true exactly for the zero-exit outcome set. */
-export const operationOk = (verdict: OperationVerdict, outcome: OperationOutcome): boolean =>
-  operationExitCode(verdict, outcome) === ExitCode.Success;

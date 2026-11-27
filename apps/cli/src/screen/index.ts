@@ -139,4 +139,5 @@ export {
   joined,
   ledgerViewPolicy,
   resultLedgerColumns,
+  urlSpan,
 } from "./presenter-helpers.js";

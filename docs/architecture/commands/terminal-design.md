@@ -194,9 +194,9 @@ than its styling: a span's `kind` is `command`, `url`, `identifier`, or `path`,
 and the painter derives the rest — a command is tinted and never broken, a URL
 is never broken and becomes an OSC 8 hyperlink where colour is on with its text
 still shown, an identifier such as a one-time code is never broken, and a path
-wraps at its separators. `invocation`, `urlSpan`, `identifierSpan`, and
-`pathSpan` build them; `pathSpan` starts a path under the user's home at `~`. A
-version move is `versionMove`, `1.9.4 to 2.0.1`.
+wraps at its separators. `invocation`, `urlSpan`, and `pathSpan` build
+command, URL, and path spans; `pathSpan` starts a path under the user's home at
+`~`. A version move is `versionMove`, `1.9.4 to 2.0.1`.
 
 A headline, verdict, title, label, empty state, and `Next` description is a
 phrase: it opens with a capital, states no closing stop, and never ends in an

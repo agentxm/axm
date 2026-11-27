@@ -116,13 +116,9 @@ owns that existing binding and its revision.
 
 The install-source policy's `test:policy-coverage` target applies complete
 coverage thresholds only to the bounded source selection in
-`packages/core/workspace-features/vitest.policy.config.ts`. `test:policy` runs
-those cases without coverage; `test:policy-mutation` is an explicit diagnostic
-using the uncached target, with reports under `test-results/policy-quality/`.
-Surviving or equivalent mutants require review; runner failures do not prove a
-mutant was detected. These checks emit no specification receipts; benchmark and
-mutation results stay diagnostic and never count toward specification
-completeness.
+`packages/core/workspace-features/vitest.policy.config.ts`, with reports under
+`test-results/policy-quality/`. It emits no specification receipts; benchmark
+results stay diagnostic and never count toward specification completeness.
 
 Release, artifact, and deployment targets enforce their subject identity.
 `cli-e2e:binary-smoke-artifact` verifies the binary named by `AXM_BINARY_PATH`,

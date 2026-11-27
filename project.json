@@ -320,7 +320,6 @@
             "@nx/eslint-plugin",
             "@nx/js",
             "@nx/vitest",
-            "@stryker-mutator/core",
             "@swc-node/register",
             "@swc/core",
             "@types/bun",

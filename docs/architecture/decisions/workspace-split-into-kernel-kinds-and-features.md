@@ -177,8 +177,8 @@ path exceptions it required, can then be deleted.
   identities are path-independent, so the specification verdict reports them
   as moved. Specifications whose lineage metadata names source paths are
   updated and render as revised contracts.
-- The policy-coverage and mutation targets move with the install-selection
-  policy to `@agentxm/workspace-features`. The Windows suite moves to
+- The policy-coverage target moves with the install-selection policy to
+  `@agentxm/workspace-features`. The Windows suite moves to
   `@agentxm/workspace-kernel`.
 - The CLI composes the failure catalog, the kinds' `./live`, and the kernel
   `/live` entries at its runtime composition root. Handlers keep their

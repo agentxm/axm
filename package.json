@@ -88,7 +88,6 @@
     "@nx/eslint-plugin": "catalog:",
     "@nx/js": "catalog:",
     "@nx/vitest": "catalog:",
-    "@stryker-mutator/core": "10.0.0",
     "@swc-node/register": "catalog:",
     "@swc/core": "catalog:",
     "@types/bun": "catalog:",

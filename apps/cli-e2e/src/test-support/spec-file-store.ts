@@ -1,72 +1,10 @@
 /**
- * Native filesystem store and local-package fixtures for end-to-end
- * specifications.
- *
- * The in-process CLI harness composes the same shapes over a memory
- * filesystem; a built-CLI specification always writes to the real disk the
- * spawned process reads, so only the native half lives here.
+ * Local-package fixtures for end-to-end specifications. A built-CLI
+ * specification writes to the real disk the spawned process reads.
  */
 
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-
-/** One directory entry, as the store reports it. */
-interface SpecDirectoryEntry {
-  readonly name: string;
-  readonly type: "file" | "directory" | "symlink";
-}
-
-/**
- * The synchronous file operations a fixture needs. Declared here rather than
- * imported: an end-to-end project observes only shipped artifacts.
- */
-interface SpecFileStore {
-  readonly exists: (target: string) => boolean;
-  readonly makeDirectory: (target: string) => void;
-  readonly makeTempDirectory: (prefix: string) => string;
-  readonly readDirectory: (target: string) => ReadonlyArray<SpecDirectoryEntry>;
-  readonly readFile: (target: string) => Uint8Array;
-  readonly readFileString: (target: string) => string;
-  readonly readLink: (target: string) => string;
-  readonly realPath: (target: string) => string;
-  readonly remove: (target: string) => void;
-  readonly type: (target: string) => "file" | "directory" | "symlink" | undefined;
-  readonly writeFile: (target: string, content: string | Uint8Array) => void;
-}
-
-interface SpecWorkspaceStorage {
-  readonly root: string;
-  readonly files: SpecFileStore;
-}
-
-export type SpecWorkspaceInput = string | SpecWorkspaceStorage;
-
-const makeNativeFileStore = (): SpecFileStore => ({
-  exists: fs.existsSync,
-  makeDirectory: (target) => void fs.mkdirSync(target, { recursive: true }),
-  makeTempDirectory: (prefix) => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix))),
-  readDirectory: (target) =>
-    fs.readdirSync(target, { withFileTypes: true }).map((entry) => ({
-      name: entry.name,
-      type: entry.isSymbolicLink() ? "symlink" : entry.isDirectory() ? "directory" : "file",
-    })),
-  readFile: (target) => new Uint8Array(fs.readFileSync(target)),
-  readFileString: (target) => fs.readFileSync(target, "utf8"),
-  readLink: fs.readlinkSync,
-  realPath: fs.realpathSync,
-  remove: (target) => void fs.rmSync(target, { recursive: true, force: true }),
-  type: (target) => {
-    const entry = fs.lstatSync(target, { throwIfNoEntry: false });
-    if (entry === undefined) return undefined;
-    if (entry.isSymbolicLink()) return "symlink";
-    return entry.isDirectory() ? "directory" : "file";
-  },
-  writeFile: fs.writeFileSync,
-});
-
-const resolveSpecWorkspaceStorage = (workspace: SpecWorkspaceInput): SpecWorkspaceStorage =>
-  typeof workspace === "string" ? { root: workspace, files: makeNativeFileStore() } : workspace;
 
 export interface LocalSkillFixture {
   readonly name: string;
@@ -82,14 +20,13 @@ export interface LocalSkillFixture {
  * install source.
  */
 export const writeLocalSkillPackage = (
-  workspace: SpecWorkspaceInput,
+  workspaceRoot: string,
   fixture: LocalSkillFixture,
 ): string => {
-  const { root: workspaceRoot, files } = resolveSpecWorkspaceStorage(workspace);
   const packageRoot = path.join(workspaceRoot, "vendor", fixture.name);
-  files.makeDirectory(packageRoot);
+  fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
   const description = fixture.description ?? `The ${fixture.name} skill.`;
-  files.writeFile(
+  fs.writeFileSync(
     path.join(packageRoot, "skill.json"),
     `${JSON.stringify(
       {
@@ -104,8 +41,7 @@ export const writeLocalSkillPackage = (
       2,
     )}\n`,
   );
-  files.makeDirectory(path.join(packageRoot, "src"));
-  files.writeFile(
+  fs.writeFileSync(
     path.join(packageRoot, "src", "SKILL.md"),
     `---\nname: "${fixture.name}"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n\n${fixture.body ?? description}\n`,
   );

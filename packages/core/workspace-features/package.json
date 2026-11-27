@@ -137,7 +137,7 @@
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-kernel": "workspace:^",
-    "@cyclonedx/cyclonedx-library": "^10.3.0",
+    "@cyclonedx/cyclonedx-library": "^10.5.1",
     "effect": "catalog:",
     "fflate": "catalog:",
     "packageurl-js": "catalog:",

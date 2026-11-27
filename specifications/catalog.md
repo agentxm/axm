@@ -3084,7 +3084,7 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/security/telemetry-consent-and-precedence`
 - Owner: `cli`
-- Statement: Telemetry shall default to usage and errors when AXM_TELEMETRY is absent, honor any nonempty DO_NOT_TRACK or DISABLE_TELEMETRY before AXM_TELEMETRY, accept only explicit all/errors/off controls, treat empty or unrecognized AXM_TELEMETRY as off, apply the same rules in CI, and read no telemetry control from committed workspace configuration.
+- Statement: Telemetry shall default to usage and errors when AXM_TELEMETRY is absent, honor any nonempty DO_NOT_TRACK or DISABLE_TELEMETRY before AXM_TELEMETRY, accept only the exact AXM_TELEMETRY values 1 or true for usage and errors, errors for errors only, and 0 or false for off, treat empty or unrecognized AXM_TELEMETRY as off, apply the same rules in CI, and read no telemetry control from committed workspace configuration.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`

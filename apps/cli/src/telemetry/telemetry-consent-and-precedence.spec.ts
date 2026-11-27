@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-consent-and-precedence",
   title: "Telemetry defaults on with environment opt-outs",
   statement:
-    "Telemetry shall default to usage and errors when AXM_TELEMETRY is absent, honor any nonempty DO_NOT_TRACK or DISABLE_TELEMETRY before AXM_TELEMETRY, accept only explicit all/errors/off controls, treat empty or unrecognized AXM_TELEMETRY as off, apply the same rules in CI, and read no telemetry control from committed workspace configuration.",
+    "Telemetry shall default to usage and errors when AXM_TELEMETRY is absent, honor any nonempty DO_NOT_TRACK or DISABLE_TELEMETRY before AXM_TELEMETRY, accept only the exact AXM_TELEMETRY values 1 or true for usage and errors, errors for errors only, and 0 or false for off, treat empty or unrecognized AXM_TELEMETRY as off, apply the same rules in CI, and read no telemetry control from committed workspace configuration.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent"],
@@ -72,7 +72,7 @@ const consentCases: readonly ConsentCase[] = [
     expected: "off",
   },
   {
-    label: "an unrecognized operator value falls back to the default",
+    label: "an unrecognized operator value disables collection",
     telemetry: "sometimes",
     expected: "off",
   },

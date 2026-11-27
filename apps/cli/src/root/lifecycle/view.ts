@@ -1,7 +1,7 @@
 import type {
   ArchivalTransition,
   DeprecationTransition,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/schema";
 
 import { recordDoc, type Doc, type Field } from "../../screen/index.js";
 

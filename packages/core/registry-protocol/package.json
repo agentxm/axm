@@ -20,11 +20,6 @@
       "axm-source": "./src/unstable/publish/index.ts",
       "default": "./dist/src/unstable/publish/index.js"
     },
-    "./unstable/registry": {
-      "types": "./dist/src/unstable/registry/index.d.ts",
-      "axm-source": "./src/unstable/registry/index.ts",
-      "default": "./dist/src/unstable/registry/index.js"
-    },
     "./unstable/registry/discover-schema": {
       "types": "./dist/src/unstable/registry/discover-schema.d.ts",
       "axm-source": "./src/unstable/registry/discover-schema.ts",

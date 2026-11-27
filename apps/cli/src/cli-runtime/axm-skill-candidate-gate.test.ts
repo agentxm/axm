@@ -26,11 +26,11 @@ import {
   type RegistryExtensionManifest,
   type GetExtensionsByOwnerResponse,
 } from "@agentxm/registry-client";
+import { type VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import {
-  type VersionEntry,
   PUBLICATION_SET_CONTRACT,
   publicationSetDigest,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 

@@ -23,7 +23,7 @@ import * as RequestResolver from "effect/RequestResolver";
 import type { RegistryAuthorityContext } from "./registry-transport.js";
 import { RegistryRequestFailed, type RegistryClientFailure } from "./errors.js";
 import type { RegistryClient, GetExtensionIndexArgs } from "./client.js";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import * as Option from "effect/Option";
 
 /** Planning can inspect the same identity under several independent constraints. */

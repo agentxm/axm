@@ -4,7 +4,7 @@ import { chunksOf } from "effect/Array";
 import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as Option from "effect/Option";
 import type * as Config from "effect/Config";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 

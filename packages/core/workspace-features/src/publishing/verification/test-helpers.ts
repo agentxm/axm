@@ -54,7 +54,7 @@ import {
   RegistryContextTest,
   testRegistryUrl,
 } from "@agentxm/registry-client/testing";
-import { ExtensionIndexSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { ExtensionIndexSchema } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { decodeResolutionRequestBody } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 

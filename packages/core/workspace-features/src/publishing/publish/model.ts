@@ -48,7 +48,7 @@ import {
   normalizePublishInput,
   type ValidatedArchive,
 } from "@agentxm/extension-content";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import {
   collectKnowledgeBundleEntries,
   inspectKnowledgeEntries,

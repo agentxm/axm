@@ -20,7 +20,7 @@ import {
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationReason } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import type { DeprecationReplacementIntent } from "@agentxm/registry-protocol/unstable/registry";
+import type { DeprecationReplacementIntent } from "@agentxm/registry-protocol/unstable/registry/schema";
 
 import { parseExtensionReference } from "./retirement.js";
 import { selectedLifecycleRegistry } from "./registry.js";

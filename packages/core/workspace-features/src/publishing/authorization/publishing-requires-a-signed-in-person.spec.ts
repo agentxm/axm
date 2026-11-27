@@ -10,7 +10,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   publicationDescriptorDigest,
   publicationSetDigest,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 
 import {
   archiveContents,

@@ -35,7 +35,10 @@ import {
   type GetExtensionPackageArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
-import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import type {
+  ExtensionIndex,
+  VersionEntry,
+} from "@agentxm/registry-protocol/unstable/registry/schema";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
 import {

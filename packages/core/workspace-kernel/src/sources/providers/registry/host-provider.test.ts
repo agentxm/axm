@@ -38,9 +38,11 @@ import {
 import {
   type ExtensionIndex,
   type VersionEntry,
+} from "@agentxm/registry-protocol/unstable/registry/schema";
+import {
   PUBLICATION_SET_CONTRACT,
   publicationSetDigest,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { RegistryMcpServerRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";

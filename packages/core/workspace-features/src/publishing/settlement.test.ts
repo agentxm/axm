@@ -6,7 +6,7 @@ import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
 import { describe, expect, it } from "@effect/vitest";
 
-import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import {
   RegistryRequestFailed,
   type PublishExtensionArgs,

@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { RegistryClientFactory, RegistryOperationFailed } from "@agentxm/registry-client";
 import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 
 import { extensionName, exactVersion, handle, makeTestAxmSkillGate } from "../../test-helpers.js";

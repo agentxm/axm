@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { ArchivalTransitionSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { ArchivalTransitionSchema } from "@agentxm/registry-protocol/unstable/registry/schema";
 
 import { archive } from "../lifecycle/archival.js";
 import {

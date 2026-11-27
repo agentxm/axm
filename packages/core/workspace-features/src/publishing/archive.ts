@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { sha512Integrity } from "@agentxm/host-primitives";
-import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { validateArchive, type ValidatedArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";

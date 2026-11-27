@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import {
   ArchivalTransitionSchema,
   DeprecationTransitionSchema,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/schema";
 
 import { galleryModule } from "../../test-support/gallery/fixture.js";
 import { archivalDoc, deprecationDoc } from "./view.js";

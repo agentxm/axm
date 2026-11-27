@@ -20,7 +20,7 @@ import {
   type OperationJournalState,
 } from "@agentxm/workspace-kernel/operations";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
-import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry";
+import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 
 import {
   isPublishFailure,

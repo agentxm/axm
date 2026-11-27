@@ -9,7 +9,7 @@
 
 import type { OperationPrecondition } from "@agentxm/workspace-kernel/operations";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
-import type { PublicationVisibilityInput } from "@agentxm/registry-protocol/unstable/registry";
+import type { PublicationVisibilityInput } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import type { PublishExtensionArgs } from "@agentxm/registry-client";
 
 /** The authoritative preview facts one upload binds to. */

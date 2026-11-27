@@ -16,7 +16,7 @@ import type {
   FindOptions,
 } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { exactVersion, extensionName, handle, versionRange } from "./test-helpers.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {

@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { DeprecationTransitionSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { DeprecationTransitionSchema } from "@agentxm/registry-protocol/unstable/registry/schema";
 
 import { deprecate } from "../lifecycle/deprecation.js";
 import {

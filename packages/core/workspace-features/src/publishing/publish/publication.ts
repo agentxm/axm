@@ -41,8 +41,8 @@ import {
   type PublicationCandidateResult,
   type PublicationDescriptor,
   type PublicationVisibilityInput,
-  type VersionEntry,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
+import { type VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import {
   RegistryClientFactory,
   type RegistryClient,

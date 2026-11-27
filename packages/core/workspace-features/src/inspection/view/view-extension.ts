@@ -36,7 +36,7 @@ import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensi
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import { resolveIdentifier, type IdentifierResourceType } from "@agentxm/workspace-kernel/sources";
 import { RegistryClientFactory, RegistryContext } from "@agentxm/registry-client";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { SettingsReader, DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
 
 import { PublishedMetadataUnavailable } from "../errors.js";

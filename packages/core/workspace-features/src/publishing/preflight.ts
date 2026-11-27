@@ -7,7 +7,7 @@ import {
   type ExtensionConstraintInvariantFact,
   type PackDependencyReachability,
 } from "@agentxm/workspace-kernel/projection";
-import type { PublicationPackResult } from "@agentxm/registry-protocol/unstable/registry";
+import type { PublicationPackResult } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import type { RegistryClient, RegistryClientFailure } from "@agentxm/registry-client";
 import type { PublishableType } from "./publishable-types.js";
 import type { OperationRefused } from "@agentxm/workspace-kernel/operations";

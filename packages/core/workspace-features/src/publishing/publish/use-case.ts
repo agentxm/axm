@@ -41,7 +41,7 @@ import {
   PreviewPublicationSetResponseSchema,
   type PreviewPublicationSetRequest,
   type PreviewPublicationSetResponse,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import {
   RegistryClientFactory,
   RegistryContext,

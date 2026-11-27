@@ -26,7 +26,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { sha512Integrity } from "@agentxm/host-primitives";
 
-import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import type {
+  ExtensionIndex,
+  VersionEntry,
+} from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { ConfiguredSourceHost } from "./workspace-catalog.js";
 import {

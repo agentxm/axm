@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { rebuildDistributionDigest } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 import { archiveContents } from "../test-helpers.js";

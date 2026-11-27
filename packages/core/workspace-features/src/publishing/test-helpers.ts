@@ -69,7 +69,7 @@ import {
   publicationDescriptorDigest,
   publicationSetDigest,
   type PreviewPublicationSetRequest,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import {
   applyPlanExecution,
   previewPlanExecution,

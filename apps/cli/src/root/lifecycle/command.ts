@@ -28,7 +28,7 @@ import {
 import {
   type ArchivalTransition,
   type DeprecationTransition,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/schema";
 import { failureToAppError } from "../../app-error/conversions.js";
 
 import { withRuntime } from "../../runtime.js";

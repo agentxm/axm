@@ -83,7 +83,6 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@agentxm/extension-type-parity": "workspace:*",
     "@agentxm/test-reporting": "workspace:*",
     "@agentxm/test-support": "workspace:^",
     "@effect/openapi-generator": "catalog:",

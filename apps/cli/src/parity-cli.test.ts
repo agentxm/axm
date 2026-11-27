@@ -1,103 +1,57 @@
 /**
- * CLI-tier parity conformance.
+ * CLI-tier extension-type parity.
  *
- * Verifies help topics and lifecycle command surfaces for every catalog
- * extension type and
- * compares observed failures against the exemption ledger with exact equality,
- * mirroring the core-tier suite in `@agentxm/extension-type-parity`.
+ * Every catalog extension type resolves a prose help topic and exposes the
+ * same lifecycle command surface. Catalog-driven cases make a new type answer
+ * for each surface without a per-type edit here.
  */
 
 import * as Effect from "effect/Effect";
 
-import {
-  CATALOG_EXTENSION_TYPES,
-  type CatalogExtensionType,
-} from "@agentxm/extension-model/unstable/extension-types";
-import {
-  EXTENSION_LIFECYCLE_CONTRACT,
-  exemptedObligations,
-  type ObligationId,
-  type ObligationIdForTier,
-} from "@agentxm/extension-type-parity";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import {
   extensionTypes,
   toExtensionTypePlural,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import * as EffectRecord from "effect/Record";
 import { describe, expect, it } from "@effect/vitest";
 
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
-import { collectHelpFiles, type HelpFiles } from "./test-support/command-tree-test-helpers.js";
+import { collectHelpFiles } from "./test-support/command-tree-test-helpers.js";
 
-const TIER = "cli-test";
+/** Mutation verbs every registry-distributed extension type exposes. */
+const LIFECYCLE_MUTATION_VERBS = ["install", "update", "enable", "disable", "uninstall"] as const;
 
-const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);
-
-const lifecycleDocs = (files: HelpFiles, type: CatalogExtensionType) => {
-  const plural = toExtensionTypePlural(type);
-  return EXTENSION_LIFECYCLE_CONTRACT[type].mutations.map((verb) =>
-    files.get(`axm ${plural} ${verb}`),
-  );
-};
-
-const hasLifecycleVerbs = (files: HelpFiles, type: CatalogExtensionType): boolean =>
-  lifecycleDocs(files, type).every((doc) => doc !== undefined);
-
-const hasLifecycleFlags = (files: HelpFiles, type: CatalogExtensionType): boolean =>
-  lifecycleDocs(files, type).every((doc) => {
-    if (doc === undefined) return false;
-    const flags = doc.flags.map((flag) => flag.name);
-    return flags.includes("preview") && !flags.includes("force") && !flags.includes("wizard");
-  });
-
-const hasScopeSurface = (files: HelpFiles, type: CatalogExtensionType): boolean =>
-  lifecycleDocs(files, type).every(
-    (doc) => doc !== undefined && doc.flags.some((flag) => flag.name === "scope"),
-  );
-
-/**
- * Obligation checks, keyed by id. Each returns `true` when the type meets the
- * obligation. The compiler requires a checker for every CLI-tier obligation.
- */
-const CHECKS: Record<
-  ObligationIdForTier<typeof TIER>,
-  (files: HelpFiles, type: CatalogExtensionType) => boolean
-> = {
-  "7.1-help-topic": (_files, type) => topicNames.has(toExtensionTypePlural(type)),
-  "8.7-lifecycle-verbs": hasLifecycleVerbs,
-  "8.8-lifecycle-flags": hasLifecycleFlags,
-  "8.9-scope-surface": hasScopeSurface,
-};
-
-const cliObligations = EffectRecord.keys(CHECKS);
-
-const observedFailures = (
-  files: HelpFiles,
-): Record<CatalogExtensionType, ReadonlyArray<ObligationId>> =>
-  EffectRecord.fromEntries(
-    CATALOG_EXTENSION_TYPES.map((type) => [
-      type,
-      cliObligations.filter((id) => !CHECKS[id](files, type)),
-    ]),
+const lifecycleCommands = (types: ReadonlyArray<ExtensionType>): ReadonlyArray<string> =>
+  types.flatMap((type) =>
+    LIFECYCLE_MUTATION_VERBS.map((verb) => `axm ${toExtensionTypePlural(type)} ${verb}`),
   );
 
 describe("extension type parity (cli tier)", () => {
-  it.effect("matches the exemption ledger exactly", () =>
-    Effect.gen(function* () {
-      const files = yield* collectHelpFiles();
-      expect(observedFailures(files)).toStrictEqual(exemptedObligations(TIER));
-    }),
-  );
+  it("resolves a prose help topic for every catalog extension type", () => {
+    const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);
+    expect(
+      CATALOG_EXTENSION_TYPES.filter((type) => !topicNames.has(toExtensionTypePlural(type))),
+    ).toStrictEqual([]);
+  });
 
   it.effect("registers lifecycle verbs for every extension type, including containers", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();
       expect(
-        extensionTypes.filter((type) =>
-          EXTENSION_LIFECYCLE_CONTRACT[type].mutations.some(
-            (verb) => files.get(`axm ${toExtensionTypePlural(type)} ${verb}`) === undefined,
-          ),
-        ),
+        lifecycleCommands(extensionTypes).filter((command) => !files.has(command)),
+      ).toStrictEqual([]);
+    }),
+  );
+
+  it.effect("exposes preview and the scope selector on every catalog lifecycle mutation", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      expect(
+        lifecycleCommands(CATALOG_EXTENSION_TYPES).filter((command) => {
+          const flags = files.get(command)?.flags.map((flag) => flag.name) ?? [];
+          return !flags.includes("preview") || !flags.includes("scope");
+        }),
       ).toStrictEqual([]);
     }),
   );

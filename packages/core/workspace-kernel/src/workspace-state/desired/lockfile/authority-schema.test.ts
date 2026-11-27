@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types/schema";
 import {
   LOCK_ENTRY_SCHEMA_BY_TYPE,
   LOCKFILE_VERSION,
@@ -21,6 +22,42 @@ describe("authoritative external-resolution lockfile", () => {
   it("defines a lock-entry schema for every installable extension type", () => {
     expect(Object.keys(LOCK_ENTRY_SCHEMA_BY_TYPE)).toEqual(installableExtensionTypes);
   });
+
+  // Every catalog type shares the registry and Git accepted-resolution shapes.
+  // `onExcessProperty: "error"` keeps an obsolete receipt field from being
+  // silently dropped and passing as accepted.
+  it.each(CATALOG_EXTENSION_TYPES)(
+    "requires accepted resolution for registry and Git %s lock entries",
+    (type) => {
+      const decode = Schema.decodeUnknownSync(LOCK_ENTRY_SCHEMA_BY_TYPE[type]);
+      const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
+      const registry = {
+        source: { type: "registry", url: "https://registry.agentxm.ai" },
+        identity: { owner: "@acme", name: "example" },
+        resolved: {
+          version: "1.0.0",
+          integrity: `sha512-${"A".repeat(86)}==`,
+          publisherBindingId: "hbnd_test",
+        },
+        treeIntegrity,
+      };
+      const git = {
+        source: { type: "git", url: "https://github.com/acme/example.git", revision: "main" },
+        identity: { owner: "@acme", name: "example" },
+        resolved: { commit: "a".repeat(40), tree: "b".repeat(40) },
+        treeIntegrity,
+      };
+
+      expect(() => decode(registry, { onExcessProperty: "error" })).not.toThrow();
+      expect(() => decode(git, { onExcessProperty: "error" })).not.toThrow();
+      expect(() =>
+        decode({ ...registry, resolved: { version: "1.0.0" } }, { onExcessProperty: "error" }),
+      ).toThrow();
+      expect(() =>
+        decode({ ...git, resolved: { tree: "b".repeat(40) } }, { onExcessProperty: "error" }),
+      ).toThrow();
+    },
+  );
 
   it("uses a clean-cut schema version", () => {
     expect(LOCKFILE_VERSION).toBe(1);

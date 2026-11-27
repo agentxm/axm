@@ -370,9 +370,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.3
     devDependencies:
-      '@agentxm/extension-type-parity':
-        specifier: workspace:*
-        version: link:../../tools/extension-type-parity
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../tools/test-reporting
@@ -993,34 +990,6 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../test-reporting
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(vite@8.3.7(@types/node@24.19.2)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.1))
-
-  tools/extension-type-parity:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../../packages/core/extension-model
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.3
-    devDependencies:
-      '@agentxm/test-reporting':
-        specifier: workspace:*
-        version: link:../test-reporting
-      '@agentxm/workspace-kernel':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-kernel
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      prettier:
-        specifier: 'catalog:'
-        version: 3.9.10
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(vite@8.3.7(@types/node@24.19.2)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.1))

@@ -43,9 +43,8 @@ export const executionBinding = {
 
 /**
  * Install surfaces come from the generated extension-type matrix, so the suite
- * has a row per extension type whether or not that type is covered yet. A new
- * type appears here as a new row and has to be answered for — either with a
- * publisher below or with a ledger row naming the obligation it is missing.
+ * has a row per extension type. A new type appears here as a new row and has to
+ * be answered for with a publisher below.
  */
 type InstallSurface = ExtensionTypeMatrixRow["plural"];
 type SettingsKey = Exclude<InstallSurface, "mcps"> | "mcpServers";
@@ -424,13 +423,11 @@ const expectConfiguredEntriesInstalled = (
 };
 
 /**
- * Publish helper per extension type, or `null` where no publish-then-install
- * round trip exists yet. Keyed by the generated union, so a new extension type
- * fails compile here until its coverage is decided; a `null` entry must be
- * matched by a `6.1-e2e-install-row` ledger row, which the guard tests below
- * check in both directions.
+ * Publish helper per extension type. Keyed by the generated union, so a new
+ * extension type fails compile here until its publish-then-install round trip
+ * exists.
  */
-const PUBLISHERS = {
+const PUBLISHERS: Record<MatrixExtensionType, Publisher> = {
   skill: publishSkillToRegistry,
   subagent: publishSubagentToRegistry,
   "mcp-server": publishMcpServerToRegistry,
@@ -438,17 +435,6 @@ const PUBLISHERS = {
   hook: publishScaffoldedToRegistry("hooks"),
   knowledge: publishScaffoldedToRegistry("knowledge"),
   rule: publishScaffoldedToRegistry("rules"),
-} as const satisfies Record<MatrixExtensionType, Publisher | null>;
-
-const installCases = EXTENSION_TYPE_MATRIX.filter((row) => PUBLISHERS[row.type] !== null);
-const uncoveredCases = EXTENSION_TYPE_MATRIX.filter((row) => PUBLISHERS[row.type] === null);
-
-const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
-  const publish = PUBLISHERS[row.type];
-  if (publish === null) {
-    throw new Error(`no publisher registered for ${row.type}`);
-  }
-  return publish;
 };
 
 // A release-age evaluation reports the wall-clock instant it was made; parity
@@ -513,28 +499,16 @@ const expectCleanWorkspace = async (workspacePath: string, context: string): Pro
 };
 
 describe("axm install", () => {
-  it("classifies every extension type as covered or ledgered", () => {
-    // A type with neither a publisher nor a ledger row would silently vanish
-    // from this suite.
-    expect(uncoveredCases.filter((row) => row.e2eExemptions.length === 0)).toStrictEqual([]);
-  });
-
-  it("carries no ledger row for a type this suite covers", () => {
-    // The other direction: coverage that lands without clearing its ledger row
-    // leaves stale debt behind.
-    expect(installCases.filter((row) => row.e2eExemptions.length > 0)).toStrictEqual([]);
-  });
-
   it("moves every leaf type through one atomic pack graph", async () => {
     const registryDir = createTempDir("axm-registry-");
     const workspace = createTempDir();
-    const leafRows = installCases.filter((row) => row.type !== "pack");
+    const leafRows = EXTENSION_TYPE_MATRIX.filter((row) => row.type !== "pack");
     const packName = "all-leaves";
     const memberName = (row: ExtensionTypeMatrixRow): string => `pack-${row.type}`;
 
     try {
       for (const row of leafRows) {
-        await publisherFor(row)(registryDir.path, memberName(row));
+        await PUBLISHERS[row.type](registryDir.path, memberName(row));
       }
       await publishPackToRegistry(registryDir.path, packName, {
         dependencies: Object.fromEntries(
@@ -691,17 +665,11 @@ describe("axm install", () => {
     }
   }, 300_000);
 
-  for (const row of uncoveredCases) {
-    it.skip(`installs a published ${row.sentenceLabel} — ${row.e2eExemptions.join(", ")}`, () => {
-      // Skipped until the ledgered obligation clears; the title names it.
-    });
-  }
-
-  it.each(installCases)(
+  it.each(EXTENSION_TYPE_MATRIX)(
     "matches $plural install output and workspace state for $label registry FQNs",
     async (row) => {
       const surface = row.plural;
-      const publishToRegistry = publisherFor(row);
+      const publishToRegistry = PUBLISHERS[row.type];
       const registryDir = createTempDir("axm-registry-");
       const rootWorkspace = createTempDir();
       const surfaceWorkspace = createTempDir();
@@ -863,11 +831,11 @@ describe("axm install", () => {
     }
   });
 
-  it.each(installCases)(
+  it.each(EXTENSION_TYPE_MATRIX)(
     "requires an explicit source for $plural install and preserves configured state",
     async (row) => {
       const surface = row.plural;
-      const publishToRegistry = publisherFor(row);
+      const publishToRegistry = PUBLISHERS[row.type];
       const registryDir = createTempDir("axm-registry-");
       const workspace = createTempDir();
       const names = [

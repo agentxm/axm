@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
-import { COMMAND_ROUTE_ALLOCATION } from "../../test-support/command-routes.js";
 import { toJsonHelpDoc } from "../../cli-runtime/index.js";
 import {
   makeCanonicalRequirementValidator,
@@ -47,9 +46,6 @@ describe("Command inventory navigation", () => {
       if (rootHelp === undefined) throw new Error("Missing root command help");
       const root = toJsonHelpDoc(rootHelp);
       const routes = Object.keys(inventory.routes);
-      expect([...routes].sort()).toEqual(
-        COMMAND_ROUTE_ALLOCATION.map((entry) => entry.path.join(" ")).sort(),
-      );
       expect([...documents.keys()].sort()).toEqual(routes.map(routeName).sort());
       for (const route of routes) expect(route).toMatch(/^(?:[a-z0-9-]+(?: [a-z0-9-]+)*)?$/u);
       const globalNames = (root.globalFlags ?? []).map((flag) => flag.name);

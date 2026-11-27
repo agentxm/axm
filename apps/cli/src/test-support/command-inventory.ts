@@ -78,12 +78,21 @@ const CommandInventorySchema = Schema.Struct({
   ),
 });
 
-export const readCommandInventory = () => {
-  const value: unknown = JSON.parse(
+const inventoryDocument = (): unknown =>
+  JSON.parse(
     fs.readFileSync(new URL("./command-behavior-allocation.json", import.meta.url), "utf8"),
   );
-  return Schema.decodeUnknownEffect(CommandInventorySchema, { onExcessProperty: "error" })(value);
-};
+
+export const readCommandInventory = () =>
+  Schema.decodeUnknownEffect(CommandInventorySchema, { onExcessProperty: "error" })(
+    inventoryDocument(),
+  );
+
+/** Decodes synchronously for route tables that specifications build at module scope. */
+export const loadCommandInventory = () =>
+  Schema.decodeUnknownSync(CommandInventorySchema, { onExcessProperty: "error" })(
+    inventoryDocument(),
+  );
 
 /** Static identity extraction does not import or execute a specification file. */
 const declaredIdentity = (source: ts.SourceFile): string | undefined => {

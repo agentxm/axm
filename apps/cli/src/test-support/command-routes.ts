@@ -1,16 +1,16 @@
 /**
- * The accepted interaction allocation for every registered command route.
+ * The interaction allocation for every command route, derived from the
+ * command inventory in `command-behavior-allocation.json`.
  *
- * This table is the independent inventory the architecture gate compares the
- * registered command tree against: a route the tree registers but the table
- * omits, or the reverse, fails the gate, and a route whose declaration or
- * parsed flags disagree with its row fails too. Rows state which routes offer
- * assessment (`--preview`) and which offer preapproval (`--yes`); the purpose
+ * A route offers assessment when its inventory row records `--preview` and
+ * preapproval when it records `--yes`. The inventory is maintained apart from
+ * the registered command tree, and its test compares every route and rendered
+ * flag with that tree, so these views do not depend on production. The purpose
  * fixtures elsewhere demonstrate the preapproval effect, and every preview
- * route owns a `preview-is-pure` obligation — declared by a specification of
- * its own, or by the successor the disposition ledger names once a
- * consolidation absorbed it.
+ * route owns a `preview-is-pure` obligation, declared by a specification of
+ * its own or by a successor whose `supersedes` names it.
  */
+import { loadCommandInventory } from "./command-inventory.js";
 
 export interface CommandRouteAllocation {
   readonly path: ReadonlyArray<string>;
@@ -18,137 +18,16 @@ export interface CommandRouteAllocation {
   readonly preapproval: boolean;
 }
 
-const route = (
-  spelling: string,
-  options: { readonly preview?: boolean; readonly preapproval?: boolean } = {},
-): CommandRouteAllocation => ({
-  path: spelling === "" ? [] : spelling.split(" "),
-  preview: options.preview ?? false,
-  preapproval: options.preapproval ?? false,
+export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = Object.entries(
+  loadCommandInventory().routes,
+).map(([spelling, row]) => {
+  const flags = new Set(row.flags.map((flag) => flag.name));
+  return {
+    path: spelling === "" ? [] : spelling.split(" "),
+    preview: flags.has("preview"),
+    preapproval: flags.has("yes"),
+  };
 });
-
-const previewable = (spelling: string) => route(spelling, { preview: true });
-
-const typeLifecycle = (group: string): ReadonlyArray<CommandRouteAllocation> => [
-  route(group),
-  previewable(`${group} install`),
-  previewable(`${group} uninstall`),
-  route(`${group} list`),
-  route(`${group} show`),
-  route(`${group} check`),
-  previewable(`${group} update`),
-  previewable(`${group} new`),
-  previewable(`${group} enable`),
-  previewable(`${group} disable`),
-  previewable(`${group} publish`),
-];
-
-export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
-  route(""),
-  // Root extension lifecycle, authoring, and publication
-  previewable("publish"),
-  previewable("fork"),
-  previewable("adopt"),
-  route("demote", { preview: true, preapproval: true }),
-  previewable("install"),
-  previewable("update"),
-  previewable("uninstall"),
-  previewable("enable"),
-  previewable("disable"),
-  previewable("migrate"),
-  route("list"),
-  route("show"),
-  route("check"),
-  route("view"),
-  route("verify"),
-  route("visibility"),
-  route("visibility status"),
-  route("visibility set"),
-  route("visibility reconcile"),
-  previewable("version"),
-  route("yank"),
-  route("unyank"),
-  route("deprecate"),
-  route("undeprecate"),
-  route("archive"),
-  route("unarchive"),
-  // Workspace
-  route("lock"),
-  route("lock export"),
-  previewable("sync"),
-  route("agents"),
-  route("agents list"),
-  previewable("agents add"),
-  previewable("agents remove"),
-  route("agents capabilities"),
-  route("instructions"),
-  route("instructions status"),
-  previewable("instructions adopt"),
-  previewable("instructions enable"),
-  previewable("instructions disable"),
-  previewable("lint"),
-  route("diagnostics"),
-  route("diagnostics show"),
-  route("diagnostics export"),
-  route("cache"),
-  route("cache status"),
-  route("cache verify"),
-  route("cache prune"),
-  previewable("upgrade"),
-  // Auth
-  route("login", { preapproval: true }),
-  route("logout"),
-  route("whoami"),
-  route("token"),
-  route("token show"),
-  route("token create"),
-  route("token list"),
-  route("token revoke"),
-  // Getting started
-  route("setup", { preview: true, preapproval: true }),
-  route("discover"),
-  route("share"),
-  route("help"),
-  route("schema"),
-  // Type command groups
-  ...typeLifecycle("skills"),
-  previewable("skills import"),
-  previewable("skills handoff"),
-  ...typeLifecycle("mcps"),
-  previewable("mcps add"),
-  previewable("mcps adopt"),
-  previewable("mcps import"),
-  ...typeLifecycle("subagents"),
-  previewable("subagents import"),
-  ...typeLifecycle("hooks"),
-  previewable("hooks configure"),
-  previewable("hooks import"),
-  previewable("hooks export"),
-  route("hooks test"),
-  ...typeLifecycle("rules"),
-  ...typeLifecycle("knowledge"),
-  route("knowledge concepts"),
-  route("knowledge concepts resolve"),
-  route("knowledge concepts query"),
-  route("knowledge concepts get"),
-  route("knowledge concepts related"),
-  route("knowledge concepts capabilities"),
-  route("knowledge lint"),
-  route("packs"),
-  route("packs list"),
-  previewable("packs enable"),
-  previewable("packs disable"),
-  previewable("packs install"),
-  previewable("packs uninstall"),
-  previewable("packs new"),
-  previewable("packs add"),
-  previewable("packs remove"),
-  route("packs show"),
-  route("packs check"),
-  previewable("packs publish"),
-  previewable("packs unpack"),
-  previewable("packs update"),
-];
 
 export const formatRoute = (path: ReadonlyArray<string>): string =>
   path.length === 0 ? "axm" : `axm ${path.join(" ")}`;

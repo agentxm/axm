@@ -19,23 +19,19 @@ import {
 
 /**
  * Every registered command node declares its interaction capabilities, the
- * declared routes are exactly the accepted allocation, each declaration
- * agrees with its row and with the flags its rendered help lists, every
- * assessment route owns a preview-purity specification, and every
- * advance-approval route has a purpose fixture.
+ * declared routes are exactly the command inventory's routes, each declaration
+ * agrees with the flags its rendered help lists, every assessment route owns a
+ * preview-purity specification, and every advance-approval route has a
+ * purpose fixture.
  *
  * Supersedes the retired specification identity
  * `system/architecture/every-command-declares-interaction-capabilities`
- * (see `specifications/disposition-ledger.json`): the allocation table is an
- * inventory of the command tree with no standing outside the maintainers.
+ * (see `specifications/disposition-ledger.json`): the command inventory is a
+ * table of the command tree with no standing outside the maintainers.
  */
 
 const PURPOSE_IDENTITY = "cli/confirmation-flags-have-a-supported-purpose";
 const REQUIREMENT_LITERAL = /requirement:\s*"([^"]+)"/u;
-
-const allocationBySpelling = new Map(
-  COMMAND_ROUTE_ALLOCATION.map((route) => [formatRoute(route.path), route] as const),
-);
 
 const registered = registeredCommandCapabilities(rootCommand);
 
@@ -48,29 +44,10 @@ describe("Command interaction capability declarations", () => {
     expect(registered.length).toBeGreaterThan(100);
   });
 
-  it("the registered tree and the accepted allocation name the same routes", () => {
+  it("the registered tree and the command inventory name the same routes", () => {
     const registeredSpellings = registered.map((entry) => formatRoute(entry.path)).sort();
-    const allocated = [...allocationBySpelling.keys()].sort();
+    const allocated = COMMAND_ROUTE_ALLOCATION.map((route) => formatRoute(route.path)).sort();
     expect(registeredSpellings).toEqual(allocated);
-  });
-
-  it("each declaration agrees with its allocation row", () => {
-    const disagreements: Array<string> = [];
-    for (const entry of registered) {
-      const spelling = formatRoute(entry.path);
-      const row = allocationBySpelling.get(spelling);
-      const capabilities = entry.capabilities;
-      if (row === undefined || capabilities === undefined) continue;
-      if (capabilities.preview !== row.preview) {
-        disagreements.push(`${spelling}: declares preview ${capabilities.preview}`);
-      }
-      if ((capabilities.preapproval !== null) !== row.preapproval) {
-        disagreements.push(
-          `${spelling}: declares preapproval ${capabilities.preapproval !== null}`,
-        );
-      }
-    }
-    expect(disagreements).toEqual([]);
   });
 
   it.effect("rendered help lists exactly the flags each declaration names", () =>
@@ -112,8 +89,8 @@ describe("Command interaction capability declarations", () => {
       // The obligation is that the identity is owned exactly once. A
       // specification is authored beside the source it binds, so the file may
       // live under `specifications/` or in its owning package; and an identity
-      // a consolidation retired is owned by the successor the disposition
-      // ledger names.
+      // a consolidation retired is owned by the successor whose `supersedes`
+      // names it.
       const owner = owningSpecification(identity);
       if (owner === undefined) {
         missing.push(`${formatRoute(route.path)}: no specification declares ${identity}`);

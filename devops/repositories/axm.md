@@ -41,8 +41,7 @@ separately operated AgentXM systems.
   the official skill, stable recovery, and exceptional bootstrap prereleases.
 - Install/uninstall regression evidence lives in the owning specifications and
   [root install](../../apps/cli-e2e/src/root-install.e2e.test.ts) and
-  [root uninstall](../../apps/cli-e2e/src/root-uninstall.e2e.test.ts) E2E files;
-  these replace discovery through the retired manual smoke guide.
+  [root uninstall](../../apps/cli-e2e/src/root-uninstall.e2e.test.ts) E2E files.
 
 ## Governance and lifecycle
 
@@ -75,25 +74,3 @@ the [adoption declaration](../README.md). Repository maintainers operate the con
 Review this record when the remote, ownership, repository layout, contribution
 gates, Actions permissions, runner trust boundary, or distribution model
 changes.
-
-## Documentation migration history
-
-The 2026-09-11 adoption moved operational meaning into `devops/`. Git preserves
-prior versions; these paths explain older links and evidence, not aliases.
-
-| Former path or section                                           | Canonical home / disposition                                                                                                                                                           |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `contributing/guides/releasing.md`, except local previews        | [Release the CLI](../runbooks/release-cli.md)                                                                                                                                          |
-| Its Local Preview Publish section                                | Retired: bootstrap prereleases are now an explicit mode of the canonical [release workflow](../runbooks/release-cli.md#bootstrap-prerelease), and working-tree publication is removed. |
-| `contributing/guides/automated-pull-request-review.md`           | [Automated PR review](../playbooks/automated-pr-review.md)                                                                                                                             |
-| `contributing/guides/development-environment.md`: native context | [Native development](../environments/native-development.md)                                                                                                                            |
-| Its container/cache model                                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
-| Its native Windows and platform boundaries                       | [Native platform CI](../environments/native-platform-ci.md)                                                                                                                            |
-| Its source-CLI and Linux reproduction procedures                 | [Source CLI](../runbooks/run-source-cli.md), [Linux CI reproduction](../runbooks/reproduce-linux-ci.md); image upgrades retired with native CI.                                        |
-| `containers/ci/README.md`: image contract and retention          | Retired with the custom image; native execution is described in [Linux CI](../environments/linux-ci.md).                                                                               |
-| Its cache persistence and recovery detail                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
-| `docs/guides/smoke-testing-guide.md`                             | Retired without successor: install/uninstall checks duplicate the executable journeys linked above; custom-registry setup and lockfile-version-6 expectations were stale.              |
-
-Architecture, the task-interface binding, specification admission, authentication
-implementation guidance, and Effect implementation guidance retain their
-canonical locations and distinct reader purposes.

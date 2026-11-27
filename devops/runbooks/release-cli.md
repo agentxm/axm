@@ -130,10 +130,9 @@ GitHub access blocked. Retain the workflow run and verification evidence.
 The first R2 production exercise on 2026-10-06 verified the complete
 [`0.41.0` manifest](https://releases.axm.sh/cli-v0.41.0/release.json), all 22 asset
 hashes, cache behavior, and default and exact-version Linux installation with
-downloads restricted to `releases.axm.sh`. The
-[initial publication run](https://github.com/agentxm/axm/actions/runs/37413688101)
-completed R2 and npm publication but failed at Homebrew; this R2 evidence does
-not establish completion of the remaining release channels or installer matrix.
+downloads restricted to `releases.axm.sh`; the
+[publication run](https://github.com/agentxm/axm/actions/runs/37413688101)
+retains that evidence.
 
 ## Release Flow
 
@@ -470,9 +469,8 @@ the [adoption declaration](../README.md). The authorized release maintainer perf
 
 Review this record when release entrypoints, cohort rules, publication gates, credentials, distribution channels, or recovery semantics change.
 
-The production distribution section records the first R2 exercise and its
-verification limits. Document status does not establish execution authority
-or readiness of an unverified release channel.
+Document status does not establish execution authority or readiness of an
+unverified release channel.
 
 Migration source: [pre-migration repository guidance][migration-source].
 

@@ -32,6 +32,6 @@ Architecture, specifications, implementation guidance, and the repository task
 interface retain their existing authority outside this record scope.
 
 Local choices: repository-facing relative links support GitHub and editor use;
-Git owns history, so no separate `log.md` is maintained. The
-[repository record](repositories/axm.md) records migration history. Changes to
+Git owns history, including paths the adoption moved, so no separate `log.md`
+or migration table is maintained. Changes to
 profile version, scope, or maintenance authority require revisiting this declaration.

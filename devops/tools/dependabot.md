@@ -83,34 +83,14 @@ for a reviewed release that must land inside the window, and remove it once
 that release is past the window. `check:ci-toolchain` rejects an exclusion or
 `allowBuilds` entry the lockfile no longer holds.
 
-## Activation and operational evidence
+## Activation and operation
 
 Version updates become active when the configuration reaches `main`.
 Repository administrators must also ensure the dependency graph, Dependabot
 alerts, and security updates are enabled. These are separate repository
 settings, not effects of writing the configuration.[^security]
 
-On 2026-09-28, readback confirmed vulnerability alerts and Dependabot security
-updates enabled after the grouped configuration merged through the queue.
-GitHub started native update jobs from that main revision, including the
-[npm job](https://github.com/agentxm/axm/actions/runs/36443579775).
-That job opened [one weekly npm proposal with 162 updates](https://github.com/agentxm/axm/pull/467),
-and GitHub closed the three earlier individual npm proposals. The job reported
-four failed indirect Babel updates: pnpm rejected a pinned version for packages
-that are not direct dependencies (`ERR_PNPM_UPDATE_VERSION_ON_INDIRECT_DEP`).
-Routine updates now select direct manifest dependencies to avoid that work;
-their transitive lockfile changes remain part of the resulting proposal. GitHub
-closed the initial proposal and opened a [replacement group with 13 updates](https://github.com/agentxm/axm/pull/472).
-Both proposals' first CI runs failed because `allure-vitest` resolved
-`@vitest/runner` 4.1.11 alongside Vitest 5.0.1. The replacement proposal
-remains subject to the normal review and verification gates.
-
-Repository and organization Actions inventories
-checked on 2026-09-22 contained no `RENOVATE_*` secrets or variables, and the
-organization installation list contained no Renovate/Mend App. That older
-inventory does not establish current settings.
-
-For later configuration changes, read the repository settings back. Use
+For configuration changes, read the repository settings back. Use
 GitHub's Dependabot update-job history to inspect errors and link proposal
 evidence.[^jobs]
 Verify catalog/lockfile updates and workflow/composite-action updates through

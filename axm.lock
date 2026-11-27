@@ -170,14 +170,6 @@ publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:52096be31e6359c68df2f013e76ae4e9276c118f8a911fdb0353949dc4d554ef"
 
 [[package]]
-id = "registry.agentxm.ai/@craigsmitham/skills/spot-spew"
-source = { registry = "https://registry.agentxm.ai" }
-version = "0.2.2"
-archive = "sha512-Ub8MZVVvZ5F37cIg7qxovNhxyrePxQIJp4tIFAzjfa2PD1VytSN9MyfVSMqJXDkvZ2NvA/U0PWitcPW3MNfZRg=="
-publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:0b896026b2261b7ea39b478a3eb5f8bbd385dbe88ae77ef20bd1dfff9ed90aaf"
-
-[[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/stabilize"
 source = { registry = "https://registry.agentxm.ai" }
 version = "0.1.0"
@@ -197,7 +189,6 @@ prune = { package = "registry.agentxm.ai/@craigsmitham/skills/prune", name = "@c
 refresh = { package = "registry.agentxm.ai/@craigsmitham/skills/refresh", name = "@craigsmitham/skills/refresh" }
 research = { package = "registry.agentxm.ai/@craigsmitham/skills/research", name = "@craigsmitham/skills/research" }
 simplify = { package = "registry.agentxm.ai/@craigsmitham/skills/simplify", name = "@craigsmitham/skills/simplify" }
-spot-spew = { package = "registry.agentxm.ai/@craigsmitham/skills/spot-spew", name = "@craigsmitham/skills/spot-spew" }
 stabilize = { package = "registry.agentxm.ai/@craigsmitham/skills/stabilize", name = "@craigsmitham/skills/stabilize" }
 
 [rules]

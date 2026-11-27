@@ -67,64 +67,33 @@ For an explicit reproduction, set `NX_BASE` to the fetched full main SHA and
 Nx reuses only input-bound cacheable results. Do not add a separate pass-stamp cache.
 A local hook is trusted-team feedback, not a server-side security boundary.
 
-## GitHub controls and cutover
+## GitHub controls
 
-The intended server policy is:
+The server policy for `main` is:
 
-- Retain linear history, force-push and deletion prohibitions, administrator
-  enforcement, and conversation resolution.
-- Remove the merge-queue requirement, required PR reviews (including the
-  zero-review PR requirement), and required status checks for main integration.
-- Disable automatic PR merging; retain rebase as the only PR merge method and
-  automatic deletion of merged branches. Maintainers integrate through the local
-  gate; prepared release candidates retain their release-runbook procedure.
-- Limit repository write access to trusted maintainers. External contributors
-  use forks and require maintainer acceptance. Do not grant broad write access
-  to make a handoff possible.
-- Keep release environments, publication credentials, and deployment gates.
+- Linear history, force-push and deletion prohibitions, administrator
+  enforcement, and conversation resolution apply.
+- No merge queue, required PR review, or required status check gates main
+  integration. The disabled queue ruleset `23123200` is retained for recovery.
+- Automatic PR merging is disabled; rebase is the only PR merge method, and
+  merged branches are deleted automatically. Maintainers integrate through the
+  local gate; prepared release candidates retain their release-runbook procedure.
+- Repository write access is limited to trusted maintainers. External
+  contributors use forks and require maintainer acceptance. Do not grant broad
+  write access to make a handoff possible.
+- Release environments, publication credentials, and deployment gates remain.
   A successful local integration does not replace their authorization.
 
-The cutover is ordered: first review the complete candidate and pass its local
-and hosted verification; land the workflow and hook changes using the existing
-protection; then remove the obsolete queue requirement and PR/status requirements.
-If the old queue cannot land a candidate that removes its trigger, temporarily
-remove only the queue rule and use the existing strict PR protection to land the
-already verified candidate. Disable auto-merge on outstanding PRs before the cutover. Read back all inherited rulesets, classic branch
-protection, repository permissions, and merge settings before and after applying.
-Do not delete the whole protection object. Keep the captured settings for recovery.
+When changing these settings, review the complete protection payload and
+preserve any additional restrictions. Read back
+`/repos/agentxm/axm/rules/branches/main`,
+`/repos/agentxm/axm/branches/main/protection`, and repository merge settings
+before and after the change. Do not delete the whole protection object or
+broaden credentials or permissions.
 
-Live readback on 2026-10-28 found only repository queue ruleset `23123200`
-applying to main, plus classic protection requiring PRs and `Required CI`.
-The collaborator list contained only `craigsmitham` with admin access. Rebase
-was the only enabled merge method; auto-merge and merged-branch deletion were on.
-These are pre-cutover observations, not a completed activation receipt.
-
-For the authorized settings cutover in `agentxm/axm`, make these bounded changes:
-
-| Setting                                                   | Desired value                                          |
-| --------------------------------------------------------- | ------------------------------------------------------ |
-| Queue ruleset `23123200`                                  | Disabled, with its previous JSON retained for recovery |
-| Classic `required_status_checks`                          | `null`                                                 |
-| Classic `required_pull_request_reviews`                   | `null`                                                 |
-| Classic `enforce_admins`                                  | `true`                                                 |
-| Classic `required_linear_history`                         | `true`                                                 |
-| Classic `required_conversation_resolution`                | `true`                                                 |
-| Classic `allow_force_pushes`, `allow_deletions`           | `false`                                                |
-| Repository `allow_auto_merge`                             | `false`                                                |
-| Repository `allow_rebase_merge`, `delete_branch_on_merge` | `true`                                                 |
-| Repository `allow_merge_commit`, `allow_squash_merge`     | `false`                                                |
-
-Use the existing GitHub administrative access; review the complete protection
-payload against the captured settings, preserving any additional restrictions.
-Read back `/repos/agentxm/axm/rules/branches/main`,
-`/repos/agentxm/axm/branches/main/protection`, and repository merge settings.
-The effective rules must contain no queue or required-check rule that contradicts
-this policy. Do not broaden credentials or permissions for this cutover.
-
-If qualification fails, stop the cutover and repair the candidate. If direct
-integration needs to be suspended, restore required PR/status checks; restore the
-old queue only together with a workflow that handles `merge_group` again. Never
-leave a required check with no event that can produce it.
+If direct integration needs to be suspended, restore required PR/status checks;
+restore the queue only together with a workflow that handles `merge_group`
+again. Never leave a required check with no event that can produce it.
 
 ## Evidence and maintenance
 
@@ -132,7 +101,5 @@ Retain candidate/base SHAs, verification results, the PR when used, main-push CI
 and GitHub setting readback. Hook fixtures exercise ordinary branch handoffs,
 main-ref dispatch, ordered source/E2E verification, stale/dirty candidates,
 post-E2E HEAD and output changes, and a real push whose failed E2E check leaves
-an isolated remote's main unchanged. Live direct-main operation under the new settings has
-not yet been exercised; merging this document does not assert that settings
-have been changed. Review this runbook when hooks, verification, access, or
+an isolated remote's main unchanged. Review this runbook when hooks, verification, access, or
 release qualification changes.

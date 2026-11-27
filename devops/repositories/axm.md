@@ -52,14 +52,9 @@ contribution and review policy. CODEOWNERS routes review; it does not establish
 provider administration or operational ownership.
 
 The [integration runbook](../runbooks/integrate-changes.md) owns local-first
-integration and GitHub cutover. The intended policy retains linear history,
-force-push/deletion prohibitions, and administrator enforcement, while removing
-required PR, queue, and status gates for trusted-maintainer integration.
-
-Readback on 2026-10-28, before this cutover, still found active queue ruleset
-`23123200` and classic protection requiring PRs and Actions-owned `Required CI`.
-Those observations describe the old live state, not proof of the new policy's
-activation. Preserve readback when applying the cutover.
+integration and the GitHub controls on main. Main retains linear history,
+force-push/deletion prohibitions, and administrator enforcement, with no
+required PR, queue, or status gates for trusted-maintainer integration.
 
 Actions are enabled for all actions and default workflow permissions are
 read-only. This repository permits Actions to create and approve pull requests

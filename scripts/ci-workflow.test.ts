@@ -5,8 +5,9 @@
  *
  * Supersedes the retired specification identity
  * `system/process/merges-require-aggregate-verification`
- * (see `specifications/disposition-ledger.json`). Branch protection itself is
- * host-side; what the repository declares is this workflow shape.
+ * (see `specifications/disposition-ledger.json`). Main integration has no
+ * host-required status check; what the repository declares is this workflow
+ * shape.
  */
 
 import * as fs from "node:fs";

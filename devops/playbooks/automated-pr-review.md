@@ -56,7 +56,7 @@ owns their current automated-review implementation and operating procedure.
 | ----------------- | ---------------------- | -------------------- | ------------- |
 | Linux CI          | Every pull request     | GitHub-hosted runner | Required      |
 | Codex review      | Eligible pull requests | Codex managed review | Advisory      |
-| Maintainer review | Branch policy          | GitHub               | Authoritative |
+| Maintainer review | CODEOWNERS routing     | GitHub               | Authoritative |
 
 Native Codex review is the semantic reviewer and follows the root `AGENTS.md`
 guidance. Repository owners create/select the repository's Codex cloud

@@ -4,10 +4,10 @@
  *
  * Supersedes the retired specification identity
  * `system/process/changes-land-through-reviewed-pull-requests`
- * (see `specifications/disposition-ledger.json`). Pull-request review and
- * required checks are enforced by host-side branch protection, which no
- * repository-side check can observe; what the repository declares is this
- * ownership routing.
+ * (see `specifications/disposition-ledger.json`). Trusted maintainers
+ * integrate main through the local gate without a required pull request;
+ * what the repository declares is this ownership routing, which governs
+ * pull-request review.
  */
 
 import * as fs from "node:fs";

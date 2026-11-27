@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 /**
- * The merge queue rebases every pull-request commit onto `main` unchanged, so
- * each commit message is permanent public history. Joined at runtime so this
+ * Integration rebases every commit onto `main` unchanged, so each commit
+ * message is permanent public history. Joined at runtime so this
  * script never matches itself.
  */
 const PRIVATE_CONTEXT_MARKERS = [

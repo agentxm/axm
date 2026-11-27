@@ -7,14 +7,13 @@ import {
   AxmSupportSchema,
   AxmVerificationSchema,
   CatalogReviewSchema,
-  DocLinkSchema,
   HookMechanismFamilySchema,
   ScopeSchema,
-  UrlSchema,
   VendorStatusSchema,
   type Agent,
   type AgentExtensionCapability,
 } from "./schema.js";
+import { DocLinkSchema, UrlSchema } from "../extension-types/schema.js";
 import { agentCapabilityStatus, axmIntegrationStatus, isCapabilitySupported } from "./derive.js";
 
 export const AgentInstallabilitySchema = Schema.Struct({

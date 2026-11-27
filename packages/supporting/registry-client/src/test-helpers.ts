@@ -34,7 +34,10 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { PackageTypeSchema, type PackageType } from "@agentxm/extension-model/unstable/packaging";
+import {
+  PackageTypeSchema,
+  type PackageType,
+} from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   PackageUrlSchema,
   type PackageUrlParts,

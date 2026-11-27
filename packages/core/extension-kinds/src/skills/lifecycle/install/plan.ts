@@ -34,7 +34,7 @@ import {
   PackageUrlPartsSchema,
   formatPackageDisplay,
   type PackageUrlParts,
-} from "@agentxm/extension-model/unstable/packaging";
+} from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   operationPresentation,

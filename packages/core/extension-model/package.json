@@ -21,20 +21,10 @@
       "axm-source": "./src/unstable/agent-capabilities/index.ts",
       "default": "./dist/src/unstable/agent-capabilities/index.js"
     },
-    "./unstable/agent-capabilities/catalog": {
-      "types": "./dist/src/unstable/agent-capabilities/catalog.d.ts",
-      "axm-source": "./src/unstable/agent-capabilities/catalog.ts",
-      "default": "./dist/src/unstable/agent-capabilities/catalog.js"
-    },
     "./unstable/agent-capabilities/identity": {
       "types": "./dist/src/unstable/agent-capabilities/identity.d.ts",
       "axm-source": "./src/unstable/agent-capabilities/identity.ts",
       "default": "./dist/src/unstable/agent-capabilities/identity.js"
-    },
-    "./unstable/agent-capabilities/schema": {
-      "types": "./dist/src/unstable/agent-capabilities/schema.d.ts",
-      "axm-source": "./src/unstable/agent-capabilities/schema.ts",
-      "default": "./dist/src/unstable/agent-capabilities/schema.js"
     },
     "./unstable/agents/registry": {
       "types": "./dist/src/unstable/agents/registry.d.ts",
@@ -60,16 +50,6 @@
       "types": "./dist/src/unstable/extension-types/index.d.ts",
       "axm-source": "./src/unstable/extension-types/index.ts",
       "default": "./dist/src/unstable/extension-types/index.js"
-    },
-    "./unstable/extension-types/catalog": {
-      "types": "./dist/src/unstable/extension-types/catalog.d.ts",
-      "axm-source": "./src/unstable/extension-types/catalog.ts",
-      "default": "./dist/src/unstable/extension-types/catalog.js"
-    },
-    "./unstable/extension-types/derive": {
-      "types": "./dist/src/unstable/extension-types/derive.d.ts",
-      "axm-source": "./src/unstable/extension-types/derive.ts",
-      "default": "./dist/src/unstable/extension-types/derive.js"
     },
     "./unstable/extension-types/schema": {
       "types": "./dist/src/unstable/extension-types/schema.d.ts",
@@ -210,11 +190,6 @@
       "types": "./dist/src/unstable/package-urls/index.d.ts",
       "axm-source": "./src/unstable/package-urls/index.ts",
       "default": "./dist/src/unstable/package-urls/index.js"
-    },
-    "./unstable/packaging": {
-      "types": "./dist/src/unstable/packaging/index.d.ts",
-      "axm-source": "./src/unstable/packaging/index.ts",
-      "default": "./dist/src/unstable/packaging/index.js"
     },
     "./unstable/packaging/package-type": {
       "types": "./dist/src/unstable/packaging/package-type.d.ts",

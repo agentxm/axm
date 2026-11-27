@@ -21,7 +21,7 @@ import {
   extensionTypes,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { EXTENSION_TYPES_BY_ID } from "@agentxm/extension-model/unstable/extension-types/catalog";
+import { EXTENSION_TYPES_BY_ID } from "@agentxm/extension-model/unstable/extension-types";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types/schema";
 import {
   buildRegionBlocks,

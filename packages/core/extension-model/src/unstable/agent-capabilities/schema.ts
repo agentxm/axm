@@ -49,18 +49,6 @@ import {
 } from "../extension-types/schema.js";
 import { type PerAgentType } from "../extensions/common.js";
 
-export {
-  DocLinkSchema,
-  LEAF_EXTENSION_TYPES,
-  StandardSchema,
-  UrlSchema,
-  type DocLink,
-  type LeafExtensionType,
-  type Standard,
-  type Url,
-} from "../extension-types/schema.js";
-export { type PerAgentType } from "../extensions/common.js";
-
 const AGENT_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 
@@ -873,7 +861,7 @@ export const McpServersPathSchema = Schema.NonEmptyArray(Schema.NonEmptyString).
 export type McpServersPath = Schema.Schema.Type<typeof McpServersPathSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpTargetAttributionSchema = Schema.Literals(["shared", "agent"]).annotate({
+const McpTargetAttributionSchema = Schema.Literals(["shared", "agent"]).annotate({
   identifier: "McpTargetAttribution",
   title: "MCP Target Attribution",
   description:
@@ -902,7 +890,7 @@ export const McpConfigTargetSchema = Schema.Struct({
 export type McpConfigTarget = Schema.Schema.Type<typeof McpConfigTargetSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpTypeFieldValueMapSchema = Schema.Struct({
+const McpTypeFieldValueMapSchema = Schema.Struct({
   "streamable-http": Schema.NonEmptyString,
   sse: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
@@ -910,9 +898,6 @@ export const McpTypeFieldValueMapSchema = Schema.Struct({
   title: "MCP Type Field Value Map",
   description: "Agent discriminator values by upstream remote transport.",
 });
-
-/** @experimental This API is unstable and may change without notice. */
-export type McpTypeFieldValueMap = Schema.Schema.Type<typeof McpTypeFieldValueMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpTypeFieldRepresentationSchema = Schema.Struct({
@@ -974,7 +959,7 @@ export const McpActivationFieldSchema = Schema.Struct({
 export type McpActivationField = Schema.Schema.Type<typeof McpActivationFieldSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpStdioDialectSchema = Schema.Struct({
+const McpStdioDialectSchema = Schema.Struct({
   typeField: McpTypeFieldSchema,
   command: Schema.Literals(["split", "array"]),
   envKey: Schema.NullOr(Schema.NonEmptyString),
@@ -991,7 +976,7 @@ export const McpStdioDialectSchema = Schema.Struct({
 export type McpStdioDialect = Schema.Schema.Type<typeof McpStdioDialectSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpUrlKeyMapSchema = Schema.Struct({
+const McpUrlKeyMapSchema = Schema.Struct({
   "streamable-http": Schema.NonEmptyString,
   sse: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
@@ -1001,10 +986,7 @@ export const McpUrlKeyMapSchema = Schema.Struct({
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const McpRemoteDialectSchema = Schema.Struct({
+const McpRemoteDialectSchema = Schema.Struct({
   implicitTransport: Schema.optionalKey(Schema.Literal("http-or-sse")).annotate({
     description:
       "A documented URL-only remote entry selects HTTP or SSE through the endpoint, without an explicit transport discriminator.",
@@ -1038,7 +1020,7 @@ export const McpEntryDialectSchema = Schema.Struct({
 export type McpEntryDialect = Schema.Schema.Type<typeof McpEntryDialectSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpConfigSchema = Schema.Struct({
+const McpConfigSchema = Schema.Struct({
   locationIds: Schema.NonEmptyArray(Schema.NonEmptyString).check(Schema.isUnique()),
 }).annotate({
   identifier: "McpConfig",
@@ -1426,10 +1408,7 @@ export const HookEventMappingSchema = Schema.Struct({
 export type HookEventMapping = Schema.Schema.Type<typeof HookEventMappingSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksSerializerSchema = Schema.Literals([
-  "command-stdin",
-  "flat-command-stdin",
-]).annotate({
+const HooksSerializerSchema = Schema.Literals(["command-stdin", "flat-command-stdin"]).annotate({
   identifier: "HooksSerializer",
   title: "Hooks Serializer",
   description: "Native settings serializer AXM uses for managed hook declarations.",
@@ -1497,7 +1476,7 @@ export const HookEntryDialectSchema = Schema.Struct({
 export type HookEntryDialect = Schema.Schema.Type<typeof HookEntryDialectSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksWriterSchema = Schema.Struct({
+const HooksWriterSchema = Schema.Struct({
   locationIds: Schema.NonEmptyArray(Schema.NonEmptyString).check(Schema.isUnique()),
   eventMap: Schema.Literal("native.events"),
 }).annotate({
@@ -1593,9 +1572,6 @@ export const HooksExtensionCapabilitySchema = HooksExtensionCapabilityStruct.pip
   title: "Hooks Capability",
   description: "Agent support for lifecycle hook extensions.",
 });
-
-/** @experimental This API is unstable and may change without notice. */
-export type HooksExtensionCapability = Schema.Schema.Type<typeof HooksExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const PermissionGrammarSchema = Schema.Struct({

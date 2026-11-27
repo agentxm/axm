@@ -58,6 +58,7 @@ export {
   McpTypeFieldRepresentationSchema,
   McpTypeFieldSchema,
   McpTransportSchema,
+  McpConfigTargetSchema,
   McpServersPathSchema,
   NativeCapabilityBaseSchema,
   NativeReadLocationSchema,

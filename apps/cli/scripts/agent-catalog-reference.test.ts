@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
+import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 

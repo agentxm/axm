@@ -302,14 +302,15 @@ Clean-checkout verification must not rely on a previously populated package
 `axm:reconcile-github-release -- <prepare|publish> <tag> <sha>` owns exact draft
 GitHub Release creation and final publication with bounded state readback.
 `axm:publish-bootstrap-prerelease -- <sha> <workflow-run-id> [branch-ref]` owns
-immutable npm preview cohort publication. The canonical workflow permits an explicit current-main bootstrap
-or an exact branch-head preview after successful CI.
+immutable npm preview cohort publication. The canonical workflow permits an
+explicit current-main bootstrap or an exact branch-head preview after successful
+CI.
 
 `axm:distribute-release -- <version> <tag> <sha> [--preflight]` owns artifact,
-fixed-cohort npm and Homebrew publication. It depends on cohort builds, validates
-the release asset set and the exact npm cohort's deterministic packs, checks
-mutable owners before publication, verifies immutable reuse and readback, and
-reports superseded candidates explicitly.
+fixed-cohort npm and Homebrew publication. It depends on cohort builds,
+validates the release asset set and the exact npm cohort's deterministic packs,
+checks mutable owners before publication, verifies immutable reuse and readback,
+and reports superseded candidates explicitly.
 It preflights the complete cohort before the first write, submits each confirmed
 absent immutable coordinate once, and observes pending npm and Homebrew state
 concurrently under bounded total deadlines. Terminal authorization, metadata,

@@ -296,92 +296,97 @@ describe("aggregate required verification", () => {
     );
   });
 
-  it("keeps complete source coverage across independent verification partitions", () => {
-    // The two workflow matrices reuse the same selections. Resolve each native
-    // Nx selection once within this test rather than repeatedly starting Nx.
-    const selections = new Map<string | undefined, readonly string[]>();
-    const projectNames = (exclude?: string): readonly string[] => {
-      const selected = selections.get(exclude);
-      if (selected !== undefined) return selected;
-      const value: unknown = JSON.parse(
-        execFileSync(
-          "pnpm",
-          [
-            "exec",
-            "nx",
-            "show",
-            "projects",
-            "--json",
-            ...(exclude === undefined ? [] : [`--exclude=${exclude}`]),
-          ],
-          {
-            cwd: repoRoot,
-            encoding: "utf8",
-            env: {
-              ...process.env,
-              NX_TUI: "false",
-              NX_DEFAULT_OUTPUT_STYLE: "static",
-              NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+  it(
+    "keeps complete source coverage across independent verification partitions",
+    // Each distinct selection starts Nx, which alone can exceed the default deadline.
+    { timeout: 60_000 },
+    () => {
+      // The two workflow matrices reuse the same selections. Resolve each native
+      // Nx selection once within this test rather than repeatedly starting Nx.
+      const selections = new Map<string | undefined, readonly string[]>();
+      const projectNames = (exclude?: string): readonly string[] => {
+        const selected = selections.get(exclude);
+        if (selected !== undefined) return selected;
+        const value: unknown = JSON.parse(
+          execFileSync(
+            "pnpm",
+            [
+              "exec",
+              "nx",
+              "show",
+              "projects",
+              "--json",
+              ...(exclude === undefined ? [] : [`--exclude=${exclude}`]),
+            ],
+            {
+              cwd: repoRoot,
+              encoding: "utf8",
+              env: {
+                ...process.env,
+                NX_TUI: "false",
+                NX_DEFAULT_OUTPUT_STYLE: "static",
+                NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+              },
             },
-          },
-        ),
-      );
-      if (!Array.isArray(value) || !value.every((name: unknown) => typeof name === "string")) {
-        throw new Error("Nx must return the selected project names.");
-      }
-      selections.set(exclude, value);
-      return value;
-    };
-    const allProjects = [...projectNames()].sort();
-    const workflow = readWorkflow();
-    for (const name of ["verify-pr", "verify-main"]) {
-      const job = workflow.jobs[name];
-      if (typeof job !== "object" || job === null || !("strategy" in job)) {
-        throw new Error(`${name} must declare independent source partitions.`);
-      }
-      const strategy = job.strategy;
-      if (typeof strategy !== "object" || strategy === null || !("matrix" in strategy)) {
-        throw new Error(`${name} must declare a source matrix.`);
-      }
-      expect(strategy).toHaveProperty("fail-fast", false);
-      expect(job).toHaveProperty("timeout-minutes", 60);
-      expect(job).toHaveProperty("env.NX_PARALLEL", "1");
-      expect(job).toHaveProperty("env.VITEST_MAX_WORKERS", "2");
-      const matrix = strategy.matrix;
-      if (
-        typeof matrix !== "object" ||
-        matrix === null ||
-        !("include" in matrix) ||
-        !Array.isArray(matrix.include)
-      ) {
-        throw new Error(`${name} must declare its complete partition set.`);
-      }
-      const shards = new Map<string, string[]>();
-      const selected = matrix.include.flatMap((partition: unknown) => {
+          ),
+        );
+        if (!Array.isArray(value) || !value.every((name: unknown) => typeof name === "string")) {
+          throw new Error("Nx must return the selected project names.");
+        }
+        selections.set(exclude, value);
+        return value;
+      };
+      const allProjects = [...projectNames()].sort();
+      const workflow = readWorkflow();
+      for (const name of ["verify-pr", "verify-main"]) {
+        const job = workflow.jobs[name];
+        if (typeof job !== "object" || job === null || !("strategy" in job)) {
+          throw new Error(`${name} must declare independent source partitions.`);
+        }
+        const strategy = job.strategy;
+        if (typeof strategy !== "object" || strategy === null || !("matrix" in strategy)) {
+          throw new Error(`${name} must declare a source matrix.`);
+        }
+        expect(strategy).toHaveProperty("fail-fast", false);
+        expect(job).toHaveProperty("timeout-minutes", 60);
+        expect(job).toHaveProperty("env.NX_PARALLEL", "1");
+        expect(job).toHaveProperty("env.VITEST_MAX_WORKERS", "2");
+        const matrix = strategy.matrix;
         if (
-          typeof partition !== "object" ||
-          partition === null ||
-          !("exclude" in partition) ||
-          typeof partition.exclude !== "string"
+          typeof matrix !== "object" ||
+          matrix === null ||
+          !("include" in matrix) ||
+          !Array.isArray(matrix.include)
         ) {
-          throw new Error(`${name} must select its partitions through native Nx exclusions.`);
+          throw new Error(`${name} must declare its complete partition set.`);
         }
-        if ("shard" in partition && typeof partition.shard === "string" && partition.shard) {
-          const group = shards.get(partition.exclude) ?? [];
-          group.push(partition.shard);
-          shards.set(partition.exclude, group);
-          return group.length === 1 ? projectNames(partition.exclude) : [];
-        }
-        return projectNames(partition.exclude);
-      });
-      expect([...selected].sort(), name).toEqual(allProjects);
-      expect(new Set(selected).size, name).toBe(selected.length);
-      expect([...shards.values()]).toEqual([["1/2", "2/2"]]);
-      expect([...shards.keys()].flatMap(projectNames)).toEqual(["workspace-features"]);
-      expect(job).toHaveProperty("env.SOURCE_SHARD", "${{ matrix.shard }}");
-      expect(JSON.stringify(job)).toContain('--shard=\\"$SOURCE_SHARD\\"');
-    }
-  });
+        const shards = new Map<string, string[]>();
+        const selected = matrix.include.flatMap((partition: unknown) => {
+          if (
+            typeof partition !== "object" ||
+            partition === null ||
+            !("exclude" in partition) ||
+            typeof partition.exclude !== "string"
+          ) {
+            throw new Error(`${name} must select its partitions through native Nx exclusions.`);
+          }
+          if ("shard" in partition && typeof partition.shard === "string" && partition.shard) {
+            const group = shards.get(partition.exclude) ?? [];
+            group.push(partition.shard);
+            shards.set(partition.exclude, group);
+            return group.length === 1 ? projectNames(partition.exclude) : [];
+          }
+          return projectNames(partition.exclude);
+        });
+        expect([...selected].sort(), name).toEqual(allProjects);
+        expect(new Set(selected).size, name).toBe(selected.length);
+        expect([...shards.values()]).toEqual([["1/2", "2/2"]]);
+        expect([...shards.keys()].flatMap(projectNames)).toEqual(["workspace-features"]);
+        expect(job).toHaveProperty("env.SOURCE_SHARD", "${{ matrix.shard }}");
+        expect(JSON.stringify(job)).toContain('--shard=\\"$SOURCE_SHARD\\"');
+      }
+    },
+  );
 
   it("native feature shards cover every discovered file exactly once", async () => {
     const selections: string[][] = [];

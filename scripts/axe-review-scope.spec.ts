@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation"],
   boundary: "repository",
   boundaryRationale:
-    "The shipped review guide expresses the decision. The trials in skills/axe/evals/2026-11-18 separately exercise open and focused reviews from pack and member entry points.",
+    "The shipped review guide expresses the decision. The trials recorded at commit b2fb39e26 under skills/axe/evals/2026-11-18 separately exercised open and focused reviews from pack and member entry points.",
   methods: ["static", "review"],
   derivedFrom: [],
   supersedes: [],

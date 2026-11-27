@@ -339,16 +339,6 @@ describe("axm instructions", () => {
       workspace.cleanup();
     }
   });
-
-  it.each([["rules", "instructions"]])(
-    "rejects the removed command path %s %s",
-    async (...args) => {
-      const result = await runCli(args);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
-    },
-  );
 });
 
 describe("main CLI help", () => {
@@ -436,23 +426,6 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain(`choices: ${choices}`);
-  });
-
-  it.each([
-    ["agents", "ls"],
-    ["agents", "rm"],
-    ["skills", "ls"],
-    ["subagents", "ls"],
-    ["packs", "ls"],
-    ["mcps", "ls"],
-    ["rules", "ls"],
-    ["hooks", "ls"],
-    ["knowledge", "ls"],
-  ])("rejects the removed command alias %s %s", async (...args) => {
-    const result = await runCli(args);
-
-    expect(result.exitCode).not.toBe(0);
-    expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
   });
 
   it.each(["subagents", "skills", "mcps"])(

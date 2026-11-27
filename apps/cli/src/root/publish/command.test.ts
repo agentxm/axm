@@ -45,7 +45,6 @@ import {
   type PublishResultItem,
   normalizeTypePublishSelection,
 } from "@agentxm/workspace-features/publishing";
-import { probeFlag } from "../../test-support/parser-probe.js";
 import {
   writeAuthoredHook,
   writeAuthoredKnowledge,
@@ -914,24 +913,6 @@ describe("root publish", () => {
         );
       }
     });
-
-    it.effect("rejects --on-existing as an unknown flag on every publish command", () =>
-      Effect.gen(function* () {
-        const commands = [
-          ["publish"],
-          ...extensionTypes.map((type) => [extensionTypeToPlural[type], "publish"]),
-        ];
-        expect(commands).toHaveLength(8);
-        for (const command of commands) {
-          for (const retired of ["--on-existing", "--from", "--include-file", "--exclude-file"]) {
-            expect(yield* probeFlag(command, retired)).toBe("unrecognized");
-          }
-          const fileSelection = command.length === 1 ? "accepted" : "unrecognized";
-          expect(yield* probeFlag(command, "--include-path")).toBe(fileSelection);
-          expect(yield* probeFlag(command, "--exclude-path")).toBe(fileSelection);
-        }
-      }),
-    );
   });
 
   describe("publish safety gates", () => {

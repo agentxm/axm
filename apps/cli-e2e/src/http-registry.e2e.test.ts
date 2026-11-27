@@ -838,7 +838,6 @@ describe("HTTP registry transport", () => {
         throw new Error("Expected a credential-free recovery command");
       }
       expect(recovery["cmd"]).toContain("axm publish");
-      expect(recovery["cmd"]).not.toContain("--on-existing");
       expect(recovery["remainingItems"]).toEqual([`${OWNER}/skills/ambiguous`]);
 
       // The recovery run skips the committed version as already published

@@ -466,8 +466,8 @@ keeps the distinctive model from leaking outward through an adapter.
 | `@agentxm/registry-access` | `role:capability`  | Authentication and verified-write workflows, credential storage and token resolution, and environment-backed Registry access adapters                                        |
 | `@agentxm/cli-maintenance` | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                         |
 
-`registry-access/authentication` owns login, logout, identity, token authority,
-and step-up policy. `registry-access/credentials` owns credential storage and
+`registry-access/authentication` owns login, logout, identity, and token
+authority. `registry-access/credentials` owns credential storage and
 token-source precedence. `registry-access/adapters` binds those policies to the
 selected Registry, filesystem, keychain, process environment, browser, and
 HTTP transport. Publish, authoring, and visibility consume the narrow owner

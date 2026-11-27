@@ -100,7 +100,6 @@ describe("axm token show", () => {
       expect(registry.requests.filter((request) => request.method === "POST")).toEqual([
         expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 403 }),
       ]);
-      expect(registry.requests.some((request) => request.path.includes("step-up"))).toBe(false);
     } finally {
       home.cleanup();
       await registry.close();

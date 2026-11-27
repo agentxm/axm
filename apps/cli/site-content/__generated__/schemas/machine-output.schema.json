@@ -2649,7 +2649,7 @@
       "type": "object",
       "properties": {
         "kind": { "type": "string", "enum": ["open-url"] },
-        "purpose": { "type": "string", "enum": ["login", "step-up"] },
+        "purpose": { "type": "string", "enum": ["login"] },
         "requestRef": { "type": "string" },
         "registryUrl": { "type": "string" },
         "url": { "type": "string" },

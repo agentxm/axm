@@ -700,23 +700,6 @@ describe("AuthClient.pollDeviceToken", () => {
   });
 });
 
-describe("AuthClient token operations", () => {
-  it.effect("revokes a token without a verification header", () => {
-    let stepUpRequestHeader: string | undefined;
-    const layer = makeTestLayer((request) => {
-      expect(request.method).toBe("DELETE");
-      stepUpRequestHeader = request.headers["x-axm-step-up-request"];
-      return new Response(null, { status: 204 });
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.deleteToken(ENDPOINT, "token_123");
-      expect(stepUpRequestHeader).toBeUndefined();
-    }).pipe(Effect.provide(layer));
-  });
-});
-
 // -----------------------------------------------------------------------------
 // TokenExchange.refreshToken
 // -----------------------------------------------------------------------------

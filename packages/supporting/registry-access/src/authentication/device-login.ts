@@ -146,7 +146,6 @@ export interface ResumeDeviceLoginOptions {
 
 const DeviceLoginActionSchema = Schema.Struct({
   ...HumanHandoffActionSchema.fields,
-  purpose: Schema.Literal("login"),
   fallbackUrl: Schema.String,
   code: Schema.String,
 });

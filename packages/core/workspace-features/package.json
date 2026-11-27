@@ -21,30 +21,15 @@
       "axm-source": "./src/lifecycle/index.ts",
       "default": "./dist/src/lifecycle/index.js"
     },
-    "./lifecycle/testing": {
-      "types": "./dist/src/lifecycle/testing.d.ts",
-      "axm-source": "./src/lifecycle/testing.ts",
-      "default": "./dist/src/lifecycle/testing.js"
-    },
     "./authoring": {
       "types": "./dist/src/authoring/index.d.ts",
       "axm-source": "./src/authoring/index.ts",
       "default": "./dist/src/authoring/index.js"
     },
-    "./authoring/testing": {
-      "types": "./dist/src/authoring/testing.d.ts",
-      "axm-source": "./src/authoring/testing.ts",
-      "default": "./dist/src/authoring/testing.js"
-    },
     "./publishing": {
       "types": "./dist/src/publishing/index.d.ts",
       "axm-source": "./src/publishing/index.ts",
       "default": "./dist/src/publishing/index.js"
-    },
-    "./publishing/testing": {
-      "types": "./dist/src/publishing/testing.d.ts",
-      "axm-source": "./src/publishing/testing.ts",
-      "default": "./dist/src/publishing/testing.js"
     },
     "./configuration": {
       "types": "./dist/src/configuration/index.d.ts",
@@ -81,20 +66,10 @@
       "axm-source": "./src/discovery/index.ts",
       "default": "./dist/src/discovery/index.js"
     },
-    "./discovery/testing": {
-      "types": "./dist/src/discovery/testing.d.ts",
-      "axm-source": "./src/discovery/testing.ts",
-      "default": "./dist/src/discovery/testing.js"
-    },
     "./sync": {
       "types": "./dist/src/sync/index.d.ts",
       "axm-source": "./src/sync/index.ts",
       "default": "./dist/src/sync/index.js"
-    },
-    "./sync/testing": {
-      "types": "./dist/src/sync/testing.d.ts",
-      "axm-source": "./src/sync/testing.ts",
-      "default": "./dist/src/sync/testing.js"
     },
     "./knowledge-query": {
       "types": "./dist/src/knowledge-query/index.d.ts",
@@ -105,11 +80,6 @@
       "types": "./dist/src/knowledge-query/live.d.ts",
       "axm-source": "./src/knowledge-query/live.ts",
       "default": "./dist/src/knowledge-query/live.js"
-    },
-    "./knowledge-query/testing": {
-      "types": "./dist/src/knowledge-query/testing.d.ts",
-      "axm-source": "./src/knowledge-query/testing.ts",
-      "default": "./dist/src/knowledge-query/testing.js"
     },
     "./sharing": {
       "types": "./dist/src/sharing/index.d.ts",

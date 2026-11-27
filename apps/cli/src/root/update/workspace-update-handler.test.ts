@@ -3,8 +3,8 @@
  * resolve, and how it treats configuration the Registry does not own.
  *
  * These behaviours are the update surface's own; they belong beside the
- * feature's configured-update planner and should move there once
- * `@agentxm/workspace-features/lifecycle/testing` can compose a workspace fixture.
+ * feature's configured-update planner and should move there once the
+ * lifecycle feature's test support can compose a workspace fixture.
  */
 
 import {

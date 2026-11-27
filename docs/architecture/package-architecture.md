@@ -553,8 +553,9 @@ sliced package — `@agentxm/workspace-kernel`, `@agentxm/extension-kinds`,
 `./<slice>` per slice folder under `src/` (a test-support folder such as
 `workspace-features/src/testing/` is not exported), mapped to that folder's `index.ts`, and
 no root. The `./live` and `./testing` rules below apply to each entry: a slice
-adds `./<slice>/live` or `./<slice>/testing` only when its folder has a
-`live.ts` or `testing.ts`. `@agentxm/extension-kinds` also exports a
+adds `./<slice>/live` only when its folder has a `live.ts`, and
+`./<slice>/testing` only when its folder has a `testing.ts` that another
+package imports. `@agentxm/extension-kinds` also exports a
 package-level `./live` that composes every kind, and `@agentxm/registry-access`
 a package-level `./testing`.
 
@@ -780,12 +781,12 @@ official generator and workspace defaults are in place.
 
 Inside a sliced package, a new unit is a slice, not a package. Create
 `src/<slice>/index.ts`, plus `live.ts` or `testing.ts` when the slice owes one,
-and add `./<slice>` (and its `/live` or `/testing` subpath) to `exports` with
-the `types`, `axm-source`, and `default` conditions. A new kernel slice also
-takes its position in the kernel order in `slices.mjs`; until it does, it can
-neither import nor be imported by another kernel slice. Prefer a package only
-when the unit needs its own Nx scope row, release lifecycle, or project
-reference.
+and add `./<slice>` (and its `/live` subpath, or its `/testing` subpath once
+another package imports it) to `exports` with the `types`, `axm-source`, and
+`default` conditions. A new kernel slice also takes its position in the kernel
+order in `slices.mjs`; until it does, it can neither import nor be imported by
+another kernel slice. Prefer a package only when the unit needs its own Nx
+scope row, release lifecycle, or project reference.
 
 ### Domain workflows stay custom
 

@@ -7,10 +7,10 @@ the [`@agentxm/extension-kinds`](../extension-kinds/README.md) and
 Each feature is published as its own entry point: `./lifecycle`,
 `./authoring`, `./publishing`, `./configuration`, `./inspection`, `./linting`,
 `./discovery`, `./sync`, `./knowledge-query`, and `./sharing`. No feature
-imports another feature. Deterministic fixtures sit behind a feature's
-`/testing` entry point where it has one, and `./knowledge-query/live` supplies
-the Knowledge query Layer. Shared test support under `src/testing/` is not
-exported.
+imports another feature. A feature's deterministic fixtures sit behind its
+`/testing` entry point only when another package uses them, and
+`./knowledge-query/live` supplies the Knowledge query Layer. Shared test
+support under `src/testing/` is not exported.
 
 Publishing carries the owned validated archive from preparation through
 normalization and upload. Apply still rebuilds current source and rechecks its

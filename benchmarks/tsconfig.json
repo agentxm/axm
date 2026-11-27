@@ -2,8 +2,7 @@
   "extends": "../tsconfig.test-base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"],
-    "ignoreDeprecations": "6.0"
+    "types": ["node"]
   },
   "include": ["**/*.ts"],
   "references": []

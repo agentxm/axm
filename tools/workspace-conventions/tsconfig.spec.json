@@ -5,8 +5,7 @@
     "checkJs": true,
     "noEmit": true,
     "module": "preserve",
-    "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0"
+    "moduleResolution": "bundler"
   },
   "include": ["src/**/*.mjs", "bin/**/*.mjs"]
 }

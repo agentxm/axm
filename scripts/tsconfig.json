@@ -2,8 +2,7 @@
   "extends": "../tsconfig.test-base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["bun"],
-    "ignoreDeprecations": "6.0"
+    "types": ["bun"]
   },
   "include": ["**/*.ts", "**/*.cts", "**/*.mts", "../allurerc.ts", "../benchmarks/**/*.ts"],
   "references": []

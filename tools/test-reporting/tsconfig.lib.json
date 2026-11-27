@@ -4,8 +4,7 @@
     "incremental": true,
     "composite": true,
     "outDir": "dist",
-    "rootDir": ".",
-    "ignoreDeprecations": "6.0"
+    "rootDir": "."
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"],

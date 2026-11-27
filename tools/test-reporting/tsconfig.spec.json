@@ -4,7 +4,6 @@
     "incremental": true,
     "composite": true,
     "outDir": "./out-tsc/vitest",
-    "ignoreDeprecations": "6.0",
     "rootDir": "."
   },
   "include": ["src/**/*.test.ts", "src/**/*.spec.ts", "vitest.config.ts"],

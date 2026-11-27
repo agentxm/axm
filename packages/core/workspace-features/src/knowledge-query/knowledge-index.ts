@@ -563,16 +563,6 @@ export const queryKnowledgeIndexResult = (
   });
 };
 
-export const queryKnowledgeIndex = (
-  snapshot: KnowledgeIndexSnapshot,
-  query: KnowledgeQuery,
-  now: number,
-): KnowledgeQueryPage => {
-  const result = queryKnowledgeIndexResult(snapshot, query, now);
-  if (Result.isSuccess(result)) return result.success;
-  throw result.failure;
-};
-
 export const getKnowledgeIndexConcept = (
   snapshot: KnowledgeIndexSnapshot,
   bundle: string,

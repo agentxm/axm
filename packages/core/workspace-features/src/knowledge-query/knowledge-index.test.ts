@@ -6,7 +6,6 @@ import { KnowledgeBundleFqnSchema } from "@agentxm/extension-model/unstable/know
 import {
   KnowledgeIndex,
   makeKnowledgeIndexSnapshot,
-  queryKnowledgeIndex,
   queryKnowledgeIndexResult,
   type KnowledgeIndexBundleInput,
 } from "./knowledge-index.js";
@@ -40,16 +39,18 @@ it("pages with an opaque cursor bound to corpus, query, position, and age", () =
     bundle([concept("alpha", "# Alpha"), concept("beta", "# Beta")]),
   ]);
   const firstQuery = makeKnowledgeQuery("project", [], { resultLimit: 1 });
-  const first = queryKnowledgeIndex(snapshot, firstQuery, 1_000);
+  const first = Result.getOrThrow(queryKnowledgeIndexResult(snapshot, firstQuery, 1_000));
   expect(first.items.map(({ ref }) => ref.conceptId)).toEqual(["alpha"]);
   expect(first.hasMore).toBe(true);
   const cursor = first.cursor;
   if (cursor === undefined) throw new Error("Expected the first page to return a cursor");
 
-  const second = queryKnowledgeIndex(
-    snapshot,
-    makeKnowledgeQuery("project", [], { resultLimit: 1, cursor }),
-    2_000,
+  const second = Result.getOrThrow(
+    queryKnowledgeIndexResult(
+      snapshot,
+      makeKnowledgeQuery("project", [], { resultLimit: 1, cursor }),
+      2_000,
+    ),
   );
   expect(second.items.map(({ ref }) => ref.conceptId)).toEqual(["beta"]);
   expect(second.hasMore).toBe(false);
@@ -109,10 +110,12 @@ it("does not reward repeated body passages and reports exact phrase spans", () =
       concept("beta", "# Beta\n\nSession flow.\n\n## Again\n\nSession flow."),
     ]),
   ]);
-  const page = queryKnowledgeIndex(
-    snapshot,
-    makeKnowledgeQuery("project", [{ kind: "phrase", value: "session flow" }]),
-    0,
+  const page = Result.getOrThrow(
+    queryKnowledgeIndexResult(
+      snapshot,
+      makeKnowledgeQuery("project", [{ kind: "phrase", value: "session flow" }]),
+      0,
+    ),
   );
 
   expect(page.items.map(({ ref }) => ref.conceptId)).toEqual(["alpha", "beta"]);

@@ -35,7 +35,6 @@ import {
   probeSymlinkSupport,
   removeManagedInstructionTargets,
   removeInstructionsGitignore,
-  resolveInstructionMechanism,
   syncInstructions,
   withInstructionRowChanges,
   type InstructionProjectionRows,
@@ -343,27 +342,6 @@ describe("agent instructions", () => {
       }),
     ),
   );
-
-  it("resolves own-file fallback mechanisms", () => {
-    expect(
-      resolveInstructionMechanism(
-        {
-          kind: "own-file",
-          locations: [],
-          scopes: ["project"],
-          writerSupported: true,
-          importSyntax: "at-path",
-        },
-        false,
-      ),
-    ).toBe("copy");
-    expect(
-      resolveInstructionMechanism(
-        { kind: "own-file", locations: [], scopes: ["project"], writerSupported: true },
-        false,
-      ),
-    ).toBe("copy");
-  });
 
   it.effect("does not leave a .axm/tmp directory behind after probing symlinks", () =>
     run(

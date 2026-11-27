@@ -21,7 +21,6 @@ import {
 } from "@agentxm/extension-content/lint";
 import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
 import { makeRecordingFileSystem } from "@agentxm/test-support";
-import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
 import { collectRenderedFindings, evaluateAllCatalogs } from "../../runner.js";
 import { instructionsAgentSupportedRule } from "../workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "../workspace/instructions-gitignore-current.js";
@@ -200,7 +199,6 @@ const buildAndEvaluate = (
     const evaluations = yield* evaluateAllCatalogs({
       view: "filesystem",
       contexts: {
-        ...emptyCatalogRuleContexts,
         skill: buildSkillRuleContexts(lintWorkspace.view),
         pack: buildPackRuleContexts(lintWorkspace.view),
         subagent: lintWorkspace.view.subagentContexts,

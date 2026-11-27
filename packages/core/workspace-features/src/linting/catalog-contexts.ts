@@ -148,20 +148,3 @@ export const CATALOG_GROUP_ORDER = [
   "knowledge",
   "workspace",
 ] as const satisfies ReadonlyArray<CatalogGroup>;
-
-/**
- * An empty context record. Callers that evaluate only some catalogs spread
- * this so adding a catalog does not silently skip them.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const emptyCatalogRuleContexts: CatalogRuleContexts = {
-  skill: [],
-  pack: [],
-  subagent: [],
-  "mcp-server": [],
-  rule: [],
-  hook: [],
-  knowledge: [],
-  workspace: [],
-};

@@ -12,10 +12,9 @@ import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 
-import { makeWorkspaceTransitionLock, transitionLockPath } from "./transition-lock.js";
+import { makeWorkspaceTransitionLock } from "./transition-lock.js";
 
 let tempDir: string;
 
@@ -779,15 +778,6 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
           ) as { command: string };
           expect(holder.command).toBe("install");
         }),
-      );
-    }).pipe(Effect.provide(services)),
-  );
-
-  it.effect("transitionLockPath names the load-bearing location", () =>
-    Effect.gen(function* () {
-      const pathService = yield* Path.Path;
-      expect(transitionLockPath(pathService, "/ws/.axm")).toBe(
-        "/ws/.axm/tmp/workspace-transition.lock",
       );
     }).pipe(Effect.provide(services)),
   );

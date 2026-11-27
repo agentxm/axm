@@ -196,15 +196,3 @@ export const resolveConfiguredExtensionObservations = (
     }
     return generic;
   });
-
-/** Per-agent views are derived from the same native observations as inventories. */
-export const resolveConfiguredAgentOutcomes = (
-  provider: ConfiguredAgentOutcomesProviderService,
-  request: ConfiguredAgentOutcomesRequest,
-) =>
-  resolveConfiguredExtensionObservations(provider, request).pipe(
-    Effect.map(
-      (observations) =>
-        new Map([...observations].map(([name, facts]) => [name, facts.agentOutcomes])),
-    ),
-  );

@@ -20,10 +20,10 @@ import { exactVersion, extensionName, handle } from "../testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   canonicalPathForAcceptedExtension,
+  judgeCanonicalBeforeContent,
   observeAcceptedResolution,
   observeCanonicalExtension,
   observeCanonicalExtensionCapturing,
-  observedCanonicalPath,
 } from "./canonical-observation.js";
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
 import type { LockEntry } from "./lock-entry.js";
@@ -850,9 +850,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const args = { layout: row.user === true ? userLayout : layout, desired, accepted };
         const observed = yield* observeCanonicalExtension(args);
         expect(observed.status, row.status).toBe(row.status);
-        expect(observedCanonicalPath(path, args.layout, desired, accepted), row.status).toBe(
-          observed.path,
-        );
+        expect(
+          judgeCanonicalBeforeContent(path, args.layout, desired, accepted).reportedPath,
+          row.status,
+        ).toBe(observed.path);
       }
     }),
   );

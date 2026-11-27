@@ -665,17 +665,6 @@ export const judgeCanonicalBeforeContent = (
 type CanonicalPreContentJudgement = ReturnType<typeof judgeCanonicalBeforeContent>;
 
 /**
- * The `path` an observation of the desired node reports, derived without
- * reading canonical content.
- */
-export const observedCanonicalPath = (
-  path: Path.Path,
-  layout: WorkspaceLayout,
-  desired: DesiredExtensionNode,
-  accepted: LockEntry | undefined,
-): string | undefined => judgeCanonicalBeforeContent(path, layout, desired, accepted).reportedPath;
-
-/**
  * Observe like `observeCanonicalExtension`, also handing the caller the
  * manifest text the observation read. The text is never retained here.
  */

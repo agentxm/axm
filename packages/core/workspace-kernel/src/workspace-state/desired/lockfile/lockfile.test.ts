@@ -35,14 +35,7 @@ import {
   type ProjectionKindState,
 } from "./projections.js";
 import { LockfileDecodeError, LockfileVersionUnsupported } from "./errors.js";
-import {
-  applyLockfileUpdates,
-  commitLockfileSnapshotUpdate,
-  commitLockfileSnapshotUpdateAtPath,
-  commitLockfileUpdates,
-  writeLockfile,
-  writeLockfileAtPath,
-} from "./lockfile.js";
+import { commitLockfileSnapshotUpdateAtPath, writeLockfileAtPath } from "./lockfile.js";
 
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
@@ -124,44 +117,13 @@ describe("lockfile", () => {
           lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/sources/review") },
         };
-        yield* writeLockfile(axmDir, lockfile);
+        yield* writeLockfileAtPath(path.join(axmDir, "axm.lock"), lockfile);
 
         const parsed: unknown = parseLockfileToml(
           fs.readFileSync(path.join(axmDir, "axm.lock"), "utf8"),
         ).document;
         expect(Schema.decodeUnknownSync(LockfileSchema)(parsed)).toEqual(lockfile);
         expect(fs.existsSync(path.join(axmDir, "axm.lock.lock"))).toBe(false);
-      }),
-    ),
-  );
-
-  it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
-    const result = applyLockfileUpdates(base, [
-      (lockfile) => ({ ...lockfile, skills: { review: localEntry("/sources/one") } }),
-      (lockfile) => ({
-        ...lockfile,
-        skills: { ...lockfile.skills, plan: localEntry("/sources/two", "plan") },
-      }),
-    ]);
-    expect(Object.keys(result.skills).sort()).toEqual(["plan", "review"]);
-  });
-
-  it.effect("commits updates against the latest on-disk state", () =>
-    run(
-      Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
-        yield* writeLockfile(axmDir, {
-          lockfileVersion: LOCKFILE_VERSION,
-          skills: { existing: localEntry("/sources/existing", "existing") },
-        });
-        const result = yield* commitLockfileUpdates(axmDir, base, [
-          (lockfile) => ({
-            ...lockfile,
-            skills: { ...lockfile.skills, review: localEntry("/sources/review", "review") },
-          }),
-        ]);
-        expect(Object.keys(result.skills).sort()).toEqual(["existing", "review"]);
       }),
     ),
   );
@@ -173,7 +135,7 @@ describe("lockfile", () => {
           lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/old") },
         };
-        yield* writeLockfile(axmDir, {
+        yield* writeLockfileAtPath(path.join(axmDir, "axm.lock"), {
           lockfileVersion: LOCKFILE_VERSION,
           skills: {
             ...base.skills,
@@ -184,7 +146,11 @@ describe("lockfile", () => {
           lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/new") },
         };
-        const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
+        const result = yield* commitLockfileSnapshotUpdateAtPath(
+          path.join(axmDir, "axm.lock"),
+          base,
+          next,
+        );
         expect(result.skills["review"]).toEqual(localEntry("/sources/new"));
         expect(result.skills["independent"]).toEqual(
           localEntry("/sources/independent", "independent"),

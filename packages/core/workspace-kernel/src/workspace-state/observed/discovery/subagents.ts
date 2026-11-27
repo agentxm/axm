@@ -8,10 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { SubagentScanFailed } from "../errors.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  AgentDescriptor,
-  MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 export interface DetectedSubagentFile {
@@ -29,9 +26,6 @@ export interface AgentSubagentSummary {
   /** Detected subagent files */
   readonly files: ReadonlyArray<DetectedSubagentFile>;
 }
-
-const isKnownAgentId = (id: string): id is MaterializationTargetId =>
-  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 type SubagentLocationDeclaration = NonNullable<AgentDescriptor["subagents"]>["locations"][number];
 
@@ -89,26 +83,6 @@ const detectedFiles = (
 
 const scanFailed = (agent: AgentDescriptor) => (error: unknown) =>
   new SubagentScanFailed({ agentName: agent.name, cause: error });
-
-const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
-  Effect.gen(function* () {
-    const declaration = projectSubagentDeclaration(agent);
-    if (declaration === undefined) return [];
-
-    const fs = yield* FileSystem.FileSystem;
-    const p = yield* Path.Path;
-    const subagentPath = p.resolve(projectDir, declaration.path);
-    return detectedFiles(
-      p,
-      declaration,
-      yield* scanSubagentLocation(fs, p, declaration.shape, subagentPath),
-    );
-  }).pipe(Effect.mapError(scanFailed(agent)));
-
-export const scanAgentSubagentFiles = (agentId: string, projectDir: string) =>
-  isKnownAgentId(agentId)
-    ? scanKnownAgentSubagentFiles(AGENT_DESCRIPTORS[agentId], projectDir)
-    : Effect.succeed<ReadonlyArray<DetectedSubagentFile>>([]);
 
 export const scanAllSubagentFiles = (projectDir: string) =>
   Effect.gen(function* () {

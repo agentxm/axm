@@ -10,7 +10,6 @@ import { withWork } from "@agentxm/host-primitives/work-observation";
  */
 
 import { isDeepStrictEqual } from "node:util";
-import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
@@ -40,20 +39,9 @@ import { prepareLockfileRoundTrip, priorRoundTripUnits } from "./round-trip.js";
 import { emitLockfileToml } from "./toml.js";
 import { parseLockfileToml, type ParsedLockfileToml } from "./toml-values.js";
 
-/**
- * Pure lockfile transformation used to batch multiple lockfile updates before
- * one atomic write.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LockfileUpdate = (lockfile: Lockfile) => Lockfile;
-
 // -----------------------------------------------------------------------------
 // Internal Helpers
 // -----------------------------------------------------------------------------
-
-const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
-  path.join(axmDir, LOCKFILE_NAME);
 
 const ensureLockfileParent = (lockfilePath: string) =>
   Effect.gen(function* () {
@@ -310,11 +298,11 @@ const writeLockfileUnlocked = (
  * temp files from older crashed writers are swept before each write. When the
  * encoded owned document is unchanged, the existing lockfile is left untouched.
  *
- * `writeLockfile` remains a full replacement operation. Call
- * `commitLockfileUpdates` when applying deltas that must reread the latest
- * lockfile state under the keyed lock.
+ * `writeLockfileAtPath` is a full replacement operation. Call
+ * `commitLockfileSnapshotUpdateAtPath` when applying changes that must reread
+ * the latest lockfile state under the keyed lock.
  *
- * @param axmDir - Directory containing the selected scope's lockfile
+ * @param lockfilePath - The selected scope's `axm.lock` path
  * @param lockfile - The lockfile object to write
  * @returns Effect yielding void on success
  *
@@ -338,51 +326,6 @@ export const writeLockfileAtPath = (
         );
       }),
     );
-  });
-
-export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    yield* writeLockfileAtPath(lockfilePathFor(path, axmDir), lockfile);
-  });
-
-/**
- * Applies lockfile updates in order without writing to disk.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const applyLockfileUpdates = (
-  lockfile: Lockfile,
-  updates: ReadonlyArray<LockfileUpdate>,
-): Lockfile => updates.reduce((current, update) => update(current), lockfile);
-
-/**
- * Applies a batch of lockfile updates and writes the result once.
- *
- * This is intended for sync flows that discover multiple render-hash changes
- * while reconciling managed package targets.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const commitLockfileUpdates = (
-  axmDir: string,
-  lockfile: Lockfile,
-  updates: ReadonlyArray<LockfileUpdate>,
-) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const lockfilePath = lockfilePathFor(path, axmDir);
-    yield* ensureLockfileParent(lockfilePath);
-    const updated = yield* withLockfileLock(
-      lockfilePath,
-      Effect.gen(function* () {
-        const { current, observation } = yield* observeLockfileForPatch(lockfilePath);
-        const updated = applyLockfileUpdates(current ?? lockfile, updates);
-        yield* writeLockfileUnlocked(lockfilePath, updated, observation);
-        return updated;
-      }),
-    );
-    return updated;
   });
 
 /**
@@ -414,10 +357,4 @@ export const commitLockfileSnapshotUpdateAtPath = (
       }),
     );
     return updated;
-  });
-
-export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    return yield* commitLockfileSnapshotUpdateAtPath(lockfilePathFor(path, axmDir), base, next);
   });

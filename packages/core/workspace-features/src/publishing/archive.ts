@@ -586,6 +586,3 @@ export const rebuildDistributionDigest = (dir: string, options?: BuildZipArchive
     })),
     Effect.withSpan("axm.publish.archive"),
   );
-
-export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
-  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));

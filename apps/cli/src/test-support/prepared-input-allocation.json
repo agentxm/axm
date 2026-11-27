@@ -14487,7 +14487,7 @@
         "A lint demand for projection invariant facts after its read phase ended evaluates them, with each Subagent projection observation, live.",
         "A projection observation locates live every planned output it reaches after its read phase has ended, and asserts that output's containment again unless its plan was itself made after that phase ended.",
         "The write judgment of a validating projection observation reads the planned file live once its read phase has ended or when it reads through a file system other than its preflight's.",
-        "A later setup report's subagent listing scans every project subagent location again, and the single-agent scanAgentSubagentFiles scans its location directly."
+        "A later setup report's subagent listing scans every project subagent location again."
       ],
       "lifetime": "The caller's rendered bytes and decision callbacks are used within one call under the exclusive write; nothing is transferred to another owner or retained after the call. The preflight's targets and planned files and the observation's probed presence are created inside one Subagent manager call, used only while the read phase captured at its start is active or the call is unphased, and released when the call returns. The refusing preflight's bytes, the output destinations the preflight's plan asserted and the native location capture are created inside one projection observation, used only while the read phase in which they were observed is active or the call is unphased, and released when the call returns. The source-validation bytes and the validation preflight's plan are created inside one materialization call and released when that call returns. The frozen projection invariant facts are created by the lint run's first evaluation inside its observation read phase, reused only while that phase stays the same active phase, and released when the lint run returns. The shared subagent location scans are created inside one scanAllSubagentFiles call of a setup report and released when that call returns.",
       "dispositions": {
@@ -14698,7 +14698,7 @@
         },
         "setup-report-scans-each-shared-subagent-location-once": {
           "disposition": "changed",
-          "basis": "One setup report's subagent listing scans each distinct project subagent location, keyed by its shape and resolved path, once: the first declaring agent in registry order owns the existence check, directory listing and entry stats and names a scan failure, and every agent that declares the location receives a newly built file list from that scan. The shared scan lives for that one scanAllSubagentFiles call, so a later call scans every location again, and the single-agent scanAgentSubagentFiles still scans its location directly.",
+          "basis": "One setup report's subagent listing scans each distinct project subagent location, keyed by its shape and resolved path, once: the first declaring agent in registry order owns the existence check, directory listing and entry stats and names a scan failure, and every agent that declares the location receives a newly built file list from that scan. The shared scan lives for that one scanAllSubagentFiles call, so a later call scans every location again.",
           "evidence": {
             "tests": [
               "packages/core/workspace-kernel/src/workspace-state/observed/discovery/subagents.test.ts"

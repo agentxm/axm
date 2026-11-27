@@ -18,13 +18,9 @@ import { AgentDetectionFailed } from "./errors.js";
 import {
   AgentDetectionRoots,
   AgentExecutableResolver,
-  detectAgent,
   detectAgentScopeResults,
   detectAgentScopes,
-  detectAgentInRoot,
-  detectAgents,
   detectAgentsForScope,
-  detectAgentsInRoot,
 } from "./detection.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
@@ -109,7 +105,7 @@ const syntheticAgent = (detection: AgentDescriptor["detection"]): AgentDescripto
   detection,
 });
 
-describe("detectAgent", () => {
+describe("detectAgentScopes", () => {
   it.effect("retains independent project and user detection signals", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
@@ -123,11 +119,11 @@ describe("detectAgent", () => {
   it.effect("detects a definitive project directory marker", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENT_DESCRIPTORS["claude-code"], testProjectDir),
+        detectAgentScopes(AGENT_DESCRIPTORS["claude-code"], testProjectDir),
         new Set([path.join(testProjectDir, ".claude")]),
       );
 
-      expect(result).toBe(true);
+      expect(result).toMatchObject({ project: true, user: false });
     }),
   );
 
@@ -143,11 +139,11 @@ describe("detectAgent", () => {
       });
 
       const result = yield* provideDetectionLayer(
-        detectAgent(agent, testProjectDir),
+        detectAgentScopes(agent, testProjectDir),
         new Set([path.join(testProjectDir, ".sample/config.json")]),
       );
 
-      expect(result).toBe(true);
+      expect(result).toMatchObject({ project: true, user: false });
     }),
   );
 
@@ -164,42 +160,42 @@ describe("detectAgent", () => {
       });
 
       const oneMarker = yield* provideDetectionLayer(
-        detectAgent(agent, testProjectDir),
+        detectAgentScopes(agent, testProjectDir),
         new Set([path.join(testProjectDir, "AGENTS.md")]),
       );
       const twoMarkers = yield* provideDetectionLayer(
-        detectAgent(agent, testProjectDir),
+        detectAgentScopes(agent, testProjectDir),
         new Set([
           path.join(testProjectDir, "AGENTS.md"),
           path.join(testProjectDir, ".sample/config.json"),
         ]),
       );
 
-      expect(oneMarker).toBe(false);
-      expect(twoMarkers).toBe(true);
+      expect(oneMarker.project).toBe(false);
+      expect(twoMarkers.project).toBe(true);
     }),
   );
 
   it.effect("does not detect Codex from shared AGENTS.md alone", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENT_DESCRIPTORS["codex"], testProjectDir),
+        detectAgentScopes(AGENT_DESCRIPTORS["codex"], testProjectDir),
         new Set([path.join(testProjectDir, "AGENTS.md")]),
       );
 
-      expect(result).toBe(false);
+      expect(result).toMatchObject({ project: false, user: false });
     }),
   );
 
   it.effect("detects an executable marker through the injectable resolver", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENT_DESCRIPTORS["codex"], testProjectDir),
+        detectAgentScopes(AGENT_DESCRIPTORS["codex"], testProjectDir),
         new Set(),
         new Set(["codex"]),
       );
 
-      expect(result).toBe(true);
+      expect(result).toMatchObject({ project: false, user: true });
     }),
   );
 
@@ -222,17 +218,17 @@ describe("detectAgent", () => {
       const configHome = process.env["XDG_CONFIG_HOME"] ?? path.join(home, ".config");
 
       const result = yield* provideDetectionLayer(
-        detectAgent(agent, testProjectDir),
+        detectAgentScopes(agent, testProjectDir),
         new Set([path.join(home, ".sample"), path.join(configHome, "sample/config.json")]),
       );
 
-      expect(result).toBe(true);
+      expect(result).toMatchObject({ project: false, user: true });
     }),
   );
 
   it.effect("wraps filesystem errors in AgentDetectionFailed", () =>
     Effect.gen(function* () {
-      const error = yield* detectAgent(AGENT_DESCRIPTORS["claude-code"], testProjectDir).pipe(
+      const error = yield* detectAgentScopes(AGENT_DESCRIPTORS["claude-code"], testProjectDir).pipe(
         Effect.provide(
           Layer.mergeAll(
             createFailingFileSystem("Permission denied"),
@@ -253,20 +249,7 @@ describe("detectAgent", () => {
   );
 });
 
-describe("detectAgentInRoot", () => {
-  it.effect("checks project-scope markers in the supplied root only", () =>
-    Effect.gen(function* () {
-      const result = yield* provideDetectionLayer(
-        detectAgentInRoot(AGENT_DESCRIPTORS["cursor"], testProjectDir),
-        new Set([path.join(testProjectDir, ".cursor")]),
-      );
-
-      expect(result).toBe(true);
-    }),
-  );
-});
-
-describe("detectAgents", () => {
+describe("detectAgentScopeResults", () => {
   it.effect("does not attribute a shared MCP file to any reader", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
@@ -298,11 +281,11 @@ describe("detectAgents", () => {
   it.effect("returns detected registry agents without duplicates", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgents(testProjectDir),
+        detectAgentScopeResults(testProjectDir),
         new Set([path.join(testProjectDir, ".claude"), path.join(home, ".cursor")]),
       );
 
-      const ids = result.map((agent) => agent.id);
+      const ids = result.map(({ agent }) => agent.id);
       expect(ids).toContain("claude-code");
       expect(ids).toContain("cursor");
       expect(new Set(ids).size).toBe(ids.length);
@@ -311,24 +294,12 @@ describe("detectAgents", () => {
 
   it.effect("returns an empty array when no agents are detected", () =>
     Effect.gen(function* () {
-      const result = yield* provideDetectionLayer(detectAgents(testProjectDir), new Set());
+      const result = yield* provideDetectionLayer(
+        detectAgentScopeResults(testProjectDir),
+        new Set(),
+      );
 
       expect(result).toEqual([]);
-    }),
-  );
-});
-
-describe("detectAgentsInRoot", () => {
-  it.effect("returns agents detected from project-scope markers", () =>
-    Effect.gen(function* () {
-      const result = yield* provideDetectionLayer(
-        detectAgentsInRoot(testProjectDir),
-        new Set([path.join(testProjectDir, ".codex"), path.join(testProjectDir, ".roo")]),
-      );
-      const ids = result.map((agent) => agent.id);
-
-      expect(ids).toContain("codex");
-      expect(ids).toContain("roo");
     }),
   );
 });

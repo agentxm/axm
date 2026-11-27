@@ -53,7 +53,6 @@ export { emitLockfileToml } from "./toml.js";
 export { parseLockfileToml } from "./toml-values.js";
 export {
   commitLockfileSnapshotUpdateAtPath,
-  commitLockfileUpdates,
   readLockfileAtPath,
   writeLockfileAtPath,
 } from "./lockfile.js";

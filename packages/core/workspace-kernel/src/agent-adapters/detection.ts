@@ -132,9 +132,6 @@ export const AgentExecutableResolverLive = Layer.effect(
 const markerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
-const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
-  detectScopeRaw(agent.detection.project, rootDir, "project");
-
 const resolveUserDetectionPath = (marker: string) =>
   Effect.gen(function* () {
     const p = yield* Path.Path;
@@ -236,17 +233,6 @@ const detectScopeRaw = (
     return isScopeDetected(results);
   });
 
-/**
- * Check whether an agent can be detected from a single filesystem root.
- *
- * Uses the first segment of the agent's skills, MCP servers, and subagents
- * descriptors.
- */
-export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
-  detectAgentInRootRaw(agent, rootDir).pipe(
-    Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)),
-  );
-
 export interface AgentScopeDetection {
   readonly agent: AgentDescriptor;
   readonly project: boolean;
@@ -321,50 +307,6 @@ const makeSharedPathMarkerProbe = (agents: ReadonlyArray<AgentDescriptor>, proje
     };
     return probe;
   });
-
-/**
- * Check if a specific agent is installed by checking project-level and
- * user-scope roots.
- *
- * Returns `true` if any supported location exists.
- *
- * @param agent - The agent descriptor to check
- * @param projectDir - The project directory to check for agent config
- * @returns Effect that resolves to boolean indicating detection status
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
-  detectAgentScopes(agent, projectDir).pipe(
-    Effect.map((detection) => detection.project || detection.user),
-  );
-
-/**
- * Detect all installed agents from a single filesystem root.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const detectAgentsInRoot = (rootDir: string) =>
-  Effect.filter(Object.values(AGENT_DESCRIPTORS), (agent) => detectAgentInRootRaw(agent, rootDir), {
-    // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
-    concurrency: "unbounded",
-  }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
-
-/**
- * Detect all installed agents concurrently.
- *
- * Checks all registered agents and returns descriptors for those
- * that appear to be installed on the system.
- *
- * @param projectDir - The project directory to check for agent config
- * @returns Effect that resolves to array of detected agent descriptors
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const detectAgents = (projectDir: string) =>
-  detectAgentScopeResults(projectDir).pipe(
-    Effect.map((detections) => detections.map((detection) => detection.agent)),
-  );
 
 /** Detect all agents while retaining the scope that supplied each signal. */
 export const detectAgentScopeResults = (projectDir: string) =>

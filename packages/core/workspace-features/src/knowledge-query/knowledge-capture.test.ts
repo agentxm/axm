@@ -4,10 +4,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { KnowledgeBundleFqnSchema } from "@agentxm/extension-model/unstable/knowledge/concept-ref";
 import { captureKnowledgeIndexBundles } from "./knowledge-capture.js";
-import { makeKnowledgeIndexSnapshot, queryKnowledgeIndex } from "./knowledge-index.js";
+import { makeKnowledgeIndexSnapshot, queryKnowledgeIndexResult } from "./knowledge-index.js";
 import { makeKnowledgeQuery } from "./knowledge-query.js";
 
 layer(NodeServices.layer, { excludeTestServices: true })("Knowledge corpus capture", (it) => {
@@ -90,10 +91,12 @@ layer(NodeServices.layer, { excludeTestServices: true })("Knowledge corpus captu
         { bundle, version: "1.0.0", sourceRoot: root },
       ]);
       const snapshot = makeKnowledgeIndexSnapshot(captured);
-      const result = queryKnowledgeIndex(
-        snapshot,
-        makeKnowledgeQuery("project", [{ kind: "term", value: "authentication" }]),
-        0,
+      const result = Result.getOrThrow(
+        queryKnowledgeIndexResult(
+          snapshot,
+          makeKnowledgeQuery("project", [{ kind: "term", value: "authentication" }]),
+          0,
+        ),
       );
 
       expect(captured[0]?.sources).toHaveLength(2);

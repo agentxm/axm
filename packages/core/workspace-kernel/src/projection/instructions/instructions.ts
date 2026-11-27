@@ -259,21 +259,6 @@ export const resolveInstructionsConfig = (
   gitignoreAliases: config?.gitignoreAliases ?? DEFAULT_GITIGNORE,
 });
 
-export const resolveInstructionMechanism = (
-  descriptor: AgentInstructionsDescriptor,
-  symlinkSupported: boolean,
-): InstructionMechanism => {
-  switch (descriptor.kind) {
-    case "agents-md":
-      return "native";
-    case "own-file":
-      if (symlinkSupported) return "symlink";
-      return "copy";
-    case "rules-dir":
-      return "adapter";
-  }
-};
-
 /** Reason an agent is excluded from instruction-file sync. */
 type InstructionSkipReason = "no-convention" | "unverified-scope";
 

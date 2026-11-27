@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
   ConfiguredAgentOutcomesUnavailable,
-  resolveConfiguredAgentOutcomes,
+  resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesRequest,
 } from "./configured-agent-outcomes-provider.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
@@ -28,7 +28,7 @@ const providerOutcome = (name: string): ConfiguredAgentOutcome => ({
   reason: "Manager observed a blocked projection.",
 });
 
-describe("resolveConfiguredAgentOutcomes", () => {
+describe("resolveConfiguredExtensionObservations", () => {
   it.effect("skips empty observation requests and preserves nonempty provider failures", () =>
     Effect.gen(function* () {
       let calls = 0;
@@ -44,10 +44,15 @@ describe("resolveConfiguredAgentOutcomes", () => {
             }).pipe(Effect.andThen(Effect.fail(failure))),
         },
       };
-      const empty = yield* resolveConfiguredAgentOutcomes(provider, { ...request, rows: [] });
+      const empty = yield* resolveConfiguredExtensionObservations(provider, {
+        ...request,
+        rows: [],
+      });
       expect(empty.size).toBe(0);
       expect(calls).toBe(0);
-      const observedFailure = yield* Effect.flip(resolveConfiguredAgentOutcomes(provider, request));
+      const observedFailure = yield* Effect.flip(
+        resolveConfiguredExtensionObservations(provider, request),
+      );
       expect(observedFailure).toBe(failure);
       expect(calls).toBe(1);
     }),
@@ -55,7 +60,7 @@ describe("resolveConfiguredAgentOutcomes", () => {
 
   it.effect("requires native observation before claiming a Knowledge bundle is current", () =>
     Effect.gen(function* () {
-      const outcomes = yield* resolveConfiguredAgentOutcomes(
+      const observations = yield* resolveConfiguredExtensionObservations(
         { byExtensionType: {} },
         {
           type: "knowledge",
@@ -65,7 +70,7 @@ describe("resolveConfiguredAgentOutcomes", () => {
           rows: [{ name: "handbook", targetState: "enabled", installed: true }],
         },
       );
-      expect(outcomes.get("handbook")).toMatchObject([
+      expect(observations.get("handbook")?.agentOutcomes).toMatchObject([
         { outcome: "blocked", reasonCode: "native-observation-unavailable" },
       ]);
     }),
@@ -74,7 +79,7 @@ describe("resolveConfiguredAgentOutcomes", () => {
   it.effect("uses one provider read for enabled rows and generic outcomes for disabled rows", () =>
     Effect.gen(function* () {
       let calls = 0;
-      const outcomes = yield* resolveConfiguredAgentOutcomes(
+      const observations = yield* resolveConfiguredExtensionObservations(
         {
           byExtensionType: {
             "mcp-server": () =>
@@ -92,11 +97,13 @@ describe("resolveConfiguredAgentOutcomes", () => {
         request,
       );
       expect(calls).toBe(1);
-      expect(outcomes.get("active")).toMatchObject([{ reasonCode: "verified-native-unit" }]);
-      expect(outcomes.get("second")).toMatchObject([
+      expect(observations.get("active")?.agentOutcomes).toMatchObject([
+        { reasonCode: "verified-native-unit" },
+      ]);
+      expect(observations.get("second")?.agentOutcomes).toMatchObject([
         { outcome: "blocked", reasonCode: "native-observation-unavailable" },
       ]);
-      expect(outcomes.get("disabled")).toMatchObject([
+      expect(observations.get("disabled")?.agentOutcomes).toMatchObject([
         { outcome: "not-applicable", reasonCode: "extension-disabled" },
       ]);
     }),
@@ -104,13 +111,13 @@ describe("resolveConfiguredAgentOutcomes", () => {
 
   it.effect("reports unknown observation when the provider has no result for an enabled row", () =>
     Effect.gen(function* () {
-      const outcomes = yield* resolveConfiguredAgentOutcomes(
+      const observations = yield* resolveConfiguredExtensionObservations(
         {
           byExtensionType: { "mcp-server": () => Effect.succeed(new Map()) },
         },
         request,
       );
-      expect(outcomes.get("active")).toMatchObject([
+      expect(observations.get("active")?.agentOutcomes).toMatchObject([
         { outcome: "blocked", reasonCode: "native-observation-unavailable" },
       ]);
     }),
@@ -119,7 +126,7 @@ describe("resolveConfiguredAgentOutcomes", () => {
   it.effect("preserves typed provider failures for the caller to handle", () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        resolveConfiguredAgentOutcomes(
+        resolveConfiguredExtensionObservations(
           {
             byExtensionType: {
               "mcp-server": () =>

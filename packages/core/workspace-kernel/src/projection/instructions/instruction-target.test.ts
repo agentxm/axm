@@ -3,7 +3,6 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import {
   buildInstructionProjectionPlan,
-  resolveInstructionMechanism,
   resolveInstructionTarget,
   resolveInstructionTargetShape,
   type InstructionTargetResolution,
@@ -239,7 +238,7 @@ describe("resolveInstructionTarget", () => {
     ).toBe("skip");
   });
 
-  it("agrees with resolveInstructionMechanism for every syncable agent", () => {
+  it("pairs each action with its mechanism for every syncable agent", () => {
     for (const id of MATERIALIZATION_TARGET_IDS) {
       const descriptor = AGENT_DESCRIPTORS[id].instructions;
       if (descriptor === undefined) continue;
@@ -259,7 +258,6 @@ describe("resolveInstructionTarget", () => {
       }
       expect(resolution.action).not.toBe("skip");
       if (resolution.action !== "skip") {
-        expect(resolution.mechanism).toBe(resolveInstructionMechanism(descriptor, true));
         // action ↔ mechanism invariant the plan preview relies on.
         if (resolution.action === "native") expect(resolution.mechanism).toBe("native");
         if (resolution.action === "write") {

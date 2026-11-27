@@ -133,9 +133,6 @@ const errorCode = (cause: unknown): string | undefined =>
     ? cause.code
     : undefined;
 
-export const transitionLockPath = (path: Path.Path, workspaceDir: string): string =>
-  path.join(workspaceDir, "tmp", TRANSITION_LOCK_FILENAME);
-
 /**
  * Acquisition-error classes the bounded contention wait absorbs: the lock is
  * held (`ELOCKED`), or the attempt raced the holder's own acquire, release,

@@ -1,5 +1,5 @@
 /**
- * Unit tests for buildZipArchive.
+ * Unit tests for the bytes a planned publication archive holds.
  *
  * Validates that the archive builder does not mutate source directory
  * timestamps, produces a valid zip, and is deterministic across runs.
@@ -15,7 +15,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { unzipSync } from "fflate";
-import { buildZipArchive, planZipArchive } from "./archive.js";
+import { planZipArchive, type BuildZipArchiveOptions } from "./archive.js";
+
+/** The archive bytes planned from `dir`. */
+const archiveBytes = (dir: string, options?: BuildZipArchiveOptions) =>
+  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));
 
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -24,7 +28,7 @@ const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem
 const PINNED_CLEAN_ARCHIVE_DIGEST =
   "8088f03bf9e8cb6b0a4edf119391936a2a847dd61259ab298b3b8debe5a99a73";
 
-describe("buildZipArchive", () => {
+describe("planZipArchive archive bytes", () => {
   let tmpDir: string;
   let sourceDir: string;
 
@@ -47,7 +51,7 @@ describe("buildZipArchive", () => {
     withNodeContext(
       Effect.gen(function* () {
         const originalMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
-        yield* buildZipArchive(sourceDir);
+        yield* archiveBytes(sourceDir);
         const afterMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
         expect(afterMtime).toBe(originalMtime);
       }),
@@ -57,7 +61,7 @@ describe("buildZipArchive", () => {
   it.effect("produces a valid zip archive with file contents", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir);
+        const archive = yield* archiveBytes(sourceDir);
         expect(archive[0]).toBe(0x50);
         expect(archive[1]).toBe(0x4b);
         const entries = unzipSync(archive);
@@ -100,7 +104,7 @@ describe("buildZipArchive", () => {
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tmpDir, "outside"), "outside");
         fs.symlinkSync("../outside", path.join(sourceDir, "escape"));
-        const error = yield* buildZipArchive(sourceDir).pipe(Effect.flip);
+        const error = yield* archiveBytes(sourceDir).pipe(Effect.flip);
         expect(error.category).toBe("validation");
       }),
     ),
@@ -109,7 +113,7 @@ describe("buildZipArchive", () => {
   it.effect("stores entries without requiring Registry decompression", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir);
+        const archive = yield* archiveBytes(sourceDir);
         const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
 
         expect(view.getUint32(0, true)).toBe(0x04034b50);
@@ -125,7 +129,7 @@ describe("buildZipArchive", () => {
   it.effect("produces the pinned bytes for a clean source tree", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir);
+        const archive = yield* archiveBytes(sourceDir);
         const digest = crypto.createHash("sha256").update(archive).digest("hex");
 
         expect(digest).toBe(PINNED_CLEAN_ARCHIVE_DIGEST);
@@ -136,8 +140,8 @@ describe("buildZipArchive", () => {
   it.effect("produces byte-identical archives across runs", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const a = yield* buildZipArchive(sourceDir);
-        const b = yield* buildZipArchive(sourceDir);
+        const a = yield* archiveBytes(sourceDir);
+        const b = yield* archiveBytes(sourceDir);
         expect(a.length).toBe(b.length);
         expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
       }),
@@ -150,10 +154,10 @@ describe("buildZipArchive", () => {
   it.effect("produces the pinned bytes when no ignore policy is configured", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const noOptions = yield* buildZipArchive(sourceDir);
-        const emptyOptions = yield* buildZipArchive(sourceDir, {});
-        const undefinedIgnore = yield* buildZipArchive(sourceDir, { exclude: undefined });
-        const emptyIgnore = yield* buildZipArchive(sourceDir, { exclude: [] });
+        const noOptions = yield* archiveBytes(sourceDir);
+        const emptyOptions = yield* archiveBytes(sourceDir, {});
+        const undefinedIgnore = yield* archiveBytes(sourceDir, { exclude: undefined });
+        const emptyIgnore = yield* archiveBytes(sourceDir, { exclude: [] });
 
         for (const archive of [emptyOptions, undefinedIgnore, emptyIgnore]) {
           expect(Buffer.from(archive).equals(Buffer.from(noOptions))).toBe(true);
@@ -168,7 +172,7 @@ describe("buildZipArchive", () => {
   it.effect("omits entries matching an ignore pattern", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir, { exclude: ["nested/*"] });
+        const archive = yield* archiveBytes(sourceDir, { exclude: ["nested/*"] });
 
         expect(Object.keys(unzipSync(archive))).toEqual(["hello.txt"]);
       }),
@@ -222,7 +226,7 @@ describe("buildZipArchive", () => {
         fs.writeFileSync(path.join(sourceDir, "notes.md"), "notes");
         fs.writeFileSync(path.join(sourceDir, "nested", "notes.md"), "nested notes");
 
-        const archive = yield* buildZipArchive(sourceDir, { exclude: ["*.md"] });
+        const archive = yield* archiveBytes(sourceDir, { exclude: ["*.md"] });
 
         // `*` spans separators, so a bare extension pattern reaches nested paths.
         expect(Object.keys(unzipSync(archive)).sort()).toEqual(["hello.txt", "nested/inner.txt"]);
@@ -233,7 +237,7 @@ describe("buildZipArchive", () => {
   it.effect("leaves the archive alone when no path matches the patterns", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir, { exclude: ["never-matches-*"] });
+        const archive = yield* archiveBytes(sourceDir, { exclude: ["never-matches-*"] });
 
         expect(crypto.createHash("sha256").update(archive).digest("hex")).toBe(
           PINNED_CLEAN_ARCHIVE_DIGEST,

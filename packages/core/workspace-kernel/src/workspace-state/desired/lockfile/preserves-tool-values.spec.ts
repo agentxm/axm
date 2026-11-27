@@ -8,7 +8,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import {
   commitLockfileSnapshotUpdateAtPath,
-  commitLockfileUpdates,
   LockfileSchema,
   parseLockfileToml,
   writeLockfileAtPath,
@@ -86,7 +85,7 @@ const prior = [
 ].join("\n");
 
 describe("tool-owned lockfile values", () => {
-  it.effect.each(["replacement", "delta", "snapshot"] as const)(
+  it.effect.each(["replacement", "snapshot"] as const)(
     "leaves an unchanged document and lossless tool syntax untouched after one live %s read",
     (mode) =>
       Effect.gen(function* () {
@@ -112,9 +111,7 @@ describe("tool-owned lockfile values", () => {
         const write =
           mode === "replacement"
             ? writeLockfileAtPath(target, empty)
-            : mode === "delta"
-              ? commitLockfileUpdates(root, empty, [(current) => current])
-              : commitLockfileSnapshotUpdateAtPath(target, empty, empty);
+            : commitLockfileSnapshotUpdateAtPath(target, empty, empty);
         yield* write.pipe(Effect.provideService(FileSystem.FileSystem, observed));
         expect(reads).toBe(1);
         expect(yield* fs.readFileString(target)).toBe(authored);
@@ -136,7 +133,7 @@ describe("tool-owned lockfile values", () => {
     }).pipe(Effect.scoped, Effect.provide(platform)),
   );
 
-  for (const mode of ["replacement", "delta", "snapshot", "projection"] as const) {
+  for (const mode of ["replacement", "snapshot", "projection"] as const) {
     it.effect(`preserves scalar fidelity and namespaces through a ${mode} write`, () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -145,7 +142,6 @@ describe("tool-owned lockfile values", () => {
         const target = path.join(root, "axm.lock");
         yield* fs.writeFileString(target, prior);
         if (mode === "replacement") yield* writeLockfileAtPath(target, next);
-        else if (mode === "delta") yield* commitLockfileUpdates(root, empty, [() => next]);
         else if (mode === "snapshot")
           yield* commitLockfileSnapshotUpdateAtPath(target, empty, next);
         else {

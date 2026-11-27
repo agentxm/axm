@@ -111,11 +111,6 @@
       "axm-source": "./src/resolution/live.ts",
       "default": "./dist/src/resolution/live.js"
     },
-    "./resolution/testing": {
-      "types": "./dist/src/resolution/testing.d.ts",
-      "axm-source": "./src/resolution/testing.ts",
-      "default": "./dist/src/resolution/testing.js"
-    },
     "./planning": {
       "types": "./dist/src/planning/index.d.ts",
       "axm-source": "./src/planning/index.ts",

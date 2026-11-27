@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
-import { RenderedFilePathSchema, computeSourceHash } from "./rendered-files.js";
+import { computeSourceHash } from "./rendered-files.js";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 describe("computeSourceHash", () => {
@@ -96,25 +96,6 @@ describe("SourceHashSchema", () => {
 
   it("rejects non-string values", () => {
     const result = Schema.decodeUnknownResult(SourceHashSchema)(42);
-    expect(Result.isFailure(result)).toBe(true);
-  });
-});
-
-describe("RenderedFilePathSchema", () => {
-  it("decodes a workspace-relative path to a branded RenderedFilePath", () => {
-    const result = Schema.decodeUnknownResult(RenderedFilePathSchema)(".claude/skills/my-skill.md");
-    expect(Result.isSuccess(result)).toBe(true);
-  });
-
-  it("rejects absolute paths", () => {
-    const result = Schema.decodeUnknownResult(RenderedFilePathSchema)(
-      "/workspace/.claude/skills/my-skill.md",
-    );
-    expect(Result.isFailure(result)).toBe(true);
-  });
-
-  it("rejects escaping relative paths", () => {
-    const result = Schema.decodeUnknownResult(RenderedFilePathSchema)("../outside.md");
     expect(Result.isFailure(result)).toBe(true);
   });
 });

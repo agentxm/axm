@@ -83,7 +83,6 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",
-    "@types/bun": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

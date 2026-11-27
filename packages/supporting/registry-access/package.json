@@ -62,7 +62,6 @@
     "@agentxm/test-support": "workspace:*",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
-    "@types/bun": "catalog:",
     "@types/proper-lockfile": "^4.1.4",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",

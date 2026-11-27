@@ -153,7 +153,6 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",
-    "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "ajv": "^8.20.0",

@@ -22,7 +22,6 @@
             "@effect/openapi-generator",
             "@effect/platform-node",
             "@effect/vitest",
-            "@types/bun",
             "@typescript/native",
             "effect",
             "fflate",

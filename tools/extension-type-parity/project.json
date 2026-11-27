@@ -33,7 +33,6 @@
         "toolchain",
         {
           "externalDependencies": [
-            "@types/bun",
             "@typescript/native",
             "effect",
             "prettier",

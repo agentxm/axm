@@ -61,8 +61,10 @@ const consentCases: readonly ConsentCase[] = [
     expected: "all",
   },
   { label: "the operator can turn collection off", telemetry: "0", expected: "off" },
+  { label: "the operator can turn collection off by name", telemetry: "false", expected: "off" },
   { label: "the operator can limit collection to errors", telemetry: "errors", expected: "errors" },
   { label: "the operator can opt in fully", telemetry: "true", expected: "all" },
+  { label: "the operator can opt in fully by number", telemetry: "1", expected: "all" },
   {
     label: "the do-not-track convention disables collection over every other control",
     doNotTrack: "1",

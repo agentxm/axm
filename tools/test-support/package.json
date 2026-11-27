@@ -36,7 +36,7 @@
   "dependencies": {
     "@xterm/headless": "6.0.0",
     "effect": "catalog:",
-    "memfs": "^4.80.0",
+    "memfs": "^4.80.1",
     "vitest": "catalog:"
   },
   "devDependencies": {

@@ -12,7 +12,6 @@ import {
   extractSkillMetadata,
   skillDirectoryName,
   readExtensionManifest,
-  validateManifestHasNoAgentsField,
   type ExtensionManifest,
   type ManifestIdentity,
 } from "@agentxm/extension-content";
@@ -157,16 +156,11 @@ const inspectManifestPackageEntries = (
         detail: `Manifest type could not be determined for ${manifestFile}`,
       });
     }
-    const { fileName, raw, manifest, identity } = yield* readExtensionManifest(
+    const { manifest, identity } = yield* readExtensionManifest(
       directory,
       type,
       Option.isSome(defaultOwner) ? { defaultOwner: defaultOwner.value } : undefined,
     ).pipe(
-      Effect.mapError(
-        (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail, cause }),
-      ),
-    );
-    yield* Effect.fromResult(validateManifestHasNoAgentsField(fileName, raw)).pipe(
       Effect.mapError(
         (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail, cause }),
       ),

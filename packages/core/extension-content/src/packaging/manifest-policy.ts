@@ -87,9 +87,6 @@ export interface ResolvedManifest {
   readonly fileName: string;
 }
 
-const hasOwnField = (value: unknown, field: string): boolean =>
-  Predicate.isObject(value) && Object.hasOwn(value, field);
-
 const purlHasVersion = (value: string): boolean => {
   const queryStart = value.search(/[?#]/);
   const comparable = queryStart === -1 ? value : value.slice(0, queryStart);
@@ -171,20 +168,6 @@ const classifyCompanionPackageManifestError = (
   return undefined;
 };
 
-export const validateManifestHasNoAgentsField = (
-  fileName: string,
-  raw: unknown,
-): Result.Result<void, ManifestError> => {
-  if (!hasOwnField(raw, "agents")) return Result.void;
-
-  return Result.fail(
-    new ManifestError({
-      code: "manifest_schema_invalid",
-      detail: `Manifest file "${fileName}" must not include "agents"; express targeting in settings.agents.`,
-    }),
-  );
-};
-
 export const resolveManifest = (
   input: ManifestResolutionInput,
 ): Effect.Effect<ResolvedManifest, ManifestError | ArchiveGuardrailError> =>
@@ -230,7 +213,6 @@ export const resolveManifest = (
       ),
     );
 
-    yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestEntry.fileName, parsed));
     const schema = manifestSchemaForType(input.type);
     const validated = yield* Effect.suspend(() =>
       Schema.decodeUnknownEffect(schema)(parsed, { onExcessProperty: "error" }),

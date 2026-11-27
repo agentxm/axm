@@ -16,7 +16,7 @@ describe("SubagentManifestSchema", () => {
     expect(result.core?.instructions).toBe("src/instructions.md");
   });
 
-  it.each(["fallback", "agentOverrides", "agents"])(
+  it.each(["fallback", "agentOverrides"])(
     "rejects the obsolete %s field even without strict decoding",
     (field) => {
       expect(() =>

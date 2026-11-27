@@ -3,11 +3,7 @@ import * as Effect from "effect/Effect";
 import { CurrentArchiveWorkObserver, type ArchiveWorkFact } from "../index.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
-import {
-  resolveManifest,
-  validateManifestHasNoAgentsField,
-  validateDeclaredManifestAlignment,
-} from "./manifest-policy.js";
+import { resolveManifest, validateDeclaredManifestAlignment } from "./manifest-policy.js";
 
 const textEncoder = new TextEncoder();
 
@@ -111,32 +107,6 @@ describe("resolveManifest", () => {
       expect(resolved.identity.owner).toBe("@acme");
       expect(resolved.identity.name).toBe("researcher");
       expect(resolved.identity.type).toBe("subagent");
-    }),
-  );
-
-  it.effect("rejects deprecated manifest agents fields", () =>
-    Effect.gen(function* () {
-      const manifest = JSON.stringify({
-        owner: "@acme",
-        type: "subagent",
-        name: "researcher",
-        version: "1.0.0",
-        agents: ["claude-code"],
-      });
-
-      const error = yield* Effect.flip(
-        resolveManifest({
-          type: "subagent",
-          entries: [makeEntry("subagent.json")],
-          readEntry: makeReadEntry({ "subagent.json": manifest }),
-        }),
-      );
-
-      expect(error._tag).toBe("ManifestError");
-      if (error._tag === "ManifestError") {
-        expect(error.code).toBe("manifest_schema_invalid");
-        expect(error.detail).toContain("settings.agents");
-      }
     }),
   );
 
@@ -274,23 +244,6 @@ describe("resolveManifest", () => {
       }
     }),
   );
-});
-
-describe("validateManifestHasNoAgentsField", () => {
-  it("fails with guidance to use settings.agents", () => {
-    const result = validateManifestHasNoAgentsField("subagent.json", {
-      owner: "@acme",
-      type: "subagent",
-      name: "researcher",
-      version: "1.0.0",
-      agents: ["claude-code"],
-    });
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.detail).toContain("settings.agents");
-    }
-  });
 });
 
 describe("validateDeclaredManifestAlignment", () => {

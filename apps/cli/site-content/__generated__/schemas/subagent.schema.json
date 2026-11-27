@@ -523,8 +523,7 @@
           ]
         },
         "fallback": { "anyOf": [{ "not": {} }, { "type": "null" }] },
-        "agentOverrides": { "anyOf": [{ "not": {} }, { "type": "null" }] },
-        "agents": { "anyOf": [{ "not": {} }, { "type": "null" }] }
+        "agentOverrides": { "anyOf": [{ "not": {} }, { "type": "null" }] }
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,

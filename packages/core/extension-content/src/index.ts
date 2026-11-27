@@ -97,6 +97,5 @@ export {
   manifestSchemaForType,
   resolveManifest,
   validateDeclaredManifestAlignment,
-  validateManifestHasNoAgentsField,
 } from "./packaging/manifest-policy.js";
 export { readExtensionManifest, readExtensionManifestCapture } from "./packaging/manifest-file.js";

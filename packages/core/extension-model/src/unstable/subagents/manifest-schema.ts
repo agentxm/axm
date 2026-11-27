@@ -92,7 +92,6 @@ export const SubagentManifestSchema = Schema.Struct({
   // Reject obsolete contracts even at readers that otherwise discard excess fields.
   fallback: Schema.optional(Schema.Never),
   agentOverrides: Schema.optional(Schema.Never),
-  agents: Schema.optional(Schema.Never),
 })
   .check(
     Schema.makeFilter(

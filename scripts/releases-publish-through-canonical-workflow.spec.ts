@@ -140,7 +140,6 @@ const PUBLICATION_SIGNALS = [
   "axm:distribute-release",
   "axm:publish-bootstrap-prerelease",
   "axm:reconcile-github-release",
-  "axm:update-homebrew-formula",
   "HOMEBREW_TAP_TOKEN",
   "NPM_INITIAL_PUBLISH_TOKEN",
 ] as const;
@@ -175,17 +174,19 @@ describe("Canonical release workflow", () => {
       const release = readReleaseWorkflow().jobs["release"];
       if (release === undefined) throw new Error("publish.yml must declare the `release` job");
       const steps = release.steps.map((step) => step.run ?? "");
-      const validated = steps.findIndex((run) => run.includes("axm:validate-release-assets"));
-      const npmValidated = steps.findIndex((run) => run.includes("axm:validate-release-cohort"));
+      const checksummed = steps.findIndex((run) => run.includes("axm:generate-release-checksums"));
+      const validated = steps.findIndex(
+        (run) => run.includes("axm:distribute-release") && run.includes("--preflight"),
+      );
       const prepared = steps.findIndex(
         (run) => run.includes("axm:reconcile-github-release") && run.includes("prepare"),
       );
       const distributed = steps.findIndex(
         (run, index) => index > prepared && run.includes("axm:distribute-release"),
       );
-      expect(validated).toBeGreaterThan(-1);
-      expect(npmValidated).toBeGreaterThan(validated);
-      expect(prepared).toBeGreaterThan(npmValidated);
+      expect(checksummed).toBeGreaterThan(-1);
+      expect(validated).toBeGreaterThan(checksummed);
+      expect(prepared).toBeGreaterThan(validated);
       expect(distributed).toBeGreaterThan(prepared);
     }),
   );

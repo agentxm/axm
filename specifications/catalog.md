@@ -8957,7 +8957,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-homebrew.test.ts)` — Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.
 - Source: [`scripts/release-publication-preserves-newer-versions.spec.ts`](../scripts/release-publication-preserves-newer-versions.spec.ts)
 
 ##### Release reruns reuse only identical published content
@@ -8971,7 +8971,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, and partial publication reruns.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-homebrew.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, and partial publication reruns.
 - Source: [`scripts/release-publication-reuses-identical-content.spec.ts`](../scripts/release-publication-reuses-identical-content.spec.ts)
 
 ##### Release results distinguish distribution and verification state
@@ -8985,7 +8985,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-homebrew.test.ts)` — Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.
 - Source: [`scripts/release-workflow-reports-publication-state.spec.ts`](../scripts/release-workflow-reports-publication-state.spec.ts)
 
 ##### Stable CLI verifies clean package-manager installs

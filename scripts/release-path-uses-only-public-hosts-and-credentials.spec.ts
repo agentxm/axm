@@ -190,7 +190,7 @@ describe("Release automation uses only public distribution boundaries", () => {
         "scripts/distribute-release.ts",
         "scripts/reconcile-github-release.ts",
         "scripts/release-publication.ts",
-        "scripts/update-homebrew-formula.ts",
+        "scripts/release-homebrew.ts",
       ]),
     );
     expect(boundaryViolations(sources)).toEqual([]);

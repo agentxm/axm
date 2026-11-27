@@ -7,7 +7,6 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import {
@@ -47,7 +46,13 @@ import {
   reconcileNpmStableTag,
 } from "./release-npm-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
-import { loadHomebrewPublicationToken, readHomebrewFormula } from "./release-homebrew.js";
+import {
+  HOMEBREW_TAP_REMOTE,
+  homebrewTapPushEnvironment,
+  loadHomebrewPublicationToken,
+  readHomebrewFormula,
+  submitHomebrewFormula,
+} from "./release-homebrew.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
 import { makeReleaseAssetReader } from "./release-asset-readback.js";
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
@@ -287,42 +292,33 @@ const program = Effect.scoped(
                 name: "tap",
                 publish: () =>
                   Effect.gen(function* () {
-                    const prepare = readFormula.pipe(
-                      Effect.flatMap((formula) =>
-                        Effect.try({
-                          try: () => prepareFormula(formula, version, checksums),
-                          catch: releaseBoundaryError,
-                        }),
-                      ),
-                    );
-                    if (!(yield* prepare).changed) return;
+                    const prepare = (formula: string) =>
+                      Effect.try({
+                        try: () => prepareFormula(formula, version, checksums),
+                        catch: releaseBoundaryError,
+                      });
+                    const basis = yield* readFormula;
+                    const prepared = yield* prepare(basis);
+                    if (!prepared.changed) return;
                     const tap = path.join(temporary, "tap");
                     yield* runReleaseCommand(
                       "git",
-                      ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
+                      ["clone", "--depth", "1", HOMEBREW_TAP_REMOTE, tap],
                       { env: foreignGitEnvironment() },
                     );
                     yield* requireForeignGitRoot(tap, tap);
-                    const env = {
-                      ...foreignGitEnvironment(),
-                      HOMEBREW_TAP_DIR: tap,
-                      RELEASE_ASSET_DIR: assets,
-                      GIT_CONFIG_COUNT: "1",
-                      GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
-                      GIT_CONFIG_VALUE_0: Redacted.make(
-                        `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${Redacted.value(homebrewToken)}`).toString("base64")}`,
-                      ),
-                    };
                     const submission = yield* Effect.result(
-                      runReleaseCommand(
-                        "pnpm",
-                        ["exec", "nx", "run", "axm:update-homebrew-formula", "--", version],
-                        { cwd: process.cwd(), env },
-                      ),
+                      submitHomebrewFormula({
+                        tap,
+                        version,
+                        basis,
+                        content: prepared.content,
+                        env: homebrewTapPushEnvironment(homebrewToken),
+                      }),
                     );
                     yield* observePublication({
                       name: `Homebrew formula ${version}`,
-                      read: prepare,
+                      read: readFormula.pipe(Effect.flatMap(prepare)),
                       matches: (observed) => !observed.changed,
                       retryError: isTransientPublicationError,
                     }).pipe(

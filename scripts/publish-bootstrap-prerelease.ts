@@ -99,7 +99,7 @@ const program = Effect.scoped(
               : "Branch previews may be published only from the exact current branch head.",
           );
       });
-      const ciRun = yield* successfulReleaseCiRun(repository, sourceSha);
+      yield* successfulReleaseCiRun(repository, sourceSha);
       const base = yield* readReleaseVersion;
       const version = yield* releaseValidation("Derive preview version", () =>
         derivePreviewVersion({ base, sequence, shortSha: sourceSha.slice(0, 12) }),
@@ -236,9 +236,7 @@ const program = Effect.scoped(
       }
       const output = process.env["GITHUB_OUTPUT"];
       if (output !== undefined && output !== "")
-        yield* fs.writeFileString(output, `version=${version}\nci_run_id=${ciRun.databaseId}\n`, {
-          flag: "a",
-        });
+        yield* fs.writeFileString(output, `version=${version}\n`, { flag: "a" });
       yield* Console.log(`Published bootstrap prerelease ${version} under npm ${distTag}.`);
     }).pipe(Effect.provide(releaseSnapshotLayer()));
   }),

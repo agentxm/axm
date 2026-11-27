@@ -165,11 +165,8 @@ export const validateReleaseAssets = (
 };
 
 const main = (): void => {
-  const command = process.argv[2];
-  if (command !== "generate" && command !== "validate") {
-    throw new Error("Usage: release-checksums.ts <generate|validate>");
-  }
-  if (command === "generate") generateReleaseChecksums(RELEASE_ASSET_DIRECTORY);
+  if (process.argv.length > 2) throw new Error("Usage: release-checksums.ts");
+  generateReleaseChecksums(RELEASE_ASSET_DIRECTORY);
   const result = validateReleaseAssets(RELEASE_ASSET_DIRECTORY);
   console.log(
     `Validated ${String(result.binaryCount)} binaries, ${String(result.contentCount)} content assets, and ${CHECKSUM_MANIFEST} in ${RELEASE_ASSET_DIRECTORY}`,

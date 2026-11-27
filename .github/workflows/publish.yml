@@ -150,13 +150,6 @@ jobs:
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
-      # npm is not a mise.toml tool; the release job needs a newer npm than the
-      # one bundled with Node for `npm publish --provenance`.
-      - name: Set up npm 11.5.1
-        run: |
-          npm install -g npm@11.5.1
-          npm --version
-
       - name: Configure npm authentication for initial package creation
         if: github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -183,15 +176,6 @@ jobs:
 
       - name: Generate release checksums
         run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static
-
-      - name: Validate release asset set
-        run: pnpm exec nx run axm:validate-release-assets --outputStyle=static
-
-      - name: Validate exact npm cohort
-        run: >-
-          pnpm exec nx run axm:validate-release-cohort --outputStyle=static --
-          release-npm "${{ steps.release_meta.outputs.version }}"
-          "${{ steps.release_meta.outputs.sha }}"
 
       - name: Preflight mutable distribution owners
         id: distribution_preflight
@@ -256,7 +240,6 @@ jobs:
       id-token: write
     outputs:
       version: ${{ steps.publish.outputs.version }}
-      ci_run_id: ${{ steps.publish.outputs.ci_run_id }}
     steps:
       - name: Checkout exact preview source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -271,11 +254,6 @@ jobs:
           remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
-
-      - name: Set up npm 11.5.1
-        run: |
-          npm install -g npm@11.5.1
-          npm --version
 
       - name: Configure npm authentication for initial package creation
         if: github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages

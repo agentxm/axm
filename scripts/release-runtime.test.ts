@@ -200,7 +200,6 @@ describe("release snapshot ownership", () => {
 
 for (const [entry, args] of [
   ["produce-release-cohort.ts", ["not-a-sha", "output"]],
-  ["validate-release-cohort.ts", ["output", "1.2.3", "not-a-sha"]],
   ["resolve-release-meta.ts", ["cli-v1.2.3", "not-a-sha"]],
   ["resolve-release-preparation-source.ts", []],
 ] as const)

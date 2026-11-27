@@ -23,7 +23,7 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-npm-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-homebrew.test.ts)",
     verifies:
       "Exercises absent and identical outputs, integrity conflicts, failed existence reads, and partial publication reruns.",
   },

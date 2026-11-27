@@ -219,7 +219,6 @@ describe("repository task interface", () => {
       "release-prepare-candidate",
       "reconcile-github-release",
       "publish-bootstrap-prerelease",
-      "validate-release-cohort",
       "resolve-release-meta",
       "download-ci-artifacts",
     ]) {
@@ -429,13 +428,11 @@ describe("repository task interface", () => {
       "release-prepare-candidate",
       "reconcile-github-release",
       "publish-bootstrap-prerelease",
-      "validate-release-cohort",
       "specification-verdict",
       "distribute-release",
       "produce-release-content",
       "verify-installed-package",
       "verify-artifacts",
-      "update-homebrew-formula",
     ]) {
       expect(targetCache(rootTargets, targetName), targetName).toBe(false);
     }

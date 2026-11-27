@@ -312,7 +312,6 @@ const outputEntries = (selection: CiSelectionResult, event: string): readonly st
   `specification_verdict=${selection.checks["specification-verdict"].selected}`,
   `extension_lint=${selection.checks["extension-lint"].selected}`,
   `required_jobs=${JSON.stringify(requiredCiJobs(selection, event))}`,
-  `selection=${JSON.stringify(selection)}`,
 ];
 const renderSummary = (selection: CiSelectionResult) =>
   [

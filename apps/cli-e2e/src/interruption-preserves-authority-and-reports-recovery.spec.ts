@@ -1,3 +1,4 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -7,7 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { interruptOnFirstRegistryRequest, runCliUntil } from "./e2e/interruption.js";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({

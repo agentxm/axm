@@ -6,7 +6,8 @@ import * as Schema from "effect/Schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 import { initRegistryWorkspace, publishSkill } from "./test-support/registry-workspace.js";
 

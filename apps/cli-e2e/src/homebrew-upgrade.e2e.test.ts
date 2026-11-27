@@ -3,7 +3,8 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createTempDir, runCli } from "./utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 const writeExecutable = (filePath: string, content: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });

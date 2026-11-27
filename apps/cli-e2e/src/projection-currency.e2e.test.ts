@@ -5,7 +5,8 @@ import * as path from "node:path";
 import { format } from "prettier";
 import { describe, expect, it } from "vitest";
 
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 export const executionBinding = {
   requirements: ["cli/projection-currency-follows-state-authority"],

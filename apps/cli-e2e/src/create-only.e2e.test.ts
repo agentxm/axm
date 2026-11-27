@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 const OWNER = "@test";
 const CREATE_TYPES = [
@@ -14,28 +16,6 @@ const CREATE_TYPES = [
   "hooks",
   "knowledge",
 ] as const;
-
-const snapshotTree = (root: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  const visit = (directory: string): void => {
-    for (const entry of fs
-      .readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name))) {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(absolutePath);
-      } else if (entry.isSymbolicLink()) {
-        snapshot[path.relative(root, absolutePath)] = `symlink:${fs.readlinkSync(absolutePath)}`;
-      } else {
-        snapshot[path.relative(root, absolutePath)] = fs
-          .readFileSync(absolutePath)
-          .toString("base64");
-      }
-    }
-  };
-  visit(root);
-  return snapshot;
-};
 
 const initializeWorkspace = async (workspace: string): Promise<void> => {
   const setup = await runCli(

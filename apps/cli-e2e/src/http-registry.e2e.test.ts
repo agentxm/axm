@@ -1,3 +1,4 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
@@ -5,13 +6,14 @@ import * as http from "node:http";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 
 import {
   EXTENSION_TYPE_MATRIX,
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
 import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 import { ptyIsSupported } from "@agentxm/test-support/pty";
 import { runCliUnderPty } from "./pty.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
@@ -146,27 +148,6 @@ const structuredPlanDocument = (stdout: string): Record<string, unknown> => {
     throw new Error("Expected structured plan result");
   }
   return output;
-};
-
-const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
-  const files: Record<string, string> = {};
-  const walk = (currentDir: string) => {
-    for (const entry of fs
-      .readdirSync(currentDir, { withFileTypes: true })
-      .sort((a, b) => a.name.localeCompare(b.name))) {
-      const absolutePath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        walk(absolutePath);
-        continue;
-      }
-      files[path.relative(rootDir, absolutePath).split(path.sep).join("/")] = fs.readFileSync(
-        absolutePath,
-        "utf-8",
-      );
-    }
-  };
-  walk(rootDir);
-  return files;
 };
 
 /** Publish one matrix row through the same CLI fixture as file-registry examples. */
@@ -980,8 +961,8 @@ describe("HTTP registry transport", () => {
       const extensionDir = (workspacePath: string) =>
         configuredRegistryFixturePath(workspacePath, OWNER, "skills", name);
 
-      expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
-        snapshotDir(extensionDir(fileWorkspace.path)),
+      expect(snapshotTree(extensionDir(httpWorkspace.path))).toEqual(
+        snapshotTree(extensionDir(fileWorkspace.path)),
       );
     } finally {
       await registry.close();

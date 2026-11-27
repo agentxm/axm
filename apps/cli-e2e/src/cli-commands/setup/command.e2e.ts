@@ -5,7 +5,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "../../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "../../utils.js";
 import { LOCKFILE_VERSION, readLockfile } from "../../test-support/lockfile.js";
 
 // Process evidence for this module is bound by the init.e2e.test.ts Vitest entrypoint.

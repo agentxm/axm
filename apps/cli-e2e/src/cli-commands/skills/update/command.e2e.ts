@@ -7,7 +7,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli, SKILLS_REPO_FIXTURE } from "../../../utils.js";
 import { getOutput } from "../../../test-helpers.js";
 import { boundPackage, readLockfile } from "../../../test-support/lockfile.js";
 

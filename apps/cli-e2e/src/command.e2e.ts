@@ -6,8 +6,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runCommand } from "@agentxm/client-e2e-utils";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCommand, createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 /**
  * Get combined output from CLI result.

@@ -1,15 +1,17 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 import {
   EXTENSION_TYPE_MATRIX,
   type ExtensionTypeMatrixRow,
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
-import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
+import { normalizeWorkspacePaths, runCli } from "./utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 import {
@@ -333,31 +335,6 @@ const normalizeLockEntry = (value: unknown) => {
   }
 
   return copy;
-};
-
-const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
-  const files: Record<string, string> = {};
-
-  const walk = (currentDir: string) => {
-    const entries = fs
-      .readdirSync(currentDir, { withFileTypes: true })
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-
-      if (entry.isDirectory()) {
-        walk(absolutePath);
-        continue;
-      }
-
-      const relativePath = path.relative(rootDir, absolutePath).split(path.sep).join("/");
-      files[relativePath] = fs.readFileSync(absolutePath, "utf-8");
-    }
-  };
-
-  walk(rootDir);
-  return files;
 };
 
 /**
@@ -732,8 +709,8 @@ describe("axm install", () => {
           normalizeLockEntry(lockEntryForSurface(surfaceLockfile, surface, name)),
         );
 
-        expect(snapshotDir(extensionDirForSurface(rootWorkspace.path, surface, name))).toEqual(
-          snapshotDir(extensionDirForSurface(surfaceWorkspace.path, surface, name)),
+        expect(snapshotTree(extensionDirForSurface(rootWorkspace.path, surface, name))).toEqual(
+          snapshotTree(extensionDirForSurface(surfaceWorkspace.path, surface, name)),
         );
       } finally {
         registryDir.cleanup();

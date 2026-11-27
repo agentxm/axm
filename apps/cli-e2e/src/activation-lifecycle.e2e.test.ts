@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { EXTENSION_TYPE_MATRIX } from "./__generated__/extension-type-matrix.js";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes at the
@@ -31,26 +33,6 @@ const extensionName = (plural: string): string => `atomic-${plural}`;
 
 const canonicalDirectory = (workspace: string, plural: string): string =>
   path.join(workspace, plural, extensionName(plural));
-
-const snapshotTree = (root: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute);
-      if (entry.isDirectory()) {
-        snapshot[relative] = "directory";
-        visit(absolute);
-      } else if (entry.isSymbolicLink()) {
-        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
-      } else {
-        snapshot[relative] = `file:${fs.readFileSync(absolute).toString("base64")}`;
-      }
-    }
-  };
-  visit(root);
-  return snapshot;
-};
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

@@ -1,27 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "./e2e/utils.js";
-
-const snapshotWorkspace = (workspace: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(workspace, absolute);
-      if (entry.isDirectory()) {
-        snapshot[relative] = "directory";
-        visit(absolute);
-      } else if (entry.isSymbolicLink()) {
-        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
-      } else {
-        snapshot[relative] = fs.readFileSync(absolute).toString("base64");
-      }
-    }
-  };
-  visit(workspace);
-  return snapshot;
-};
+import { snapshotTree } from "@agentxm/test-support";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 describe("confirmation recovery", () => {
   it("applies an eligible explicit mutation non-interactively without --yes", async () => {
@@ -44,12 +26,12 @@ describe("confirmation recovery", () => {
       );
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
 
-      const before = snapshotWorkspace(workspace.path);
+      const before = snapshotTree(workspace.path);
       const applied = await runCli(["skills", "disable", "recovery-skill", "--non-interactive"], {
         cwd: workspace.path,
       });
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
-      expect(snapshotWorkspace(workspace.path)).not.toEqual(before);
+      expect(snapshotTree(workspace.path)).not.toEqual(before);
     } finally {
       workspace.cleanup();
     }
@@ -86,7 +68,7 @@ describe("confirmation recovery", () => {
         { cwd: workspace.path },
       );
       expect(added.exitCode, added.stdout + added.stderr).toBe(0);
-      const before = snapshotWorkspace(workspace.path);
+      const before = snapshotTree(workspace.path);
 
       const removed = await runCli(
         [
@@ -100,7 +82,7 @@ describe("confirmation recovery", () => {
         { cwd: workspace.path },
       );
       expect(removed.exitCode, removed.stdout + removed.stderr).toBe(0);
-      expect(snapshotWorkspace(workspace.path)).not.toEqual(before);
+      expect(snapshotTree(workspace.path)).not.toEqual(before);
     } finally {
       workspace.cleanup();
     }

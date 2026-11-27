@@ -11,8 +11,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 
-import { createTempDir, runCli } from "../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "../utils.js";
 
 /** Binds this file's evidence to the requirement whose binding it supports. */
 export const executionBinding = {
@@ -21,29 +23,6 @@ export const executionBinding = {
   rationale:
     "Only a real CLI invocation composes the startup update check alongside the lint path, so only a process can show that disabling the check leaves the local compatibility finding in place.",
 } as const;
-
-/** Every file under a root, so the run can be shown to have written nothing. */
-const snapshot = (root: string): ReadonlyArray<readonly [string, string]> => {
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const child = path.join(directory, entry.name);
-      const relative = path.relative(root, child);
-      if (entry.isSymbolicLink()) {
-        entries.push([relative, `symlink:${fs.readlinkSync(child)}`]);
-        continue;
-      }
-      if (entry.isDirectory()) {
-        entries.push([relative, "directory"]);
-        walk(child);
-        continue;
-      }
-      entries.push([relative, fs.readFileSync(child, "utf8")]);
-    }
-  };
-  walk(root);
-  return entries.sort((left, right) => left[0].localeCompare(right[0]));
-};
 
 describe("startup update check and local lint findings", () => {
   it("disabling the startup update check does not hide local compatibility findings", async () => {
@@ -61,7 +40,7 @@ describe("startup update check and local lint findings", () => {
           2,
         )}\n`,
       );
-      const before = snapshot(temp.path);
+      const before = snapshotTree(temp.path);
 
       const result = await runCli(["lint", "--json"], {
         cwd: temp.path,
@@ -81,7 +60,7 @@ describe("startup update check and local lint findings", () => {
         },
       });
       expect(result.exitCode).toBe(1);
-      expect(snapshot(temp.path)).toEqual(before);
+      expect(snapshotTree(temp.path)).toEqual(before);
     } finally {
       temp.cleanup();
     }

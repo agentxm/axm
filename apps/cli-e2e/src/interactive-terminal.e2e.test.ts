@@ -7,10 +7,11 @@ import { Keys } from "@agentxm/test-support/key-steps";
 
 import { ptyIsSupported, runUnderPty } from "@agentxm/test-support/pty";
 
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { runCliUnderPty } from "./pty.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
-import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
+import { runCli, writeUserDefaultRegistry } from "./utils.js";
 
 const shell = { runtime: "binary", path: "/bin/sh" } as const;
 // `stty`, `tput`, and `printf` are found on PATH, and `tput` reads TERM.

@@ -8,12 +8,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import {
-  createTempDir,
-  runCli,
-  SKILLS_REPO_FIXTURE,
-  writeDefaultRegistrySettings,
-} from "../../../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli, SKILLS_REPO_FIXTURE, writeDefaultRegistrySettings } from "../../../utils.js";
 import { getOutput } from "../../../test-helpers.js";
 import { LOCKFILE_VERSION, boundPackage, readLockfile } from "../../../test-support/lockfile.js";
 

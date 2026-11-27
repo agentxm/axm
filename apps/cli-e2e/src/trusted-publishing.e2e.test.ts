@@ -13,10 +13,11 @@ import { describe, expect, it } from "vitest";
 
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { startGitHubActionsIdTokenServer } from "./e2e/github-actions-id-token-server.js";
 import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
-import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
+import { runCli, writeUserDefaultRegistry } from "./utils.js";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/trusted-publishing/ci-identity-becomes-one-workload-token"],

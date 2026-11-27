@@ -2023,7 +2023,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe. It also observes that root update and uninstall refuse an unknown extension type or a Library ID as a target without changing workspace bytes.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
 ##### Update advances the accepted resolution within durable intent
@@ -3900,7 +3900,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
-- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe. It also observes that root update and uninstall refuse an unknown extension type or a Library ID as a target without changing workspace bytes.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/is-idempotent.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/is-idempotent.spec.ts)
 
 ##### Uninstall preserves unrelated and unowned files
@@ -5758,7 +5758,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
-- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe. It also observes that root update and uninstall refuse an unknown extension type or a Library ID as a target without changing workspace bytes.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
 
 ##### A Knowledge bundle AXM cannot read is left out of the instructions file and reported
@@ -8049,7 +8049,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table
-- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe. It also observes that root update and uninstall refuse an unknown extension type or a Library ID as a target without changing workspace bytes.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/rejects-versioned-root-targets.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/rejects-versioned-root-targets.spec.ts)
 
 ##### Visibility status supplies repository intent and reports the Registry evaluation

@@ -1,10 +1,12 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-home-snapshot.js";
 /** Process-boundary evidence for workspace lockfile rejection contracts. */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { snapshotTree } from "@agentxm/test-support";
+import { runCli } from "./utils.js";
 import { LOCKFILE_NAME } from "./test-support/lockfile.js";
 
 export const executionBinding = {
@@ -17,27 +19,6 @@ export const executionBinding = {
   rationale:
     "Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.",
 } as const;
-
-const snapshotTree = (root: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  if (!fs.existsSync(root)) return snapshot;
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute);
-      if (entry.isDirectory()) {
-        snapshot[relative] = "directory";
-        visit(absolute);
-      } else if (entry.isSymbolicLink()) {
-        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
-      } else {
-        snapshot[relative] = `file:${fs.readFileSync(absolute).toString("base64")}`;
-      }
-    }
-  };
-  visit(root);
-  return snapshot;
-};
 
 const expectMachineStream = (stderr: string): void => {
   for (const line of stderr.split("\n").filter((candidate) => candidate.trim().length > 0)) {

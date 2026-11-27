@@ -10,7 +10,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "../../../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "../../../utils.js";
 import { refreshAuthoredWorkspacePackState } from "../../../e2e/workspace-pack-state.js";
 import { initRegistryWorkspace } from "../../../test-support/registry-workspace.js";
 

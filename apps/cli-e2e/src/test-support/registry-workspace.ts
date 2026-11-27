@@ -8,7 +8,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 
-import { createTempDir, runCli } from "../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "../utils.js";
 
 const registryEnv = (): Record<string, string> => ({ AXM_TOKEN: "e2e-test-token" });
 

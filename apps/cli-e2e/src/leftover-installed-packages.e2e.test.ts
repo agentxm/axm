@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
 
@@ -45,21 +46,6 @@ const skillPackage = (directory: string, owner: string, name: string) => {
     path.join(directory, "src", "SKILL.md"),
     `---\nname: ${name}\ndescription: Fixture\n---\n# ${name}\n`,
   );
-};
-
-const snapshot = (root: string): Record<string, string> => {
-  const files: Record<string, string> = {};
-  const visit = (directory: string) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute);
-      if (entry.isSymbolicLink()) files[relative] = `-> ${fs.readlinkSync(absolute)}`;
-      else if (entry.isDirectory()) visit(absolute);
-      else files[relative] = fs.readFileSync(absolute, "utf8");
-    }
-  };
-  visit(root);
-  return files;
 };
 
 const exists = (file: string) => {
@@ -124,7 +110,7 @@ describe("Leftover installed packages", () => {
       fs.symlinkSync(unprovenTarget, unprovenLink);
       const legacyLink = path.join(skillsDir, "legacy");
       fs.symlinkSync("../../.axm/extensions/@axm/skills/legacy", legacyLink);
-      const authoredBefore = snapshot(path.join(workspace, "skills"));
+      const authoredBefore = snapshotTree(path.join(workspace, "skills"));
 
       const lint = await run(["lint"]);
       const findings: ReadonlyArray<Finding> = JSON.parse(lint.stdout).result.findings;
@@ -143,11 +129,11 @@ describe("Leftover installed packages", () => {
       expect(unrecognized).toHaveLength(1);
       expect(unrecognized[0]).toContain("notes.txt");
 
-      const beforeRefusal = snapshot(workspace);
+      const beforeRefusal = snapshotTree(workspace);
       const uninstall = await run(["skills", "uninstall", "@craigsmitham/skills/audit-docs"]);
       expect(uninstall.exitCode, uninstall.stdout + uninstall.stderr).not.toBe(0);
       expect(uninstall.stdout + uninstall.stderr).toContain("axm sync");
-      expect(snapshot(workspace)).toEqual(beforeRefusal);
+      expect(snapshotTree(workspace)).toEqual(beforeRefusal);
 
       const check = await run(["sync", "--preview", "--fail-on-change"]);
       expect(check.exitCode, check.stdout + check.stderr).toBe(1);
@@ -164,7 +150,7 @@ describe("Leftover installed packages", () => {
       expect(fs.readlinkSync(unprovenLink)).toBe(unprovenTarget);
       expect(exists(legacyLink)).toBe(true);
       expect(fs.readFileSync(notesPath, "utf8")).toBe("hand-written\n");
-      expect(snapshot(path.join(workspace, "skills"))).toEqual(authoredBefore);
+      expect(snapshotTree(path.join(workspace, "skills"))).toEqual(authoredBefore);
 
       const converged = await run(["sync", "--preview", "--fail-on-change"]);
       expect(converged.exitCode, converged.stdout + converged.stderr).toBe(0);

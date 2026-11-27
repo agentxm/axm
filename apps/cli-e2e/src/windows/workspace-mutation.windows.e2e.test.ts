@@ -1,11 +1,11 @@
 import "../cli-commands/subagents/implementations.e2e.js";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
-import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
+import { withoutLocalGitEnvironment, createTempDir } from "@agentxm/client-e2e-utils";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
+import { runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
 import { boundPackage, parseLockfile, readLockfile } from "../test-support/lockfile.js";
 
 /**

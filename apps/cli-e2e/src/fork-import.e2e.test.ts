@@ -3,7 +3,8 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { snapshotProtectedState } from "@agentxm/test-support";
 
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 
 const readJson = (filePath: string): Readonly<Record<string, unknown>> =>
   JSON.parse(fs.readFileSync(filePath, "utf8"));

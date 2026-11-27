@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { runCli } from "../../../e2e/utils.js";
+import { runCli } from "../../../utils.js";
 
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.
 

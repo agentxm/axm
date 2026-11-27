@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { interruptOnFirstRegistryRequest } from "./e2e/interruption.js";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes at the

@@ -1,9 +1,11 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { snapshotTree } from "@agentxm/test-support";
 import { parse as parseToml } from "smol-toml";
-import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
+import { normalizeWorkspacePaths, runCli } from "./utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 import { lockfilePath, readLockfile as readLockDocument } from "./test-support/lockfile.js";
@@ -22,7 +24,7 @@ export const executionBinding = {
   ],
   boundary: "process",
   rationale:
-    "Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.",
+    "Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe. It also observes that root update and uninstall refuse an unknown extension type or a Library ID as a target without changing workspace bytes.",
 } as const;
 
 const OWNER = "@test";
@@ -592,4 +594,28 @@ describe("axm uninstall", () => {
       typedHome.cleanup();
     }
   });
+});
+
+describe("root lifecycle targets", () => {
+  it.each(["update", "uninstall"])(
+    "refuses targets that are not extension identities before %s changes workspace state",
+    async (command) => {
+      const workspace = createTempDir();
+      try {
+        const setup = await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+          { cwd: workspace.path },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        const before = snapshotTree(workspace.path);
+        for (const target of ["@acme/widgets/example", "lib_00000000000000000000000000"]) {
+          const result = await runCli([command, target], { cwd: workspace.path });
+          expect(result.exitCode, `${command} ${target}`).not.toBe(0);
+          expect(snapshotTree(workspace.path), `${command} ${target}`).toEqual(before);
+        }
+      } finally {
+        workspace.cleanup();
+      }
+    },
+  );
 });

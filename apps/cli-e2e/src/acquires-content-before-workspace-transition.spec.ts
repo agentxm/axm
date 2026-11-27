@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli } from "./utils.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({

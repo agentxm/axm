@@ -1,3 +1,4 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-home-snapshot.js";
 /**
  * Process-boundary evidence for the executable specification
@@ -8,7 +9,8 @@ import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-hom
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./e2e/utils.js";
+import { snapshotTree } from "@agentxm/test-support";
+import { runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
 
 export const executionBinding = {
   requirements: ["cli/invalid-workspace-state-gates-operations"],
@@ -19,26 +21,6 @@ export const executionBinding = {
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const snapshotTree = (root: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute);
-      if (entry.isDirectory()) {
-        snapshot[relative] = "directory";
-        visit(absolute);
-      } else if (entry.isSymbolicLink()) {
-        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
-      } else {
-        snapshot[relative] = `file:${fs.readFileSync(absolute).toString("base64")}`;
-      }
-    }
-  };
-  visit(root);
-  return snapshot;
-};
 
 const expectMachineError = (
   stdout: string,

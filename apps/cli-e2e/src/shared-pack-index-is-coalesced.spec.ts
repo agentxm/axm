@@ -1,3 +1,4 @@
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -6,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({

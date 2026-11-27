@@ -12,7 +12,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { cliArtifact } from "../cli-artifact.js";
-import { writeDefaultRegistrySettings } from "./utils.js";
+import { writeDefaultRegistrySettings } from "../utils.js";
 
 export interface SpawnResult {
   readonly code: number | null;

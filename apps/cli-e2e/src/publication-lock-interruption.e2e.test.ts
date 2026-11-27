@@ -3,8 +3,9 @@ import { hostname } from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { createTempDir } from "@agentxm/client-e2e-utils";
 import { runCliUntil, waitForPublicationWaiter } from "./e2e/interruption.js";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { runCli } from "./utils.js";
 
 export const executionBinding = {
   requirements: [

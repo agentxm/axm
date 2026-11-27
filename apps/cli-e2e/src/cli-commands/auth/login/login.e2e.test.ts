@@ -7,7 +7,8 @@
 import { startDeviceAuthServer } from "@agentxm/test-support/auth-server";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
+import { createTempDir } from "@agentxm/client-e2e-utils";
+import { runCli, writeUserDefaultRegistry } from "../../../utils.js";
 
 export const executionBinding = {
   requirements: [

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { runCli } from "../../e2e/utils.js";
+import { runCli } from "../../utils.js";
 
 describe("axm skills", () => {
   describe("without subcommand", () => {

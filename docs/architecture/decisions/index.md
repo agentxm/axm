@@ -13,9 +13,6 @@ specifications, never in these records.
   the project graph, keep a stable identity independent of path, are labelled
   by purpose at execution, and are compared by metadata, decisive examples,
   and body
-- [Specification infrastructure decisions](specification-infrastructure.md) —
-  deprecated; the pilot-era identity, ownership, adapter, and governance
-  decisions superseded by colocated specifications, kept for links and history
 - [Shared specification contract](shared-specification-contract.md) — the
   metadata contract, classification lens, vocabularies, and shared product-goal
   identities live once in `@agentxm/specification-metadata` and are consumed by

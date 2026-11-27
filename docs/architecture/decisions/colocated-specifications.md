@@ -11,9 +11,6 @@ depends-on:
 
 # Colocated specifications
 
-Supersedes the identity, project-ownership, result-adapter, and governance
-sections of [Specification infrastructure decisions](specification-infrastructure.md).
-
 ## Decision
 
 A specification is a `*.spec.ts` file that lives beside the source it
@@ -113,9 +110,9 @@ specifications outside their owner's source root.
   `specification` with a unique identity, a `.test.ts` never does,
   `.e2e.test.ts` lives only in `role:e2e` projects, neither lives in
   `__generated__/`, and symbolic links may not hide them.
-- The fast-suite budget sums specification file time across every owner's
-  JUnit output; the 360-second budget from the superseded record carries
-  forward, and raising it is a deliberate revision of this record.
+- The fast-suite budget caps specification file time, summed across every
+  owner's JUnit output, at 360 seconds; raising it is a deliberate revision of
+  this record.
 - The shared contract package is a dependency of every project that owns a
   specification; the contract package itself must not depend on any project
   that owns specifications, or the build graph cycles.

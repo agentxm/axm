@@ -33,7 +33,7 @@ specification project or shared application harness exists.
 | `*.test.ts`      | Ordinary evidence; no specification metadata             |
 | `*.e2e.test.ts`  | Boundary execution in a project tagged `role:e2e`        |
 | `*.type-test.ts` | Compile-time assertions                                  |
-| `*.bench.ts`     | Diagnostic measurements                                  |
+| `*.bench.ts`     | Diagnostic measurements; never specification evidence    |
 
 Specifications use native test-framework constructs. Import
 `defineSpecification`, `defineExecutionBinding`, and `defineBoundEvidence` from
@@ -48,6 +48,12 @@ catalog can read it without executing tests.
 - `goals` references the shared registry or `specifications/product-goals.ts`.
   Do not redefine shared goals. Class, role, boundary, method, and selection
   describe the obligation and its evidence independently.
+- `role` is `experience` for behavior meaningful while a person or agent
+  completes a product task, `interface` for a public machine-consumable
+  contract, or `supporting` for a subordinate system or engineering
+  obligation. The catalog and Allure hierarchy present them as Product
+  behavior, Programmatic interfaces, and Supporting system behavior. Native
+  test names carry the reportable scenarios beneath each requirement.
 - Declare lineage, assumptions, open questions, and evidence limitations.
   Manual or review-only evidence remains unverified until established.
 - Boundary execution and static checks bind to the same requirement identity;
@@ -79,7 +85,9 @@ Missing, stale, skipped, filtered, partial, or incorrectly labelled evidence
 never counts as a pass.
 
 The verdict distinguishes contract changes, possible rule changes in decisive
-examples, evidence changes, moves, and implementation impact. Maintainer review
+examples, evidence changes, moves, and implementation impact, and renders the
+evidence status of every affected requirement; missing evidence renders as
+missing, never as a pass. Maintainer review
 accepts requirement changes; `**/*.spec.ts` is routed through CODEOWNERS.
 Implementation work alone does not authorize changing accepted requirements.
 
@@ -112,7 +120,20 @@ coverage thresholds only to the bounded source selection in
 those cases without coverage; `test:policy-mutation` is an explicit diagnostic
 using the uncached target, with reports under `test-results/policy-quality/`.
 Surviving or equivalent mutants require review; runner failures do not prove a
-mutant was detected. These checks emit no specification receipts.
+mutant was detected. These checks emit no specification receipts; benchmark and
+mutation results stay diagnostic and never count toward specification
+completeness.
+
+Release, artifact, and deployment targets enforce their subject identity.
+`cli-e2e:binary-smoke-artifact` verifies the binary named by `AXM_BINARY_PATH`,
+and `cli-e2e:install-verification` in production mode requires
+`AXM_EXPECTED_VERSION`; each fails rather than passing vacuously when its
+subject is absent. Release evidence comes only from the authorized GitHub
+Actions flow in the [release runbook](../../devops/runbooks/release-cli.md).
+
+Specifications run per change on purpose-fit runners selected by their
+metadata. A slower runner declares a scheduled or release-candidate selection
+rather than slowing the fast suite.
 
 The compiled listing latency requirement runs through `cli-e2e:test:performance`,
 which builds the host executable before measuring fresh processes. Run it alone

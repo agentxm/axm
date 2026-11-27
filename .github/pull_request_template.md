@@ -31,7 +31,7 @@ Use this section for additional requirement-impact context when useful.
 <!-- List commands and behavioral evidence. -->
 
 - [ ] `pnpm run verify:pr` passes
-- [ ] Every removed requirement identity is explained in
-      `specifications/disposition-ledger.json`
+- [ ] Every removed requirement identity is named in a successor's
+      `supersedes` or explained in `specifications/disposition-ledger.json`
 - [ ] User-visible behavior is verified when applicable
 - [ ] Branch, commits, and PR content contain no private coordination data

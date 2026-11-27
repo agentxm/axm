@@ -91,11 +91,12 @@ missing, never as a pass. Maintainer review
 accepts requirement changes; `**/*.spec.ts` is routed through CODEOWNERS.
 Implementation work alone does not authorize changing accepted requirements.
 
-Explain removals in `specifications/disposition-ledger.json` with `requirement`,
-`disposition`, and `basis`; `superseded-by` also names `successor`. Other
-supported dispositions are `engineering-policy`, `converted-to-test`, and
-`retired`. A successor's `supersedes` declaration also explains retirement.
-Unexplained removals remain visible in the verdict. Reports and pull requests
+A successor's `supersedes` declaration explains the removal of each identity it
+absorbs; do not repeat it in the ledger. Explain other removals in
+`specifications/disposition-ledger.json` with `requirement`, `disposition`, and
+`basis`, using `engineering-policy`, `converted-to-test`, or `retired`. Use
+`superseded-by`, which also names `successor`, only for a supersession the
+successor does not declare. Unexplained removals remain visible in the verdict. Reports and pull requests
 include the rendered specification impact, including the computed
 `No requirement contract changes.` result when applicable.
 

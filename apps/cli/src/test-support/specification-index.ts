@@ -36,28 +36,42 @@ const specificationFiles = (directory: string, found: Array<string>): void => {
   }
 };
 
-const buildIndex = (): ReadonlyMap<string, string> => {
-  const files: Array<string> = [];
-  for (const root of SEARCH_ROOTS) specificationFiles(path.join(repositoryRoot, root), files);
-  const index = new Map<string, string>();
-  for (const file of files.sort()) {
+const SUPERSEDES_LIST = /supersedes:\s*\[([^\]]*)\]/u;
+const STRING_LITERAL = /"([^"]+)"/gu;
+
+interface SpecificationIndex {
+  /** Requirement identity to the absolute path of the file that declares it. */
+  readonly files: ReadonlyMap<string, string>;
+  /** Retired identity to the successor whose `supersedes` names it. */
+  readonly successors: ReadonlyMap<string, string>;
+}
+
+const buildIndex = (): SpecificationIndex => {
+  const paths: Array<string> = [];
+  for (const root of SEARCH_ROOTS) specificationFiles(path.join(repositoryRoot, root), paths);
+  const files = new Map<string, string>();
+  const successors = new Map<string, string>();
+  for (const file of paths.sort()) {
     const content = fs.readFileSync(file, "utf8");
     if (!content.includes("defineSpecification(")) continue;
     const identity = REQUIREMENT_LITERAL.exec(content)?.[1];
-    if (identity === undefined || index.has(identity)) continue;
-    index.set(identity, file);
+    if (identity === undefined || files.has(identity)) continue;
+    files.set(identity, file);
+    const supersedes = SUPERSEDES_LIST.exec(content)?.[1] ?? "";
+    for (const [, predecessor] of supersedes.matchAll(STRING_LITERAL)) {
+      if (predecessor !== undefined) successors.set(predecessor, identity);
+    }
   }
-  return index;
+  return { files, successors };
 };
 
-let cached: ReadonlyMap<string, string> | undefined;
+let cached: SpecificationIndex | undefined;
 
-/** Requirement identity to the absolute path of the file that declares it. */
-const specificationIndex = (): ReadonlyMap<string, string> => (cached ??= buildIndex());
+const specificationIndex = (): SpecificationIndex => (cached ??= buildIndex());
 
 /** The file declaring `identity`, or `undefined` when nothing declares it. */
 export const specificationFileFor = (identity: string): string | undefined =>
-  specificationIndex().get(identity);
+  specificationIndex().files.get(identity);
 
 /** One requirement identity and the file that declares it. */
 export interface SpecificationOwner {
@@ -65,47 +79,21 @@ export interface SpecificationOwner {
   readonly file: string;
 }
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null;
-
-/**
- * Retired identity to the successor that took its obligation over, read from
- * the disposition ledger. Only `superseded-by` carries an obligation forward;
- * every other disposition retires the identity outright.
- */
-const buildSuccessors = (): ReadonlyMap<string, string> => {
-  const ledgerPath = path.join(repositoryRoot, "specifications", "disposition-ledger.json");
-  const successors = new Map<string, string>();
-  if (!fs.existsSync(ledgerPath)) return successors;
-  const parsed: unknown = JSON.parse(fs.readFileSync(ledgerPath, "utf8"));
-  if (!Array.isArray(parsed)) return successors;
-  for (const row of parsed) {
-    if (!isRecord(row)) continue;
-    const { requirement, disposition, successor } = row;
-    if (disposition !== "superseded-by") continue;
-    if (typeof requirement !== "string" || typeof successor !== "string") continue;
-    successors.set(requirement, successor);
-  }
-  return successors;
-};
-
-let cachedSuccessors: ReadonlyMap<string, string> | undefined;
-
 /**
  * Who stands for `identity` today: the specification that declares it, or —
- * once it is retired as superseded — the successor that took it over. An
- * obligation a consolidation absorbed is still owned, by the file that
+ * once it is retired as superseded — the successor whose `supersedes` names
+ * it. An obligation a consolidation absorbed is still owned, by the file that
  * absorbed it.
  */
 export const owningSpecification = (identity: string): SpecificationOwner | undefined => {
-  cachedSuccessors ??= buildSuccessors();
+  const { successors } = specificationIndex();
   const visited = new Set<string>();
   let current = identity;
   while (!visited.has(current)) {
     visited.add(current);
     const file = specificationFileFor(current);
     if (file !== undefined) return { identity: current, file };
-    const successor = cachedSuccessors.get(current);
+    const successor = successors.get(current);
     if (successor === undefined) return undefined;
     current = successor;
   }

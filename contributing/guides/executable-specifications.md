@@ -96,9 +96,9 @@ absorbs; do not repeat it in the ledger. Explain other removals in
 `specifications/disposition-ledger.json` with `requirement`, `disposition`, and
 `basis`, using `engineering-policy`, `converted-to-test`, or `retired`. Use
 `superseded-by`, which also names `successor`, only for a supersession the
-successor does not declare. Unexplained removals remain visible in the verdict. Reports and pull requests
-include the rendered specification impact, including the computed
-`No requirement contract changes.` result when applicable.
+successor does not declare. Unexplained removals remain visible in the verdict.
+Reports and pull requests include the rendered specification impact, including
+the computed `No requirement contract changes.` result when applicable.
 
 Removing a command, subcommand, or flag adds no absence test. The
 [command inventory test](../../apps/cli/src/root/shared/command-inventory.test.ts)

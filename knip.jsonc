@@ -105,8 +105,6 @@
       // the gallery discovers by name. The root Nx plugin finds the Bun
       // launchers through this project's targets.
       "entry": ["src/**/*.type-test.ts", "src/**/*.gallery.ts"],
-      // Pin the published Effect runtime cohort despite its transitive import.
-      "ignoreDependencies": ["@effect/platform-node-shared"],
     },
     "apps/cli-e2e": {
       // Nx invokes this source-conditioned validator without building the CLI.

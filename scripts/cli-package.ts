@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -16,7 +18,6 @@ const manifestFields = Schema.Struct({
   peerDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 const manifestJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
-const bundledEffectPackages = ["@effect/platform-node", "@effect/platform-node-shared"];
 
 export class CliPackageError extends Data.TaggedError("CliPackageError")<{
   readonly message: string;
@@ -177,31 +178,47 @@ export const packCliPackage = (options: {
           return manifest;
         }),
       );
-      // Effect's prerelease platform-node package permits newer, incompatible
-      // platform-node-shared releases. Keep the tested pair inside the CLI so
-      // Yarn Classic cannot resolve a different nested version at install time.
-      const effectPackages = yield* Effect.forEach(bundledEffectPackages, (name) =>
+      // platform-node declares redis as a required peer for its NodeRedis
+      // module, which the CLI never loads. Bundling platform-node with the
+      // platform-node-shared release it pins, and dropping their peers, keeps
+      // redis and its native dependencies out of consumer installs.
+      const resolvePackage = (from: string, name: string) =>
+        Effect.try({
+          try: () =>
+            path.dirname(
+              createRequire(path.join(from, "package.json")).resolve(`${name}/package.json`),
+            ),
+          catch: (cause) =>
+            new CliPackageError({
+              message: `Cannot resolve bundled CLI dependency ${name}: ${String(cause)}`,
+            }),
+        }).pipe(Effect.flatMap((directory) => fs.realPath(directory)));
+      const platformNode = yield* resolvePackage(
+        path.join(options.repository, "apps", "cli"),
+        "@effect/platform-node",
+      );
+      const platformNodeShared = yield* resolvePackage(
+        platformNode,
+        "@effect/platform-node-shared",
+      );
+      const cliManifest = yield* Schema.decodeUnknownEffect(manifestFields)(cli);
+      const effectPackages = yield* Effect.forEach([platformNode, platformNodeShared], (source) =>
         Effect.gen(function* () {
-          const source = yield* fs.realPath(
-            path.join(options.repository, "apps", "cli", "node_modules", name),
-          );
           const manifest = yield* readManifest(path.join(source, "package.json"));
           const decoded = yield* Schema.decodeUnknownEffect(manifestFields)(manifest);
-          const cliManifest = yield* Schema.decodeUnknownEffect(manifestFields)(cli);
-          if (cliManifest.dependencies?.[name] !== decoded.version) {
+          if (cliManifest.dependencies?.["effect"] !== decoded.version) {
             return yield* new CliPackageError({
-              message: `Bundled CLI dependency ${name} must match its exact installed version.`,
+              message: `Bundled CLI dependency ${decoded.name} must match the CLI's exact effect version.`,
             });
           }
-          const directory = path.join(packageRoot, "dist", "node_modules", name);
+          const directory = path.join(packageRoot, "dist", "node_modules", decoded.name);
           yield* fs.makeDirectory(path.dirname(directory), { recursive: true });
           yield* fs.copy(source, directory);
           yield* fs.writeFileString(
             path.join(directory, "package.json"),
             `${JSON.stringify(composeBundledPackageManifest(manifest), null, 2)}\n`,
           );
-          // redis is an optional platform-node peer; dependency composition
-          // needs its actual runtime dependencies, not optional peers.
+          // Compose only the bundled packages' runtime dependencies, not their peers.
           return { ...manifest, peerDependencies: {} };
         }),
       );

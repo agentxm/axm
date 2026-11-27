@@ -70,7 +70,6 @@ describe("compiled CLI package composition", () => {
           dependencies: {
             ...cli.dependencies,
             "@effect/platform-node": "4.0.0-rc.115",
-            "@effect/platform-node-shared": "4.0.0-rc.115",
           },
         },
         [
@@ -78,7 +77,7 @@ describe("compiled CLI package composition", () => {
             name: "@effect/platform-node",
             version: "4.0.0-rc.115",
             dependencies: {
-              "@effect/platform-node-shared": "^4.0.0-rc.115",
+              "@effect/platform-node-shared": "4.0.0-rc.115",
               undici: "^8.10.2",
             },
             peerDependencies: {},

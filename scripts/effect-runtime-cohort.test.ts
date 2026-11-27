@@ -37,16 +37,12 @@ describe("published Effect runtime cohort", () => {
 
     expect(effectVersion).toMatch(/^4\.\d+\.\d+$/u);
     expect(catalog["@effect/platform-node"]).toBe(effectVersion);
-    expect(catalog["@effect/platform-node-shared"]).toBe(effectVersion);
 
     const cliManifest = readObject(resolve(repoRoot, "apps/cli/package.json"));
     const dependencies = cliManifest["dependencies"];
     if (!isRecord(dependencies)) throw new Error("The CLI must declare runtime dependencies.");
 
-    // platform-node permits newer releases of platform-node-shared. Keeping
-    // the shared package direct makes clean consumer installs use this cohort.
     expect(dependencies["@effect/platform-node"]).toBe("catalog:");
-    expect(dependencies["@effect/platform-node-shared"]).toBe("catalog:");
     expect(dependencies["effect"]).toBe("catalog:");
   });
 

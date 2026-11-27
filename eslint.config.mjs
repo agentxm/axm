@@ -911,9 +911,6 @@ export default [
             // Loaded through a computed dynamic-import specifier the static
             // graph cannot see (the registry-access credential-store keychain tier).
             "@napi-rs/keyring",
-            // The published CLI pins this transitive runtime directly because
-            // platform-node's prerelease range can otherwise cross cohorts.
-            "@effect/platform-node-shared",
             // CycloneDX Serialize loads its optional XML peer while the CLI bundles the JSON serializer.
             // Keep this runtime peer until the library offers a JSON-only exported entry.
             "xmlbuilder2",

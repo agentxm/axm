@@ -13,11 +13,11 @@ import {
   applyStructuralInverse,
   captureContainerIdentity,
   deriveStructuralInverse,
-  forgetContainerReceipt,
   readContainerReceipts,
-  recordContainerReceipt,
+  updateContainerReceipts,
   verifyContainerIdentity,
 } from "./index.js";
+import { forgettingReceipt, recordingReceipt } from "./testing.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/locations/container-receipts-require-continuous-identity",
@@ -209,14 +209,14 @@ describe("container receipt continuity", () => {
       };
       yield* Effect.all(
         [
-          recordContainerReceipt(
+          updateContainerReceipts(
             workspaceDir,
-            { unit: "first", kind: "inserted-key", identity },
+            recordingReceipt({ unit: "first", kind: "inserted-key", identity }),
             mutation,
           ),
-          recordContainerReceipt(
+          updateContainerReceipts(
             workspaceDir,
-            { unit: "second", kind: "inserted-key", identity },
+            recordingReceipt({ unit: "second", kind: "inserted-key", identity }),
             mutation,
           ),
         ],
@@ -225,17 +225,17 @@ describe("container receipt continuity", () => {
       const document = yield* readContainerReceipts(workspaceDir);
       expect(document.entries.map((entry) => entry.unit).sort()).toEqual(["first", "second"]);
       for (const unit of ["first", "second"])
-        yield* forgetContainerReceipt(
+        yield* updateContainerReceipts(
           workspaceDir,
-          { unit, physicalPath: identity.physicalPath },
+          forgettingReceipt({ unit, physicalPath: identity.physicalPath }),
           mutation,
         );
       const stored = path.join(workspaceDir, "projection-containers.json");
       expect(yield* fs.exists(stored)).toBe(false);
       yield* fs.writeFileString(stored, '{"version":1,"entries":[],"foreign":"preserve"}');
-      const refused = yield* recordContainerReceipt(
+      const refused = yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "third", kind: "inserted-key", identity },
+        recordingReceipt({ unit: "third", kind: "inserted-key", identity }),
         mutation,
       ).pipe(Effect.result);
       expect(refused._tag).toBe("Failure");
@@ -259,27 +259,27 @@ describe("container receipt continuity", () => {
         write: (file: string, contents: string) => fs.writeFileString(file, contents),
         retire: (file: string) => fs.remove(file, { recursive: true }),
       };
-      yield* recordContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "first", kind: "inserted-key", identity },
+        recordingReceipt({ unit: "first", kind: "inserted-key", identity }),
         mutation,
       );
       expect((yield* readContainerReceipts(workspaceDir)).createdDirectories).toHaveLength(1);
-      yield* forgetContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "first", physicalPath: identity.physicalPath },
+        forgettingReceipt({ unit: "first", physicalPath: identity.physicalPath }),
         mutation,
       );
       expect(yield* fs.exists(workspaceDir)).toBe(false);
-      yield* recordContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "second", kind: "inserted-key", identity },
+        recordingReceipt({ unit: "second", kind: "inserted-key", identity }),
         mutation,
       );
       yield* fs.writeFileString(path.join(workspaceDir, "foreign"), "retain");
-      yield* forgetContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "second", physicalPath: identity.physicalPath },
+        forgettingReceipt({ unit: "second", physicalPath: identity.physicalPath }),
         mutation,
       );
       expect(yield* fs.readFileString(path.join(workspaceDir, "foreign"))).toBe("retain");
@@ -303,9 +303,9 @@ describe("container receipt continuity", () => {
         write: (file: string, contents: string) => fs.writeFileString(file, contents),
         retire: (file: string) => fs.remove(file, { recursive: true }),
       };
-      yield* recordContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "first", kind: "inserted-key", identity },
+        recordingReceipt({ unit: "first", kind: "inserted-key", identity }),
         mutation,
       );
       yield* fs.rename(workspaceDir, original);
@@ -314,9 +314,9 @@ describe("container receipt continuity", () => {
         path.join(original, "projection-containers.json"),
         path.join(workspaceDir, "projection-containers.json"),
       );
-      yield* forgetContainerReceipt(
+      yield* updateContainerReceipts(
         workspaceDir,
-        { unit: "first", physicalPath: identity.physicalPath },
+        forgettingReceipt({ unit: "first", physicalPath: identity.physicalPath }),
         mutation,
       );
       expect(yield* fs.exists(workspaceDir)).toBe(true);

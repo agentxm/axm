@@ -9,7 +9,6 @@ import * as PlatformError from "effect/PlatformError";
 
 import {
   captureCopiedDirectory,
-  copiedDirectoryCanReplace,
   copiedDirectoryCanReplaceWith,
   copiedDirectoryIsCurrent,
   copiedDirectoryIsCurrentWith,
@@ -79,8 +78,10 @@ describe("copied link identity failures", () => {
     Effect.gen(function* () {
       const { fs, copy, link, deniedFs } = yield* fixture;
       expect(Option.isSome(yield* captureCopiedDirectory(copy, copy))).toBe(true);
+      const receipt = yield* readCopiedDirectory(copy);
+      if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
       yield* Effect.gen(function* () {
-        expect(yield* copiedDirectoryCanReplace(copy)).toBe(false);
+        expect(yield* copiedDirectoryCanReplaceWith(copy, receipt.value)).toBe(false);
         expect(yield* copiedDirectoryIsCurrent(copy, copy)).toBe(false);
         expect(yield* retireCopiedDirectory(copy)).toBe(true);
       }).pipe(Effect.provideService(FileSystem.FileSystem, deniedFs));
@@ -134,10 +135,6 @@ describe("copied receipt consumers", () => {
         }).pipe(Effect.provideService(FileSystem.FileSystem, fileSystem));
       const receipt = yield* readCopiedDirectory(copy);
       if (Option.isNone(receipt)) return yield* Effect.die("the fixture copy has a receipt");
-      expect(yield* receiptReads(copiedDirectoryCanReplace(copy))).toEqual({
-        value: scenario.canReplace,
-        receiptReads: 1,
-      });
       expect(yield* receiptReads(copiedDirectoryCanReplaceWith(copy, receipt.value))).toEqual({
         value: scenario.canReplace,
         receiptReads: 0,
@@ -168,13 +165,11 @@ describe("copied receipt consumers", () => {
       expect(captured.value.files).toEqual([]);
       const receipt = yield* readCopiedDirectory(copy);
       if (Option.isNone(receipt)) return yield* Effect.die("the empty copy has a receipt");
-      expect(yield* copiedDirectoryCanReplace(copy)).toBe(true);
       expect(yield* copiedDirectoryCanReplaceWith(copy, receipt.value)).toBe(true);
       expect(yield* copiedDirectoryIsCurrent(copy, source)).toBe(true);
       expect(yield* copiedDirectoryIsCurrentWith(copy, receipt.value, source)).toBe(true);
       yield* fs.remove(yield* copiedDirectoryReceiptPath(copy));
       expect(Option.isNone(yield* readCopiedDirectory(copy))).toBe(true);
-      expect(yield* copiedDirectoryCanReplace(copy)).toBe(false);
       expect(yield* copiedDirectoryIsCurrent(copy, source)).toBe(false);
     }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
   );

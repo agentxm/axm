@@ -9,7 +9,7 @@ import {
   declaredMcpWriterTargets,
   resolveSharedMcpTarget,
   syncInlineMcpServerToAgents,
-  removeAgentMcpConfig,
+  removeAgentMcpConfigs,
   decodeJsonMcpConfig,
   readNativeMcpValues,
   validateAgentMcpConfigWrite,
@@ -178,11 +178,11 @@ describe("authority at shared MCP files", () => {
           const removal = {
             workspaceRoot: root,
             target: { scope: "project", path: ".mcp.json", format: "json", attribution: "shared" },
-            serverName: "context",
+            serverNames: ["context"],
             serversPath: ["mcpServers"],
             activationField: { required: null, accepted: [null] },
           } as const;
-          yield* removeAgentMcpConfig({ ...removal, disableOnly: true });
+          yield* removeAgentMcpConfigs({ ...removal, disableOnly: true });
           expect(
             (yield* decodeJsonMcpConfig(
               file,
@@ -192,7 +192,7 @@ describe("authority at shared MCP files", () => {
             )).root,
           ).toEqual({ unrelated: true, mcpServers: { foreign } });
           yield* syncInlineMcpServerToAgents(["coder-agents"], args);
-          yield* removeAgentMcpConfig({ ...removal, disableOnly: false });
+          yield* removeAgentMcpConfigs({ ...removal, disableOnly: false });
           expect(
             (yield* decodeJsonMcpConfig(
               file,
@@ -335,10 +335,10 @@ describe("authority at shared MCP files", () => {
         }),
       );
       const authority = yield* makeRecordingNativeWriteAuthority;
-      yield* removeAgentMcpConfig({
+      yield* removeAgentMcpConfigs({
         workspaceRoot: root,
         target: { scope: "project", path: file, format: "json", attribution: "agent" },
-        serverName: "context",
+        serverNames: ["context"],
         serversPath: ["mcpServers"],
         disableOnly: false,
         activationField: { required: null, accepted: [null] },

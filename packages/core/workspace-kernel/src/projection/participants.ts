@@ -18,7 +18,7 @@ import type { NativeEntryRemoval } from "../locations/index.js";
 
 import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
+import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
@@ -156,9 +156,3 @@ const aggregateUnitSubjects: Readonly<Record<AggregateOwnershipUnitId, Aggregate
 
 export const aggregateUnitSubject = (unitId: AggregateOwnershipUnitId): AggregateUnitSubject =>
   aggregateUnitSubjects[unitId];
-
-/** A registry with no owners: every fact comes from workspace state alone. */
-export const emptyProjectionParticipants: ProjectionParticipantsService = {
-  aggregates: [],
-  subagents: Option.none(),
-};

@@ -665,8 +665,9 @@ export const judgeCanonicalBeforeContent = (
 type CanonicalPreContentJudgement = ReturnType<typeof judgeCanonicalBeforeContent>;
 
 /**
- * Observe like `observeCanonicalExtension`, also handing the caller the
- * manifest text the observation read. The text is never retained here.
+ * Observe a canonical extension's content against its desired and accepted
+ * state, also handing the caller the manifest text the observation read. The
+ * text is never retained here.
  */
 export const observeCanonicalExtensionCapturing = ({
   layout,
@@ -979,8 +980,3 @@ export const observeCanonicalExtensionCapturing = ({
     );
     return treeWalk === undefined ? usable : { ...usable, treeWalk };
   });
-
-export const observeCanonicalExtension = (
-  args: ObserveCanonicalArgs,
-): Effect.Effect<CanonicalObservation, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.map(observeCanonicalExtensionCapturing(args), (capture) => capture.observation);

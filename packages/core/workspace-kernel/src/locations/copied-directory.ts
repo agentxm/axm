@@ -284,15 +284,6 @@ export const copiedDirectoryCanReplaceWith = (directory: string, receipt: Copied
     return observed === expected.size;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
-/** A replacement requires the complete old copy to remain owned, with no foreign additions. */
-export const copiedDirectoryCanReplace = (directory: string) =>
-  Effect.gen(function* () {
-    const receipt = yield* readCopiedDirectory(directory);
-    return (
-      Option.isSome(receipt) && (yield* copiedDirectoryCanReplaceWith(directory, receipt.value))
-    );
-  });
-
 /** Retire receipt-listed content only; additions and modified files remain foreign. */
 export const retireCopiedDirectory = <E = never, R = never>(
   directory: string,

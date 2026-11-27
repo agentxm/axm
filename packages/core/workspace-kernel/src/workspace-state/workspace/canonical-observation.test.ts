@@ -22,7 +22,6 @@ import {
   canonicalPathForAcceptedExtension,
   judgeCanonicalBeforeContent,
   observeAcceptedResolution,
-  observeCanonicalExtension,
   observeCanonicalExtensionCapturing,
 } from "./canonical-observation.js";
 import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
@@ -143,11 +142,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           );
           nodeFs.writeFileSync(nodePath.join(canonical, "src/SKILL.md"), "# Review\n");
           const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
-          const observed = yield* observeCanonicalExtension({
+          const observed = (yield* observeCanonicalExtensionCapturing({
             layout,
             desired,
             accepted: { ...accepted, treeIntegrity },
-          });
+          })).observation;
           expect(observed.status).toBe(range === "^2.0.0" ? "constraint-mismatch" : "usable");
           expect(observed.path).toBe(canonical);
           if (observed.status === "constraint-mismatch")
@@ -157,11 +156,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
             JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "2.1.0" }),
           );
           expect(
-            (yield* observeCanonicalExtension({
+            (yield* observeCanonicalExtensionCapturing({
               layout,
               desired,
               accepted: { ...accepted, treeIntegrity },
-            })).status,
+            })).observation.status,
           ).toBe("materialization-mismatch");
         }),
       );
@@ -292,11 +291,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       );
       const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
       expect(
-        (yield* observeCanonicalExtension({
+        (yield* observeCanonicalExtensionCapturing({
           layout,
           desired,
           accepted: { ...accepted, treeIntegrity },
-        })).status,
+        })).observation.status,
       ).toBe("constraint-mismatch");
     }),
   );
@@ -304,11 +303,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("requires accepted resolution for external desired content", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired: desiredSkill(),
         accepted: undefined,
-      });
+      })).observation;
       expect(observed.status).toBe("missing-resolution");
     }),
   );
@@ -316,11 +315,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("judges a disabled node without an accepted resolution by the same rule", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired: { ...desiredSkill(), enabled: false },
         accepted: undefined,
-      });
+      })).observation;
       expect(observed.status).toBe("missing-resolution");
     }),
   );
@@ -328,11 +327,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("judges the retained content of a disabled node with an accepted resolution", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired: { ...desiredSkill(), enabled: false },
         accepted: acceptedGit(),
-      });
+      })).observation;
       expect(observed.status).toBe("missing");
     }),
   );
@@ -363,11 +362,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         );
         nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Locally formatted\n");
         const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
-        const observed = yield* observeCanonicalExtension({
+        const observed = (yield* observeCanonicalExtensionCapturing({
           layout,
           desired: desiredSkill(),
           accepted: acceptedGit(treeIntegrity),
-        });
+        })).observation;
         expect(observed.status).toBe("usable");
         expect(observed.path).toBe(canonical);
       }),
@@ -376,11 +375,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("detects accepted source identity mismatch", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired: desiredSkill("github:other/tools//skills/review@main"),
         accepted: acceptedGit(),
-      });
+      })).observation;
       expect(observed.status).toBe("wrong-origin");
     }),
   );
@@ -418,7 +417,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         enabled: true,
         constraint: settleDesiredNodeConstraint(routes),
       };
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired,
         accepted: {
@@ -434,7 +433,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           },
           treeIntegrity: placeholderTreeIntegrity,
         },
-      });
+      })).observation;
       expect(observed.status).toBe("constraint-mismatch");
       if (observed.status === "constraint-mismatch") {
         expect(observed.acceptedVersion).toBe("1.9.0");
@@ -472,11 +471,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         }),
       );
       nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Authored\n");
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired,
         accepted: undefined,
-      });
+      })).observation;
       expect(observed.status).toBe("usable");
     }),
   );
@@ -506,7 +505,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           implementations: { codex: { kind: "native", source: "native/reviewer.toml" } },
         }),
       );
-      const observe = () => observeCanonicalExtension({ layout, desired, accepted: undefined });
+      const observe = () =>
+        observeCanonicalExtensionCapturing({ layout, desired, accepted: undefined }).pipe(
+          Effect.map(({ observation }) => observation),
+        );
       expect((yield* observe()).status).toBe("incomplete");
       nodeFs.writeFileSync(
         nodePath.join(canonical, "native/reviewer.toml"),
@@ -613,7 +615,6 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const args = { layout, desired, accepted: undefined };
         const capture = yield* observeCanonicalExtensionCapturing(args);
         expect(capture.observation.status).toBe(scenario.status);
-        expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
         // The decode is the one the type's own manifest reader produces, and
         // only a successful one is handed back.
         const own = yield* readExtensionManifest(canonical, scenario.type).pipe(Effect.result);
@@ -744,7 +745,6 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       };
       const capture = yield* observeCanonicalExtensionCapturing(args);
       expect(capture.observation.status).toBe("missing");
-      expect(capture.observation).toEqual(yield* observeCanonicalExtension(args));
       expect(capture.manifest).toEqual(Option.none());
     }),
   );
@@ -848,7 +848,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const desired = row.desired ?? member;
         const accepted = row.accepted === undefined ? registryRow() : yield* row.accepted();
         const args = { layout: row.user === true ? userLayout : layout, desired, accepted };
-        const observed = yield* observeCanonicalExtension(args);
+        const observed = (yield* observeCanonicalExtensionCapturing(args)).observation;
         expect(observed.status, row.status).toBe(row.status);
         expect(
           judgeCanonicalBeforeContent(path, args.layout, desired, accepted).reportedPath,
@@ -896,11 +896,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       );
       nodeFs.writeFileSync(nodePath.join(canonical, "src", "RULE.md"), "# Release\n");
 
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired,
         accepted: undefined,
-      });
+      })).observation;
 
       expect(observed.status).toBe("usable");
     }),

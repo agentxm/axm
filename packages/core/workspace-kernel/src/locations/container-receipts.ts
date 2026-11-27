@@ -757,36 +757,3 @@ export const updateContainerReceiptsSequence = <E, R>(
       }),
     );
   });
-
-export const recordContainerReceipt = <E, R>(
-  workspaceDir: string,
-  receipt: ContainerReceipt,
-  mutation: ContainerReceiptMutation<E, R>,
-): Effect.Effect<void, E | NativeLocationError, R | FileSystem.FileSystem | Path.Path> =>
-  updateContainerReceipts(
-    workspaceDir,
-    (entries) => [
-      ...entries.filter(
-        (entry) =>
-          entry.unit !== receipt.unit ||
-          entry.identity.physicalPath !== receipt.identity.physicalPath ||
-          entry.kind !== receipt.kind,
-      ),
-      receipt,
-    ],
-    mutation,
-  );
-
-export const forgetContainerReceipt = <E, R>(
-  workspaceDir: string,
-  unit: { readonly unit: string; readonly physicalPath: string },
-  mutation: ContainerReceiptMutation<E, R>,
-): Effect.Effect<void, E | NativeLocationError, R | FileSystem.FileSystem | Path.Path> =>
-  updateContainerReceipts(
-    workspaceDir,
-    (entries) =>
-      entries.filter(
-        (entry) => entry.unit !== unit.unit || entry.identity.physicalPath !== unit.physicalPath,
-      ),
-    mutation,
-  );

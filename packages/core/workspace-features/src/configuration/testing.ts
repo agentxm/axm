@@ -30,10 +30,7 @@ import {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
 } from "@agentxm/workspace-kernel/planning/testing";
-import {
-  ProjectionParticipants,
-  emptyProjectionParticipants,
-} from "@agentxm/workspace-kernel/projection";
+import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
@@ -74,7 +71,6 @@ export interface ConfigurationFixtureOptions {
 export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = {}) => {
   const interaction = ResolvePlanInteractionTest();
   // The fixture provides the kinds' managers but no aggregate participant registry.
-  const participants = Layer.succeed(ProjectionParticipants, emptyProjectionParticipants);
   const world = makeWorkspaceWorld({
     prefix: "axm-configuration-",
     scope: options.scope,
@@ -84,7 +80,7 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
     files: options.files,
     homeFiles: options.homeFiles,
     installedExecutables: options.installedExecutables,
-    ports: Layer.mergeAll(interaction.layer, participants, refusingSourceProviders),
+    ports: Layer.mergeAll(interaction.layer, NoProjectionParticipants, refusingSourceProviders),
   });
   const servicesWithoutDetectionRoots = withKindManagers(
     Layer.provideMerge(WorkspaceInvariantFactsLive, world.projection),

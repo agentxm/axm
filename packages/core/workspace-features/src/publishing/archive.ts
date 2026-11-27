@@ -536,14 +536,6 @@ const planFromZip = (
   }).pipe(Effect.withSpan("axm.publish.archive"));
 
 /**
- * Build a zip archive of a directory.
- * Files are stored at the root of the zip (no enclosing directory).
- * Empty directories have explicit entries; populated directories are implied by their children.
- */
-export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
-  planFromZip(dir, options).pipe(Effect.map(({ planned }) => planned));
-
-/**
  * Plan and admit a publication archive, also offering its digests over the
  * archive owner's own bytes so preparation needs no further copy. The
  * admitted archive is a copy of those bytes that is never mutated, so the

@@ -22,7 +22,7 @@ import { workObservations } from "../../locations/testing.js";
 import { extensionName, handle } from "../testing.js";
 import {
   canonicalPathForAcceptedExtension,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
   type CanonicalObservationStatus,
 } from "./canonical-observation.js";
 import { UNCONSTRAINED_DESIRED_NODE, type DesiredExtensionNode } from "./desired-state-graph.js";
@@ -95,7 +95,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("portable Skill observa
       options.drift?.(canonical);
       const { fileSystem, recording } = makeRecordingFileSystem(yield* FileSystem.FileSystem);
       const work = workObservations(false);
-      const observation = yield* observeCanonicalExtension({
+      const { observation } = yield* observeCanonicalExtensionCapturing({
         layout,
         desired,
         accepted,

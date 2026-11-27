@@ -14,8 +14,6 @@ export { publishRefused } from "./errors.js";
 
 export { type PublishableType } from "./publishable-types.js";
 
-export { planZipArchive } from "./archive.js";
-
 // Typed publish failures and the redacted cause the result reports
 export { publishCause } from "./failure.js";
 

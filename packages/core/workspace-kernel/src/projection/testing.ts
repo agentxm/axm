@@ -23,7 +23,8 @@ import {
   materializationCodingAgents,
   unknownConfiguredAgentIds,
 } from "./agents/selection.js";
-import { emptyProjectionParticipants, ProjectionParticipants } from "./participants.js";
+import * as Option from "effect/Option";
+import { ProjectionParticipants } from "./participants.js";
 
 /** Apply an already observed snapshot to exercise the freshness boundary. */
 export { applyInstructionProjection } from "./instructions/instructions.js";
@@ -51,5 +52,5 @@ export const codingAgentRepositoryLayer = (
 /** No owners: every projection fact comes from workspace state alone. */
 export const NoProjectionParticipants: Layer.Layer<ProjectionParticipants> = Layer.succeed(
   ProjectionParticipants,
-  emptyProjectionParticipants,
+  { aggregates: [], subagents: Option.none() },
 );

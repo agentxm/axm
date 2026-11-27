@@ -220,7 +220,6 @@ export {
   packManifestUnavailableText,
 } from "./workspace/desired-state-problem-text.js";
 export {
-  observeCanonicalExtension,
   observeCanonicalExtensionCapturing,
   capturedManifestFor,
   observeAcceptedResolution,

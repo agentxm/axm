@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import {
   UNCONSTRAINED_DESIRED_NODE,
   computeSourceHash,
-  observeCanonicalExtension,
+  observeCanonicalExtensionCapturing,
   resolveProjectWorkspaceLayout,
 } from "@agentxm/workspace-kernel/workspace-state";
 import * as os from "node:os";
@@ -124,7 +124,7 @@ describe("portable React Router skill acquisition", () => {
       });
       expect(lockEntry?.identity).not.toHaveProperty("owner");
 
-      const observed = yield* observeCanonicalExtension({
+      const observed = (yield* observeCanonicalExtensionCapturing({
         layout,
         desired: {
           type: "skill",
@@ -136,7 +136,7 @@ describe("portable React Router skill acquisition", () => {
           origins: [{ type: "settings", source: printSourceParams(source), enabled: true }],
         },
         accepted: lockEntry,
-      });
+      })).observation;
       expect(observed.status).toBe("usable");
       expect(observed.path).toBe(canonical);
     }).pipe(

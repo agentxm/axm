@@ -14,7 +14,7 @@ import { workObservations } from "../../locations/testing.js";
 import { parseYaml, readYamlEntry } from "../yaml.js";
 import { makeRecordingNativeWriteAuthority, NativeWriteAuthorityPermissive } from "../testing.js";
 import {
-  removeAgentMcpConfig,
+  removeAgentMcpConfigs,
   retireAgentMcpConfig,
   writeAgentMcpConfig,
 } from "./config-writer.js";
@@ -323,9 +323,9 @@ describe("agent MCP config writer", () => {
             '{\n  "mcpServers": { "context": { "command": "npx", "x-axm": { "v": 1, "managed": true, "ext": "@workspace/mcps/context", "source": "inline" } } }\n}\n',
           );
 
-          const result = yield* removeAgentMcpConfig({
+          const result = yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "context",
+            serverNames: ["context"],
             serversPath: ["mcpServers"] as const,
             target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             activationField: {
@@ -372,9 +372,9 @@ describe("agent MCP config writer", () => {
             { path: "agent.toml", change: "updated" },
           ]);
 
-          const removeResult = yield* removeAgentMcpConfig({
+          const removeResult = yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "context",
+            serverNames: ["context"],
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             activationField: {
@@ -419,9 +419,9 @@ describe("agent MCP config writer", () => {
             target,
             entry: { command: "npx" },
           });
-          yield* removeAgentMcpConfig({
+          yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "My_Server",
+            serverNames: ["My_Server"],
             serversPath: ["mcp_servers"] as const,
             target,
             activationField: { required: null, accepted: [null] },
@@ -500,9 +500,9 @@ describe("agent MCP config writer", () => {
             });
           }
 
-          yield* removeAgentMcpConfig({
+          yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "beta",
+            serverNames: ["beta"],
             serversPath: ["mcp_servers"] as const,
             target,
             activationField: {
@@ -643,9 +643,9 @@ describe("agent MCP config writer", () => {
             ].join("\n"),
           );
 
-          const disableResult = yield* removeAgentMcpConfig({
+          const disableResult = yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "context",
+            serverNames: ["context"],
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {
@@ -665,9 +665,9 @@ describe("agent MCP config writer", () => {
             { path: "config.yaml", change: "updated" },
           ]);
 
-          const removeResult = yield* removeAgentMcpConfig({
+          const removeResult = yield* removeAgentMcpConfigs({
             workspaceRoot,
-            serverName: "context",
+            serverNames: ["context"],
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {

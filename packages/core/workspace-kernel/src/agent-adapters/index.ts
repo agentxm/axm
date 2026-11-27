@@ -121,7 +121,7 @@ export {
 } from "./mcps/expected-entry.js";
 export { resolveMcpInvocation } from "./mcps/resolution.js";
 export {
-  removeAgentMcpConfig,
+  removeAgentMcpConfigs,
   retireAgentMcpConfig,
   validateAgentMcpConfigWrite,
   writeAgentMcpConfig,

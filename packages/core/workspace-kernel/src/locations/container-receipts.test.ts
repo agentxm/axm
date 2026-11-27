@@ -14,13 +14,13 @@ import {
   NativeLocationError,
   captureContainerIdentity,
   readContainerReceipts,
-  recordContainerReceipt,
   updateContainerReceipts,
   updateContainerReceiptsSequence,
   verifyContainerIdentity,
   type ContainerIdentity,
   type ContainerReceipt,
 } from "./index.js";
+import { recordingReceipt } from "./testing.js";
 
 /** Receipt-store work counted on the real filesystem, with a store-only mutation. */
 const withRecordedFileSystem = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -68,13 +68,13 @@ describe("container receipt store updates", () => {
         yield* fs.makeDirectory(workspaceDir);
 
         recording.reset();
-        yield* recordContainerReceipt(workspaceDir, receipt("first"), mutation);
+        yield* updateContainerReceipts(workspaceDir, recordingReceipt(receipt("first")), mutation);
         expect(written.map(({ prior }) => prior)).toEqual([Option.none()]);
         expect(recording.calls({ path: store, method: "readFile" })).toHaveLength(0);
 
         const onDisk = yield* fs.readFileString(store);
         recording.reset();
-        yield* recordContainerReceipt(workspaceDir, receipt("second"), mutation);
+        yield* updateContainerReceipts(workspaceDir, recordingReceipt(receipt("second")), mutation);
         expect(written.map(({ prior }) => prior)).toEqual([Option.none(), Option.some(onDisk)]);
         // The locked read is the only content read of the store during the update.
         expect(recording.calls({ path: store, method: "readFile" })).toHaveLength(1);
@@ -88,7 +88,7 @@ describe("container receipt store updates", () => {
         const { fs, root, workspaceDir, receipt, mutation } = yield* storeFixture;
         const recording = yield* FileSystemRecorder;
         yield* fs.makeDirectory(workspaceDir);
-        yield* recordContainerReceipt(workspaceDir, receipt("first"), mutation);
+        yield* updateContainerReceipts(workspaceDir, recordingReceipt(receipt("first")), mutation);
         const parentWork = () => {
           const counts = recording.counts(workspaceDir);
           return {
@@ -107,11 +107,11 @@ describe("container receipt store updates", () => {
         const oneAnchorProof = parentWork();
 
         recording.reset();
-        yield* recordContainerReceipt(workspaceDir, receipt("second"), mutation);
+        yield* updateContainerReceipts(workspaceDir, recordingReceipt(receipt("second")), mutation);
         const changedWrite = parentWork();
 
         recording.reset();
-        yield* recordContainerReceipt(workspaceDir, receipt("second"), mutation);
+        yield* updateContainerReceipts(workspaceDir, recordingReceipt(receipt("second")), mutation);
         const unchangedEntries = parentWork();
 
         recording.reset();
@@ -147,9 +147,9 @@ describe("container receipt store updates", () => {
               return true;
             }),
         };
-        const refused = yield* recordContainerReceipt(
+        const refused = yield* updateContainerReceipts(
           workspaceDir,
-          receipt("first"),
+          recordingReceipt(receipt("first")),
           replacing,
         ).pipe(Effect.flip);
         expect(refused).toBeInstanceOf(NativeLocationError);

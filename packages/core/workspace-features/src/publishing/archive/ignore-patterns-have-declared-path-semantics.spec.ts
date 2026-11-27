@@ -4,8 +4,7 @@ import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { planZipArchive } from "../index.js";
-import { archiveContents } from "../test-helpers.js";
+import { archiveContents, prepareZipArchive } from "../test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/ignore-patterns-have-declared-path-semantics",
@@ -106,7 +105,7 @@ describe("Publication file selection", () => {
           path.join(packageRoot, "src", ".git"),
           "gitdir: ../administration",
         );
-        const planned = yield* planZipArchive(packageRoot, {
+        const planned = yield* prepareZipArchive(packageRoot, {
           ...(row.include === undefined ? {} : { include: row.include }),
           exclude: row.exclude,
           manifest: "skill.json",
@@ -126,9 +125,11 @@ describe("Publication file selection", () => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.writeFileString(path.join(root, "skill.json"), "{}");
-      const refused = yield* planZipArchive(root, { exclude: ["**/*.json"] }).pipe(Effect.result);
+      const refused = yield* prepareZipArchive(root, { exclude: ["**/*.json"] }).pipe(
+        Effect.result,
+      );
       expect(refused._tag).toBe("Failure");
-      const restored = yield* planZipArchive(root, { exclude: ["**/*.json", "!skill.json"] });
+      const restored = yield* prepareZipArchive(root, { exclude: ["**/*.json", "!skill.json"] });
       expect(restored.plan.included.map(({ path }) => path)).toEqual(["skill.json"]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );

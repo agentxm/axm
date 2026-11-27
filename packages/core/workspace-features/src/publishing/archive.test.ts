@@ -15,11 +15,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { unzipSync } from "fflate";
-import { planZipArchive, type BuildZipArchiveOptions } from "./archive.js";
+import { prepareZipArchive, type BuildZipArchiveOptions } from "./archive.js";
 
-/** The archive bytes planned from `dir`. */
+/** The archive bytes prepared from `dir`. */
 const archiveBytes = (dir: string, options?: BuildZipArchiveOptions) =>
-  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));
+  prepareZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));
 
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -28,7 +28,7 @@ const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem
 const PINNED_CLEAN_ARCHIVE_DIGEST =
   "8088f03bf9e8cb6b0a4edf119391936a2a847dd61259ab298b3b8debe5a99a73";
 
-describe("planZipArchive archive bytes", () => {
+describe("prepareZipArchive archive bytes", () => {
   let tmpDir: string;
   let sourceDir: string;
 
@@ -80,7 +80,7 @@ describe("planZipArchive archive bytes", () => {
         fs.symlinkSync("hello.txt", path.join(sourceDir, "run"));
         fs.symlinkSync("b", path.join(sourceDir, "a"));
         fs.symlinkSync("a", path.join(sourceDir, "b"));
-        const { archive, plan } = yield* planZipArchive(sourceDir);
+        const { archive, plan } = yield* prepareZipArchive(sourceDir);
         const contents = unzipSync(archive.copyBytes());
         const entries = archive.entries;
         expect(
@@ -182,7 +182,7 @@ describe("planZipArchive archive bytes", () => {
   it.effect("reports the exact archive inventory and ignore-pattern attribution", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const planned = yield* planZipArchive(sourceDir, {
+        const planned = yield* prepareZipArchive(sourceDir, {
           exclude: ["nested/*", "missing-*"],
         });
 

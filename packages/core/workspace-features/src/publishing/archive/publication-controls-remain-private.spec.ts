@@ -6,11 +6,12 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { SETTINGS_ENTRY_KEYS } from "@agentxm/workspace-kernel/workspace-state";
-import { planZipArchive, type PublishableType } from "../index.js";
+import type { PublishableType } from "../index.js";
 import {
   archiveContents,
   makePublishWorld,
   makeRemotePublishWorld,
+  prepareZipArchive,
   publishDocument,
   remoteRequest,
   requestFor,
@@ -135,7 +136,7 @@ describe("Private publication controls", () => {
         fs.writeFileSync(path.join(root, ".gitignore"), "private-customer.txt\n");
         fs.symlinkSync(".gitignore", path.join(root, "policy"));
         const linkedControl = yield* world
-          .provide(planZipArchive(root, { include: ["**"] }))
+          .provide(prepareZipArchive(root, { include: ["**"] }))
           .pipe(Effect.result);
         expect(linkedControl).toMatchObject({
           _tag: "Failure",
@@ -144,7 +145,7 @@ describe("Private publication controls", () => {
         fs.unlinkSync(path.join(root, "policy"));
         fs.renameSync(path.join(root, "skill.json"), path.join(root, "original.json"));
         fs.symlinkSync("original.json", path.join(root, "skill.json"));
-        const linkedManifest = yield* world.provide(planZipArchive(root)).pipe(Effect.result);
+        const linkedManifest = yield* world.provide(prepareZipArchive(root)).pipe(Effect.result);
         expect(linkedManifest).toMatchObject({
           _tag: "Failure",
           failure: { detail: expect.stringContaining("regular file") },

@@ -12,12 +12,12 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   archiveContents,
   makePublishWorld,
+  prepareZipArchive,
   publishDocument,
   requestFor,
   runPublish,
   type PublishWorld,
 } from "../test-helpers.js";
-import { planZipArchive } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/archive-inventory-matches-published-bytes",
@@ -105,11 +105,11 @@ describe("Published archive inventory", () => {
           'publish.exclude pattern "missing-explicit-*" matched no files.',
         );
         const before = yield* world.provide(
-          planZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
+          prepareZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
         );
         fs.writeFileSync(ignore, "*.log\nunused-changed/\nunused-two/\n");
         const after = yield* world.provide(
-          planZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
+          prepareZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
         );
         expect(after.plan).toEqual(before.plan);
         expect(after.archive.copyBytes()).toEqual(before.archive.copyBytes());

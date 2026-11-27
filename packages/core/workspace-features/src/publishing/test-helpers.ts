@@ -96,6 +96,9 @@ import {
   type AuthoredExtensionFixture,
 } from "./testing.js";
 
+/** Plan and admit a publication archive as publish prepares one, without publishing it. */
+export { prepareZipArchive } from "./archive.js";
+
 /** A selection read against a Registry with no previously published identities. */
 export const unpublishedSelectionResponse = (
   request: HttpClientRequest.HttpClientRequest,

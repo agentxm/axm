@@ -8,7 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   captureCopiedDirectory,
   copiedDirectoryReceiptPath,
-  copiedDirectoryCanReplace,
+  copiedDirectoryCanReplaceWith,
   copiedDirectoryIsCurrent,
   readCopiedDirectory,
   retireCopiedDirectory,
@@ -113,11 +113,15 @@ describe("Bounded copied projection ownership", () => {
         expect(Option.isSome(yield* captureCopiedDirectory(copy, copy))).toBe(true);
         expect(yield* fs.readFileString(path.join(copy, ".axm-copy.json"))).toBe("authored bytes");
         expect(yield* fs.exists(yield* copiedDirectoryReceiptPath(copy))).toBe(true);
-        expect(yield* copiedDirectoryCanReplace(copy)).toBe(true);
+        const receipt = yield* readCopiedDirectory(copy);
+        if (Option.isNone(receipt)) return yield* Effect.die("the copy has a receipt");
+        expect(yield* copiedDirectoryCanReplaceWith(copy, receipt.value)).toBe(true);
         expect(yield* copiedDirectoryIsCurrent(copy, copy)).toBe(true);
         yield* fs.rename(path.join(copy, "modified"), path.join(root, "old-link"));
         yield* fs.symlink("target", path.join(copy, "modified"));
-        expect(yield* copiedDirectoryCanReplace(copy)).toBe(false);
+        const reread = yield* readCopiedDirectory(copy);
+        if (Option.isNone(reread)) return yield* Effect.die("the copy keeps its receipt");
+        expect(yield* copiedDirectoryCanReplaceWith(copy, reread.value)).toBe(false);
         yield* retireCopiedDirectory(copy);
         expect(yield* fs.readLink(path.join(copy, "modified"))).toBe("target");
         expect(yield* fs.readDirectory(copy)).toEqual(["modified"]);

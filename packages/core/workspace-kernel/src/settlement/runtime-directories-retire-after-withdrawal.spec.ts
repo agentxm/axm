@@ -1,4 +1,4 @@
-import { NativePlatformTest } from "../locations/testing.js";
+import { NativePlatformTest, recordingReceipt } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -9,7 +9,6 @@ import * as Path from "effect/Path";
 import {
   captureContainerIdentity,
   readContainerReceipts,
-  recordContainerReceipt,
   updateContainerReceipts,
 } from "../locations/index.js";
 import {
@@ -88,7 +87,7 @@ const fixture = Effect.gen(function* () {
     root,
     workspaceDir,
     command,
-    insert: recordContainerReceipt(workspaceDir, receipt, mutation),
+    insert: updateContainerReceipts(workspaceDir, recordingReceipt(receipt), mutation),
     withdraw: updateContainerReceipts(workspaceDir, () => [], mutation),
   };
 });

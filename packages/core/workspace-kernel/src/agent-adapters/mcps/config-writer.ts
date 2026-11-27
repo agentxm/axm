@@ -53,7 +53,7 @@ export interface WriteAgentMcpConfigArgs {
   };
 }
 
-export interface RemoveAgentMcpConfigArgs {
+interface RemoveAgentMcpConfigArgs {
   /** Declared routes resolving to this physical native target. */
   readonly aliases?: ReadonlyArray<string>;
   readonly workspaceRoot: string;
@@ -733,9 +733,6 @@ export const removeAgentMcpConfigs = (
       ),
     );
   });
-
-export const removeAgentMcpConfig = (args: RemoveAgentMcpConfigArgs) =>
-  removeAgentMcpConfigs({ ...args, serverNames: [args.serverName] });
 
 /** Retire only the exact declaration explicitly selected for conversion. */
 export const retireAgentMcpConfig = (

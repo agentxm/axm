@@ -15,7 +15,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import { planZipArchive, rebuildDistributionDigest } from "./archive.js";
+import { prepareZipArchive, rebuildDistributionDigest } from "./archive.js";
 import { expectPublishRefused } from "./test-helpers.js";
 
 const withRoot = <A, E, R>(body: (root: string) => Effect.Effect<A, E, R>) =>
@@ -114,7 +114,7 @@ describe("archive walk", () => {
         recording.reset();
 
         // The form a caller may pass: an unnormalized package directory.
-        const planned = yield* planZipArchive(`${root}${path.sep}`).pipe(
+        const planned = yield* prepareZipArchive(`${root}${path.sep}`).pipe(
           Effect.provideService(FileSystem.FileSystem, fileSystem),
         );
 
@@ -224,7 +224,9 @@ describe("archive walk", () => {
         // An archive refusal the walk would otherwise reach.
         fs.symlinkSync("SKILL.md", path.join(root, "linked.json"));
 
-        const failure = yield* planZipArchive(root, { manifest: "linked.json" }).pipe(Effect.flip);
+        const failure = yield* prepareZipArchive(root, { manifest: "linked.json" }).pipe(
+          Effect.flip,
+        );
 
         expect(expectPublishRefused(failure).detail).toBe(
           "A publication .gitignore must be a regular file, not a symbolic link.",
@@ -242,7 +244,7 @@ describe("archive walk", () => {
           writePackage(root);
           childProcess.execFileSync("mkfifo", [path.join(root, "docs", "pipe")]);
 
-          const failure = yield* planZipArchive(root).pipe(Effect.flip);
+          const failure = yield* prepareZipArchive(root).pipe(Effect.flip);
 
           expect(expectPublishRefused(failure).detail).toBe(
             "Cannot archive unsupported filesystem entry: docs/pipe",

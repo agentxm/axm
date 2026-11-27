@@ -6,7 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import {
   writeAgentMcpConfig,
-  removeAgentMcpConfig,
+  removeAgentMcpConfigs,
   readNativeMcpValues,
 } from "../../agent-adapters/index.js";
 import { makeRecordingNativeWriteAuthority } from "../../agent-adapters/testing.js";
@@ -52,8 +52,9 @@ describe("explicit MCP cleanup", () => {
             entry: { command: "remove", env: { NESTED: "value" } },
           });
           const before = yield* fs.readFileString(file);
-          const preview = yield* removeAgentMcpConfig({
+          const preview = yield* removeAgentMcpConfigs({
             ...args,
+            serverNames: [args.serverName],
             disableOnly: false,
             activationField: { required: null, accepted: [null] },
             dryRun: true,
@@ -63,8 +64,9 @@ describe("explicit MCP cleanup", () => {
             state: "removed",
             ownership: "declared",
           });
-          const result = yield* removeAgentMcpConfig({
+          const result = yield* removeAgentMcpConfigs({
             ...args,
+            serverNames: [args.serverName],
             disableOnly: false,
             activationField: { required: null, accepted: [null] },
           });
@@ -83,8 +85,9 @@ describe("explicit MCP cleanup", () => {
             }),
           ).toEqual({ other: { command: "keep" } });
           const unchanged = yield* fs.readFileString(file);
-          const noChange = yield* removeAgentMcpConfig({
+          const noChange = yield* removeAgentMcpConfigs({
             ...args,
+            serverNames: [args.serverName],
             disableOnly: false,
             activationField: { required: null, accepted: [null] },
             dryRun: true,

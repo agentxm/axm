@@ -54,7 +54,6 @@ export {
   type ProjectionSelection,
 } from "./planning.js";
 export {
-  emptyProjectionParticipants,
   ProjectionParticipants,
   type ParticipantProjectionPlans,
   type ProjectionParticipantRequirements,

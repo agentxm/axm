@@ -244,11 +244,3 @@ output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43b
 [projections.subagents.units.".codex/agents/researcher.toml"]
 gen = "sha256:79f3a4d16bf35c188e158242dac28aef07d76744bce6f8aa9d3892bc805f6f8e"
 output = "sha256:7e00757fbacb261923e9020b1634e4ebdd3a07fc5e8f000749b876f779a3f1da"
-
-[projections.subagents.units.".grok/agents/researcher.md"]
-gen = "sha256:91f1aae5b1384836218c005850d6b44b5df48a9ea3ba7caad97953d3ff90e575"
-output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc"
-
-[projections.subagents.units.".opencode/agents/researcher.md"]
-gen = "sha256:49b1327aea4694d6060fd472ad298ef8c6e4274f115ca34aec4bc083a8d6378c"
-output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc"

@@ -1,8 +1,8 @@
 {
   "$schema": "https://axm.sh/schemas/settings.schema.json",
   "owner": "@agentxm",
-  "agents": ["claude-code", "codex", "grok-cli", "opencode"],
   "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
+  "agents": ["claude-code", "codex"],
   "instructionFiles": {
     "fileName": "AGENTS.md",
     "gitignoreAliases": true
@@ -22,16 +22,16 @@
     "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.6.1",
     "axe": "workspace"
   },
-  "packs": {
-    "docs": "agentxm:@craigsmitham/packs/docs",
-    "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "axe": "workspace",
-    "software-maintenance": "agentxm:@craigsmitham/packs/software-maintenance"
-  },
   "subagents": {
     "researcher": {
       "source": "workspace",
       "distribute": false
     }
+  },
+  "packs": {
+    "docs": "agentxm:@craigsmitham/packs/docs",
+    "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
+    "axe": "workspace",
+    "software-maintenance": "agentxm:@craigsmitham/packs/software-maintenance"
   }
 }

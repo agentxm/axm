@@ -16,8 +16,6 @@ agent_extensions/
 # Root AGENTS.md fences its AXM regions with prettier-ignore-start/end instead.
 .claude/agents/
 .codex/agents/
-.grok/agents/
-.opencode/agents/
 
 # Benchmark reports retain the runner's exact evidence bytes.
 benchmarks/evidence/**/*.json

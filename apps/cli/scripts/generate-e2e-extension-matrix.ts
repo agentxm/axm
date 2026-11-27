@@ -28,8 +28,8 @@ const OUTPUT_PATH = path.join(
   "../cli-e2e/src/__generated__/extension-type-matrix.ts",
 );
 
-// Publishability is decided by the e2e suites themselves, which carry total
-// records of per-type publishers keyed by the emitted type union.
+// Publishability is not emitted: each e2e suite carries its own total record of
+// per-type publishers keyed by the emitted type union.
 const rowEntries = extensionTypes
   .map((type) => {
     const row = EXTENSION_TYPE_TABLE[type];

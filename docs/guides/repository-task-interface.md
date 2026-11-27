@@ -253,9 +253,10 @@ and advisory-ID filters.
 Git secret detection has its own fresh `axm:scan-secrets` target and required CI
 host job, including documentation-only changes. It scans HEAD history, staged
 content, and tracked working changes. `axm:test:secret-scanning` proves native
-detection and the required CI failure behavior without package builds. These checks stay independent of
-the source/artifact container workflow. [Gitleaks operations](../../devops/tools/gitleaks.md)
-owns installation, exact historical exceptions, diagnostic handling, and limits.
+detection and the required CI failure behavior without package builds. These
+checks stay independent of the source/artifact container workflow.
+[Gitleaks operations](../../devops/tools/gitleaks.md) owns installation, exact
+historical exceptions, diagnostic handling, and limits.
 
 `axm:unused-code` uses [Knip](https://knip.dev/features/monorepos-and-workspaces)
 to check first-party software for unreachable files, unused or undeclared
@@ -531,17 +532,19 @@ runs do not enable remote access. Scheduled source assurance bypasses both Nx
 caches. Cache service availability is not a correctness requirement: explicit
 bypass must preserve ordinary execution and all required gates.
 
-Toolchain inputs include patches, runtime versions, package-manager policy, and
-host platform. Nx hashes imported external packages and their transitive
-versions alongside each target's tool dependencies. The root lockfile is not an
-additional global task input; unrelated lockfile changes can retain hits. Each `cli:compile-<platform>-<architecture>`
-target owns one release binary. `cli:compile-host` depends on its host's platform
-producer and copies that binary into its separately owned staging directory.
-`cli:compile` coordinates all platform producers;
-E2E, binary smoke, and installation leaves still run fresh.
-A restored entry is trusted only as a deterministic result for its Nx hash.
-Package-store caches supply dependencies, not task verdicts. Exact-SHA verified
-CI artifacts remain the release authority; task-cache presence is insufficient.
+Toolchain inputs include the `mise.toml` runtime pins, the installed Node.js and
+Bun versions, the pnpm workspace and pnpmfile policy, and the host platform. Nx
+hashes imported external packages and their transitive versions alongside each
+target's tool dependencies. The root lockfile is not an additional global task
+input; unrelated lockfile changes can retain hits. Each
+`cli:compile-<platform>-<architecture>` target owns one release binary.
+`cli:compile-host` depends on its host's platform producer and copies that
+binary into its separately owned staging directory. `cli:compile` coordinates
+all platform producers; E2E, binary smoke, and installation leaves still run
+fresh. A restored entry is trusted only as a deterministic result for its Nx
+hash. Package-store caches supply dependencies, not task verdicts. Exact-SHA
+verified CI artifacts remain the release authority; task-cache presence is
+insufficient.
 
 [Nx in AXM](../../devops/tools/nx.md) owns client setup, bypass and native
 profiling. [Reproduce AXM Linux CI](../../devops/runbooks/reproduce-linux-ci.md)

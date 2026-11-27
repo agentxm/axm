@@ -58,18 +58,18 @@ owns their current automated-review implementation and operating procedure.
 | Codex review      | Eligible pull requests | Codex managed review | Advisory      |
 | Maintainer review | Branch policy          | GitHub               | Authoritative |
 
-Native Codex review is the semantic reviewer and follows the root
-`AGENTS.md` guidance. Repository owners create/select the repository's Codex
-cloud environment, turn on **Code review**, and enable **Automatic reviews** in
-Codex settings. Use the exact `@codex review` comment for a controlled manual
-smoke before enabling the automatic path. Contributors do not need a provider
-token and should not add one to a branch or pull request.
+Native Codex review is the semantic reviewer and follows the root `AGENTS.md`
+guidance. Repository owners create/select the repository's Codex cloud
+environment, turn on **Code review**, and enable **Automatic reviews** in Codex
+settings. Use the exact `@codex review` comment for a controlled manual smoke
+before enabling the automatic path. Contributors do not need a provider token
+and should not add one to a branch or pull request.
 
 Pullfrog is not part of the initial review path. Neither its hosted product nor
 its orchestration tool is needed while one native automatic reviewer covers the
 workflow. Reconsider an orchestrator only after measured review volume
-demonstrates a recurring provider-routing, queueing, or
-comment-lifecycle problem.
+demonstrates a recurring provider-routing, queueing, or comment-lifecycle
+problem.
 
 ### Review Checklist
 

@@ -98,11 +98,14 @@ re-emits the unexpired request and only a different Registry conflicts;
 
 `axm login --device-code --wait-for-human SECONDS` requests a positive bounded
 wait for approval. Timeout returns exit 16, remains retryable, and preserves the
-pending request. The shared handoff action is defined by
+pending request. Denial and expiry are distinct terminal outcomes and clear it.
+These states are part of the JSON contract, so update schemas, tests, help, and
+telemetry together.
+
+The shared handoff action is defined by
 `@agentxm/registry-protocol/unstable/human-handoff` and is embedded in the
-existing machine envelope; do not serialize executable commands or credentials
-into a saved handoff. Denial and expiry are distinct terminal outcomes and clear it. These states are part of the JSON
-contract, so update schemas, tests, help, and telemetry together.
+existing machine envelope. Do not serialize executable commands or credentials
+into a saved handoff.
 
 `selectLoginStrategy` stays pure; `loginStrategyEnvironment` assembles its
 facts. Interactive sign-in chooses the device code where no browser can open:
@@ -129,9 +132,8 @@ credential resolves, exactly as every other command does.
 No 403 renders it. A refusal that reaches a signed-in person is answered by
 their permissions, by using their session instead of a narrower credential, or
 by the browser settings page for a browser-only action — never by signing in
-again. `translate.ts`
-keys its recovery off the wire code and falls back to the Registry's own title
-and detail; no branch may emit `axm login`.
+again. `translate.ts` keys its recovery off the wire code and falls back to the
+Registry's own title and detail; no branch may emit `axm login`.
 
 ## Loopback sign-in
 

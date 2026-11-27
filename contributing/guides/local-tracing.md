@@ -743,10 +743,10 @@ over that `.axm-runtime` directory, and record which was used.
   complete attribution remain unproven.
 - Completed captures describe the command and fixture inventory at their
   captured revisions. Routes or fixture cases added since need their own
-  captures; the [prepared-input reuse ledger](../../benchmarks/evidence/prepared-input-reuse/README.md)
-  records behavior and accounting evidence for the current inventory.
+  captures.
 - Operating-system cache coldness is not controlled or claimed.
 
-The [earlier capture campaigns](https://github.com/agentxm/axm/tree/7d3f44dba337a5a0ab9fbf2787da35b77f8a1e7b/benchmarks/evidence/local-observability)
+The [earlier capture campaigns](https://github.com/agentxm/axm/tree/7d3f44dba337a5a0ab9fbf2787da35b77f8a1e7b/benchmarks/evidence/local-observability),
+the [prepared-input reuse ledger](https://github.com/agentxm/axm/tree/b2fb39e26bb14492ddac849d6d316c62872423d7/benchmarks/evidence/prepared-input-reuse),
 and their provenance remain in Git history. They describe their own revisions
 and are not evidence for later changes.

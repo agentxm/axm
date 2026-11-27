@@ -5,7 +5,7 @@ not a moment for choosing authority: the session it produces is the person
 themselves, bounded only by their permissions. The machine-readable device flow
 must remain safely resumable.
 
-## Command-to-exception matrix
+## Signed-in authority
 
 Signing in has two states and no third. A signed-in user succeeds at every
 command their account and organization permissions allow, on the first attempt,
@@ -13,19 +13,17 @@ without a browser step or a second sign-in. Sign-in requests only the OIDC
 scopes (`openid`, `profile`, `email`, and `offline_access`), which establish
 identity and refreshable session semantics and carry no Registry authority.
 
-An exception is a command that may ask a signed-in user for more. There are
-three, and each asks for recent authentication bound to that exact action:
+Creating a token is the one browser-only action. The Registry refuses every
+Registry credential with 403 `browser_session_required`, and
+`details.settingsUrl` names the AgentXM settings page where the person creates
+the token after confirming it's them. `axm token create` reports that refusal
+with the settings page as its recovery; no CLI command asks for more authority
+or resumes a refused write.
 
-| CLI command                     | What it asks for | Why                                     |
-| ------------------------------- | ---------------- | --------------------------------------- |
-| `axm token create`              | Step-up          | It creates a credential                 |
-| Broadening extension visibility | Step-up          | It broadens who can reach the extension |
-| Deleting an extension           | Step-up          | It destroys something unrecoverable     |
-
-Revoking a token, yanking, and un-yanking take authority or reach away, so none
-of them asks for more. Every other refusal of a signed-in user is a defect. Do not answer one by
-requesting more authority at sign-in: there is no scoped login, and the Registry
-rejects a sign-in that asks for a Registry scope.
+Revoking a token, changing visibility, yanking, and un-yanking ask for nothing
+beyond the session. Every other refusal of a signed-in user is a defect. Do not
+answer one by requesting more authority at sign-in: there is no scoped login,
+and the Registry rejects a sign-in that asks for a Registry scope.
 
 ## Limited credentials
 
@@ -98,8 +96,12 @@ asks for the same thing, so repeating initiation for the same Registry
 re-emits the unexpired request and only a different Registry conflicts;
 `--restart` is the explicit replacement operation.
 
-Timeout remains retryable and preserves the pending request. Denial and expiry
-are distinct terminal outcomes and clear it. These states are part of the JSON
+`axm login --device-code --wait-for-human SECONDS` requests a positive bounded
+wait for approval. Timeout returns exit 16, remains retryable, and preserves the
+pending request. The shared handoff action is defined by
+`@agentxm/registry-protocol/unstable/human-handoff` and is embedded in the
+existing machine envelope; do not serialize executable commands or credentials
+into a saved handoff. Denial and expiry are distinct terminal outcomes and clear it. These states are part of the JSON
 contract, so update schemas, tests, help, and telemetry together.
 
 `selectLoginStrategy` stays pure; `loginStrategyEnvironment` assembles its
@@ -126,20 +128,12 @@ credential resolves, exactly as every other command does.
 
 No 403 renders it. A refusal that reaches a signed-in person is answered by
 their permissions, by using their session instead of a narrower credential, or
-by a step-up from the table above — never by signing in again. `translate.ts`
+by the browser settings page for a browser-only action — never by signing in
+again. `translate.ts`
 keys its recovery off the wire code and falls back to the Registry's own title
 and detail; no branch may emit `axm login`.
 
-## Step-up handoff contract
-
-Unattended writes return an `auth_required` pending-human error at exit 13.
-`--step-up-request URL` resumes that authenticated Registry request through the
-same feature command and decoded inputs. `--wait-for-human SECONDS` requests a
-positive bounded wait; timeout retains the request and returns exit 16. The
-shared handoff action is defined by
-`@agentxm/registry-protocol/unstable/human-handoff` and is embedded in the
-existing machine envelope. Do not serialize executable commands or credentials
-into a saved handoff, or silently replace expired or consumed requests.
+## Loopback sign-in
 
 Loopback callback receipt is not completion. Login signals browser completion
 only after issuer validation, exchange, and credential persistence. The

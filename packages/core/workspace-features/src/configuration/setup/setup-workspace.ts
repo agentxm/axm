@@ -34,7 +34,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -512,7 +512,7 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
 // report
 // -----------------------------------------------------------------------------
 
-const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+const isKnownAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const stepStatus = (

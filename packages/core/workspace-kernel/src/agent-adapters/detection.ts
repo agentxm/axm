@@ -19,11 +19,11 @@ import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { AgentDetectionFailed } from "./errors.js";
 import { getConfigHome } from "./constants.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type {
-  AgentDescriptor,
-  AgentDetectionMarker,
-  AgentScopeDetectionDescriptor,
-} from "@agentxm/extension-model/unstable/agents/types";
+  DetectionMarker,
+  ScopeDetection,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 
 // -----------------------------------------------------------------------------
 // Detection Functions
@@ -129,7 +129,7 @@ export const AgentExecutableResolverLive = Layer.effect(
   makeAgentExecutableResolver,
 );
 
-const markerKey = (marker: AgentDetectionMarker): string =>
+const markerKey = (marker: DetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
 const resolveUserDetectionPath = (marker: string) =>
@@ -154,7 +154,7 @@ const resolveProjectPath = (marker: string, rootDir: string) =>
   });
 
 const resolvePathMarker = (
-  marker: Extract<AgentDetectionMarker, { readonly kind: "dir" | "file" }>,
+  marker: Extract<DetectionMarker, { readonly kind: "dir" | "file" }>,
   rootDir: string,
   scope: "project" | "user",
 ) =>
@@ -162,7 +162,7 @@ const resolvePathMarker = (
     ? resolveProjectPath(marker.path, rootDir)
     : resolveUserDetectionPath(marker.path);
 
-type PathMarker = Extract<AgentDetectionMarker, { readonly kind: "dir" | "file" }>;
+type PathMarker = Extract<DetectionMarker, { readonly kind: "dir" | "file" }>;
 
 const probePathMarker = (marker: PathMarker, rootDir: string, scope: "project" | "user") =>
   Effect.gen(function* () {
@@ -175,7 +175,7 @@ const probePathMarker = (marker: PathMarker, rootDir: string, scope: "project" |
 type PathMarkerProbe = typeof probePathMarker;
 
 const resolveMarker = (
-  marker: AgentDetectionMarker,
+  marker: DetectionMarker,
   rootDir: string,
   scope: "project" | "user",
   probePath: PathMarkerProbe,
@@ -194,7 +194,7 @@ const resolveMarker = (
   });
 
 const isScopeDetected = (
-  markers: ReadonlyArray<{ readonly marker: AgentDetectionMarker; readonly resolved: boolean }>,
+  markers: ReadonlyArray<{ readonly marker: DetectionMarker; readonly resolved: boolean }>,
 ): boolean => {
   const resolvedMarkers = markers.filter((entry) => entry.resolved);
   if (resolvedMarkers.some((entry) => entry.marker.signal === "definitive")) return true;
@@ -211,7 +211,7 @@ const isScopeDetected = (
 };
 
 const detectScopeRaw = (
-  detection: AgentScopeDetectionDescriptor,
+  detection: ScopeDetection,
   rootDir: string,
   scope: "project" | "user",
   probePath: PathMarkerProbe = probePathMarker,

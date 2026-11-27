@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import {
   ConfigurableAgentIdSchema,
   type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/extensions/common";
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {

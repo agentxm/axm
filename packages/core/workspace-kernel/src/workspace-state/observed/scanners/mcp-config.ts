@@ -28,10 +28,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  AgentDescriptor,
-  MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type McpConfigTarget,
@@ -68,7 +66,7 @@ export interface McpConfigScannerDeps {
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
-  readonly agentRegistry?: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>;
+  readonly agentRegistry?: Readonly<Partial<Record<ConfigurableAgentId, AgentDescriptor>>>;
 }
 
 /**
@@ -182,7 +180,7 @@ const surfacePlanKey = (plan: McpSurfaceScanPlan): string =>
 
 const planMcpSurfaces = (
   deps: McpConfigScannerDeps,
-  registry: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>,
+  registry: Readonly<Partial<Record<ConfigurableAgentId, AgentDescriptor>>>,
 ): ReadonlyArray<McpSurfaceScanPlan> => {
   const plans = new Map<string, McpSurfaceScanPlan>();
   for (const descriptor of Object.values(registry)) {

@@ -12,7 +12,7 @@ import {
   type DecodedSubagentPackage,
 } from "@agentxm/extension-content";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   assertNativeMutationWithinRoots,

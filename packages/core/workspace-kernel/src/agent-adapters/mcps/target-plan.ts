@@ -31,9 +31,9 @@ import {
   readableMcpCapability,
   groupConfiguredMcpTargets,
   declaredMcpWriterTargets,
-  isConfigurableAgentId,
   type McpTargetGroup,
 } from "./targeting.js";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import * as Equal from "effect/Equal";
 
 export interface PlanMcpServerTargetsArgs {

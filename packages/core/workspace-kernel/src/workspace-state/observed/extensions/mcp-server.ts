@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -48,7 +48,7 @@ import {
 type McpServerDetectionOrigin =
   | { readonly _tag: "canonical-axm-mcp-server" }
   | { readonly _tag: "workspace-mcp-config" }
-  | { readonly _tag: "agent-mcp-config"; readonly agentId: MaterializationTargetId };
+  | { readonly _tag: "agent-mcp-config"; readonly agentId: ConfigurableAgentId };
 
 // ---------------------------------------------------------------------------
 // Payloads

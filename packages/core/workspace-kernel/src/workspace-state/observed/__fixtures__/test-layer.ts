@@ -21,7 +21,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
 import {
   AgentPresenceProbe,
@@ -94,7 +94,7 @@ export const WorkspaceReadModelTest = (
       const probeLayer = Layer.succeed(
         AgentPresenceProbe,
         options.probe?.(fs, deps.path) ?? {
-          detect: () => Effect.succeed(new Set<MaterializationTargetId>()),
+          detect: () => Effect.succeed(new Set<ConfigurableAgentId>()),
         },
       );
       return Layer.mergeAll(

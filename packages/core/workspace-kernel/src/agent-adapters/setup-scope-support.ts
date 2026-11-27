@@ -8,9 +8,9 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
   isCapabilitySupported,
-  type ConfigurableAgentId,
   type NativeCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { userScopeRefusal } from "./scope-refusal.js";
 import {
   EXTENSION_TYPE_TABLE,

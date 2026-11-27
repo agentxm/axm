@@ -12,7 +12,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { codingAgentForId } from "../agent-adapters/index.js";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -35,7 +35,7 @@ export { applyInstructionProjection } from "./instructions/instructions.js";
 export const makeCodingAgentRepository = (
   configuredAgentIds: ReadonlyArray<string>,
 ): CodingAgentRepositoryService => ({
-  get: (id: MaterializationTargetId) => Effect.succeed(codingAgentForId(id)),
+  get: (id: ConfigurableAgentId) => Effect.succeed(codingAgentForId(id)),
   all: Effect.sync(allCodingAgents),
   getConfiguredAgents: () => Effect.succeed(configuredCodingAgents(configuredAgentIds)),
   getMaterializationAgents: () => Effect.succeed(materializationCodingAgents(configuredAgentIds)),

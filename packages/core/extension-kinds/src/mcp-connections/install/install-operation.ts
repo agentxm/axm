@@ -19,7 +19,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   selectMcpDistribution,
   resolveMcpInvocation,
@@ -91,7 +91,7 @@ const frozenManifest = (manifest: McpServerManifest): McpServerManifest => {
 };
 
 interface AgentOutcome {
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly outcome: McpServerSyncOutcome;
 }
 

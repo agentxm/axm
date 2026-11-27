@@ -38,7 +38,7 @@ import * as PlatformError from "effect/PlatformError";
 import { stringify as stringifyTomlDocument } from "smol-toml";
 import YAML from "yaml";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { Settings } from "../../desired/settings/schema.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { storedLockfileFixture } from "./decoders.js";
@@ -227,8 +227,7 @@ const validateRelativePath = (
  * still synthesize directories for hypothetical agents.
  */
 const resolveAgentContentRoot = (agentId: string): string => {
-  const isKnown = (id: string): id is MaterializationTargetId =>
-    Object.hasOwn(AGENT_DESCRIPTORS, id);
+  const isKnown = (id: string): id is ConfigurableAgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENT_DESCRIPTORS[agentId];
   const skillsDir = descriptor.skills?.locations.find(
@@ -240,8 +239,7 @@ const resolveAgentContentRoot = (agentId: string): string => {
 };
 
 const resolveAgentSettingsRoot = (agentId: string): string => {
-  const isKnown = (id: string): id is MaterializationTargetId =>
-    Object.hasOwn(AGENT_DESCRIPTORS, id);
+  const isKnown = (id: string): id is ConfigurableAgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENT_DESCRIPTORS[agentId];
   if (typeof descriptor.rootDir === "string") return descriptor.rootDir;

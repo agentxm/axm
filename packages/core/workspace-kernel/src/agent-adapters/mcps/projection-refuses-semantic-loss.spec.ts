@@ -1,6 +1,6 @@
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { describe, expect, it } from "@effect/vitest";
-import { type ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { configuredMcpCapability } from "../index.js";
 import type { McpConnection } from "../index.js";
 import { projectExpectedEntry, renderEnvValue } from "../index.js";

@@ -6,16 +6,8 @@
  */
 
 import type { Record } from "effect";
-import {
-  CONFIGURABLE_AGENT_IDS,
-  type ConfigurableAgentId,
-} from "../agent-capabilities/identity.js";
-import type {
-  DetectionMarker,
-  Scope,
-  ScopeDetection,
-  NativeReadLocation,
-} from "../agent-capabilities/schema.js";
+import type { ConfigurableAgentId } from "../agent-capabilities/identity.js";
+import type { Scope, ScopeDetection, NativeReadLocation } from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -75,31 +67,12 @@ export interface AgentInstructionsDescriptor {
 // -----------------------------------------------------------------------------
 
 /** @experimental This API is unstable and may change without notice. */
-export type AgentDetectionMarker = DetectionMarker;
-
-/** @experimental This API is unstable and may change without notice. */
-export type AgentScopeDetectionDescriptor = ScopeDetection;
-
-/** @experimental This API is unstable and may change without notice. */
 export interface AgentDetectionDescriptor {
   /** Project-scope markers resolved relative to the project root. */
-  readonly project: AgentScopeDetectionDescriptor;
+  readonly project: ScopeDetection;
   /** User-scope markers resolved relative to home/config roots; executables use PATH. */
-  readonly user: AgentScopeDetectionDescriptor;
+  readonly user: ScopeDetection;
 }
-
-// -----------------------------------------------------------------------------
-// Agent Identifiers
-// -----------------------------------------------------------------------------
-
-/** @experimental This API is unstable and may change without notice. */
-export { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId };
-
-/** Real agents that can participate in native materialization. @experimental */
-export const MATERIALIZATION_TARGET_IDS = [...CONFIGURABLE_AGENT_IDS] as const;
-
-/** @experimental This API is unstable and may change without notice. */
-export type MaterializationTargetId = (typeof MATERIALIZATION_TARGET_IDS)[number];
 
 // -----------------------------------------------------------------------------
 // Agent Configuration
@@ -112,7 +85,7 @@ export type MaterializationTargetId = (typeof MATERIALIZATION_TARGET_IDS)[number
  */
 export interface AgentDescriptor {
   /** Unique identifier (e.g., "claude-code") */
-  readonly id: MaterializationTargetId;
+  readonly id: ConfigurableAgentId;
   /** Human-readable display name (e.g., "Claude Code") */
   readonly name: string;
   /** Explicit project native configuration root. Undefined suppresses root discovery. */
@@ -136,4 +109,4 @@ export interface AgentDescriptor {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentRegistry = Record.ReadonlyRecord<MaterializationTargetId, AgentDescriptor>;
+export type AgentRegistry = Record.ReadonlyRecord<ConfigurableAgentId, AgentDescriptor>;

@@ -1,4 +1,4 @@
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { FileSpec, ScopeFiles } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type { WorkspaceState } from "./interpret-ops.js";
@@ -46,7 +46,7 @@ const addTreeFile = (
 
 const addAgentSkillArtifact = (
   agentDirs: Record<string, Record<string, string | FileSpec>>,
-  agentId: MaterializationTargetId,
+  agentId: ConfigurableAgentId,
   relativePath: string,
 ): void => {
   const agent = AGENT_DESCRIPTORS[agentId];
@@ -69,7 +69,7 @@ const addAgentSkillArtifact = (
   addTreeFile(tree, materializedPath);
 };
 
-const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+const isKnownAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const fileSpecFor = (raw: unknown): FileSpec | undefined => {

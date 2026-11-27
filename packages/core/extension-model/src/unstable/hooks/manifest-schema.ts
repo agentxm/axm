@@ -4,10 +4,10 @@ import * as Schema from "effect/Schema";
 import { HookBlockOutcomeSchema, HookModifyOperationSchema } from "../agent-capabilities/schema.js";
 import {
   CommonManifestBaseFields,
-  ConfigurableAgentIdSchema,
   ExtensionNameSchema,
   NonPackManifestFields,
 } from "../extensions/common.js";
+import { ConfigurableAgentIdSchema } from "../agent-capabilities/identity.js";
 import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
 export const HOOK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/hook.schema.json";

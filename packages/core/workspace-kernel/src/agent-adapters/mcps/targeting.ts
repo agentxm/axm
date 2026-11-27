@@ -7,7 +7,6 @@
 import {
   AGENTS,
   CONFIGURABLE_AGENTS_BY_ID,
-  isConfigurableAgentId,
   McpServersPathSchema,
   type Agent,
   type McpConfig,
@@ -16,6 +15,7 @@ import {
   type NativeConfigReadLocation,
   type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { ResolvedMcpConfig, SharedMcpTargetMember } from "./shared-target.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -37,8 +37,6 @@ import {
   type CompetingMcpEntry,
   type CompetingMcpObservation,
 } from "./competing-entries.js";
-
-export { isConfigurableAgentId };
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 export type ReadableMcpCapability = AgentMcpCapability & {

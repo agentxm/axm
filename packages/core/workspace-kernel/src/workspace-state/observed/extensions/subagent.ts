@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { AgentDirOccurrence } from "../scanners/types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import {
@@ -24,7 +24,7 @@ import {
 export type ActualSubagent = ActualExtension<
   "subagent",
   | CanonicalOrigin<"subagent">
-  | { readonly _tag: "agent-subagent-dir"; readonly agentId: MaterializationTargetId }
+  | { readonly _tag: "agent-subagent-dir"; readonly agentId: ConfigurableAgentId }
 >;
 export type InstalledSubagent = InstalledExtension<"subagent", ActualSubagent>;
 export type SubagentExtensionsApi = CanonicalSubjectApi<"subagent", ActualSubagent>;

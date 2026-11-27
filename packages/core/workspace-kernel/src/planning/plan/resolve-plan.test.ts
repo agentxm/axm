@@ -24,10 +24,8 @@ import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 import * as Tracer from "effect/Tracer";
 
-import {
-  type ConfigurableAgentId,
-  decodeExtensionNameSync,
-} from "@agentxm/extension-model/unstable/extensions";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 
 import {

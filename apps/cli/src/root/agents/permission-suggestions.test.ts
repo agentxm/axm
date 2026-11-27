@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 

@@ -12,11 +12,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
-  CONFIGURABLE_AGENT_IDS,
   type McpActivationField,
   type McpConfigTarget,
   type McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {

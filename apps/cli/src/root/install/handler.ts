@@ -3,7 +3,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions/common";
+import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import * as Schema from "effect/Schema";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 

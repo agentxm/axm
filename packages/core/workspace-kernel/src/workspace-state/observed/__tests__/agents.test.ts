@@ -11,7 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { absentAll } from "../__fixtures__/builder.js";
 import {
   makeAgentDirOccurrence,

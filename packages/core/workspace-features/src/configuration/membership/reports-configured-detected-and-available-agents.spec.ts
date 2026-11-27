@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach } from "vitest";
 
-import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 import { listConfiguredAgents } from "./configure-agents.js";
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";

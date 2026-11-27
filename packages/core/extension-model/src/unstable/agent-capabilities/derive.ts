@@ -6,7 +6,6 @@
 
 import type {
   AgentDescriptor,
-  AgentDetectionMarker,
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
@@ -28,6 +27,7 @@ import {
   type Scope,
   type StandardsCompliance,
   type NativeReadLocation,
+  type DetectionMarker,
 } from "./schema.js";
 import { type PerAgentType } from "../extensions/common.js";
 
@@ -139,25 +139,22 @@ export const deriveSkillConvention = (directory: string): "universal" | "vendor"
     ? "universal"
     : "vendor";
 
-const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
+const detectionMarkerKey = (marker: DetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
-const fileMarker = (path: string): AgentDetectionMarker => ({
+const fileMarker = (path: string): DetectionMarker => ({
   kind: "file",
   path,
   signal: "supporting",
   note: null,
 });
 
-const appendMarker = (
-  markers: Map<string, AgentDetectionMarker>,
-  marker: AgentDetectionMarker,
-): void => {
+const appendMarker = (markers: Map<string, DetectionMarker>, marker: DetectionMarker): void => {
   markers.set(detectionMarkerKey(marker), marker);
 };
 
 const appendFileMarkers = (
-  markersByScope: Record<Scope, Map<string, AgentDetectionMarker>>,
+  markersByScope: Record<Scope, Map<string, DetectionMarker>>,
   locations: ReadonlyArray<NativeReadLocation>,
 ): void => {
   for (const location of locations) {
@@ -175,8 +172,8 @@ const appendFileMarkers = (
 };
 
 const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection => {
-  const projectMarkers = new Map<string, AgentDetectionMarker>();
-  const userMarkers = new Map<string, AgentDetectionMarker>();
+  const projectMarkers = new Map<string, DetectionMarker>();
+  const userMarkers = new Map<string, DetectionMarker>();
   const markersByScope = {
     project: projectMarkers,
     user: userMarkers,

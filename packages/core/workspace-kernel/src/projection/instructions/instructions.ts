@@ -83,9 +83,9 @@ import {
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
-  MaterializationTargetId,
   AgentInstructionsDescriptor,
 } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { isRelativeWithin } from "@agentxm/host-primitives";
 
 export interface ResolvedInstructionsConfig {
@@ -397,7 +397,7 @@ const isSymlink = (entry: string) =>
 interface OwnFileConvention {
   readonly declaration: AgentInstructionsDescriptor["locations"][number];
   readonly scope: WorkspaceScope;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly agentName: string;
   readonly relativeTarget: string;
 }
@@ -1030,14 +1030,14 @@ type PlannedInstructionItem =
       readonly action: "skip";
       readonly reason: InstructionSkipReason;
       readonly root: string;
-      readonly agentId: MaterializationTargetId;
+      readonly agentId: ConfigurableAgentId;
       readonly agentName: string;
       readonly sourcePath: string;
     }
   | {
       readonly action: "native" | "write" | "adapter";
       readonly root: string;
-      readonly agentId: MaterializationTargetId;
+      readonly agentId: ConfigurableAgentId;
       readonly agentName: string;
       readonly sourcePath: string;
       readonly targetPath: string;

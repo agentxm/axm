@@ -18,10 +18,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
-  ConfigurableAgentIdSchema,
   ExtensionVisibilitySchema,
   EXTENSION_NAME_PATTERN,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";

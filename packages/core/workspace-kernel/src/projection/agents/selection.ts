@@ -12,19 +12,18 @@ import type { NativeDirectoryInputs } from "../../locations/index.js";
 import { codingAgentForId, type CodingAgent } from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
-  MATERIALIZATION_TARGET_IDS,
-  type MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+  isConfigurableAgentId,
+  CONFIGURABLE_AGENT_IDS,
+  type ConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
-const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+const isKnownAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Every adapter AXM ships, in catalog order. */
 export const allCodingAgents = (
   inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
-): ReadonlyArray<CodingAgent> =>
-  MATERIALIZATION_TARGET_IDS.map((id) => codingAgentForId(id, inputs));
+): ReadonlyArray<CodingAgent> => CONFIGURABLE_AGENT_IDS.map((id) => codingAgentForId(id, inputs));
 
 /**
  * The configured agents AXM can project onto: known, configurable, in the

@@ -24,7 +24,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -63,7 +63,7 @@ import {
 type SkillDetectionOrigin =
   | { readonly _tag: "canonical-axm-skill" }
   | { readonly _tag: "external-axm-skill" }
-  | { readonly _tag: "agent-skill-dir"; readonly agentId: MaterializationTargetId };
+  | { readonly _tag: "agent-skill-dir"; readonly agentId: ConfigurableAgentId };
 
 // ---------------------------------------------------------------------------
 // Payload types

@@ -11,7 +11,7 @@
  */
 
 import * as Data from "effect/Data";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 import type { ErrorCode } from "@agentxm/workspace-kernel/operations";
 import {
@@ -134,7 +134,7 @@ export class McpAgentSyncRefused
     readonly serverName: string;
     readonly fault: McpAgentSyncFault;
     /** The agents the fault is about; empty when it is about none in particular. */
-    readonly agentIds: ReadonlyArray<MaterializationTargetId | string>;
+    readonly agentIds: ReadonlyArray<ConfigurableAgentId | string>;
   }>
   implements ExtensionKindFailure
 {

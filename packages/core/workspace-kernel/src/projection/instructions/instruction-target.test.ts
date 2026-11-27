@@ -9,9 +9,9 @@ import {
 } from "./instructions.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
-  MATERIALIZATION_TARGET_IDS,
-  type MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+  CONFIGURABLE_AGENT_IDS,
+  type ConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 const SOURCE = "AGENTS.md";
 
@@ -24,14 +24,14 @@ const SOURCE = "AGENTS.md";
  * Every agent NOT listed here is expected to resolve to `native` (reads the
  * shared source file directly), so the ~40 agents-md agents need no upkeep.
  */
-const EXPECTED_WRITE: ReadonlyArray<MaterializationTargetId> = [
+const EXPECTED_WRITE: ReadonlyArray<ConfigurableAgentId> = [
   "claude-code",
   "codebuddy",
   "gemini-cli",
   "iflow-cli",
   "junie",
 ];
-const EXPECTED_ADAPTER: ReadonlyArray<MaterializationTargetId> = [
+const EXPECTED_ADAPTER: ReadonlyArray<ConfigurableAgentId> = [
   "cline",
   "continue",
   "kiro-cli",
@@ -41,7 +41,7 @@ const EXPECTED_ADAPTER: ReadonlyArray<MaterializationTargetId> = [
 ];
 // Native absence, unverified selection, missing AXM support, and retired
 // surfaces all fail closed instead of acquiring an instruction writer.
-const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
+const EXPECTED_SKIP: ReadonlyArray<ConfigurableAgentId> = [
   "aider-desk",
   "codemaker",
   "coder-agents",
@@ -68,13 +68,13 @@ const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
 const sorted = (ids: ReadonlyArray<string>): ReadonlyArray<string> => [...ids].sort();
 
 const classifyAll = (symlinkSupported: boolean) => {
-  const byAction: Record<InstructionTargetResolution["action"], Array<MaterializationTargetId>> = {
+  const byAction: Record<InstructionTargetResolution["action"], Array<ConfigurableAgentId>> = {
     native: [],
     write: [],
     adapter: [],
     skip: [],
   };
-  for (const id of MATERIALIZATION_TARGET_IDS) {
+  for (const id of CONFIGURABLE_AGENT_IDS) {
     const resolution = resolveInstructionTarget({
       instructions: AGENT_DESCRIPTORS[id].instructions,
       sourceFileName: SOURCE,
@@ -99,7 +99,7 @@ describe("resolveInstructionTarget", () => {
       byAction.write.length +
       byAction.adapter.length +
       byAction.skip.length;
-    expect(classified).toBe(MATERIALIZATION_TARGET_IDS.length);
+    expect(classified).toBe(CONFIGURABLE_AGENT_IDS.length);
     expect(byAction.native.length).toBeGreaterThan(0);
   });
 
@@ -239,7 +239,7 @@ describe("resolveInstructionTarget", () => {
   });
 
   it("pairs each action with its mechanism for every syncable agent", () => {
-    for (const id of MATERIALIZATION_TARGET_IDS) {
+    for (const id of CONFIGURABLE_AGENT_IDS) {
       const descriptor = AGENT_DESCRIPTORS[id].instructions;
       if (descriptor === undefined) continue;
       const resolution = resolveInstructionTarget({

@@ -11,13 +11,12 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
-import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
-  type AgentDescriptor,
-  type MaterializationTargetId,
+  isConfigurableAgentId,
   type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agents/types";
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   detectAgentScopeResults,
@@ -53,7 +52,7 @@ export interface SetupAgentSelection {
   readonly candidates: ReadonlyArray<SetupAgentCandidate>;
 }
 
-const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+const isKnownAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 export const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>

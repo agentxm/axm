@@ -19,7 +19,7 @@ import {
   listCapabilities,
   toNativeAgent,
 } from "./index.js";
-import type { AgentId } from "./index.js";
+import type { AgentId } from "./identity.js";
 import type { Agent, NativeReadLocation } from "./schema.js";
 const projectLocation = (
   path: string,

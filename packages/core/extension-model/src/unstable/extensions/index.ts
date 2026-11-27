@@ -5,13 +5,10 @@
  */
 
 export {
-  AgentIdSchema,
   type Author,
   AuthorSchema,
   CONTAINER_EXTENSION_TYPES,
   CommonManifestBaseFields,
-  type ConfigurableAgentId,
-  ConfigurableAgentIdSchema,
   type ContainerType,
   EXTENSION_NAME_PATTERN,
   INSTALLABLE_FROM_BY_TYPE,

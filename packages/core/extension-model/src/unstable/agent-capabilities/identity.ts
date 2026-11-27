@@ -100,3 +100,17 @@ export const AgentIdSchema = Schema.Literals(AGENT_IDS).annotate({
   description: "Verified coding agent identifier in the capability catalog.",
   examples: ["claude-code", "codex", "cursor"],
 });
+
+/**
+ * Agent identifiers users may persist in `axm.json`.
+ *
+ * Shared native locations are policy, not additional agent identities.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ConfigurableAgentIdSchema = Schema.Literals(CONFIGURABLE_AGENT_IDS).annotate({
+  identifier: "ConfigurableAgentId",
+  title: "Configurable Agent ID",
+  description: "Supported coding agent identifier used in workspace settings `agents`.",
+  examples: ["claude-code", "codex", "cursor"],
+});

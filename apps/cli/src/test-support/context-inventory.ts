@@ -12,7 +12,6 @@ import { SourceTypeSchema, RefTypeSchema } from "@agentxm/extension-model/unstab
 import { WORKSPACE_SCOPES } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   AGENTS,
-  CONFIGURABLE_AGENT_IDS,
   HOSTED_AGENTS_BY_ID,
   AvailabilitySchema,
   VendorStatusSchema,
@@ -21,6 +20,7 @@ import {
   AgentInterfaceSchema,
   McpTransportSchema,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { UpgradeAssessmentResultSchema } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { PublishResultSchema } from "@agentxm/workspace-features/publishing";
 import { KnowledgeConceptCapabilitiesOutputSchema } from "@agentxm/workspace-features/knowledge-query";

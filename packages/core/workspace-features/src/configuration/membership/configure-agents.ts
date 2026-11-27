@@ -45,11 +45,13 @@ import {
   detectAgentScopeResults,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
-  AGENT_IDS,
   AGENTS_BY_ID,
   AgentLifecycleStateSchema,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import {
+  AGENT_IDS,
+  CONFIGURABLE_AGENT_IDS,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 

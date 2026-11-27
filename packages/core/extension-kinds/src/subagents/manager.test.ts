@@ -49,7 +49,7 @@ import type {
   WorkspaceSubagentRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import {
@@ -117,7 +117,7 @@ const writeSubagentPackage = (packageRoot: string, name: string, description: st
 };
 
 const makeMockCodingAgent = (
-  id: MaterializationTargetId,
+  id: ConfigurableAgentId,
   overrides?: Partial<CodingAgent>,
 ): CodingAgent => ({
   id,

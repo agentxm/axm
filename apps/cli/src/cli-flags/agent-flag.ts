@@ -1,6 +1,6 @@
 import { withParameterDescription } from "../cli-parameters.js";
 import { Flag } from "effect/cli";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 /**
  * Catalog-validated coding-agent selection. Repeatable; an identifier outside

@@ -17,12 +17,12 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 
 import * as Effect from "effect/Effect";
+import { HOSTED_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
-  HOSTED_AGENTS_BY_ID,
   HOSTED_AGENT_IDS,
   type HostedAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+  CONFIGURABLE_AGENT_IDS,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 import { configurationRefused } from "../errors.js";
 

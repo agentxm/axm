@@ -9,10 +9,8 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  AgentDescriptor,
-  MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeMcpConfigScanner } from "../scanners/mcp-config.js";
@@ -23,7 +21,7 @@ const USER_HOME = "/home/user";
 const runScanner = (
   spec: Parameters<typeof buildFixture>[0],
   options?: {
-    readonly agentRegistry?: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>;
+    readonly agentRegistry?: Readonly<Partial<Record<ConfigurableAgentId, AgentDescriptor>>>;
   },
 ) =>
   Effect.gen(function* () {

@@ -9,7 +9,6 @@ import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { RegistryEndpointFromString } from "./registry-endpoint.js";
-import { AgentIdSchema, CONFIGURABLE_AGENT_IDS } from "../agent-capabilities/identity.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
@@ -1171,35 +1170,3 @@ export const NonPackManifestFields = {
     ),
   ),
 };
-
-/**
- * Agent identifier enumeration for supported coding agents: the single
- * definition lives in the agent identity module.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export { AgentIdSchema };
-
-/**
- * Agent identifiers users may persist in `axm.json`.
- *
- * Shared native locations are policy, not additional agent identities.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const ConfigurableAgentIdSchema = Schema.Literals([...CONFIGURABLE_AGENT_IDS]).annotate({
-  identifier: "ConfigurableAgentId",
-  title: "Configurable Agent ID",
-  description: "Supported coding agent identifier used in workspace settings `agents`.",
-  examples: ["claude-code", "codex", "cursor"],
-});
-
-/**
- * Inferred type for AgentId schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type AgentId = Schema.Schema.Type<typeof AgentIdSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export type ConfigurableAgentId = Schema.Schema.Type<typeof ConfigurableAgentIdSchema>;

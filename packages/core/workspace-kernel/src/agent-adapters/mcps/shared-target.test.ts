@@ -1,10 +1,8 @@
 import { configuredMcpCapability, declaredMcpWriterTargets } from "./targeting.js";
 import type { ResolvedMcpConfig } from "./shared-target.js";
 import { describe, expect, it } from "vitest";
-import {
-  type AgentId,
-  type McpTypeField,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { McpTypeField } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { resolveSharedMcpTarget, type SharedMcpTargetMember } from "./shared-target.js";
 
 const projectMember = (agentId: AgentId): SharedMcpTargetMember => {

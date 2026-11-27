@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 export const makeCodingAgentStub = (
-  id: MaterializationTargetId,
+  id: ConfigurableAgentId,
   overrides?: Partial<CodingAgent>,
 ): CodingAgent => ({
   id,

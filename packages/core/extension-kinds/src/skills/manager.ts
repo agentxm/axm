@@ -59,8 +59,7 @@ import {
   observeAgentOutputs,
   captureSkillOutputSources,
 } from "@agentxm/workspace-kernel/projection";
-import { type MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import { computeSkillSourceHash } from "./source-hash.js";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
@@ -148,7 +147,7 @@ export const SkillManagerLive = Layer.effect(
       }
 
       const installTargets: Array<{
-        readonly agentId: MaterializationTargetId;
+        readonly agentId: ConfigurableAgentId;
         readonly dir: string;
       }> = [];
       for (const { agent, outcome } of resolved) {
@@ -287,7 +286,7 @@ export const SkillManagerLive = Layer.effect(
           ? ref.sourceHash
           : ref.refType === "registry"
             ? yield* computePackageContentHash(path.dirname(skillSrcPath))
-            : yield* computeSkillSourceHash(skillSrcPath);
+            : yield* computePackageContentHash(skillSrcPath);
       if (ref.refType !== "workspace" && materialized.treeIntegrity === undefined) {
         return yield* new InstallStateMissing({ type: "skill", name: ref.skill.name });
       }
@@ -505,7 +504,7 @@ export const SkillManagerLive = Layer.effect(
               ? ref.sourceHash
               : ref.refType === "registry"
                 ? yield* computePackageContentHash(path.dirname(materialized.skillSrcPath))
-                : yield* computeSkillSourceHash(materialized.skillSrcPath);
+                : yield* computePackageContentHash(materialized.skillSrcPath);
           return {
             sourceHash: Option.some(sourceHash),
             treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),

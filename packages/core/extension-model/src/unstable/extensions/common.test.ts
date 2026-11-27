@@ -9,7 +9,6 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
-  AgentIdSchema,
   AuthorSchema,
   CommonManifestBaseFields,
   ExtensionNameSchema,
@@ -27,6 +26,7 @@ import {
   PackFqnSchema,
   PackSpecSchema,
 } from "./common.js";
+import { AgentIdSchema } from "../agent-capabilities/identity.js";
 import { HandleSchema } from "./handle.js";
 
 describe("common schemas", () => {

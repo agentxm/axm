@@ -17,10 +17,8 @@ import {
 import { type CodingAgent } from "./coding-agent.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagents/sync.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  AgentDescriptor,
-  MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 /** @experimental This API is unstable and may change without notice. */
 export const codingAgentFromDescriptor = (
@@ -95,6 +93,6 @@ export const codingAgentFromDescriptor = (
 
 /** @experimental This API is unstable and may change without notice. */
 export const codingAgentForId = (
-  id: MaterializationTargetId,
+  id: ConfigurableAgentId,
   inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
 ): CodingAgent => codingAgentFromDescriptor(AGENT_DESCRIPTORS[id], inputs);

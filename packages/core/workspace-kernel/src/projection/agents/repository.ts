@@ -13,7 +13,7 @@ import * as Layer from "effect/Layer";
 import { codingAgentForId, type CodingAgent } from "../../agent-adapters/index.js";
 import type { NativeDirectoryInputs } from "../../locations/index.js";
 import { WorkspaceLocation, SettingsReader } from "../../workspace-state/index.js";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -31,7 +31,7 @@ const configuredAgentIds = () =>
 export const makeCodingAgentRepositoryService = (
   inputs: NativeDirectoryInputs,
 ): CodingAgentRepositoryService => ({
-  get: (id: MaterializationTargetId): Effect.Effect<CodingAgent> =>
+  get: (id: ConfigurableAgentId): Effect.Effect<CodingAgent> =>
     Effect.succeed(codingAgentForId(id, inputs)),
   all: Effect.sync(() => allCodingAgents(inputs)),
   getConfiguredAgents: () =>

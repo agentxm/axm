@@ -7,7 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import * as Layer from "effect/Layer";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {

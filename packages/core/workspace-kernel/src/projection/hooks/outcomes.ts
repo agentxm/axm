@@ -3,10 +3,8 @@ import {
   type HookImplementationContext,
 } from "@agentxm/extension-model/unstable/hooks/resolution";
 import * as Result from "effect/Result";
-import {
-  type Agent,
-  isConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { Agent } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { ConfiguredAgentOutcome, HookEvidenceStatus } from "../../operations/index.js";
 import {
   resolveHookConfiguration,

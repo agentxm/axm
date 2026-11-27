@@ -4,7 +4,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   AGENT_IDS,
   CONFIGURABLE_AGENT_IDS,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { HelpDoc } from "effect/cli/HelpDoc";
 import { rootCommand } from "../../app.js";
 import { toJsonHelpDoc } from "../../cli-runtime/index.js";

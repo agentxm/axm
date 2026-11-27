@@ -11,18 +11,18 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import { resolveNativeReferent, type NativeLocationError } from "../locations/index.js";
 import * as Path from "effect/Path";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { UNIVERSAL_SKILLS_DIR } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../operations/index.js";
 
 export type InstallableSkillTarget = {
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly targetDir: string;
 };
 
 export type InstallableSkillTargetLocation = {
   readonly targetDir: string;
-  readonly agentIds: ReadonlyArray<MaterializationTargetId>;
+  readonly agentIds: ReadonlyArray<ConfigurableAgentId>;
 };
 
 export const artifactAgentIdsFromTargets = (
@@ -30,7 +30,7 @@ export const artifactAgentIdsFromTargets = (
 ): ReadonlyArray<string> => Array.dedupe(targets.map((target) => target.agentId));
 
 export const artifactTargetAgentIds = (
-  agentIds: ReadonlyArray<MaterializationTargetId>,
+  agentIds: ReadonlyArray<ConfigurableAgentId>,
 ): ReadonlyArray<string> => agentIds;
 
 export const groupInstallTargetsByDirectory = (
@@ -64,7 +64,7 @@ export const groupInstallTargetsByDirectory = (
     );
     const locationsByKey = new Map<
       string,
-      { targetDir: string; agentIds: Array<MaterializationTargetId> }
+      { targetDir: string; agentIds: Array<ConfigurableAgentId> }
     >();
     // Shared Skill publication is workspace policy, independently of membership.
     locationsByKey.set(sharedDir, { targetDir: sharedDir, agentIds: [] });

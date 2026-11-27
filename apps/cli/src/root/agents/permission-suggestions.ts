@@ -1,13 +1,15 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
-  AgentIdSchema,
   SUPPORTED_AXM_SUPPORT,
   agentById,
-  type AgentId,
   type NativeConfigReadLocation,
   type PermissionsExtensionCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import {
+  AgentIdSchema,
+  type AgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 const decodeAgentIdOption = Schema.decodeUnknownOption(AgentIdSchema);

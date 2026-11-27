@@ -24,13 +24,12 @@ import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
-  MATERIALIZATION_TARGET_IDS,
+  isConfigurableAgentId,
   CONFIGURABLE_AGENT_IDS,
-  type AgentDescriptor,
-  type MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+  type ConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { SettingsReadError } from "../desired/settings/errors.js";
 import type {
   AgentDirOccurrence,
@@ -50,7 +49,7 @@ import type { Scope } from "./types.js";
  */
 interface DeclaredAgent {
   readonly scope: Scope;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +67,7 @@ interface DeclaredAgent {
  */
 interface ActualAgent {
   readonly scope: Scope;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly agentDirOccurrences: ReadonlyArray<AgentDirOccurrence>;
   readonly agentSettingsOccurrences: ReadonlyArray<AgentSettingsOccurrence>;
   readonly mcpConfigOccurrences: ReadonlyArray<McpConfigOccurrence>;
@@ -98,7 +97,7 @@ type DetectionStatus = "managed-and-present" | "managed-not-present" | "unmanage
 
 interface DetectedAgent {
   readonly scope: Scope;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly status: DetectionStatus;
   readonly present: boolean;
   readonly declared: Option.Option<DeclaredAgent>;
@@ -135,7 +134,7 @@ export interface AgentScannerObservations {
  * the full Settings schema.
  */
 interface DeclaredSettingsShape {
-  readonly agents?: ReadonlyArray<MaterializationTargetId>;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +142,7 @@ interface DeclaredSettingsShape {
 // ---------------------------------------------------------------------------
 
 export const declaredAgent = (
-  agentId: MaterializationTargetId,
+  agentId: ConfigurableAgentId,
   scope: Scope,
   settings: Option.Option<DeclaredSettingsShape>,
 ): Option.Option<DeclaredAgent> => {
@@ -154,7 +153,7 @@ export const declaredAgent = (
 };
 
 export const actualAgent = (
-  agentId: MaterializationTargetId,
+  agentId: ConfigurableAgentId,
   scope: Scope,
   observations: AgentScannerObservations,
 ): Option.Option<ActualAgent> => {
@@ -180,7 +179,7 @@ export const actualAgent = (
 };
 
 export const detectedAgent = (
-  agentId: MaterializationTargetId,
+  agentId: ConfigurableAgentId,
   scope: Scope,
   declared: Option.Option<DeclaredAgent>,
   present: boolean,
@@ -209,18 +208,17 @@ export const detectedAgent = (
 // Scoped agent read-model API
 // ---------------------------------------------------------------------------
 
-const isAgentId = (id: string): id is MaterializationTargetId =>
-  Object.hasOwn(AGENT_DESCRIPTORS, id);
+const isAgentId = (id: string): id is ConfigurableAgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Public shape of `ctx.scope(scope).agents`. */
 export interface ScopedAgentsApi {
-  readonly list: Effect.Effect<ReadonlyArray<MaterializationTargetId>>;
+  readonly list: Effect.Effect<ReadonlyArray<ConfigurableAgentId>>;
   readonly known: Effect.Effect<ReadonlyArray<AgentDescriptor>>;
   readonly byId: (id: string) => Option.Option<AgentDescriptor>;
   readonly declared: (
-    id: MaterializationTargetId,
+    id: ConfigurableAgentId,
   ) => Effect.Effect<Option.Option<DeclaredAgent>, SettingsReadError>;
-  readonly actual: (id: MaterializationTargetId) => Effect.Effect<Option.Option<ActualAgent>>;
+  readonly actual: (id: ConfigurableAgentId) => Effect.Effect<Option.Option<ActualAgent>>;
   readonly detected: Effect.Effect<ReadonlyArray<DetectedAgent>, Config.ConfigError>;
 }
 
@@ -228,7 +226,7 @@ export interface ScopedAgentsApi {
 interface ScopedAgentsApiDeps {
   readonly scope: Scope;
   readonly settings: Effect.Effect<Option.Option<DeclaredSettingsShape>, SettingsReadError>;
-  readonly presence: Effect.Effect<ReadonlySet<MaterializationTargetId>, Config.ConfigError>;
+  readonly presence: Effect.Effect<ReadonlySet<ConfigurableAgentId>, Config.ConfigError>;
   readonly observations: Effect.Effect<AgentScannerObservations>;
 }
 
@@ -236,12 +234,12 @@ interface ScopedAgentsApiDeps {
 export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi => {
   const { scope, settings, presence, observations } = deps;
 
-  const declared = (id: MaterializationTargetId) =>
+  const declared = (id: ConfigurableAgentId) =>
     isConfigurableAgentId(id)
       ? settings.pipe(Effect.map((decoded) => declaredAgent(id, scope, decoded)))
       : Effect.succeed(Option.none<DeclaredAgent>());
 
-  const actual = (id: MaterializationTargetId) =>
+  const actual = (id: ConfigurableAgentId) =>
     isConfigurableAgentId(id)
       ? observations.pipe(Effect.map((obs) => actualAgent(id, scope, obs)))
       : Effect.succeed(Option.none<ActualAgent>());
@@ -273,8 +271,8 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
   );
 
   return {
-    list: Effect.succeed(MATERIALIZATION_TARGET_IDS),
-    known: Effect.succeed(MATERIALIZATION_TARGET_IDS.map((id) => AGENT_DESCRIPTORS[id])),
+    list: Effect.succeed(CONFIGURABLE_AGENT_IDS),
+    known: Effect.succeed(CONFIGURABLE_AGENT_IDS.map((id) => AGENT_DESCRIPTORS[id])),
     byId: (id) => (isAgentId(id) ? Option.some(AGENT_DESCRIPTORS[id]) : Option.none()),
     declared,
     actual,

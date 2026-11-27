@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeAgentDirScanner } from "../scanners/agent-dir.js";
@@ -19,7 +19,7 @@ const WORKSPACE_ROOT = "/ws";
 const USER_HOME = "/home/user";
 
 const expectedSkillAgentIdsFor = (
-  agentIds: ReadonlyArray<MaterializationTargetId>,
+  agentIds: ReadonlyArray<ConfigurableAgentId>,
 ): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
     const skills = AGENT_DESCRIPTORS[agentId].skills;

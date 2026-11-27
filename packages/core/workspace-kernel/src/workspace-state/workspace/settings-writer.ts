@@ -16,7 +16,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import type * as Semaphore from "effect/Semaphore";
 
-import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions";
+import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { InstructionsConfigValue, SourceHostConfig } from "../desired/settings/index.js";

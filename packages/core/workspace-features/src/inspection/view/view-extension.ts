@@ -18,10 +18,8 @@ import * as Schema from "effect/Schema";
 import { platform } from "node:os";
 import { normalizePublishInput } from "@agentxm/extension-content";
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import {
-  agentById,
-  isConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { agentById } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operations";
 import { evaluateHookAgentOutcome } from "@agentxm/workspace-kernel/projection";
 

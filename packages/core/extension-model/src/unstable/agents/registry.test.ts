@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { AGENT_DESCRIPTORS } from "./registry.js";
-import { MATERIALIZATION_TARGET_IDS } from "./types.js";
+import { CONFIGURABLE_AGENT_IDS } from "../agent-capabilities/identity.js";
 
 describe("derived agent descriptors", () => {
   const agents = Object.values(AGENT_DESCRIPTORS);
@@ -70,15 +70,8 @@ describe("derived agent descriptors", () => {
   });
 });
 
-describe("MATERIALIZATION_TARGET_IDS", () => {
-  it("contains the descriptor IDs", () => {
-    expect(MATERIALIZATION_TARGET_IDS).toContain("claude-code");
-    expect(MATERIALIZATION_TARGET_IDS).toContain("cursor");
-    expect(MATERIALIZATION_TARGET_IDS).toContain("codex");
-    expect(MATERIALIZATION_TARGET_IDS).not.toContain("universal");
-  });
-
-  it("has the same count as the descriptor record", () => {
-    expect(MATERIALIZATION_TARGET_IDS.length).toBe(Object.keys(AGENT_DESCRIPTORS).length);
+describe("agent descriptor registry", () => {
+  it("derives exactly one descriptor per configurable agent", () => {
+    expect(Object.keys(AGENT_DESCRIPTORS).sort()).toEqual([...CONFIGURABLE_AGENT_IDS].sort());
   });
 });

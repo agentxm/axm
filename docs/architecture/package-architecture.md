@@ -130,7 +130,8 @@ facts. Registry protocol code owns wire encoding and recovery-command wording;
 publication workflows retain their authorization and commit decisions.
 
 Agent identity lives in `unstable/agent-capabilities/identity`, independently of
-catalog data. Agent schemas and extension types can use identities without
+catalog data, and that entry is the one import path for agent identifiers and
+their schemas. Agent schemas and extension types can use identities without
 importing the catalog whose entries those schemas describe. Catalog records are
 checked for complete identity membership by TypeScript.
 

@@ -21,7 +21,7 @@ import type {
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Scope } from "../types.js";
 
@@ -108,7 +108,7 @@ export interface AgentDirOccurrence {
   readonly _tag: "agent-dir";
   readonly scope: Scope;
   readonly type: AgentDirSubjectType;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   /** Primary write path or the catalog status of an additional read-only path. */
   readonly readPathStatus?: "primary" | "canonical" | "compat" | "deprecated";
   readonly name: string;
@@ -126,8 +126,7 @@ export interface AgentDirOccurrence {
 
 /** Physical MCP configuration surface that supplied an observation. */
 export type McpConfigSurface =
-  | { readonly _tag: "shared" }
-  | { readonly _tag: "agent"; readonly agentId: MaterializationTargetId };
+  { readonly _tag: "shared" } | { readonly _tag: "agent"; readonly agentId: ConfigurableAgentId };
 
 /** One MCP server entry observed on one physical configuration surface. */
 export interface McpConfigOccurrence {
@@ -154,7 +153,7 @@ export interface McpConfigOccurrence {
 export interface AgentSettingsOccurrence {
   readonly _tag: "agent-settings";
   readonly scope: Scope;
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly contentLocation: AbsolutePath;
 }
 

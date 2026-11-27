@@ -82,8 +82,8 @@ import {
   type Agent as CapabilityAgent,
   type HookEntryDialect,
   installable,
-  isConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type {
   AcceptedContentObservation,

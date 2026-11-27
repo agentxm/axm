@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type {
   ActualMcpServer,

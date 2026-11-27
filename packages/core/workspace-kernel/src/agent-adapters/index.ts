@@ -151,7 +151,6 @@ export {
   resolveConfiguredMcpTargetAdmissions,
   mcpTargetAdmissionKey,
   observeNativeMcpTargets,
-  isConfigurableAgentId,
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {

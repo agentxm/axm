@@ -4,7 +4,7 @@ import { userScopeRefusal, type UserScopedExtension } from "./scope-refusal.js";
 import {
   CONFIGURABLE_AGENT_IDS,
   type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agents/types";
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 /**
  * The population under test is every catalog agent with a modeled native

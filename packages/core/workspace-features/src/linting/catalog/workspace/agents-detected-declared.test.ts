@@ -4,7 +4,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   AgentPresenceUnavailable,
   type AgentPresenceProbeService,
@@ -26,7 +26,7 @@ const detectionProbe = (fs: FileSystem.FileSystem, path: Path.Path): AgentPresen
     detectAgentsForScope(root, scope).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.map((detected) => new Set<MaterializationTargetId>(detected.map((agent) => agent.id))),
+      Effect.map((detected) => new Set<ConfigurableAgentId>(detected.map((agent) => agent.id))),
       Effect.mapError((error) => new AgentPresenceUnavailable({ message: error.message })),
     ),
 });
@@ -59,7 +59,7 @@ describe("workspace/agents-detected-declared", () => {
         probe: () => ({
           detect: () =>
             Config.String("XDG_CONFIG_HOME").pipe(
-              Effect.as(new Set<MaterializationTargetId>()),
+              Effect.as(new Set<ConfigurableAgentId>()),
               Effect.provide(
                 ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
               ),

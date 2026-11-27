@@ -9,12 +9,12 @@
  */
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 /** Extension types AXM resolves per scope. */
 export type UserScopedExtension = "subagents";
 
-const declaresUserScope = (agentId: MaterializationTargetId): boolean => {
+const declaresUserScope = (agentId: ConfigurableAgentId): boolean => {
   const descriptor = AGENT_DESCRIPTORS[agentId];
   if (descriptor === undefined) return false;
   const scopes = descriptor.subagents?.scopes;
@@ -27,7 +27,7 @@ const declaresUserScope = (agentId: MaterializationTargetId): boolean => {
  * @experimental This API is unstable and may change without notice.
  */
 export const userScopeRefusal = (args: {
-  readonly agentId: MaterializationTargetId;
+  readonly agentId: ConfigurableAgentId;
   readonly agentName: string;
   readonly type: UserScopedExtension;
 }): string =>

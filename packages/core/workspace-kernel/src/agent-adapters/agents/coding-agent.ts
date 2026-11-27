@@ -16,7 +16,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { CodingAgentFailure } from "../errors.js";
 import type { NativeArtifactChange, NativeWriteAuthority } from "../native-write-authority.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
@@ -150,7 +150,7 @@ export type SubagentSyncOutcome =
  * Each coding agent knows how to resolve its skills directory and manage subagent files.
  */
 export interface CodingAgent {
-  readonly id: MaterializationTargetId;
+  readonly id: ConfigurableAgentId;
   readonly resolveNativeReadLocations: (
     args: ResolveSkillsDirArgs & { readonly kind: "skill" | "subagent" },
   ) => Effect.Effect<ReadonlyArray<ResolvedNativeReadLocation>, never, Path.Path>;

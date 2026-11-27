@@ -1,10 +1,8 @@
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
-import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { preflightMcpAdoptions, type McpNativeSource } from "../index.js";
 
 export const specification = defineSpecification({

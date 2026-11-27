@@ -7,7 +7,7 @@ import { afterEach, beforeEach } from "vitest";
 import type { CodingAgentRepositoryService } from "@agentxm/workspace-kernel/projection";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   makeWorkspaceLifecycleTestContext,
   expectAppliedPlanResult,
@@ -109,7 +109,7 @@ describe("agents remove.handler", () => {
     readonly wsOverrides?: Partial<WorkspaceStateOptions>;
     readonly machine?: boolean;
     /** The agents the catalog knows; `opencode` alone unless stated. */
-    readonly agents?: ReadonlyArray<MaterializationTargetId>;
+    readonly agents?: ReadonlyArray<ConfigurableAgentId>;
   }) => {
     const opencode = codingAgentForId("opencode");
     const agents = (opts?.agents ?? ["opencode"]).map((id) => codingAgentForId(id));

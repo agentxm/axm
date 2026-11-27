@@ -1,9 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import {
-  configuredMcpCapability,
-  groupConfiguredMcpTargets,
-  isConfigurableAgentId,
-} from "./targeting.js";
+import { configuredMcpCapability, groupConfiguredMcpTargets } from "./targeting.js";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
 describe("MCP target grouping", () => {
   it("groups configured consumers by their shared physical target", () => {

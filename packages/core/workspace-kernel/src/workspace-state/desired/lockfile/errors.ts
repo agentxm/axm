@@ -7,7 +7,6 @@
  */
 
 import * as Data from "effect/Data";
-import { LEGACY_LOCK_FILENAME } from "../../workspace/constants.js";
 
 /**
  * Lockfile write failure at one step of the encode/serialize/atomic-write
@@ -67,19 +66,6 @@ export class LockfileVersionUnsupported extends Data.TaggedError("LockfileVersio
   readonly observedVersion: number;
   readonly supportedVersion: number;
 }> {}
-
-/**
- * Whether a refused lockfile requires a newer AXM. A legacy YAML lockfile
- * declares a larger number in a superseded format; it is older, and takes the
- * re-acceptance route.
- */
-export const lockfileRequiresNewerAxm = (error: LockfileVersionUnsupported): boolean => {
-  const separator = Math.max(error.path.lastIndexOf("/"), error.path.lastIndexOf("\\"));
-  return (
-    error.observedVersion > error.supportedVersion &&
-    error.path.slice(separator + 1) !== LEGACY_LOCK_FILENAME
-  );
-};
 
 /** Lockfile-read failure union (IO, parse, decode, unsupported version). */
 export type LockfileReadError =

@@ -38,26 +38,17 @@ export type {
 } from "./login-presenter.js";
 export { AuthLoginPresenter, handoffUrl } from "./login-presenter.js";
 
-export { selectedRegistry, type SelectedRegistry } from "./selected-registry.js";
+export { selectedRegistry } from "./selected-registry.js";
 
 export { classifyLoopbackFailure, deviceLoginOptions, login, type LoginOutcome } from "./login.js";
 export { logout } from "./logout.js";
 export { currentIdentity, currentToken, isSignedIn } from "./identity.js";
-export {
-  createToken,
-  listTokens,
-  parseExpiresInSeconds,
-  revokeToken,
-  type CreateTokenRequest,
-  type CreatedToken,
-} from "./tokens.js";
+export { listTokens, revokeToken } from "./tokens.js";
 
 export {
-  TOKEN_PERMISSION_LEVELS,
   TokenPermissionsSchema,
   describeTokenPermissions,
   readTokenPermissions,
-  type TokenPermissionLevel,
 } from "./tokens/permissions.js";
 
 export { LoopbackCallbackRejected, LoopbackLoginFallback } from "../adapters/loopback-server.js";

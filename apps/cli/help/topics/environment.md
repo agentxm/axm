@@ -87,20 +87,6 @@ one-time secret into your automation secret store. A workflow hands that secret
 to AXM as `AXM_TOKEN` or through `AXM_TOKEN_FILE`. `axm token list` and
 `axm token revoke` remain available in the CLI.
 
-Success means AXM issued the token and stdout accepted it, not that the
-receiving tool stored it, or that anything was still reading: acceptance is the
-runtime taking the bytes. `pipefail` reports a failure on either side. If the
-consumer fails after reading, revoke the token by the ID shown on stderr with
-`axm token revoke <id>`. If stdout fails before accepting the whole token, AXM
-revokes that new token once, within 10 seconds, reports the outcome on stderr,
-and exits nonzero. A forced exit, a lost Registry answer, or an unreachable
-Registry can leave it active, and a creation the Registry did not definitively
-refuse — no answer, an unreadable one, or a gateway or server error — may or
-may not have issued a token: check `axm token list` before creating another,
-and revoke unwanted tokens by ID, since names are not unique. Trust the
-receiving tool not to echo its input; a pipe does not keep a secret from a
-process that can read it.
-
 ## Startup network behavior
 
 Set `AXM_NO_UPDATE_CHECK=1` to disable informational startup update requests

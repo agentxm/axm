@@ -6,7 +6,6 @@ type AuthRequestPurpose =
   | "device-authorization"
   | "device-token"
   | "identity"
-  | "token-create"
   | "token-list"
   | "token-delete"
   | "session-refresh"

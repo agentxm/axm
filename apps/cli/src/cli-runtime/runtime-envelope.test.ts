@@ -587,19 +587,20 @@ describe("withCliErrorHandling cancellation", () => {
           Effect.mapError((cause) =>
             makeAppError({
               code: "unavailable",
-              detail: "The created token could not be delivered and was revoked.",
+              detail:
+                "The token could not be fully written to stdout; any bytes already written are incomplete.",
               cause,
             }),
           ),
         );
       });
       const exit = yield* withCliErrorHandling(program, {
-        command: "token create",
+        command: "token show",
         format: "text",
       }).pipe(Effect.exit);
       expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Unavailable)));
       expect(stdoutWrites).toEqual(["credential\n"]);
-      expect(stderrWrites.join("")).toContain("was revoked");
+      expect(stderrWrites.join("")).toContain("incomplete");
       expect(stderrWrites.join("")).not.toContain("private credential detail");
     }).pipe(
       Effect.provide(

@@ -58,7 +58,7 @@ describe("runCliMain", () => {
     await expect(
       runCliMain(
         () => Effect.fail(makeAppError({ code: "usage", detail: "Missing required flag" })),
-        { args: ["token", "create", "--json"] },
+        { args: ["token", "list", "--json"] },
       ),
     ).rejects.toMatchObject({ code: ExitCode.Usage });
 

@@ -111,6 +111,26 @@
     "basis": "The Registry retired step-up requests. Token creation is now browser-only and a CLI credential receives browser_session_required with the settings URL. Token revocation still takes authority away without an extra verification challenge."
   },
   {
+    "requirement": "cli/token/create/submits-requested-authority",
+    "disposition": "retired",
+    "basis": "Token creation is browser-only: the Registry refuses every Registry credential with browser_session_required, and the CLI holds only Registry credentials, so it can never mint a token. axm token create is removed; people create tokens in web settings, which axm login and axm help environment name."
+  },
+  {
+    "requirement": "cli/token/create/reports-uncertain-issuance",
+    "disposition": "retired",
+    "basis": "Token creation is browser-only: the Registry refuses every Registry credential with browser_session_required, and the CLI holds only Registry credentials, so it can never mint a token. axm token create is removed; people create tokens in web settings, which axm login and axm help environment name. A request that is always refused never issues a token, so no issuance is uncertain."
+  },
+  {
+    "requirement": "cli/token/create/revokes-undelivered-token",
+    "disposition": "retired",
+    "basis": "Token creation is browser-only: the Registry refuses every Registry credential with browser_session_required, and the CLI holds only Registry credentials, so it can never mint a token. axm token create is removed; people create tokens in web settings, which axm login and axm help environment name. No CLI-issued token exists to deliver or compensate."
+  },
+  {
+    "requirement": "cli/token/create/raw-output-writes-only-new-token",
+    "disposition": "retired",
+    "basis": "Token creation is browser-only: the Registry refuses every Registry credential with browser_session_required, and the CLI holds only Registry credentials, so it can never mint a token. axm token create is removed; people create tokens in web settings, which axm login and axm help environment name. Raw credential delivery remains owned by cli/token/returns-effective-token and cli/token/credential-output-requires-explicit-mode for axm token show."
+  },
+  {
     "requirement": "cli/registry-writes-complete-required-verification",
     "disposition": "retired",
     "basis": "The Registry no longer issues step-up requests or accepts their evidence for CLI writes. Browser-only actions refuse a CLI credential with browser_session_required and name the web settings page. Device sign-in and publication authorization retain their separate flows."

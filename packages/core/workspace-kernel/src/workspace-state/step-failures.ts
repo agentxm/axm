@@ -59,7 +59,6 @@ import {
   LockfileValidationError,
   LockfileVersionUnsupported,
   LockfileWriteError,
-  lockfileRequiresNewerAxm,
 } from "./desired/lockfile/errors.js";
 import {
   SettingsDecodeError,
@@ -171,54 +170,27 @@ export const workspaceStateReadFailureToStepFailure = (
         ],
         cause: error,
       });
-    case "LockfileVersionUnsupported": {
-      const direction: "older" | "newer" = lockfileRequiresNewerAxm(error) ? "newer" : "older";
+    case "LockfileVersionUnsupported":
       return makeStepFailure({
         category: "validation",
         title: "Unsupported workspace lockfile version",
-        detail:
-          direction === "older"
-            ? `Workspace lockfile at ${error.path} uses version ${error.observedVersion}, but this AXM uses version ${error.supportedVersion}. Back up and regenerate the lockfile before continuing.`
-            : `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`,
+        detail: `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`,
         problem: {
           code: "workspace-lockfile-version-unsupported",
           path: error.path,
           observedVersion: error.observedVersion,
           supportedVersion: error.supportedVersion,
-          direction,
+          direction: "newer",
         },
-        suggestions:
-          direction === "older"
-            ? [
-                {
-                  description:
-                    "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
-                },
-                {
-                  description: "Preview a new lockfile in the supported format.",
-                  invocation: { command: ["sync"], arguments: [recoverySwitch("--preview", true)] },
-                  commandScope: "workspace",
-                },
-                {
-                  description: "Apply the previewed workspace changes.",
-                  invocation: { command: ["sync"], arguments: [] },
-                  commandScope: "workspace",
-                },
-                {
-                  description:
-                    "A workspace containing only workspace-authored content may correctly finish without a lockfile.",
-                },
-              ]
-            : [
-                {
-                  description: "Upgrade AXM before accessing this workspace.",
-                  cmd: "axm upgrade",
-                  commandScope: "global",
-                },
-              ],
+        suggestions: [
+          {
+            description: "Upgrade AXM before accessing this workspace.",
+            cmd: "axm upgrade",
+            commandScope: "global",
+          },
+        ],
         cause: error,
       });
-    }
     case "WorkspaceRootEscape":
       return makeStepFailure({
         category: "internal",

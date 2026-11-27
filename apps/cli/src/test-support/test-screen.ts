@@ -110,14 +110,6 @@ export const tables = (
     ),
   }));
 
-/** Every fields block, as plain values keyed by plain label. */
-export const fieldSets = (
-  state: TestScreenState,
-): ReadonlyArray<Readonly<Record<string, string>>> =>
-  nodesOf(state, "fields").map((node) =>
-    Object.fromEntries(node.fields.map((field) => [plain(field.label), plain(field.value)])),
-  );
-
 /** Every markdown body, verbatim. */
 export const markdown = (state: TestScreenState): ReadonlyArray<string> =>
   nodesOf(state, "markdown").map((node) => node.content);

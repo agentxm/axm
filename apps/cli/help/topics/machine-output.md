@@ -207,9 +207,9 @@ result and exit 0. Planning or validation failures retain their normal error
 or failed-plan contract.
 
 `axm view <extension> <field> --json` places the selected scalar or array directly
-under `result`. `axm token show` and `axm token create` never return a secret in a
-JSON document: `--json` is a usage error before any credential is read or
-created. Use `--plain` to write only the token to stdout.
+under `result`. `axm token show` never returns a secret in a JSON document:
+`--json` is a usage error before any credential is read. Use `--plain` to write
+only the token to stdout.
 
 Stderr error events use `{type: "error", code, message}`. Their `code` uses
 the same `ErrorCode` vocabulary as envelope codes and plan failure categories;

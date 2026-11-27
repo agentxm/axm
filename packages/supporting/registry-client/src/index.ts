@@ -62,7 +62,6 @@ export {
   RegistryProblem,
   RegistryRequestFailed,
   isRegistryClientFailure,
-  withRegistrySemantics,
   type RegistryClientFailure,
   type RegistryErrorCategory,
   type RegistryErrorMetadata,

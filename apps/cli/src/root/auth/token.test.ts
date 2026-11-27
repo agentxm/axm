@@ -16,12 +16,11 @@ import {
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { makeTestScreen, messages, fieldSets, tables } from "../../test-support/test-screen.js";
+import { makeTestScreen, messages, tables } from "../../test-support/test-screen.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-support/test-helpers.js";
-import { parseExpiresInSeconds } from "@agentxm/registry-access/authentication";
-import { handleCreateToken, handleListTokens, handleRevokeToken, handleToken } from "./token.js";
+import { handleListTokens, handleRevokeToken, handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
@@ -162,109 +161,6 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         yield* handleToken({ plain: true });
         expect(rendererState.credentials).toEqual(["axm_env_test_token\n"]);
-      }),
-    );
-  });
-
-  it.effect("parses relative expiry durations", () =>
-    Effect.gen(function* () {
-      const sevenDays = yield* parseExpiresInSeconds("7d");
-      const oneYear = yield* parseExpiresInSeconds("1y");
-
-      expect(sevenDays).toBe(604800);
-      expect(oneYear).toBe(31536000);
-    }),
-  );
-
-  it.effect("shows the issued token with list and revoke guidance", () => {
-    const { provide, rendererState } = makeLayers({
-      hasCredentials: true,
-      nonInteractive: false,
-      authOverrides: {
-        createToken: (_endpoint, params) => {
-          return Effect.succeed({
-            id: "token_123",
-            token: "axmt_created",
-            name: params.name,
-            permissions: {
-              model: "gat",
-              owners: ["@foo"],
-              extensions: [],
-              permission: "publish",
-            },
-            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
-            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
-          });
-        },
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleCreateToken({
-          name: "ci",
-          expires: "30d",
-          owners: ["@foo"],
-          extensions: [],
-          permission: "publish",
-        });
-
-        expect(fieldSets(rendererState)[0]).toMatchObject({
-          ID: "token_123",
-          Token: "axmt_created",
-        });
-        expect(rendererState.suggestions).toEqual([
-          { description: "List tokens", cmd: "axm token list" },
-          { description: "Revoke this token", cmd: "axm token revoke token_123" },
-        ]);
-      }),
-    );
-  });
-
-  it.effect("writes only the new token to stdout and its metadata to stderr", () => {
-    const { provide, rendererState } = makeLayers({
-      hasCredentials: true,
-      machine: true,
-      authOverrides: {
-        createToken: (_endpoint, params) =>
-          Effect.succeed({
-            id: "token_123",
-            token: "axmt_created",
-            name: params.name,
-            permissions: {
-              model: "gat",
-              owners: [],
-              extensions: [],
-              permission: "read",
-            },
-            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
-            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
-          }),
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleCreateToken({
-          name: "ci",
-          expires: "30d",
-          owners: [],
-          extensions: [],
-          permission: "read",
-          plain: true,
-        });
-
-        expect(rendererState.credentials).toEqual(["axmt_created\n"]);
-        expect(rendererState.results).toEqual([]);
-        expect(fieldSets(rendererState)).toEqual([]);
-        const stderr = rendererState.docs
-          .filter((entry) => entry.channel === "stderr")
-          .map((entry) => JSON.stringify(entry.doc))
-          .join("\n");
-        expect(stderr).toContain("token_123");
-        expect(stderr).toContain('\\"ci\\"');
-        expect(stderr).toContain("2026-06-14");
-        expect(stderr).not.toContain("axmt_created");
       }),
     );
   });

@@ -50,21 +50,6 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
       json: false,
       template: anonymous,
     },
-    {
-      command: "token create",
-      args: [
-        "token",
-        "create",
-        "fixture-token",
-        "--permission",
-        "read",
-        "--owner",
-        "@alice",
-        "--plain",
-      ],
-      json: false,
-      template: anonymous,
-    },
     { command: "token list", args: ["token", "list"], template: anonymous },
     {
       command: "token revoke",
@@ -123,12 +108,10 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
                   ? "identity"
                   : key === "GET /v1/tokens"
                     ? "token-list"
-                    : key === "POST /v1/tokens"
-                      ? "token-create"
-                      : request.method === "DELETE" &&
-                          request.pathname === "/v1/tokens/" + server.seededTokenId
-                        ? "token-delete"
-                        : undefined;
+                    : request.method === "DELETE" &&
+                        request.pathname === "/v1/tokens/" + server.seededTokenId
+                      ? "token-delete"
+                      : undefined;
         if (purpose === undefined)
           throw fixtureFailure("Authentication fixture observed an unmapped protocol operation.");
         counts.set(purpose, (counts.get(purpose) ?? 0) + 1);
@@ -164,10 +147,6 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
           require(requests.some(
             (request) => request.pathname === "/v1/auth/token" && request.status === 200,
           ), "Successful device grant was not observed.");
-        if (item.command === "token create")
-          require(tokens.length === 2 &&
-            tokens[0]?.name ===
-              "fixture-token", "Token creation did not change the independent Registry inventory.");
         if (item.command === "token revoke")
           require(!tokens.some(
             (token) => token.id === server.seededTokenId,

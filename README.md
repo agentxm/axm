@@ -243,8 +243,9 @@ it. `axm login --device-code --wait-for-human 300` starts or reuses the
 request and waits up to 300 seconds in the same command; a bounded wait always
 uses device-code sign-in.
 
-`axm token create --output token` writes only a new token to stdout for a
-pipe; `axm help environment` shows a guarded recipe for storing it.
+Create access tokens for automation in
+[web settings](https://agentxm.ai/u/settings/tokens); `axm help environment`
+shows how to hand one to AXM.
 
 A GitHub Actions job granted `permissions: id-token: write` needs no stored
 secret: register its repository and workflow as a trusted publisher in

@@ -1,7 +1,6 @@
 import { fileRegistryPackagePath } from "../testing/install-world.js";
 import * as Schema from "effect/Schema";
 import {
-  LEGACY_LOCK_FILENAME,
   LOCK_FILENAME,
   LOCKFILE_VERSION,
   LockfileSchema,
@@ -37,10 +36,10 @@ import {
 import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/lockfile-rejections-name-recovery-routes",
-  title: "The recovery route for a rejected lockfile re-accepts the desired state",
+  requirement: "cli/sync/reaccepts-desired-state-without-a-lockfile",
+  title: "Sync re-accepts the desired state of a workspace without a lockfile",
   statement:
-    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file and any unproven acquired content outside their authoritative paths, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
+    "When a workspace's lockfile is absent, previewing and then applying sync, after any unproven acquired content is preserved outside its authoritative path, shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish without a lockfile.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "safe-repetition", "workspace-intent-fidelity"],
@@ -49,34 +48,24 @@ export const specification = defineSpecification({
   boundary: "platform",
   methods: ["example"],
   derivedFrom: [
-    "cli/workspace-lockfile-rejections-name-state-and-recovery",
+    "cli/lockfile-rejections-name-recovery-routes",
     "workspace/desired-state/effective-constraint-has-one-owner",
   ],
-  supersedes: ["cli/workspace-lockfile-rejections-name-state-and-recovery"],
+  supersedes: ["cli/lockfile-rejections-name-recovery-routes"],
   assumptions: [],
   openQuestions: [],
 });
 
 const SKILL = "reaccepted";
 
-/** The version a legacy YAML lockfile declares. */
-const LEGACY_LOCKFILE_VERSION = 12;
-
-/**
- * Leave only a legacy YAML lockfile, a format older than this executable
- * supports, where the workspace's lockfile belongs.
- */
-const writeOlderLockfile = (
-  workspace: SyncFixture,
-): { readonly legacyPath: string; readonly lockPath: string } => {
+/** Remove the workspace lockfile, leaving desired state as the only record. */
+const removeLockfile = (workspace: SyncFixture): string => {
   const lockPath = nodePath.join(workspace.root, LOCK_FILENAME);
-  const legacyPath = nodePath.join(workspace.root, LEGACY_LOCK_FILENAME);
   fs.rmSync(lockPath, { force: true });
-  fs.writeFileSync(legacyPath, `lockfileVersion: ${LEGACY_LOCKFILE_VERSION}\nskills: {}\n`);
-  return { legacyPath, lockPath };
+  return lockPath;
 };
 
-describe("Lockfile rejection recovery routes", () => {
+describe("Sync re-acceptance without a lockfile", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) {
@@ -92,48 +81,22 @@ describe("Lockfile rejection recovery routes", () => {
     return workspace;
   };
 
-  it.effect(
-    "lets an operator explicitly re-accept older external state after preservation and preview",
-    () => {
-      const workspace = fixture({ skills: { [SKILL]: `./vendor/${SKILL}` } });
-      writeLocalSkillPackage(workspace.root, { name: SKILL });
-      const { legacyPath, lockPath } = writeOlderLockfile(workspace);
-      // Each step is its own invocation, as the recovery route is followed:
-      // the operator reads the rejection, acts on the files, and runs again.
-      const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
-      return Effect.gen(function* () {
-        // The rejection is typed and names the legacy file: its format is
-        // older than this executable supports.
-        // The lockfile is read while the workspace services are built, so the
-        // rejection surfaces from the whole invocation, not from the sweep.
-        const failure = yield* Effect.flip(run(previewSync()));
-        expect(failure).toMatchObject({
-          _tag: "LockfileVersionUnsupported",
-          path: legacyPath,
-          observedVersion: LEGACY_LOCKFILE_VERSION,
-          supportedVersion: LOCKFILE_VERSION,
-        });
+  it.effect("re-accepts desired state into a lockfile through preview then apply", () => {
+    const workspace = fixture({ skills: { [SKILL]: `./vendor/${SKILL}` } });
+    writeLocalSkillPackage(workspace.root, { name: SKILL });
+    const lockPath = removeLockfile(workspace);
+    // Each step is its own invocation, as an operator runs them.
+    const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+    return Effect.gen(function* () {
+      yield* run(previewSync());
+      expect(fs.existsSync(lockPath)).toBe(false);
+      yield* run(applySync());
 
-        // The named route: preserve the rejected file outside its
-        // authoritative path, preview, then apply.
-        const preservedPath = nodePath.join(workspace.root, "recovery", "axm-lock.previous.yaml");
-        fs.mkdirSync(nodePath.dirname(preservedPath), { recursive: true });
-        fs.copyFileSync(legacyPath, preservedPath);
-        fs.rmSync(legacyPath);
-
-        yield* run(previewSync());
-        expect(fs.existsSync(lockPath)).toBe(false);
-        yield* run(applySync());
-
-        expect(fs.readFileSync(preservedPath, "utf8")).toContain(
-          `lockfileVersion: ${LEGACY_LOCKFILE_VERSION}`,
-        );
-        expect(fs.readFileSync(lockPath, "utf8")).toContain(`version = ${LOCKFILE_VERSION}`);
-        expect(workspace.exists(`.agents/skills/${SKILL}`)).toBe(true);
-      });
-    },
-  );
+      expect(fs.readFileSync(lockPath, "utf8")).toContain(`version = ${LOCKFILE_VERSION}`);
+      expect(workspace.exists(`.agents/skills/${SKILL}`)).toBe(true);
+    });
+  });
 
   it.effect(
     "re-accepts installed Packs and their complete shared instruction contributors",
@@ -208,15 +171,10 @@ describe("Lockfile rejection recovery routes", () => {
       sources: [registry.source],
       ...sharedMemberSettings(SHARED_MEMBER_PIN.inside),
     });
-    const { legacyPath, lockPath } = writeOlderLockfile(workspace);
+    const lockPath = removeLockfile(workspace);
     const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
     return Effect.gen(function* () {
-      expect(yield* Effect.flip(run(previewSync()))).toMatchObject({
-        _tag: "LockfileVersionUnsupported",
-      });
-      fs.renameSync(legacyPath, nodePath.join(workspace.root, "axm-lock.previous.yaml"));
-
       yield* run(previewSync());
       yield* run(applySync());
 
@@ -241,7 +199,7 @@ describe("Lockfile rejection recovery routes", () => {
         sources: [registry.source],
         ...sharedMemberSettings(SHARED_MEMBER_PIN.outside),
       });
-      const { legacyPath, lockPath } = writeOlderLockfile(workspace);
+      const lockPath = removeLockfile(workspace);
       const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
       // The one conflict the desired state reports: the direct pin and both
@@ -269,7 +227,6 @@ describe("Lockfile rejection recovery routes", () => {
       const connection = (state: string) =>
         expect.objectContaining({ id: `mcp-server:${DISABLED_MCP.name}`, state });
       return Effect.gen(function* () {
-        fs.rmSync(legacyPath);
         const before = workspace.snapshot();
 
         const preview = expectResolved(yield* run(previewSync()));
@@ -304,10 +261,9 @@ describe("Lockfile rejection recovery routes", () => {
     },
   );
 
-  it.effect("allows an authored-only workspace to finish recovery without a lockfile", () => {
+  it.effect("lets an authored-only workspace finish without a lockfile", () => {
     const workspace = fixture();
-    const { legacyPath, lockPath } = writeOlderLockfile(workspace);
-    fs.rmSync(legacyPath);
+    const lockPath = removeLockfile(workspace);
     const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
     return Effect.gen(function* () {

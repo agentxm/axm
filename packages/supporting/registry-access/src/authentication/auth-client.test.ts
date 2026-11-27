@@ -18,7 +18,6 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { recordTrace } from "../test-support/test-helpers.js";
 import { expect } from "vitest";
@@ -31,7 +30,6 @@ import {
   pollOnce,
 } from "./auth-client.js";
 import {
-  GeneratedRegistryClient,
   isRegistryClientFailure,
   RegistryHttpClient,
   type RegistryClientFailure,
@@ -1180,45 +1178,6 @@ describe("AuthClient.getMe", () => {
 
 describe("AuthClient tokens on the wire", () => {
   const permissions = { permission: "publish", owners: ["@alice"], extensions: [] } as const;
-
-  it.effect("creates a token with a body the contract accepts strictly", () => {
-    const sent: Array<unknown> = [];
-    const layer = makeTestLayer((request) => {
-      if (request.body._tag === "Uint8Array") {
-        sent.push(JSON.parse(new TextDecoder().decode(request.body.body)));
-      }
-      return Response.json(
-        {
-          id: "tok_01h455vb4pexka56gq5w2r7cpc",
-          token: "axm_pat_created",
-          name: "ci",
-          permissions,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          expiresAt: "2026-02-01T00:00:00.000Z",
-        },
-        { status: 201 },
-      );
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const created = yield* client.createToken(ENDPOINT, {
-        name: "ci",
-        expiresIn: 86_400,
-        permissions,
-      });
-
-      expect(sent).toEqual([{ name: "ci", permissions, expiresIn: 86_400 }]);
-      expect(() =>
-        Schema.decodeUnknownSync(GeneratedRegistryClient.TokensCreateRequestJson)(sent[0], {
-          onExcessProperty: "error",
-        }),
-      ).not.toThrow();
-      expect(created.token).toBe("axm_pat_created");
-      expect(DateTime.formatIso(created.createdAt)).toBe("2026-01-01T00:00:00.000Z");
-      expect(DateTime.formatIso(created.expiresAt)).toBe("2026-02-01T00:00:00.000Z");
-    }).pipe(Effect.provide(layer));
-  });
 
   it.effect("preserves an invalid opaque cursor as a permanent 400 failure", () => {
     let requests = 0;

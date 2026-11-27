@@ -39,7 +39,7 @@ it.effect.each(["workspace", "setup"] as const)(
                 workspaceDir: path.join(root, ".axm"),
                 nativeRoot: root,
                 settingsPath: path.join(root, "axm.json"),
-                lockPath: path.join(root, "axm-lock.yaml"),
+                lockPath: path.join(root, "axm.lock"),
               }),
             );
       yield* runWorkspaceTransaction({

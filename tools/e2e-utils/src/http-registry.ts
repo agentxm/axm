@@ -123,8 +123,6 @@ export interface HttpRegistryOptions {
   readonly enforcePackDependencies?: boolean;
   /** Observe an authorized archive request before its response is sent. */
   readonly onArchiveRequest?: (pluralAndName: string) => void;
-  /** Refuse token creation from CLI credentials and name the browser settings page. */
-  readonly browserOnlyTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract or HTTP failure. */
   readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing" | "service-unavailable";
   /** Map bearer tokens to the owner whose private extensions they may read. */
@@ -570,27 +568,6 @@ export const startHttpRegistry = async (
             approvedAt: null,
             trustedPublisher: null,
           },
-        });
-        return;
-      }
-
-      if (
-        options.browserOnlyTokenCreate === true &&
-        request.method === "POST" &&
-        pathname !== "/v1/resolutions"
-      ) {
-        if (pathname !== "/v1/tokens") {
-          sendProblem(response, 404, `No POST route for ${pathname}`);
-          return;
-        }
-        await readBody(request);
-        sendJson(response, 403, {
-          type: "https://registry.agentxm.ai/v1/problems/forbidden",
-          title: "Forbidden",
-          status: 403,
-          detail: "Create access tokens in web settings.",
-          code: "browser_session_required",
-          details: { settingsUrl: "https://agentxm.ai/u/settings/tokens" },
         });
         return;
       }

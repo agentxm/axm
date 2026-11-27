@@ -16,9 +16,9 @@ identity and refreshable session semantics and carry no Registry authority.
 Creating a token is the one browser-only action. The Registry refuses every
 Registry credential with 403 `browser_session_required`, and
 `details.settingsUrl` names the AgentXM settings page where the person creates
-the token after confirming it's them. `axm token create` reports that refusal
-with the settings page as its recovery; no CLI command asks for more authority
-or resumes a refused write.
+the token after confirming it's them. The CLI has no token-creation command;
+`axm login` and `axm help environment` point to that settings page, and no CLI
+command asks for more authority or resumes a refused write.
 
 Revoking a token, changing visibility, yanking, and un-yanking ask for nothing
 beyond the session. Every other refusal of a signed-in user is a defect. Do not
@@ -32,7 +32,7 @@ narrower than themselves. It carries one permission level (`read`, `publish`, or
 `admin`), an optional allowlist of owners and extensions, and an expiry — at most
 90 days for a `publish` or `admin` token, and 365 days for a `read` token.
 
-`axm token create` and `axm token list` speak only that vocabulary. The Registry
+`axm token list` and `axm whoami` speak only that vocabulary. The Registry
 lowers it to internal scopes; no CLI surface asks for one or prints one.
 
 A token refused for its own limits reports `insufficient_scope` or

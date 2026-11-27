@@ -45,7 +45,7 @@ export const specification = defineSpecification({
 });
 
 /** A recovery classification an operator can act on without losing state. */
-type Recovery = "repair" | "resync" | "upgrade";
+type Recovery = "repair" | "upgrade";
 
 /** How the refusal is classified: wrong content, or storage that cannot be read. */
 type Category = "validation" | "unavailable";
@@ -56,8 +56,6 @@ interface FaultRow {
   readonly file: "project-settings" | "user-settings" | "project-lockfile" | "user-lockfile";
   /** Writes the fault into the selected file. */
   readonly write: (target: string) => void;
-  /** The file the refusal names, when it is not the selected file itself. */
-  readonly named?: (target: string) => string;
   /** The tagged failure the reader must raise. */
   readonly tag: string;
   readonly recovery: Recovery;
@@ -97,37 +95,23 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
   })),
 );
 
-/** The superseded YAML lockfile beside the selected lockfile. */
-const legacyLockfileBeside = (target: string): string =>
-  nodePath.join(nodePath.dirname(target), "axm-lock.yaml");
-
-const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as const).flatMap(
-  (direction) =>
-    (["project", "user"] as const).map((scope): FaultRow => {
-      // An older lockfile is the superseded YAML format, whatever number it declares.
-      const observedVersion = direction === "older" ? 12 : LOCKFILE_VERSION + 1;
-      return {
-        fault: `an ${direction} ${scope} lockfile version`,
-        file: scope === "project" ? "project-lockfile" : "user-lockfile",
-        write: (target) =>
-          direction === "older"
-            ? fs.writeFileSync(
-                legacyLockfileBeside(target),
-                `lockfileVersion: ${observedVersion}\nskills: {}\n`,
-              )
-            : fs.writeFileSync(target, `version = ${observedVersion}\n`),
-        ...(direction === "older" ? { named: legacyLockfileBeside } : {}),
-        tag: "LockfileVersionUnsupported",
-        // An older lockfile is re-accepted by reconciling desired state; a
-        // newer one needs a newer product, never a rewrite of the file.
-        recovery: direction === "older" ? "resync" : "upgrade",
-        category: "validation",
-        expect: (failure) => {
-          expect(failure["observedVersion"]).toBe(observedVersion);
-          expect(failure["supportedVersion"]).toBe(LOCKFILE_VERSION);
-        },
-      };
-    }),
+const lockfileVersionRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).map(
+  (scope): FaultRow => {
+    const observedVersion = LOCKFILE_VERSION + 1;
+    return {
+      fault: `a newer ${scope} lockfile version`,
+      file: scope === "project" ? "project-lockfile" : "user-lockfile",
+      write: (target) => fs.writeFileSync(target, `version = ${observedVersion}\n`),
+      tag: "LockfileVersionUnsupported",
+      // A newer lockfile needs a newer product, never a rewrite of the file.
+      recovery: "upgrade",
+      category: "validation",
+      expect: (failure) => {
+        expect(failure["observedVersion"]).toBe(observedVersion);
+        expect(failure["supportedVersion"]).toBe(LOCKFILE_VERSION);
+      },
+    };
+  },
 );
 
 const lockfileContentRows: ReadonlyArray<FaultRow> = [
@@ -179,9 +163,10 @@ const recoveryFor = (tag: string, failure: Readonly<Record<string, unknown>>): R
   if (typeof observed !== "number" || typeof supported !== "number") {
     throw new Error("An unsupported lockfile version must report both versions");
   }
-  const path = failure["path"];
-  const legacy = typeof path === "string" && nodePath.basename(path) === "axm-lock.yaml";
-  return legacy || observed < supported ? "resync" : "upgrade";
+  if (observed <= supported) {
+    throw new Error("An unsupported lockfile version must be newer than the supported version");
+  }
+  return "upgrade";
 };
 
 const failureRecord = (failure: unknown): Readonly<Record<string, unknown>> => {
@@ -278,7 +263,7 @@ describe("Invalid workspace state gates operations", () => {
         const record = failureRecord(failure);
         expect(record["_tag"]).toBe(row.tag);
         expect(kernelFailureToStepFailure(failure).category).toBe(row.category);
-        expect(record["path"]).toBe(row.named?.(faultPath) ?? faultPath);
+        expect(record["path"]).toBe(faultPath);
         expect(recoveryFor(row.tag, record)).toBe(row.recovery);
         row.expect?.(record);
         // The refusal precedes every workspace write: both scopes are exactly

@@ -88,18 +88,6 @@ export const repeatedFlagControls = [
   control("setup", "agent", ["claude-code", "claude-code"]),
   control("skills handoff", "skill"),
   control("skills handoff", "agent", ["claude-code", "codex"]),
-  control(
-    "token create",
-    "owner",
-    ["@first", "@second"],
-    ["parser-fixture", "--permission", "read"],
-  ),
-  control(
-    "token create",
-    "extension",
-    ["@first/skills/one", "@second/skills/two"],
-    ["parser-fixture", "--permission", "read"],
-  ),
 ] satisfies ReadonlyArray<Control>;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>

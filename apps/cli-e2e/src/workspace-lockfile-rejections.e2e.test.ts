@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
-import { LEGACY_LOCKFILE_NAME, LOCKFILE_NAME } from "./test-support/lockfile.js";
+import { LOCKFILE_NAME } from "./test-support/lockfile.js";
 
 export const executionBinding = {
   requirements: [
@@ -15,7 +15,7 @@ export const executionBinding = {
   ],
   boundary: "process",
   rationale:
-    "Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.",
+    "Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.",
 } as const;
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
@@ -190,53 +190,6 @@ describe("workspace lockfile rejection diagnostics", () => {
     }
   });
 
-  it("reports a legacy project lockfile with re-acceptance recovery and no mutation", async () => {
-    const workspace = createTempDir("axm-old-lock-workspace-");
-    const userHome = createTempDir("axm-old-lock-home-");
-    const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
-    try {
-      await setupScope("project", workspace.path, env);
-      const lockPath = path.join(workspace.path, LEGACY_LOCKFILE_NAME);
-      fs.writeFileSync(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
-      const before = snapshotTree(workspace.path);
-
-      const result = await runCli(["list", "--json"], { cwd: workspace.path, env });
-
-      expect(result.exitCode, result.stdout + result.stderr).toBe(9);
-      const document = JSON.parse(result.stdout);
-      expect(document).toMatchObject({
-        ok: false,
-        code: "validation",
-        title: "Unsupported workspace lockfile version",
-        problem: {
-          code: "workspace-lockfile-version-unsupported",
-          path: fs.realpathSync(lockPath),
-          observedVersion: 12,
-          supportedVersion: 1,
-          direction: "older",
-        },
-        suggestions: [
-          {
-            description:
-              "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
-          },
-          { cmd: "axm sync --preview" },
-          { cmd: "axm sync" },
-          {
-            description:
-              "A workspace containing only workspace-authored content may correctly finish without a lockfile.",
-          },
-        ],
-      });
-      expect(JSON.stringify(document)).not.toMatch(/permission|restore from version control/i);
-      expect(snapshotTree(workspace.path)).toEqual(before);
-      expectMachineStream(result.stderr);
-    } finally {
-      workspace.cleanup();
-      userHome.cleanup();
-    }
-  });
-
   it("reports a newer user lockfile through read and lint with an unscoped upgrade", async () => {
     const workspace = createTempDir("axm-new-lock-workspace-");
     const userHome = createTempDir("axm-new-lock-home-");
@@ -269,43 +222,6 @@ describe("workspace lockfile rejection diagnostics", () => {
         expectMachineStream(result.stderr);
       }
       expect(snapshotHomeWithoutFailureRecords(userHome.path)).toEqual(before);
-    } finally {
-      workspace.cleanup();
-      userHome.cleanup();
-    }
-  });
-
-  it("adds user scope only to workspace recovery commands for a legacy user lockfile", async () => {
-    const workspace = createTempDir("axm-old-user-lock-workspace-");
-    const userHome = createTempDir("axm-old-user-lock-home-");
-    const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
-    try {
-      await setupScope("user", workspace.path, env);
-      const lockPath = path.join(userHome.path, ".axm", "workspace", LEGACY_LOCKFILE_NAME);
-      fs.writeFileSync(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
-      const before = snapshotHomeWithoutFailureRecords(userHome.path);
-
-      const result = await runCli(["list", "--scope", "user", "--json"], {
-        cwd: workspace.path,
-        env,
-      });
-
-      expect(result.exitCode, result.stdout + result.stderr).toBe(9);
-      const document = JSON.parse(result.stdout);
-      expect(document.problem).toMatchObject({
-        code: "workspace-lockfile-version-unsupported",
-        path: lockPath,
-        observedVersion: 12,
-        supportedVersion: 1,
-        direction: "older",
-      });
-      expect(
-        document.suggestions.flatMap((suggestion: { cmd?: string }) =>
-          suggestion.cmd === undefined ? [] : [suggestion.cmd],
-        ),
-      ).toEqual(["axm sync --preview --scope user", "axm sync --scope user"]);
-      expect(snapshotHomeWithoutFailureRecords(userHome.path)).toEqual(before);
-      expectMachineStream(result.stderr);
     } finally {
       workspace.cleanup();
       userHome.cleanup();

@@ -2,7 +2,6 @@
 import * as http from "node:http";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 
 type DeviceOutcome = "approved" | "denied" | "expired" | "pending";
@@ -27,15 +26,6 @@ const seededTokenId = "tok_01h455vb4pexka56gq5w2r7cpc";
 // This deliberately bounded protocol fixture stays independent of production
 // decoders. Registry-access tests exercise those decoders against its real HTTP.
 const permission = Schema.Literals(["read", "publish", "admin"]);
-const FixtureCreateTokenRequest = Schema.Struct({
-  name: Schema.String,
-  permissions: Schema.Struct({
-    permission,
-    owners: Schema.optional(Schema.Array(Schema.String)),
-    extensions: Schema.optional(Schema.Array(Schema.String)),
-  }),
-  expiresIn: Schema.optional(Schema.Number),
-});
 const FixtureToken = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
@@ -62,18 +52,14 @@ const seededToken = Schema.decodeUnknownSync(FixtureToken)({
 export const startDeviceAuthServer = (initialOutcome: DeviceOutcome = "pending") =>
   Effect.gen(function* () {
     let outcome = initialOutcome;
-    let sequence = 0;
     let tokens: Array<typeof FixtureToken.Type> = [seededToken];
     const requests: DeviceAuthRequest[] = [];
     const server = http.createServer((request, response) => {
       const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
       let requestBytes = 0;
-      let body = "";
       request.setEncoding("utf8");
       request.on("data", (chunk: string) => {
         requestBytes += Buffer.byteLength(chunk);
-        // This is a bounded fixture, not an alternate production auth server.
-        if (requestBytes <= 64 * 1024) body += chunk;
       });
       request.on("end", () => {
         const sendJson = (status: number, value?: unknown) => {
@@ -167,33 +153,6 @@ export const startDeviceAuthServer = (initialOutcome: DeviceOutcome = "pending")
           sendJson(200, { tokens, cursor: null, hasMore: false });
           return;
         }
-        if (request.method === "POST" && pathname === "/v1/tokens") {
-          const decoded = Schema.decodeUnknownExit(
-            Schema.fromJsonString(FixtureCreateTokenRequest),
-          )(body);
-          if (Exit.isFailure(decoded)) {
-            sendJson(400, { error: "invalid_fixture_token_request" });
-            return;
-          }
-          sequence += 1;
-          const input = decoded.value;
-          const token = {
-            id: "tok_" + String(sequence).padStart(26, "0"),
-            name: input.name,
-            type: "pat",
-            permissions: {
-              permission: input.permissions.permission,
-              owners: input.permissions.owners ?? [],
-              extensions: input.permissions.extensions ?? [],
-            },
-            createdAt,
-            expiresAt,
-            lastUsedAt: null,
-          };
-          tokens = [token, ...tokens];
-          sendJson(201, { ...token, token: "axmt_synthetic_fixture_" + sequence });
-          return;
-        }
         if (request.method === "DELETE" && pathname.startsWith("/v1/tokens/")) {
           const id = pathname.slice("/v1/tokens/".length);
           tokens = tokens.filter((token) => token.id !== id);
@@ -232,7 +191,6 @@ export const startDeviceAuthServer = (initialOutcome: DeviceOutcome = "pending")
       snapshot: () => ({ outcome, tokens: tokens.map((token) => ({ ...token })) }),
       reset: Effect.sync(() => {
         outcome = initialOutcome;
-        sequence = 0;
         tokens = [seededToken];
         requests.length = 0;
       }),

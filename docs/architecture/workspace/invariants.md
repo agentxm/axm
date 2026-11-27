@@ -191,6 +191,6 @@ multi-route contributor fixture described by the
 [extension testing strategy](../extensions/overview.md#testing-strategy), and
 cross-cutting adversarial fixtures cover settings failure, partial closures,
 preservation of authored and unowned content, drift, interruption, lock
-authority, and direction-specific recovery for older and newer lockfile gates.
+authority, and upgrade recovery for newer lockfile gates.
 Minimized fixtures derived from real incidents are authoritative; live
 repositories remain a thin end-to-end confirmation layer.

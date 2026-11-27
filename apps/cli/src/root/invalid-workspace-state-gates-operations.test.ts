@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { LEGACY_LOCK_FILENAME, LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
+import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleUpdate } from "./update/handler.js";
@@ -123,47 +123,35 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
   })),
 );
 
-const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as const).flatMap(
-  (direction) =>
-    (["project", "user"] as const).map((scope): FaultRow => {
-      // An older lockfile is a legacy YAML lockfile beside the expected one.
-      const observedVersion = direction === "older" ? 12 : LOCKFILE_VERSION + 1;
-      return {
-        fault: `an ${direction} ${scope} lockfile version`,
-        code: "validation",
-        scope,
-        arrange: (workspace) => {
-          if (scope === "user") initializeUserSettings(workspace);
-          const lockPath = lockPathFor(workspace, scope);
-          return direction === "older"
-            ? replaceFile(path.join(path.dirname(lockPath), LEGACY_LOCK_FILENAME), (legacyPath) =>
-                fs.writeFileSync(legacyPath, `lockfileVersion: ${observedVersion}\nskills: {}\n`),
-              )
-            : replaceFile(lockPath, (target) =>
-                fs.writeFileSync(target, `version = ${observedVersion}\n`),
-              );
-        },
-        expectDiagnosis: (error, lockPath) => {
-          expect(error.title).toBe("Unsupported workspace lockfile version");
-          expect(error.detail).toContain(String(observedVersion));
-          expect(error.detail).toContain(`version ${LOCKFILE_VERSION}.`);
-          expect(error.problem).toEqual({
-            code: "workspace-lockfile-version-unsupported",
-            path: lockPath,
-            observedVersion,
-            supportedVersion: LOCKFILE_VERSION,
-            direction,
-          });
-          if (direction === "older") {
-            expect(suggestedCommands(error)).toEqual(["axm sync --preview", "axm sync"]);
-            expect(error.detail).not.toMatch(/permission|restore from version control/i);
-          } else {
-            expect(suggestedCommands(error)).toEqual(["axm upgrade"]);
-            expect(error.detail).not.toMatch(/setup|restore|remove|regenerat/i);
-          }
-        },
-      };
-    }),
+const lockfileVersionRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).map(
+  (scope): FaultRow => {
+    const observedVersion = LOCKFILE_VERSION + 1;
+    return {
+      fault: `a newer ${scope} lockfile version`,
+      code: "validation",
+      scope,
+      arrange: (workspace) => {
+        if (scope === "user") initializeUserSettings(workspace);
+        return replaceFile(lockPathFor(workspace, scope), (target) =>
+          fs.writeFileSync(target, `version = ${observedVersion}\n`),
+        );
+      },
+      expectDiagnosis: (error, lockPath) => {
+        expect(error.title).toBe("Unsupported workspace lockfile version");
+        expect(error.detail).toContain(String(observedVersion));
+        expect(error.detail).toContain(`version ${LOCKFILE_VERSION}.`);
+        expect(error.problem).toEqual({
+          code: "workspace-lockfile-version-unsupported",
+          path: lockPath,
+          observedVersion,
+          supportedVersion: LOCKFILE_VERSION,
+          direction: "newer",
+        });
+        expect(suggestedCommands(error)).toEqual(["axm upgrade"]);
+        expect(error.detail).not.toMatch(/setup|restore|remove|regenerat/i);
+      },
+    };
+  },
 );
 
 const lockfileContentRows: ReadonlyArray<FaultRow> = [

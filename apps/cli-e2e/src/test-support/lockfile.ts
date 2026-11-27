@@ -15,9 +15,6 @@ import { parse, stringify } from "smol-toml";
 /** The workspace lockfile's file name. */
 export const LOCKFILE_NAME = "axm.lock";
 
-/** The superseded YAML lockfile the CLI refuses beside `axm.lock`. */
-export const LEGACY_LOCKFILE_NAME = "axm-lock.yaml";
-
 /** The supported lockfile format version. */
 export const LOCKFILE_VERSION = 1;
 

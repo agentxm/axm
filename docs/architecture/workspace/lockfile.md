@@ -230,25 +230,19 @@ the accepted-resolution graph, Pack declaration consistency, domain-parser
 semantics, or TOML scalar fidelity. CLI validation owns these checks and rejects
 duplicate dependency names before constructing a Pack's dependency map.
 
-An unsupported positive-integer `version` reports the observed and
-supported versions and whether the lockfile is older or newer than the running
-AXM. Machine output carries those same facts in a structured problem. If the
-lockfile is newer, the only safe route is to upgrade AXM; the CLI does not
-suggest setup, restoration, removal, or downgrade. This diagnosis also wins
-when a known current-scope lockfile is newer but current settings are absent.
+An unsupported positive-integer `version` is newer than the running AXM. The
+diagnosis reports the observed and supported versions, and machine output
+carries those same facts in a structured problem. The only safe route is to
+upgrade AXM; the CLI does not suggest setup, restoration, removal, or
+downgrade. This diagnosis also wins when a known current-scope lockfile is
+newer but current settings are absent.
 
-An older lockfile requires explicit re-acceptance rather than migration:
-preserve the incompatible bytes outside the authoritative path, review desired
-intent, and preserve unproven acquired content outside prospective destination
-paths before previewing fresh resolution. Apply only after reviewing the preview. External resolutions may change because the old
-accepted format is not read. A workspace containing only workspace-authored
-content may correctly finish with no lockfile.
-
-The superseded YAML lockfile, `axm-lock.yaml`, is such an older lockfile. Its
-presence in either scope is refused before `axm.lock` is read, whether or not
-`axm.lock` exists, with the version it declares (or 0) as the observed version
-and the older-lockfile recovery. AXM reads nothing else from it and migrates
-nothing.
+A workspace without a lockfile re-accepts desired intent through fresh
+resolution rather than migration: preserve unproven acquired content outside
+prospective destination paths, preview, and apply only after reviewing the
+preview. A workspace containing only workspace-authored content may correctly
+finish with no lockfile. AXM neither reads nor migrates the superseded YAML
+lockfile, `axm-lock.yaml`.
 
 ## Persistence and failure
 
@@ -267,8 +261,8 @@ carrying forward unrelated rows and `[tool.<name>]` tables.
 
 The whole-surface workspace specifications own the lockfile's boundary
 obligations: `cli/lock-state-never-creates-reachability`,
-`cli/workspace-lockfile-rejections-name-state-and-recovery`, and
-`cli/lockfile-version-errors-expose-structured-problem`.
+`cli/invalid-workspace-state-gates-operations`, and
+`cli/sync/reaccepts-desired-state-without-a-lockfile`.
 `cli/sync/preserves-configuration-and-resolutions` and
 `cli/update/advances-resolution-within-intent` own stable resolution and
 update-only advancement; the

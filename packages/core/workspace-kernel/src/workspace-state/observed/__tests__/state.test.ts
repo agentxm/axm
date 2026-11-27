@@ -27,7 +27,6 @@ import {
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
-  lockfileRequiresNewerAxm,
 } from "../../desired/lockfile/errors.js";
 import {
   SettingsDecodeError,
@@ -345,7 +344,6 @@ describe("makeScopedStateApi.settings", () => {
 // ---------------------------------------------------------------------------
 
 const validLockfileToml = "version = 1\n";
-const LEGACY_LOCKFILE_PATH = `${WORKSPACE_ROOT}/axm-lock.yaml`;
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -545,40 +543,6 @@ describe("makeScopedStateApi.lockfile", () => {
     }),
   );
 
-  it.effect.each([
-    { label: "declared", bytes: "lockfileVersion: 12\npackages: {}\nskills: {}\n", observed: 12 },
-    { label: "undeclared", bytes: "skills: {}\n", observed: 0 },
-  ])(
-    "refuses a legacy YAML lockfile with a $label version beside the lockfile",
-    ({ bytes, observed }) =>
-      Effect.gen(function* () {
-        const counters = yield* makeCounters;
-        const fs = buildFs(
-          {
-            readers: {
-              [LEGACY_LOCKFILE_PATH]: () => Effect.succeed(bytes),
-              [LOCKFILE_PATH]: () => Effect.succeed(validLockfileToml),
-            },
-            missing: new Set(),
-            existsFails: new Set(),
-          },
-          counters,
-        );
-        const api = yield* makeApi("project", fs);
-
-        const err = yield* Effect.flip(api.lockfile);
-        expect(err).toBeInstanceOf(LockfileVersionUnsupported);
-        expect(err).toMatchObject({
-          path: LEGACY_LOCKFILE_PATH,
-          observedVersion: observed,
-          supportedVersion: 1,
-        });
-        // A legacy lockfile is older whatever number it declares.
-        if (err instanceof LockfileVersionUnsupported)
-          expect(lockfileRequiresNewerAxm(err)).toBe(false);
-      }),
-  );
-
   it.effect("Effect.cached: two yield*-s share one execution and one IO call", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
@@ -599,8 +563,7 @@ describe("makeScopedStateApi.lockfile", () => {
       expect(Option.isSome(second)).toBe(true);
 
       expect(yield* Ref.get(counters.read)).toBe(1);
-      // One probe for a legacy lockfile, one for the lockfile itself.
-      expect(yield* Ref.get(counters.exists)).toBe(2);
+      expect(yield* Ref.get(counters.exists)).toBe(1);
     }),
   );
 

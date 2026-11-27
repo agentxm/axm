@@ -487,22 +487,6 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `workspace/skills/physical-locations-include-shared-policy`
 - Source: [`packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts`](../packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts)
 
-##### The recovery route for a rejected lockfile re-accepts the desired state
-
-- Requirement: `cli/lockfile-rejections-name-recovery-routes`
-- Owner: `workspace-features`
-- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file and any unproven acquired content outside their authoritative paths, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.
-- Class: functional
-- Role: experience
-- Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: platform; selection: per-change
-- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
-- Methods: example
-- Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`, `workspace/desired-state/effective-constraint-has-one-owner`
-- Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-recovery.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-recovery.e2e.test.ts) — Runs the four steps the shipped rejection of a legacy axm-lock.yaml suggests verbatim through the real CLI process against an HTTP Registry — back up and remove the legacy lockfile, axm sync --preview, axm sync — and proves the workspace converges: a current-version axm.lock accepts the shared Pack member at the direct pin every Pack admits, records the disabled MCP connection, and lint reports no findings.
-- Source: [`packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts`](../packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts)
-
 ##### Browser sign-in completion follows saved credentials
 
 - Requirement: `cli/login/browser-completion-follows-credential-persistence`
@@ -659,6 +643,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts`](../packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts)
+
+##### Sync re-accepts the desired state of a workspace without a lockfile
+
+- Requirement: `cli/sync/reaccepts-desired-state-without-a-lockfile`
+- Owner: `workspace-features`
+- Statement: When a workspace's lockfile is absent, previewing and then applying sync, after any unproven acquired content is preserved outside its authoritative path, shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish without a lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
+- Methods: example
+- Derived from: `cli/lockfile-rejections-name-recovery-routes`, `workspace/desired-state/effective-constraint-has-one-owner`
+- Supersedes: `cli/lockfile-rejections-name-recovery-routes`
+- Source: [`packages/core/workspace-features/src/sync/reaccepts-desired-state-without-a-lockfile.spec.ts`](../packages/core/workspace-features/src/sync/reaccepts-desired-state-without-a-lockfile.spec.ts)
 
 ##### A read-only table keeps each row on one line before it keeps an extra column
 
@@ -2632,7 +2631,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: Production credential selection reads real token files under temporary directories; controlled environment, workload and saved-session ports establish precedence without host credentials.
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`, `apps/cli/help/topics/environment.md`
-- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
+- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts)
 
 ##### Environments without session storage require explicit tokens
@@ -2849,46 +2848,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: The production scope projection reads the registered CLI tree and renders classified invocation data without executing a subprocess.
 - Methods: example
 - Source: [`apps/cli/src/root/shared/scoped-command.spec.ts`](../apps/cli/src/root/shared/scoped-command.spec.ts)
-
-##### A creation the Registry did not refuse is reported as possibly issued
-
-- Requirement: `cli/token/create/reports-uncertain-issuance`
-- Owner: `registry-access`
-- Statement: When a token creation request ends without a definitive Registry refusal — no answer, an unreadable answer, or a gateway or server error — AXM shall report that the token may have been created, direct review of the token inventory and revocation by ID, and shall not resubmit the creation or start another approval; a client-error refusal shall keep the Registry's own explanation.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
-- Source: [`packages/supporting/registry-access/src/authentication/tokens/create-reports-uncertain-issuance.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-reports-uncertain-issuance.spec.ts)
-
-##### A new token stdout did not accept is revoked
-
-- Requirement: `cli/token/create/revokes-undelivered-token`
-- Owner: `cli`
-- Statement: When axm token create issues a token that stdout does not acknowledge, AXM shall make one bounded attempt to revoke exactly that token with the creating session, report its ID and whether revocation succeeded on stderr with the revoke command when it did not, and exit unsuccessfully; AXM shall not revoke an existing credential that axm token failed to write.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `apps/cli/src/root/auth/token.ts`
-- Limitation: Hard termination, a forced second signal, or an unreachable Registry can leave an undelivered token active; the stderr report is then the only recovery evidence. Retires when: The Registry offers idempotent creation or escrow that makes delivery recoverable.
-- Source: [`apps/cli/src/root/auth/token-create-revokes-undelivered-token.spec.ts`](../apps/cli/src/root/auth/token-create-revokes-undelivered-token.spec.ts)
-
-##### Token creation requests the chosen lifetime and permissions
-
-- Requirement: `cli/token/create/submits-requested-authority`
-- Owner: `registry-access`
-- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions, and report the issued token without replacing the current session.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
-- Source: [`packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts)
 
 ##### Token listing reports Registry inventory and completeness
 
@@ -5002,7 +4961,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`, `apps/cli/src/root/invalid-workspace-state-gates-operations.test.ts`
 - Supersedes: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts)
 
@@ -7039,7 +6998,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`](../apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts) — Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.
 - Additional evidence: process via [`apps/cli-e2e/src/smoke.e2e.test.ts`](../apps/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
 - Source: [`apps/cli/src/cli-runtime/machine-errors-use-the-stable-envelope.spec.ts`](../apps/cli/src/cli-runtime/machine-errors-use-the-stable-envelope.spec.ts)
 
 ##### Machine output reports missing input or approval without prompting
@@ -7251,19 +7210,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: contract, decision-table
 - Source: [`apps/cli/src/cli-flags/startup-controls-conform-to-parser.spec.ts`](../apps/cli/src/cli-flags/startup-controls-conform-to-parser.spec.ts)
 
-##### Raw token creation hands a pipe only the new secret
-
-- Requirement: `cli/token/create/raw-output-writes-only-new-token`
-- Owner: `cli`
-- Statement: When axm token create is run with raw token output, AXM shall write only the new token followed by one newline to stdout, once, and shall report the token's ID, name, permissions, and expiry on stderr without the secret.
-- Class: functional
-- Role: interface
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `apps/cli/src/root/auth/token.ts`
-- Source: [`apps/cli/src/root/auth/token-create-writes-only-new-token.spec.ts`](../apps/cli/src/root/auth/token-create-writes-only-new-token.spec.ts)
-
 ##### Token output exposes the effective credential on request
 
 - Requirement: `cli/token/returns-effective-token`
@@ -7275,7 +7221,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/auth/token.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
+- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`apps/cli/src/root/auth/token-returns-effective-token.spec.ts`](../apps/cli/src/root/auth/token-returns-effective-token.spec.ts)
 
 ##### Typed updates distinguish exact sources from repeated local-name filters
@@ -7368,7 +7314,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/token/credential-output-requires-explicit-mode`
 - Owner: `cli`
-- Statement: When axm token show or axm token create is asked for JSON output, or without --plain while stdout is not an interactive terminal, AXM shall report a usage failure before resolving, refreshing, or creating any credential, and shall write no credential.
+- Statement: When axm token show is asked for JSON output, or without --plain while stdout is not an interactive terminal, AXM shall report a usage failure before resolving or refreshing any credential, and shall write no credential.
 - Class: constraint (security)
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -9231,7 +9177,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Actual locked filesystem writes establish preservation and refusal without replacement.
 - Methods: example, decision-table
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/preserves-tool-values.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/preserves-tool-values.spec.ts)
 
 ##### The lockfile records projection generation currency per unit

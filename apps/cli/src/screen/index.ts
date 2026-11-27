@@ -40,7 +40,6 @@ export {
   OutputStreams,
   /** @public The cli-e2e log-frame fixture composes this layer from the built CLI. */
   OutputStreamsLive,
-  CredentialDeliveryFailed,
   OutputWriteFailed,
   makeTestOutputStreams,
   stderrIsTTY,
@@ -106,7 +105,7 @@ export {
   versionMove,
 } from "./grammar.js";
 export { displayWidth, stripTerminalFormatting } from "./width.js";
-export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
+export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn } from "./view.js";
 export {
   errorDoc,
   factParts,

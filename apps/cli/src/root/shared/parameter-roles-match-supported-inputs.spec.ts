@@ -88,7 +88,6 @@ describe("Parameter roles", () => {
         "logout",
         "whoami",
         "token show",
-        "token create",
         "token list",
         "token revoke",
       ]) {
@@ -181,16 +180,15 @@ describe("Parameter roles", () => {
       const routes = [
         ...types.flatMap((type) => [`axm ${type} new`, `axm ${type} publish`]),
         "axm publish",
-        "axm token create",
       ];
-      expect(routes).toHaveLength(16);
+      expect(routes).toHaveLength(15);
       for (const route of routes) {
         const help = helpFor(files, route);
         const owner = help.flags.find(({ name }) => name === "owner");
         expect(owner, route).toMatchObject({ valueName: "@handle" });
         expect(owner?.variadic !== undefined, route).toBe(!route.endsWith(" new"));
         const argv = route.split(" ").slice(1);
-        if (route.endsWith(" new") || route === "axm token create") argv.push("review");
+        if (route.endsWith(" new")) argv.push("review");
         const refusal = yield* parserRejection([...argv, "--owner", "all"]);
         expect(JSON.stringify(refusal), route).toContain("InvalidValue");
       }

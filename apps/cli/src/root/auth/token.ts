@@ -1,43 +1,26 @@
-import { ownerHandleFlag } from "../../cli-flags/owner-handle.js";
 import {
   withParameterDefault,
   withParameterDescription,
   withParameterRange,
 } from "../../cli-parameters.js";
 import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/cli";
 
 import {
-  createToken,
   currentToken,
   describeTokenPermissions,
   readTokenPermissions,
   listTokens,
   revokeToken,
   selectedRegistry,
-  type SelectedRegistry,
-  TOKEN_PERMISSION_LEVELS,
   TokenPermissionsSchema,
-  type CreatedToken,
-  type CreateTokenRequest,
-  type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
 import { jsonFlag, registryFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import {
-  emitResult,
-  Screen,
-  count,
-  fieldsDoc,
-  inventoryDoc,
-  type ViewColumn,
-  type ViewField,
-} from "../../screen/index.js";
+import { emitResult, Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryOption } from "@agentxm/workspace-kernel/operations";
@@ -83,27 +66,6 @@ const RevokeTokenSuggestions = [
   { description: "List remaining tokens", cmd: "axm token list" },
 ] satisfies ReadonlyArray<SuggestedAction>;
 
-interface CreatedTokenDetailItem {
-  readonly id: string;
-  readonly name: string;
-  readonly token: string;
-  readonly canDo: string;
-  readonly expiresAt: string;
-}
-
-const createTokenSuggestions = (tokenId: string): ReadonlyArray<SuggestedAction> => [
-  { description: "List tokens", cmd: "axm token list" },
-  { description: "Revoke this token", cmd: `axm token revoke ${tokenId}` },
-];
-
-const CreatedTokenFields = [
-  { label: "ID", value: (row: CreatedTokenDetailItem) => row.id },
-  { label: "Name", value: (row: CreatedTokenDetailItem) => row.name },
-  { label: "Token", value: (row: CreatedTokenDetailItem) => row.token },
-  { label: "Can do", value: (row: CreatedTokenDetailItem) => row.canDo },
-  { label: "Expires", value: (row: CreatedTokenDetailItem) => row.expiresAt },
-] satisfies ReadonlyArray<ViewField<CreatedTokenDetailItem>>;
-
 interface TokenTableItem {
   readonly id: string;
   readonly name: string;
@@ -121,15 +83,6 @@ const TokenListColumns = [
   { header: "Expires", value: (row: TokenTableItem) => row.expiresAt },
   { header: "Last used", priority: "optional", value: (row: TokenTableItem) => row.lastUsedAt },
 ] satisfies ReadonlyArray<ViewColumn<TokenTableItem>>;
-
-export interface CreateTokenHandlerArgs {
-  readonly name: string;
-  readonly expires: string;
-  readonly owners: readonly string[];
-  readonly extensions: readonly string[];
-  readonly permission: TokenPermissionLevel;
-  readonly plain?: boolean;
-}
 
 export interface TokenHandlerArgs {
   readonly plain?: boolean;
@@ -183,141 +136,6 @@ export const handleToken = Effect.fn("AuthToken.handle")(
           "The token could not be fully written to stdout; any bytes already written are incomplete.",
         suggestions: [
           { description: "Make sure the command reading stdout stays open, then run this again." },
-        ],
-        cause: error.cause,
-      }),
-    ),
-  ),
-  Effect.mapError(coerceAuthFailure),
-  Effect.asVoid,
-);
-
-type CleanupOutcome = "revoked" | "failed" | "timed-out";
-
-/** Revocation after a failed delivery must not hold the process open indefinitely. */
-const DELIVERY_CLEANUP_BUDGET = Duration.seconds(10);
-
-const reportCleanup = (
-  screen: typeof Screen.Service,
-  tokenId: string,
-  registry: SelectedRegistry,
-  outcome: CleanupOutcome,
-) =>
-  screen
-    .note([
-      {
-        _tag: "paragraph",
-        tone: outcome === "revoked" ? "ok" : "warn",
-        text:
-          outcome === "revoked"
-            ? `Revoked token ${tokenId} because it was not delivered to stdout.`
-            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: axm token revoke ${tokenId} --registry ${registry.endpoint.href}`,
-      },
-    ])
-    .pipe(Effect.catchCause(() => Effect.void));
-
-/**
- * Compensate for a token the Registry issued but stdout never acknowledged:
- * one bounded revocation of exactly that ID with the session that created it,
- * reported whatever its outcome.
- */
-const revokeUndeliveredToken = (
-  screen: typeof Screen.Service,
-  tokenId: string,
-  registry: SelectedRegistry,
-) =>
-  Effect.interruptible(revokeToken(tokenId, registry)).pipe(
-    Effect.timeoutOption(DELIVERY_CLEANUP_BUDGET),
-    Effect.exit,
-    Effect.flatMap((exit) =>
-      reportCleanup(
-        screen,
-        tokenId,
-        registry,
-        Exit.isFailure(exit) ? "failed" : Option.isNone(exit.value) ? "timed-out" : "revoked",
-      ),
-    ),
-  );
-
-/**
- * Issue a token and write only its secret to stdout. Approval and the create
- * request stay interruptible; once the Registry names the new token, it is
- * revoked unless stdout acknowledges the whole credential.
- */
-const createAndDeliverToken = <E, R>(
-  screen: typeof Screen.Service,
-  create: Effect.Effect<CreatedToken, E, R>,
-  registry: SelectedRegistry,
-) =>
-  Effect.uninterruptibleMask((restore) =>
-    Effect.gen(function* () {
-      const created = yield* restore(create);
-      const token = created.token;
-      yield* restore(
-        screen
-          .note([
-            {
-              _tag: "paragraph",
-              text: `Created token ${token.id} "${token.name}" (${describeTokenPermissions(readTokenPermissions(token.permissions))}); expires ${DateTime.formatIso(token.expiresAt)}.`,
-            },
-          ])
-          .pipe(Effect.andThen(screen.credential(token.token + "\n"))),
-      ).pipe(
-        Effect.onExit((exit) =>
-          Exit.isSuccess(exit) ? Effect.void : revokeUndeliveredToken(screen, token.id, registry),
-        ),
-      );
-      return created;
-    }),
-  );
-
-export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
-  function* (args: CreateTokenHandlerArgs) {
-    const screen = yield* Screen;
-    const credentialOutput = yield* resolveCredentialOutput(args.plain);
-    const registry = yield* selectedRegistry("Creating a token");
-    const request: CreateTokenRequest = {
-      name: args.name,
-      expires: args.expires,
-      owners: args.owners,
-      extensions: args.extensions,
-      permission: args.permission,
-    };
-    const create = createToken(request, registry);
-    // The operation settles only after raw delivery, so no observer hears
-    // "completed" for a token stdout has not acknowledged.
-    const createResult = yield* withLiveOperation(
-      {
-        name: `Create registry token "${args.name}"`,
-        mode: "apply",
-      },
-      credentialOutput === "token" ? createAndDeliverToken(screen, create, registry) : create,
-    );
-    if (credentialOutput === "token") return;
-
-    const created = createResult.token;
-    const suggestions = createTokenSuggestions(created.id);
-    const detail = {
-      id: created.id,
-      name: created.name,
-      token: created.token,
-      canDo: describeTokenPermissions(readTokenPermissions(created.permissions)),
-      expiresAt: DateTime.formatIso(created.expiresAt),
-    };
-    yield* screen.result([
-      { _tag: "headline", tone: "ok", text: "Created token" },
-      ...fieldsDoc(detail, CreatedTokenFields),
-      { _tag: "next", actions: suggestions },
-    ]);
-  },
-  Effect.catchTag("CredentialDeliveryFailed", (error) =>
-    Effect.fail(
-      makeAppError({
-        code: "unavailable",
-        detail:
-          "The created token could not be fully written to stdout; any bytes already written are incomplete. See stderr for the token ID and whether it was revoked.",
-        suggestions: [
-          { description: "Review your tokens before creating another", cmd: "axm token list" },
         ],
         cause: error.cause,
       }),
@@ -424,61 +242,6 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
 
 const tokenConfig = { plain: plainFlag, registry: registryFlag } as const;
 
-const createTokenConfig = {
-  registry: registryFlag,
-  plain: plainFlag,
-  name: Argument.String("name").pipe(
-    withParameterDescription("Name for the new token, shown by axm token list"),
-  ),
-  expires: Flag.String("expires").pipe(
-    withParameterDescription(
-      "Token lifetime, such as 7d, 30d, 1y, or an ISO timestamp; subject to permission limits",
-    ),
-    withParameterDefault("30d"),
-  ),
-  owner: ownerHandleFlag.pipe(
-    withParameterDescription(
-      "Grant access to this owner's extensions; omit with --extension for full reach",
-    ),
-    Flag.atLeast(0),
-  ),
-  extension: Flag.String("extension").pipe(
-    withParameterDescription("Extension selector in @handle/<type>/<name> form"),
-    Flag.atLeast(0),
-  ),
-  permission: Flag.Literals("permission", TOKEN_PERMISSION_LEVELS).pipe(
-    withParameterDescription("Maximum permission for this token, within your account's authority"),
-  ),
-} as const;
-
-const createTokenCommand = Command.make(
-  "create",
-  createTokenConfig,
-  ({ name, expires, owner, extension, permission, plain, registry }) =>
-    handleCreateToken({
-      name,
-      expires,
-      owners: owner,
-      extensions: extension,
-      permission,
-      plain,
-    }).pipe(withRuntime({ registry })),
-).pipe(
-  withArgvTracking(createTokenConfig),
-  withCommandCapabilities(directWriteCapabilities("credentials")),
-  Command.withDescription("Create a granular access token"),
-  Command.withExamples([
-    {
-      command: "axm token create ci --owner @foo --permission publish",
-      description: "Create a publish token scoped to @foo and show it once",
-    },
-    {
-      command: "axm token create ci --extension @foo/skills/review --permission publish --plain",
-      description: "Write only the new token to stdout for a pipe",
-    },
-  ]),
-);
-
 const listTokenConfig = {
   registry: registryFlag,
   limit: Flag.Int("limit").pipe(
@@ -544,10 +307,5 @@ export const tokenCommand = Command.make("token").pipe(
     { command: "axm token show", description: "Show your effective authentication token" },
     { command: "axm token list", description: "List your granular access tokens" },
   ]),
-  Command.withSubcommands([
-    showTokenCommand,
-    createTokenCommand,
-    listTokenCommand,
-    revokeTokenCommand,
-  ]),
+  Command.withSubcommands([showTokenCommand, listTokenCommand, revokeTokenCommand]),
 );

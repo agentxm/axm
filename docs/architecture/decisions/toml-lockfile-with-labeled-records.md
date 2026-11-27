@@ -1,7 +1,7 @@
 ---
 type: Decision
 status: stable
-description: AXM stores accepted resolution in a TOML `axm.lock` at version 1, with labeled package records, compact simple bindings, expanded component bindings, projection tables, a lossless tool namespace, and one canonical whole-file writer; the YAML lockfile is refused, not migrated.
+description: AXM stores accepted resolution in a TOML `axm.lock` at version 1, with labeled package records, compact simple bindings, expanded component bindings, projection tables, a lossless tool namespace, and one canonical whole-file writer; the YAML lockfile is neither read nor migrated.
 depends-on:
   - ../workspace/lockfile.md
   - ../workspace/managed-file-ownership.md
@@ -97,10 +97,8 @@ anything = "value preserved, formatting may change"
   validate representable structural and lexical rules. CLI checks additionally
   validate cross-record relationships, domain-parser semantics, and TOML types.
   Line 2 says the file is generated.
-- **Legacy file.** A legacy `axm-lock.yaml` beside the expected `axm.lock` is
-  refused in either scope as an older lockfile, whether or not `axm.lock`
-  exists. Its declared version (or 0) is the observed version, and the existing
-  older-lockfile recovery applies. Nothing is migrated.
+- **Legacy file.** AXM neither reads nor migrates `axm-lock.yaml`. A
+  workspace that holds only that file has no lockfile.
 
 Decoding stays strict: unknown keys outside `tool` are errors, Pack declaration
 fields appear on a record exactly when a Pack binding selects it, `spec` appears
@@ -170,8 +168,7 @@ bindings make both readable.
 
 ## Consequences
 
-- Every existing workspace must re-accept its resolutions. The legacy file is
-  reported as an older lockfile with the recovery route: back up and remove it,
+- Every existing workspace must re-accept its resolutions with
   `axm sync --preview`, then `axm sync`. External resolutions may advance
   because the old file is not read, and its projection rows are lost, so the
   first sync refuses differing whole files until `--replace-unrecorded` is
@@ -189,7 +186,7 @@ bindings make both readable.
 
 The accepted behaviors live as executable specifications in the
 [specification catalog](../../../specifications/catalog.md), including
-`cli/lockfile-rejections-name-recovery-routes` and
+`cli/sync/reaccepts-desired-state-without-a-lockfile` and
 `workspace/lockfile/records-projection-currency`. This record explains the
 choice.
 

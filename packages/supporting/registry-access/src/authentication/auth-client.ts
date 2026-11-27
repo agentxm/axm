@@ -133,27 +133,6 @@ export interface MeResponse {
   readonly trustedPublisher: { readonly name: string } | null;
 }
 
-export interface TokenPermissionsRequest {
-  readonly owners?: ReadonlyArray<string>;
-  readonly extensions?: ReadonlyArray<string>;
-  readonly permission: "read" | "publish" | "admin";
-}
-
-interface CreateTokenParams {
-  readonly name: string;
-  readonly expiresIn: number;
-  readonly permissions: TokenPermissionsRequest;
-}
-
-export interface CreatedTokenResponse {
-  readonly id: string;
-  readonly token: string;
-  readonly name: string;
-  readonly permissions: unknown;
-  readonly createdAt: DateTime.Utc;
-  readonly expiresAt: DateTime.Utc;
-}
-
 interface TokenListItem {
   readonly id: string;
   readonly name: string | null;
@@ -234,10 +213,6 @@ export interface AuthClientService {
     endpoint: HttpRegistryEndpoint,
     accessToken?: string,
   ) => Effect.Effect<MeResponse, AuthError>;
-  readonly createToken: (
-    endpoint: HttpRegistryEndpoint,
-    params: CreateTokenParams,
-  ) => Effect.Effect<CreatedTokenResponse, AuthError>;
   readonly listTokens: (
     endpoint: HttpRegistryEndpoint,
     params?: {
@@ -696,35 +671,6 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
-    const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (endpoint, params) {
-        const authedClient = yield* authorizedClient(endpoint, "Creating a token");
-        const decoded = yield* authedClient
-          .TokensCreate({
-            payload: {
-              name: params.name,
-              permissions: params.permissions,
-              expiresIn: params.expiresIn,
-            },
-          })
-          .pipe(
-            observeAuthRequest("token-create"),
-            Effect.mapError((error) =>
-              mapRegistryAccessError(endpoint, "Could not create token", error),
-            ),
-          );
-
-        return {
-          id: decoded.id,
-          token: decoded.token,
-          name: decoded.name,
-          permissions: decoded.permissions,
-          createdAt: decoded.createdAt,
-          expiresAt: decoded.expiresAt,
-        } satisfies CreatedTokenResponse;
-      },
-    );
-
     const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
       function* (endpoint, params) {
         const authedClient = yield* authorizedClient(endpoint, "Listing tokens");
@@ -777,7 +723,6 @@ export const AuthClientLive = Layer.effect(
       initiateDeviceFlow,
       pollDeviceToken,
       getMe,
-      createToken,
       listTokens,
       deleteToken,
     } satisfies AuthClientService;
@@ -1042,13 +987,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
         }),
       ),
     getMe: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    createToken: () =>
       Effect.fail(
         new RegistryAccessFailed({
           category: "auth",

@@ -7,7 +7,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
 import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
-import { LEGACY_LOCK_FILENAME } from "../../workspace/constants.js";
 import type { RawSourceBytes } from "../source-bytes.js";
 import {
   LockfileDecodeError,
@@ -22,42 +21,10 @@ import {
   type ParsedLockfileToml,
 } from "./toml-values.js";
 
-/** The lockfile version a legacy YAML lockfile declares, or `0` when it declares none. */
-const legacyLockfileVersion = (bytes: string): number => {
-  const declared = /^lockfileVersion:\s*(\d+)/mu.exec(bytes)?.[1];
-  return declared === undefined ? 0 : Number.parseInt(declared, 10);
-};
-
-/**
- * Refuse a legacy `axm-lock.yaml` beside the expected lockfile. Its format is
- * not read, so its presence is the existing unsupported-version recovery.
- */
-const refuseLegacyLockfile = Effect.fnUntraced(function* (
-  fs: FileSystem.FileSystem,
-  lockfilePath: string,
-) {
-  const separator = Math.max(lockfilePath.lastIndexOf("/"), lockfilePath.lastIndexOf("\\"));
-  const legacyPath = `${lockfilePath.slice(0, separator + 1)}${LEGACY_LOCK_FILENAME}`;
-  if (legacyPath === lockfilePath) return;
-  const legacyExists = yield* fs
-    .exists(legacyPath)
-    .pipe(Effect.mapError((cause) => new LockfileIoError({ path: legacyPath, cause })));
-  if (!legacyExists) return;
-  const legacy = yield* fs
-    .readFileString(legacyPath)
-    .pipe(Effect.mapError((cause) => new LockfileIoError({ path: legacyPath, cause })));
-  return yield* new LockfileVersionUnsupported({
-    path: legacyPath,
-    observedVersion: legacyLockfileVersion(legacy),
-    supportedVersion: LOCKFILE_VERSION,
-  });
-});
-
 export const readLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw")(function* (
   fs: FileSystem.FileSystem,
   lockfilePath: string,
 ) {
-  yield* refuseLegacyLockfile(fs, lockfilePath);
   const exists = yield* fs
     .exists(lockfilePath)
     .pipe(Effect.mapError((cause) => new LockfileIoError({ path: lockfilePath, cause })));

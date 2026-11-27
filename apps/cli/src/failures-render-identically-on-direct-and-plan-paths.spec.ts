@@ -368,11 +368,6 @@ const representatives: Representatives = {
   LockfileVersionUnsupported: [
     new LockfileVersionUnsupported({
       path: "/w/axm.lock",
-      observedVersion: 5,
-      supportedVersion: 7,
-    }),
-    new LockfileVersionUnsupported({
-      path: "/w/axm.lock",
       observedVersion: 8,
       supportedVersion: 7,
     }),
@@ -1180,39 +1175,27 @@ describe("A failure reads the same on the direct and plan paths", () => {
     }),
   );
 
-  it.effect("addresses a lockfile recovery to the scope it runs in on every path", () =>
+  it.effect("keeps a newer lockfile's upgrade unscoped in a user workspace on every path", () =>
     Effect.gen(function* () {
-      const lockfile = (observedVersion: number) =>
-        new LockfileVersionUnsupported({
-          path: "/w/axm.lock",
-          observedVersion,
-          supportedVersion: 7,
-        });
-      const viaCatalog = (cause: LockfileVersionUnsupported) =>
-        new WorkspaceCatalogUnavailable({
-          category: "validation",
-          detail: "Workspace state is invalid.",
-          cause,
-        });
+      const lockfile = new LockfileVersionUnsupported({
+        path: "/w/axm.lock",
+        observedVersion: 8,
+        supportedVersion: 7,
+      });
+      const viaCatalog = new WorkspaceCatalogUnavailable({
+        category: "validation",
+        detail: "Workspace state is invalid.",
+        cause: lockfile,
+      });
       // A newer lockfile needs a newer AXM, which is upgraded for the whole
-      // installation; an older one is regenerated in the workspace itself.
-      const views = [
-        ...[lockfile(8), viaCatalog(lockfile(8))].map((failure) => directView(failure, "user")),
-        planView(lockfile(8), "user"),
-      ];
-      for (const view of yield* Effect.all(views)) {
+      // installation rather than for one workspace scope.
+      for (const view of yield* Effect.all([
+        directView(lockfile, "user"),
+        directView(viaCatalog, "user"),
+        planView(lockfile, "user"),
+      ])) {
         expect(view.problemCode).toBe("workspace-lockfile-version-unsupported");
         expect(view.suggestions.map((suggestion) => suggestion.cmd)).toEqual(["axm upgrade"]);
-      }
-      for (const view of yield* Effect.all([
-        directView(lockfile(5), "user"),
-        directView(viaCatalog(lockfile(5)), "user"),
-        planView(lockfile(5), "user"),
-      ])) {
-        expect(view.suggestions.flatMap((suggestion) => suggestion.cmd ?? [])).toEqual([
-          "axm sync --preview --scope user",
-          "axm sync --scope user",
-        ]);
       }
     }),
   );

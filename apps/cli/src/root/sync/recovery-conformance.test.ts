@@ -400,10 +400,6 @@ const adversarialContracts = [
     "packages/core/workspace-kernel/src/workspace-state/desired/lockfile/authority-schema.test.ts",
   ],
   [
-    "older-lockfile-gate-names-reacceptance",
-    "packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts",
-  ],
-  [
     "newer-lockfile-gate-names-upgrade",
     "packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts",
   ],

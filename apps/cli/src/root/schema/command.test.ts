@@ -96,7 +96,6 @@ describe("passive command schema discovery", () => {
       Effect.gen(function* () {
         for (const path of [
           ["token", "show"],
-          ["token", "create"],
           ["lock", "export"],
         ]) {
           const { layer, state } = makeTestScreen({ machine: true });

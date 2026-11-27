@@ -2591,12 +2591,12 @@
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
         },
-        "direction": { "type": "string", "enum": ["older", "newer"] }
+        "direction": { "type": "string", "enum": ["newer"] }
       },
       "required": ["code", "path", "observedVersion", "supportedVersion", "direction"],
       "additionalProperties": false,
       "title": "Unsupported Workspace Lockfile Version",
-      "description": "Identifies an unsupported workspace lockfile version and its direction."
+      "description": "Identifies a workspace lockfile version newer than this AXM supports."
     },
     "ProjectionOutputUnrecordedProblem": {
       "type": "object",
@@ -24357,13 +24357,6 @@
       "effects": "Default: read only.",
       "meaning": "No JSON success document may carry a secret; `--plain` is the explicit export channel.",
       "schemaCommand": "axm schema token show"
-    },
-    "axm token create": {
-      "class": "json-refused",
-      "modes": ["apply"],
-      "effects": "Default: changes credentials.",
-      "meaning": "No JSON success document may carry a secret; `--plain` is the explicit export channel.",
-      "schemaCommand": "axm schema token create"
     },
     "axm token list": {
       "class": "structured-result",

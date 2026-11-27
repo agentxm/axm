@@ -194,25 +194,6 @@ describe("lockfile", () => {
     ),
   );
 
-  it.effect("refuses a legacy YAML lockfile beside the expected lockfile", () =>
-    run(
-      Effect.gen(function* () {
-        const legacy = path.join(root, "axm-lock.yaml");
-        const raw = "lockfileVersion: 12\npackages: {}\nskills: {}\n";
-        fs.writeFileSync(legacy, raw);
-        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
-
-        const failure = yield* Effect.flip(
-          commitLockfileSnapshotUpdateAtPath(path.join(root, "axm.lock"), base, base),
-        );
-        expect(failure).toBeInstanceOf(LockfileVersionUnsupported);
-        expect(failure).toMatchObject({ path: legacy, observedVersion: 12, supportedVersion: 1 });
-        expect(fs.readFileSync(legacy, "utf8")).toBe(raw);
-        expect(fs.existsSync(path.join(root, "axm.lock"))).toBe(false);
-      }),
-    ),
-  );
-
   it.effect("keeps tool tables and drops comments when it rewrites the file", () =>
     run(
       Effect.gen(function* () {

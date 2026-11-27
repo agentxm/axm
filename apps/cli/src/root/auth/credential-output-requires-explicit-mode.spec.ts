@@ -4,13 +4,13 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { getAppError } from "../../test-support/test-helpers.js";
 import { makeTokenSpecContext } from "../../test-support/token-harness.js";
-import { handleCreateToken, handleToken } from "./token.js";
+import { handleToken } from "./token.js";
 
 export const specification = defineSpecification({
   requirement: "cli/token/credential-output-requires-explicit-mode",
   title: "Credential export needs an explicit, secret-safe output mode",
   statement:
-    "When axm token show or axm token create is asked for JSON output, or without --plain while stdout is not an interactive terminal, AXM shall report a usage failure before resolving, refreshing, or creating any credential, and shall write no credential.",
+    "When axm token show is asked for JSON output, or without --plain while stdout is not an interactive terminal, AXM shall report a usage failure before resolving or refreshing any credential, and shall write no credential.",
   class: "constraint",
   characteristic: "security",
   role: "interface",
@@ -29,35 +29,20 @@ const refusals = [
   { name: "human output for a pipe", options: {}, plain: false },
 ] as const;
 
-const createArgs = {
-  name: "ci",
-  expires: "30d",
-  owners: [],
-  extensions: [],
-  permission: "read",
-} as const;
-
 describe("Credential output admission", () => {
   for (const { name, options, plain } of refusals) {
-    for (const command of ["token show", "token create"] as const) {
-      it.effect(`${command}: ${name}`, () => {
-        // Signed out: a credential lookup before admission would surface as
-        // an authentication failure instead of a usage failure.
-        const context = makeTokenSpecContext({ ...options, signedIn: false });
-        const args = plain === undefined ? {} : { plain };
-        return Effect.gen(function* () {
-          const failure = yield* (
-            command === "token show"
-              ? handleToken(args)
-              : handleCreateToken({ ...createArgs, ...args })
-          ).pipe(Effect.flip);
+    it.effect(`token show: ${name}`, () => {
+      // Signed out: a credential lookup before admission would surface as
+      // an authentication failure instead of a usage failure.
+      const context = makeTokenSpecContext({ ...options, signedIn: false });
+      const args = plain === undefined ? {} : { plain };
+      return Effect.gen(function* () {
+        const failure = yield* handleToken(args).pipe(Effect.flip);
 
-          expect(getAppError(failure).code).toBe("usage");
-          expect(context.creations).toEqual([]);
-          expect(context.state.credentials).toEqual([]);
-          expect(context.state.results).toEqual([]);
-        }).pipe(Effect.provide(context.layer));
-      });
-    }
+        expect(getAppError(failure).code).toBe("usage");
+        expect(context.state.credentials).toEqual([]);
+        expect(context.state.results).toEqual([]);
+      }).pipe(Effect.provide(context.layer));
+    });
   }
 });

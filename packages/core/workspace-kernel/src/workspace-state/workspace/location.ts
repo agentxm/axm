@@ -36,10 +36,7 @@ import {
   type WorkspaceLayout,
 } from "./layout.js";
 import { getProjectRuntimeDir, resolveUserHome } from "./paths.js";
-import {
-  LockfileVersionUnsupported,
-  lockfileRequiresNewerAxm,
-} from "../desired/lockfile/errors.js";
+import { LockfileVersionUnsupported } from "../desired/lockfile/errors.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceStateError,
@@ -94,7 +91,7 @@ const requireInitializedWorkspace = <R>(
               onFailure: (
                 error,
               ): Effect.Effect<never, LockfileVersionUnsupported | WorkspaceNotInitialized> =>
-                error instanceof LockfileVersionUnsupported && lockfileRequiresNewerAxm(error)
+                error instanceof LockfileVersionUnsupported
                   ? Effect.fail(error)
                   : Effect.fail(new WorkspaceNotInitialized({ settingsPath })),
               onSuccess: (): Effect.Effect<

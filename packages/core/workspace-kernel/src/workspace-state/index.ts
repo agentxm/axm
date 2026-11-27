@@ -54,11 +54,7 @@ export {
 } from "./workspace/retained-packages.js";
 
 // Extension path and identity vocabulary
-export {
-  ACQUIRED_EXTENSIONS_DIR,
-  LEGACY_LOCK_FILENAME,
-  LOCK_FILENAME,
-} from "./workspace/constants.js";
+export { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME } from "./workspace/constants.js";
 export {
   observeInstallRoot,
   type InstallRootInventory,

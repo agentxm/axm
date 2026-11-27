@@ -278,7 +278,7 @@ describe("root command parser output", () => {
   }
 
   it("shows help for a valid command without its required operand", async () => {
-    await run(["token", "create", "--help", "--json"]);
+    await run(["token", "revoke", "--help", "--json"]);
     expect(stdoutWrites).toHaveLength(1);
     const document: unknown = JSON.parse(stdoutWrites[0] ?? "");
     expect(document).toMatchObject({ type: "help" });
@@ -336,7 +336,7 @@ describe("root command parser output", () => {
   });
 
   it("emits one JSON usage envelope for a missing required argument", async () => {
-    await expect(run(["token", "create", "--json"])).rejects.toMatchObject({
+    await expect(run(["token", "revoke", "--json"])).rejects.toMatchObject({
       code: ExitCode.Usage,
     });
 
@@ -346,7 +346,7 @@ describe("root command parser output", () => {
       ok: false,
       code: "usage",
       title: "Usage error",
-      detail: "Missing required argument: name",
+      detail: "Missing required argument: id",
     });
     expect(stdoutWrites.join("")).not.toContain('"type":"help"');
   });

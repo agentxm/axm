@@ -174,10 +174,6 @@
     "browser-login": {
       "topic": "Browser-login selection, fallback, denial and timeout policy"
     },
-    "token-lifetime": {
-      "topic": "Token lifetime grammar, omitted default and valid range",
-      "nearestSpecification": "cli/token/create/submits-requested-authority"
-    },
     "git-update-assessment": {
       "topic": "Git commit and tree update assessment",
       "nearestSpecification": "cli/list/assesses-updates-through-recorded-registry"
@@ -10493,112 +10489,6 @@
       "relatedRequirements": ["cli/groups-show-help-without-executing"],
       "parameterBindings": []
     },
-    "token create": {
-      "flags": [
-        {
-          "name": "plain",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "expires",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "owner",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "extension",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "permission",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        }
-      ],
-      "arguments": [
-        {
-          "name": "name",
-          "rawHelp": {
-            "type": "string",
-            "required": true
-          }
-        }
-      ],
-      "relatedRequirements": [
-        "cli/credentials-follow-explicit-source-precedence",
-        "cli/token/create/reports-uncertain-issuance"
-      ],
-      "conditionalLinks": [
-        {
-          "requirement": "cli/credentials-stay-with-their-registry",
-          "when": "Authenticating a Registry request."
-        },
-        {
-          "requirement": "cli/disabled-credential-persistence-requires-explicit-token",
-          "when": "Resolving the effective credential."
-        }
-      ],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:plain"],
-          "requirements": [
-            "cli/token/create/raw-output-writes-only-new-token",
-            "cli/token/create/revokes-undelivered-token",
-            "cli/token/credential-output-requires-explicit-mode"
-          ]
-        },
-        {
-          "parameters": ["argument:name", "flag:owner", "flag:extension", "flag:permission"],
-          "requirements": ["cli/token/create/submits-requested-authority"]
-        },
-        {
-          "parameters": ["flag:expires"],
-          "requirements": ["cli/token/create/submits-requested-authority"],
-          "openTopics": ["token-lifetime"]
-        },
-        {
-          "parameters": ["flag:registry"],
-          "requirements": ["cli/credentials-stay-with-their-registry"]
-        }
-      ]
-    },
     "token list": {
       "flags": [
         {
@@ -10727,8 +10617,7 @@
           "parameters": ["flag:plain"],
           "requirements": [
             "cli/token/returns-effective-token",
-            "cli/token/credential-output-requires-explicit-mode",
-            "cli/token/create/revokes-undelivered-token"
+            "cli/token/credential-output-requires-explicit-mode"
           ]
         },
         {

@@ -5,8 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
-import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
+import { runCli } from "../../../e2e/utils.js";
 
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.
 
@@ -74,35 +73,5 @@ describe("axm token show", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toMatch(/auth_required [·-] exit 13/u);
     expect(result.stderr).toContain("axm login --device-code --json");
-  });
-
-  it("points browser-only token creation to web settings without retrying", async () => {
-    const registry = await startHttpRegistry({ browserOnlyTokenCreate: true });
-    const home = createTempDir();
-    try {
-      writeUserDefaultRegistry(home.path, registry.url);
-      const result = await runCli(
-        ["token", "create", "e2e-browser-only", "--permission", "read", "--plain"],
-        {
-          env: {
-            HOME: home.path,
-            AXM_USER_HOME: home.path,
-            AXM_TOKEN: "e2e-test-token",
-          },
-          exactOutput: true,
-        },
-      );
-
-      expect(result.exitCode).toBe(5);
-      expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("Create access tokens in web settings.");
-      expect(result.stderr).toContain("https://agentxm.ai/u/settings/tokens");
-      expect(registry.requests.filter((request) => request.method === "POST")).toEqual([
-        expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 403 }),
-      ]);
-    } finally {
-      home.cleanup();
-      await registry.close();
-    }
   });
 });

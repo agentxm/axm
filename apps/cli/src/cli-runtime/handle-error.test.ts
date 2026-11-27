@@ -65,7 +65,7 @@ describe("classifyError — ShowHelp", () => {
 
   it("returns a JSON usage envelope for ShowHelp with errors in json format", () => {
     const showHelp = new CliError.ShowHelp({
-      commandPath: ["axm", "token", "create"],
+      commandPath: ["axm", "token", "list"],
       errors: [new CliError.MissingOption({ option: "name" })],
     });
 

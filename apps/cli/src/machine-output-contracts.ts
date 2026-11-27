@@ -362,44 +362,26 @@ const logoutFamily = defineResultFamily({
 
 /**
  * Credential export writes only a raw token to stdout. `--json` is refused
- * before any credential is resolved or created, so the only machine document
- * these paths produce is the usage error.
+ * before any credential is resolved, so the only machine document this path
+ * produces is the usage error.
  */
-const credentialExportFamily = (
-  id: string,
-  humanOutputKind: HumanOutputKind,
-  liveness: LivenessClass,
-) =>
-  ({
-    id,
-    assessment:
-      humanOutputKind === "mutation"
-        ? {
-            kind: "operation",
-            preflight:
-              "Token owner validates explicit raw delivery, token parameters and fresh authorization.",
-            postcondition:
-              "Use the authoritative token creation response; output failure does not erase a created token.",
-            evidence:
-              "Credential creation settlement; raw secret delivery is never wrapped in JSON.",
-            modes:
-              "Apply with explicit --plain; JSON refusal happens before dispatch. No workspace postflight.",
-          }
-        : queryAssessment,
-    modes: [humanOutputKind === "mutation" ? "apply" : "query"],
-    effects: "Credential export requires --plain; JSON is refused before credential access.",
-    completionOwner: id,
-    promotedResultFields: [],
-    outputClass: "json-refused",
-    humanOutputKind,
-    liveness,
-    schemaNames: ["JsonErrorEnvelopeSchema"],
-    requiredEnvelopeKeys: ["ok", "code", "title", "detail"],
-    requiredTopLevelKeys: ["ok", "code", "title", "detail"],
-    optionalTopLevelKeys: ["suggestions"],
-    rationale:
-      "No JSON success document may carry a secret; `--plain` is the explicit export channel.",
-  }) satisfies MachineOutputFamily;
+const credentialExportFamily = {
+  id: "token-read",
+  assessment: queryAssessment,
+  modes: ["query"],
+  effects: "Credential export requires --plain; JSON is refused before credential access.",
+  completionOwner: "token-read",
+  promotedResultFields: [],
+  outputClass: "json-refused",
+  humanOutputKind: "query",
+  liveness: "immediate",
+  schemaNames: ["JsonErrorEnvelopeSchema"],
+  requiredEnvelopeKeys: ["ok", "code", "title", "detail"],
+  requiredTopLevelKeys: ["ok", "code", "title", "detail"],
+  optionalTopLevelKeys: ["suggestions"],
+  rationale:
+    "No JSON success document may carry a secret; `--plain` is the explicit export channel.",
+} satisfies MachineOutputFamily;
 
 const tokenListFamily = defineResultFamily({
   id: "token-list",
@@ -988,8 +970,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
   ...rowsFor(loginFamily, ["axm login"]),
   ...rowsFor(logoutFamily, ["axm logout"]),
-  ...rowsFor(credentialExportFamily("token-read", "query", "immediate"), ["axm token show"]),
-  ...rowsFor(credentialExportFamily("token-create", "mutation", "progress"), ["axm token create"]),
+  ...rowsFor(credentialExportFamily, ["axm token show"]),
   ...rowsFor(tokenListFamily, ["axm token list"]),
   ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
   ...rowsFor(whoamiFamily, ["axm whoami"]),

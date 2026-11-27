@@ -143,6 +143,20 @@ once or keep a file it would otherwise delete.
 files without writing them, refuses differing ones until you pass
 `--replace-unrecorded`, and rewrites each region once.
 
+It also drops the accepted resolutions. `axm sync --preview` then `axm sync`
+re-accept desired intent afresh into a new `axm.lock`; this is new resolution,
+so external versions may differ from the deleted file. First preserve acquired
+content lacking current ownership proof outside prospective install
+destinations; AXM will not infer ownership from those files or overwrite them.
+Each re-accepted extension is selected within its effective constraint: a
+direct pin on a Pack member holds when every Pack that requires the member
+admits it. When no version satisfies the pin and every requiring Pack range,
+the preview and the apply block that member and those Packs, naming every
+contributor, and accept nothing for them; independent extensions still
+converge. Change the pin in `axm.json` and preview again. A workspace
+containing only workspace-authored content may correctly finish without a
+lockfile.
+
 **Generated files in review.** AXM does not write `.gitattributes`. To collapse
 projected files in GitHub diffs, add your own entries, for example
 `AGENTS.md linguist-generated` or `.claude/agents/*.md linguist-generated`.
@@ -365,43 +379,10 @@ workspace-loading command checks a present lockfile before command-specific
 work, and override flags do not bypass that check. The error names the lockfile
 path plus its observed and supported versions.
 
-Earlier releases wrote `axm-lock.yaml`, a YAML lockfile at version 12. AXM does
-not read it and does not migrate it. While that file exists in a project or
-user workspace, every workspace-loading command refuses it as an older lockfile,
-naming its path and version, even when an `axm.lock` sits beside it. Follow the
-recovery below; it removes the old file and accepts resolutions afresh into
-`axm.lock`. The old file's projection rows are not carried over either, so the
-first sync behaves as described under "Deleting the lockfile" above.
-
-**Recovering from a rejected lockfile.** For an older lockfile, explicitly
-re-accept desired intent into the current format by following the route the
-error suggests:
-
-1. Back up the incompatible lockfile outside the workspace, review axm.json,
-   then remove the incompatible file. Review authored manifests and the backup
-   too, to confirm the desired intent and prior external resolutions. Preserve
-   acquired content lacking current ownership proof outside prospective install
-   destinations; AXM will not infer ownership from those files or overwrite them.
-2. Preview a new lockfile in the supported format: `axm sync --preview`. Review
-   every proposed resolution. Use `--scope user` for a user workspace.
-3. Apply the previewed workspace changes: `axm sync`.
-
-A workspace containing only workspace-authored content may correctly finish
-without a lockfile. `axm install <source>` adds an explicitly selected source;
-`axm sync` realizes the configured workspace.
-
-This is new resolution, not migration. External versions may differ from the
-backup. Each re-accepted extension is selected within its effective constraint:
-a direct pin on a Pack member holds when every Pack that requires the member
-admits it. When no version satisfies the pin and every requiring Pack range,
-the preview and the apply block that member and those Packs, naming every
-contributor, and accept nothing for them; independent extensions still
-converge. Change the pin in `axm.json` and preview again.
-
-For a newer lockfile, run `axm upgrade` before accessing the workspace again.
-Do not run setup, delete or replace the lockfile, restore an older copy, or try
-to downgrade its version. The newer state may contain meaning the installed
-AXM does not understand.
+A lockfile that declares a newer version needs a newer AXM: run `axm upgrade`
+before accessing the workspace again. Do not run setup, delete or replace the
+lockfile, restore an older copy, or try to downgrade its version. The newer
+state may contain meaning the installed AXM does not understand.
 
 An unreadable lockfile instead receives permission or known-good restoration
 guidance. Invalid TOML names its syntax failure, and other schema failures name

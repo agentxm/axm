@@ -4,13 +4,6 @@ import * as Schema from "effect/Schema";
 import { JsonEnvelopeSchema } from "./json-envelope.js";
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./json-help-doc.js";
 
-/**
- * Identifier for the ordinary machine-output envelope contract.
- * Consumers detect it from the decoded document shape instead of
- * inferring it from the CLI release number.
- */
-export const MACHINE_OUTPUT_CONTRACT_ID = "result-envelope-v1";
-
 export const MachineOutputDocumentSchema = Schema.Union([
   JsonEnvelopeSchema,
   JsonHelpDocSchema,

@@ -1,5 +1,4 @@
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -26,7 +25,6 @@ import { TelemetryClientTest } from "../telemetry/index.js";
 import {
   makeFoundationLayer,
   withCliErrorHandling,
-  writeDefect,
   writeExpectedCliError,
 } from "./runtime-envelope.js";
 import { emitOperationResolution } from "../operation-output.js";
@@ -125,10 +123,28 @@ describe("makeFoundationLayer", () => {
 });
 
 // ---------------------------------------------------------------------------
-// writeDefect — JSON-mode channel contract for unhandled defects
+// withCliErrorHandling — channel contract for unhandled defects
 // ---------------------------------------------------------------------------
 
-describe("writeDefect", () => {
+/** Die inside the CLI envelope and return the exit the defect settled with. */
+const renderDefect = (
+  defect: unknown,
+  format: Parameters<typeof makeFoundationLayer>[0],
+  options?: Parameters<typeof makeFoundationLayer>[1],
+) =>
+  withCliErrorHandling(Effect.die(defect), { command: "test", format }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        globalFlagLayer,
+        testLayer(format, options),
+        Layer.succeed(jsonFlag, format === "json" ? Option.some(true) : Option.none()),
+        TelemetryClientTest,
+        NodeServices.layer,
+      ),
+    ),
+  );
+
+describe("withCliErrorHandling defects", () => {
   let stdoutWrites: Array<string>;
   let stderrWrites: Array<string>;
   let stdoutWriteSpy: MockInstance;
@@ -168,10 +184,9 @@ describe("writeDefect", () => {
     "text mode: renders the defect as an internal error on stderr only, leaving stdout untouched",
     () =>
       Effect.gen(function* () {
-        yield* writeDefect(Cause.die(new Error("boom")), "text").pipe(
-          Effect.provide(testLayer("text")),
-        );
+        const exit = yield* renderDefect(new Error("boom"), "text").pipe(Effect.exit);
 
+        expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Internal)));
         expect(stdoutWrites).toEqual([]);
         expect(stderrWrites).toHaveLength(1);
         expect(stderrWrites[0]).toMatch(/^ (?:✖ {3}|xx {2})/);
@@ -188,9 +203,7 @@ describe("writeDefect", () => {
     Effect.gen(function* () {
       const defect = new Error("boom");
       defect.stack = "Error: boom\n at explode";
-      yield* writeDefect(Cause.die(defect), "text").pipe(
-        Effect.provide(testLayer("text", { verbosityLevel: "debug" })),
-      );
+      yield* renderDefect(defect, "text", { verbosityLevel: "debug" });
 
       const stderr = stderrWrites.join("");
       expect(stderr).toContain("Cause: Error: boom");
@@ -200,9 +213,7 @@ describe("writeDefect", () => {
 
   it.effect("json mode: emits the stable error envelope on stdout and pure NDJSON on stderr", () =>
     Effect.gen(function* () {
-      yield* writeDefect(Cause.die(new Error("boom")), "json").pipe(
-        Effect.provide(testLayer("json")),
-      );
+      yield* renderDefect(new Error("boom"), "json");
 
       expect(stdoutWrites).toHaveLength(1);
       const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
@@ -231,7 +242,7 @@ describe("writeDefect", () => {
 
   it.effect("json mode: stringifies non-Error defects via String()", () =>
     Effect.gen(function* () {
-      yield* writeDefect(Cause.die("kaboom"), "json").pipe(Effect.provide(testLayer("json")));
+      yield* renderDefect("kaboom", "json");
 
       expect(stdoutWrites).toHaveLength(1);
       const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");

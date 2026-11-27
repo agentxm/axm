@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  displayWidth,
-  padDisplay,
-  renderedRows,
-  truncateDisplay,
-  truncateLine,
-  wrapDisplay,
-} from "./width.js";
+import { displayWidth, padDisplay, truncateDisplay, truncateLine } from "./width.js";
 
 describe("terminal display width", () => {
   it("counts wide characters as two columns and ignores ANSI", () => {
@@ -21,10 +14,9 @@ describe("terminal display width", () => {
     expect(truncateDisplay("e\u0301x", 1)).toBe("e\u0301");
   });
 
-  it("pads, truncates, and wraps by display columns", () => {
+  it("pads and truncates by display columns", () => {
     expect(padDisplay("界", 4)).toBe("界  ");
     expect(truncateDisplay("ab界cd", 5)).toBe("ab界…");
-    expect(wrapDisplay("alpha beta gamma", 10)).toEqual(["alpha beta", "gamma"]);
   });
 
   describe("shortening a name in the middle", () => {
@@ -57,16 +49,6 @@ describe("terminal display width", () => {
 
     it("never splits a wide character in half", () => {
       expect(displayWidth(truncateDisplay("界界界界界界", 7, "middle"))).toBeLessThanOrEqual(7);
-    });
-  });
-
-  describe("a line the terminal rewrapped", () => {
-    it("fills one row while it fits, and a further row for every wrap", () => {
-      expect(renderedRows(59, 60)).toBe(1);
-      expect(renderedRows(0, 60)).toBe(1);
-      expect(renderedRows(79, 60)).toBe(2);
-      expect(renderedRows(120, 60)).toBe(2);
-      expect(renderedRows(121, 60)).toBe(3);
     });
   });
 

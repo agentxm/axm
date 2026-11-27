@@ -3,7 +3,6 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import {
-  MACHINE_OUTPUT_CONTRACT_ID,
   MachineOutputDocumentSchema,
   detectMachineOutputDocumentKind,
 } from "./machine-output-document.js";
@@ -12,10 +11,6 @@ const kindOf = (input: unknown): string | undefined =>
   Option.getOrUndefined(detectMachineOutputDocumentKind(input));
 
 describe("machine-output document contract", () => {
-  it("publishes a stable contract identifier", () => {
-    expect(MACHINE_OUTPUT_CONTRACT_ID).toBe("result-envelope-v1");
-  });
-
   it.each([
     [
       { ok: true, mode: "query", outcome: "completed", result: { items: [] } },

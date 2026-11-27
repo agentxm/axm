@@ -74,19 +74,6 @@ import {
   outputFailureToAppError,
 } from "./output-failure.js";
 
-/**
- * Emit a defect (unhandled panic). The squashed cause classifies through the
- * one failure classifier and renders through the one error renderer, so a
- * defect reads exactly like any other error of its code on every channel: the
- * same title, the same `--debug` cause chain in text, the same stable
- * envelope in JSON. The classification is handed back so the process exits
- * with the code the rendered phrase states.
- */
-export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) => {
-  const defect = failureToAppError(Cause.squash(cause));
-  return writeExpectedCliError(defect, format).pipe(Effect.as(defect));
-};
-
 export type ExpectedCliError =
   | OutputWriteFailed
   | AppError

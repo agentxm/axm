@@ -64,14 +64,6 @@ export const displayWidth = (value: string): number => {
 };
 
 /**
- * Terminal rows a line of this display width fills at the given terminal
- * width. A line the terminal rewrapped fills more rows than the single row it
- * was painted as, which is what erasing it again has to cover.
- */
-export const renderedRows = (width: number, columns: number): number =>
-  columns <= 0 ? 1 : Math.max(1, Math.ceil(width / columns));
-
-/**
  * Shorten a painted line to `width` cells, keeping its terminal formatting and
  * marking the cut with an ellipsis. Styling and hyperlinks the line opened are
  * closed at the cut, because the sequences that would have closed them are
@@ -196,43 +188,4 @@ export const truncateDisplay = (
   if (segmented !== undefined) return segmented;
   const head = Math.ceil((width - ellipsisWidth) / 2);
   return `${takeDisplayStart(value, head)}${ellipsis}${takeDisplayEnd(value, width - ellipsisWidth - head)}`;
-};
-
-const splitLongWord = (word: string, width: number): ReadonlyArray<string> => {
-  const parts: Array<string> = [];
-  let current = "";
-  for (const grapheme of graphemes(word)) {
-    if (displayWidth(`${current}${grapheme}`) > width && current.length > 0) {
-      parts.push(current);
-      current = grapheme;
-    } else {
-      current += grapheme;
-    }
-  }
-  if (current.length > 0) parts.push(current);
-  return parts;
-};
-
-export const wrapDisplay = (value: string, width: number): ReadonlyArray<string> => {
-  const safeWidth = Math.max(1, width);
-  const result: Array<string> = [];
-  for (const sourceLine of value.split("\n")) {
-    if (sourceLine.length === 0) {
-      result.push("");
-      continue;
-    }
-    const words = sourceLine.split(/\s+/u).flatMap((word) => splitLongWord(word, safeWidth));
-    let current = "";
-    for (const word of words) {
-      const candidate = current.length === 0 ? word : `${current} ${word}`;
-      if (displayWidth(candidate) <= safeWidth) {
-        current = candidate;
-      } else {
-        if (current.length > 0) result.push(current);
-        current = word;
-      }
-    }
-    if (current.length > 0) result.push(current);
-  }
-  return result;
 };

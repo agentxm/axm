@@ -190,10 +190,7 @@ type ExtensionInstallability = {
   readonly [Family in ExtensionSourceFamily]: boolean;
 };
 
-/**
- * One extension type's naming and capability-axis row. Every CONDITIONAL
- * parity obligation is a predicate over the five axis columns.
- */
+/** One extension type's naming and capability-axis row. */
 interface ExtensionTypeRow {
   readonly plural: string;
   readonly manifestFile: string;

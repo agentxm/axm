@@ -545,7 +545,7 @@ artifacts; installed and published consumers retain the artifact boundary.
   collection, but not a second repository task graph.
 - The change classifier publishes the required job list; the aggregate
   `required` job only reads results. Native compiled-binary verification
-  joins relevant PR and main-push assurance; release artifact uploads
+  joins relevant PR and main verification. Release artifact uploads
   remain exclusive to canonical release commits.
 
 ## Gaps

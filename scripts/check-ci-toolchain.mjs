@@ -148,9 +148,11 @@ if (
 }
 if (
   !mainCacheWarming.includes("uses: actions/cache/save@") ||
-  !mainCacheWarming.includes("github.event_name == 'push' || github.event_name == 'schedule'")
+  !mainCacheWarming.includes(
+    "github.event_name == 'schedule' || (inputs.verify_sha && github.ref == 'refs/heads/main')",
+  )
 ) {
-  errors.push("main push and scheduled CI must produce the shared dependency cache");
+  errors.push("scheduled and exact default-branch CI must produce the shared dependency cache");
 }
 
 if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {

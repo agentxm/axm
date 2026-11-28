@@ -11,8 +11,6 @@ run-name: >-
 
 on:
   pull_request:
-  push:
-    branches: [main]
   schedule:
     - cron: "43 9 * * *"
   workflow_dispatch:
@@ -26,14 +24,9 @@ on:
         required: false
         type: string
 
-# A release candidate must keep its artifact-producing run even when later
-# ordinary main pushes supersede one another's pending assurance.
+# Keep each exact revision independent. Updating a PR cancels its older run.
 concurrency:
-  group: >-
-    ci-${{ github.workflow }}-${{ github.event_name }}-${{
-    github.event.pull_request.number || inputs.verify_sha ||
-    (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release: cli-v') && github.sha) ||
-    github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.verify_sha || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -491,8 +484,8 @@ jobs:
   warm-main-caches:
     name: Warm main dependency cache
     # Only the default branch's cache is readable by proposed-change runs.
-    # The schedule keeps the store warm if main has no push for seven days.
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    # GitHub shares default-branch dependency caches across verification refs.
+    if: github.event_name == 'schedule' || (inputs.verify_sha && github.ref == 'refs/heads/main')
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 15

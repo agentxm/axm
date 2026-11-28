@@ -40,32 +40,23 @@ for that revision, not permission to publish or deploy it.
    browser, or platform checks when the changed behavior needs that evidence;
    source checks cannot establish those properties. Format with `pnpm run format`,
    then commit all intended changes. Each retained commit must be coherent.
-3. With a clean checkout of the candidate, run `git push origin HEAD:main`.
-   The pre-push hook inspects the destination, establishes the advertised remote
-   base and candidate, and runs `pnpm run verify:integration`. It checks the
-   complete commit range and invokes `verify:integration:source`, whose current
-   check inventory lives in `package.json`, then runs the published
-   `test:e2e:affected` workflow for affected, host-compatible E2E checks. A
-   failure in either stage blocks the push; E2E runs only after source verification
-   succeeds. Platform-specific assurance remains in CI. After both stages, the
-   gate rechecks HEAD and checkout cleanliness. It refuses dirty state, an unchecked
-   source ref, history rewrites, and generated changes left by verification.
-   Dependency installation activates Husky; do not disable hooks for integration.
-4. If another writer advances main, the normal push fails. Fetch, rebase, and
-   retry verification. Never force-push main or reuse a result after rebasing.
-   For a missing base object, fetch first. For generated-file drift, inspect and
-   commit the correction before retrying. A failed check leaves main unchanged.
-5. Record the integrated SHA and observe its main-push CI. CI selects changes since its last successful main run so failed or
-   superseded pushes remain covered. Integration does not wait for hosted CI, but failed assurance requires prompt repair or a revert
-   through this same local procedure. Release/deployment qualification remains
-   blocked until the selected revision has the required successful evidence.
-   Delete the worktree/branch only after confirming its valuable work is preserved.
+3. Push the clean candidate with `git push origin HEAD:main`. The main-only
+   hook runs `verify:integration` for the advertised range. If main advances,
+   fetch, rebase and retry. Resolve failed checks before retrying.
+4. A land-only request ends when Git accepts the push. Report the full SHA and
+   its hosted status (awaiting checkpoint, running, green or failed). For an
+   explicit monitoring or release request, follow the named revision through
+   the requested confirmation.
 
-For an explicit reproduction, set `NX_BASE` to the fetched full main SHA and
-`NX_HEAD` to the clean checked-out candidate SHA, then invoke
-`pnpm run verify:integration`. The hook repeats the Git checks at push time and
-Nx reuses only input-bound cacheable results. Do not add a separate pass-stamp cache.
-A local hook is trusted-team feedback, not a server-side security boundary.
+## Hosted verification
+
+Every 90 minutes the CI operator checks the current main revision. A new revision
+gets affected verification from the last successful qualifying main ancestor.
+An unchanged head starts no runner. PR and full scheduled assurance keep their
+own triggers. For immediate verification, ask the maintainer to run
+`agentxm-ci agentxm/axm verify-now <full-main-sha>` on the CI host. The result
+contains the new or existing run URL. A prepared release gets its own immediate
+artifact-producing run through the [release procedure](release-cli.md).
 
 ## GitHub controls
 
@@ -97,7 +88,7 @@ again. Never leave a required check with no event that can produce it.
 
 ## Evidence and maintenance
 
-Retain candidate/base SHAs, verification results, the PR when used, main-push CI,
+Retain candidate/base SHAs, verification results, the PR when used, hosted CI,
 and GitHub setting readback. Hook fixtures exercise ordinary branch handoffs,
 main-ref dispatch, ordered source/E2E verification, stale/dirty candidates,
 post-E2E HEAD and output changes, and a real push whose failed E2E check leaves

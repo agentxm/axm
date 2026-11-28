@@ -1,6 +1,6 @@
 /**
  * The aggregate verification gate: continuous integration runs on every pull
- * request and main push, and one always-run `required` job aggregates every
+ * request and selected main revision, and one always-run `required` job aggregates every
  * gating job so a skipped or failed check can never disappear from the verdict.
  *
  * Supersedes the retired specification identity
@@ -97,17 +97,18 @@ describe("aggregate required verification", () => {
     expect(JSON.stringify(readWorkflow().on)).toContain("pull_request");
   });
 
-  it("continuous integration validates requested main pushes", () => {
+  it("ordinary main pushes wait for a checkpoint", () => {
     const trigger = JSON.stringify(readWorkflow().on);
-    expect(trigger).toContain("push");
+    expect(readWorkflow().on).not.toHaveProperty("push");
+    expect(trigger).toContain("verify_sha");
     expect(trigger).not.toContain("merge_group");
   });
 
-  it("keeps artifact-producing release pushes out of the coalesced main group", () => {
-    const concurrency = JSON.stringify(readWorkflow().concurrency);
-    expect(concurrency).toContain(
-      "startsWith(github.event.head_commit.message, 'release: cli-v') && github.sha",
-    );
+  it("keeps each exact release revision in its own concurrency group", () => {
+    expect(readWorkflow().concurrency).toMatchObject({
+      group: expect.stringContaining("inputs.verify_sha"),
+      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
+    });
   });
 
   it("runs daily full verification without producing release artifacts", () => {
@@ -274,7 +275,9 @@ describe("aggregate required verification", () => {
 
   it("isolates queue cancellation and uses the tested revision in cache keys", () => {
     const workflow = readWorkflow();
-    expect(JSON.stringify(workflow.concurrency)).toContain("github.ref");
+    expect(JSON.stringify(workflow.concurrency)).toContain(
+      "github.event.pull_request.number || inputs.verify_sha || github.run_id",
+    );
     const jobs = JSON.stringify(workflow.jobs);
     expect(jobs).toContain("needs.classify.outputs.head");
     expect(jobs).not.toContain("github.event.pull_request.head.sha");

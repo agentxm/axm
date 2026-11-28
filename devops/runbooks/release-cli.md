@@ -63,10 +63,9 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
 - Release candidates are prepared only by explicitly dispatching
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
-- Run `pnpm run verify:affected` explicitly when local release verification is
-  wanted. Ordinary `main` pushes run affected assurance; local integration and main-push assurance verify those revisions.
-  Canonical release commits are the exception: their exact push CI reruns the
-  full source/platform gates and produces publication artifacts.
+- The prepared commit receives immediate exact-SHA CI on landing. Its full
+  source and platform checks produce the artifacts used for publication. See
+  [Integrate changes](integrate-changes.md) for ordinary main verification.
 - Every project tagged `release:cli` is part of one fixed release group. Their
   versions must match, and publication follows package dependency order.
 - That tag is the only place cohort membership is declared. Release tooling
@@ -204,11 +203,11 @@ retains that evidence.
 
    Resolve the release identity from the resulting `main` commit. That release commit
    must complete the `ci.yml` workflow successfully before
-   publishing. That exact push run compiles and smoke-tests the native binaries,
+   publishing. That exact run compiles and smoke-tests the native binaries,
    stages the installer/schema content, packs the fixed npm cohort once,
    verifies reproducible bytes and package contents, and uploads all three
    artifact families with commit identity. CI
-   artifacts are retained for 90 days. Successful `push` CI on `main` continues
+   artifacts are retained for 90 days. A successful `Verify release <sha>` run continues
    automatically into `publish.yml`; the canonical release subject supplies
    the tag, and the completed run supplies the exact commit and CI run ID. No
    second routine operator command or public trigger is required.
@@ -329,7 +328,7 @@ script:
 3. Check CI for that commit.
 
    ```bash
-   gh run list --repo agentxm/axm --workflow ci.yml --commit <sha> --event push --limit 20 --json databaseId,status,conclusion,url
+   gh run list --repo agentxm/axm --workflow ci.yml --commit <sha> --limit 20 --json databaseId,status,conclusion,url
    ```
 
 4. Check whether the tag exists on `origin`.

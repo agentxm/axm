@@ -50,13 +50,17 @@ for that revision, not permission to publish or deploy it.
 
 ## Hosted verification
 
-Every 90 minutes the CI operator checks the current main revision. A new revision
-gets affected verification from the last successful qualifying main ancestor.
-An unchanged head starts no runner. PR and full scheduled assurance keep their
-own triggers. For immediate verification, ask the maintainer to run
-`agentxm-ci agentxm/axm verify-now <full-main-sha>` on the CI host. The result
-contains the new or existing run URL. A prepared release gets its own immediate
-artifact-producing run through the [release procedure](release-cli.md).
+Every 90 minutes, unverified changes on `main` are batched from the most
+recent ancestor with successful qualifying CI. Failed or cancelled runs leave
+those changes in the next batch. An unchanged head starts no runner. PR checks
+and full scheduled verification keep their own triggers.
+
+For immediate verification, give a maintainer the full commit SHA from
+`main`. Check the run and its revision in [GitHub Actions](https://github.com/agentxm/axm/actions/workflows/ci.yml).
+An existing qualifying run can satisfy the request. A landed repair gets
+immediate verification of its own commit. A prepared release receives
+immediate CI that produces its publication artifacts through the
+[release procedure](release-cli.md).
 
 ## GitHub controls
 
@@ -65,7 +69,7 @@ The server policy for `main` is:
 - Linear history, force-push and deletion prohibitions, administrator
   enforcement, and conversation resolution apply.
 - No merge queue, required PR review, or required status check gates main
-  integration. The disabled queue ruleset `23123200` is retained for recovery.
+  integration.
 - Automatic PR merging is disabled; rebase is the only PR merge method, and
   merged branches are deleted automatically. Maintainers integrate through the
   local gate; prepared release candidates retain their release-runbook procedure.

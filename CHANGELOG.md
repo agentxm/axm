@@ -2409,7 +2409,7 @@
 
 ### 🩹 Fixes
 
-- Publish current shared-kernel export surface for semver consumers and unblock agentxm-internal from packed-local mode. ([91fbf7c0](https://github.com/agentxm/axm/commit/91fbf7c0))
+- Published the shared-kernel exports for consumers of the versioned packages.
 
 ### ❤️ Thank You
 

@@ -60,7 +60,8 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually; release rollback requires a separately authorized distribution decision.
-- Release candidates are prepared only by explicitly dispatching
+- The proposed daily window would batch pending version plans into one stable
+  release. Today a maintainer starts preparation by dispatching
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
 - The prepared commit receives immediate exact-SHA CI on landing. Its full

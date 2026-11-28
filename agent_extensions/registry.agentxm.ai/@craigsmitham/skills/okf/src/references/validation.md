@@ -34,9 +34,15 @@ choose file-relative links for GitHub. Passing the validator proves neither
 rendering behavior nor substantive verification of the knowledge.
 
 The validator reads local files and uses PyYAML's safe loader. It does not fetch
-sources, run attested computations, or execute code in concept bodies. The
-regression suite uses temporary synthetic bundles:
+sources, run attested computations, or execute code in concept bodies. To
+check a change to the validator, run its regression suite from the directory
+containing `SKILL.md`, with Python 3 and PyYAML available. The tests create
+temporary synthetic bundles.
 
 ```bash
 python3 -B -m unittest discover -s scripts/tests -v
 ```
+
+Check that unittest discovered tests and ended with `OK`. For a failure,
+use the named test and its assertion to compare the observed finding with
+the severity and basis above.

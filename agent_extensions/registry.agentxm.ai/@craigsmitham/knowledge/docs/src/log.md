@@ -1,5 +1,106 @@
 # Documentation craft update log
 
+## 2026-11-22
+
+- Reviewed the 15 documentation patterns against the decisions their
+  readers face. The [collection](patterns/index.md) now shows when a team
+  can hand an investigation to a runbook and when verification feeds a
+  separate readiness decision. The [pattern description](patterns/pattern-description.md)
+  distinguishes repeated proposals from accounts of people trying the design.
+
+- The how-to authoring guide now asks writers to check what the opening
+  implies about the reader and their tools. The runbook guide cites AWS
+  at the rehearsal step that its operational guidance supports.
+
+- Reviewed the other authoring guides from a second intended setting.
+  The playbook guide now opens with the team’s decision. The tutorial
+  and verification-checklist guides distinguish what the author needs
+  to test from the Python interpreter and BagIt validator used in their
+  examples. The organization guide covers hosts with fixed page IDs.
+
+- Reviewed the 17 how-to guides against their readers’ tasks. Revised the
+  guides to comparing concepts, organizing documentation, describing and
+  collecting patterns, designing execution checklists, and writing playbooks
+  and runbooks. Rehearsals included returning to an interrupted kit, following
+  an old booking link after a move, and checking the timetable actually shown
+  after a publish attempt.
+
+- Reviewed all 23 explainers from their own entry points. The audit example
+  follows two working links to different payroll deadlines. The craft,
+  quality, and organization pages explain how the same information serves
+  different readers. The practice and standards pages use a soccer match,
+  timestamped dispatch records, and a library accessibility review to
+  connect participation, shared criteria, and evidence.
+- Corrected the reason for adding Bluebird’s architectural backlog view
+  in [What connects the patterns in a collection](explainers/pattern-collection.md).
+  Defined checksums and near transfer where the corresponding checklist
+  explainers first need those terms.
+
+## 2026-11-21
+
+- Reviewed all 56 concepts from their individual entry points. The
+  [how-to explainer](explainers/how-to.md) keeps the folded booklet as a
+  task with a physical outcome. The [how-to authoring guide](guides/writing-a-how-to-guide.md)
+  now follows a volunteer preserving uncertainty in a catalog date. The
+  [explainer-writing guide](guides/writing-an-explainer.md) follows a
+  reader’s question about a library’s reported wait time.
+- Revised checklist prompts around where people can observe the work,
+  record a result, or recover after an interruption. Kept the paper
+  flight-deck findings in their original setting and traced claims about
+  code inspection and learning to the comparisons the studies actually made.
+  Other worked examples include an oral-history publication decision and
+  two routes through a facilitation pattern collection.
+- Tried the revised skill on three fresh briefs. A quilt-archive article
+  distinguished maker from donor and handled an unidentified maker. A
+  Git how-to initially assumed a remote name when describing recovery.
+  After revising the authoring guide, the replay produced a ZIP of the
+  tagged catalog and preserved local edits. A costume pickup checklist
+  retained the hold and interruption rules and fit a quarter sheet at
+  12-point body size. These were draft reviews, a command trial, and a
+  layout check. Use by volunteers at work remains untested.
+
+- Clarified the pack’s usual workspace and digital reading context. The
+  [learning-checklist guide](guides/designing-a-learning-checklist.md) now
+  shows how learners can draft an answer before revealing feedback on a
+  knowledge-base page or a printed card.
+- Established separate understanding, authoring, and design-selection routes
+  for explanation and how-to. The existing pattern paths now lead writers
+  to the guides. The [explainer-writing guide](guides/writing-an-explainer.md)
+  carries the concept-mapping decision into the worked example.
+- Added standalone tutorial and reference explainers and guides. The
+  [tutorial guide](guides/writing-a-tutorial.md) rehearses a first lesson
+  and a variation. The [reference guide](guides/writing-reference-documentation.md)
+  checks an entry against a real lookup.
+- Added companions for principle documents, playbooks, and runbooks. The
+  [principle guide](guides/writing-a-principle-document.md) distinguishes
+  standing policy from a proposed direction. The [playbook](guides/writing-a-playbook.md)
+  and [runbook](guides/writing-a-runbook.md) guides develop a choice of
+  responses and the execution of a selected procedure respectively.
+
+- Added explainers and authoring guides for [describing patterns](guides/writing-a-pattern-description.md)
+  and [curating collections](guides/curating-a-pattern-collection.md). The
+  patterns retain the evidence for selecting these designs.
+- Established a [shared checklist design guide](guides/designing-a-checklist.md)
+  and companion pages for execution, verification, readiness, reporting and
+  review, and learning. The guides address interruption, discrepancy,
+  decision authority, coverage, and later independent use respectively.
+- Tried each of the 15 authoring routes on a brief and reviewed the resulting
+  documents. The same dispatch brief produced a usable handoff guide with
+  both the former pattern route and the authoring guide. A photo-loan brief
+  exposed an extra permission requirement in a principle document. After a
+  guide revision, the replay preserved the committee’s actual conditions.
+  A release-verification replay brought the candidate checklist’s owner,
+  trial cases, and review trigger into the maintainer note. These were
+  authoring trials and document reviews. Reader outcomes remain open.
+
+- Added [How to write a how-to guide](guides/writing-a-how-to-guide.md), following a concert volunteer’s request from the first draft through checking a folded program. The docs skill now routes how-to authoring to this guide.
+
+- Added [How to write an explainer](guides/writing-an-explainer.md), a drafting and revision guide that works through a reader’s question about booklet printing.
+
+- Added [How-to guides and the work they serve](explainers/how-to.md), a draft exploring Diátaxis’s account of practical directions through the example of printing a concert program.
+
+- Added a draft of [How explainers build understanding](explainers/explanation.md) at the former explainer’s path. It follows Diátaxis’s account of reflection through Harold McGee’s investigation of copper bowls.
+
 ## 2026-11-18
 
 - Clarified the scope of a naming proposal in [Organizing and naming documentation](guides/organizing-and-naming-documentation.md) and linked the historical authoring cases in [Explanation](patterns/explanation.md).

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "delivery",
+  "version": "0.3.0",
+  "description": "Deliver software changes through main and production, assess a repository’s path to production, or improve its speed, efficiency, and verification coverage.",
+  "license": "MIT",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "keywords": [
+    "software-delivery",
+    "continuous-delivery",
+    "verification",
+    "software-engineering"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/delivery"
+  },
+  "standalone": false,
+  "recommendedPacks": [
+    "@craigsmitham/packs/sdlc"
+  ]
+}

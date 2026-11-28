@@ -274,7 +274,11 @@ frontmatter. The identifiers, meanings, allowed endpoint types, and target
 cardinalities are unchanged. To migrate from v0.4.0:
 
 1. Move each table row to the field named by its relationship identifier. Use
-   one value for 0..1 fields and list items for 0..many fields.
+   one value for 0..1 fields and list items for 0..many fields. If two rows
+   name different targets for a single-target field such as `owned-by`,
+   check the current ownership directory or agreement before replacing
+   those rows. If the sources still conflict, carry both claims into the
+   migration proposal for resolution.
 2. Extract the Markdown link destination as the target string, preserving its
    document-relative resolution. Preserve all qualifications: split `Scope /
    notes` into `scope` and `notes` only when their meanings are clear; otherwise

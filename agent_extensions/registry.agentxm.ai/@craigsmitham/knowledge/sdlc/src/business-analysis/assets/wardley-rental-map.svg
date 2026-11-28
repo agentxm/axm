@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="650" viewBox="0 0 960 650" role="img" aria-labelledby="title desc">
+  <title id="title">Northbank Equipment: coordinating replacement equipment</title>
+  <desc id="desc">Illustrative Wardley map: visibility increases upward and evolution increases rightward through genesis, custom-built, product, and commodity. A contractor's need anchors fulfillment. Fulfillment depends on custom substitution and allocation, and product dispatch scheduling. Both depend on product fleet records, which depend on utility compute. A dashed experimental branch introduces automatic matching in genesis. Positions are qualitative assumptions.</desc>
+  <metadata>Original illustrative diagram using Simon Wardley's map grammar. Product engineering knowledge bundle. CC-BY-SA-4.0. https://creativecommons.org/licenses/by-sa/4.0/</metadata>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#334155" stroke-width="1.5"/></marker>
+  </defs>
+  <rect width="960" height="650" fill="#fff"/>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#172b4d">
+    <text x="36" y="35" font-size="22" font-weight="700">Northbank: replacement coordination</text>
+    <text x="36" y="61" font-size="14" fill="#475569">Illustrative landscape · Digital coordination only · Qualitative positions</text>
+    <text x="440" y="92" text-anchor="middle" font-size="16" font-weight="700">Contractor</text>
+    <text x="440" y="115" text-anchor="middle" font-size="15">Need: keep work going after a breakdown</text>
+    <text x="720" y="109" font-size="13" fill="#475569">User and need anchor the map</text>
+    <rect x="100" y="145" width="205" height="385" fill="#f0f5ff"/>
+    <rect x="305" y="145" width="205" height="385" fill="#f7f9fc"/>
+    <rect x="510" y="145" width="205" height="385" fill="#eef8f7"/>
+    <rect x="715" y="145" width="205" height="385" fill="#f7faf8"/>
+    <path d="M305 145V530 M510 145V530 M715 145V530" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+    <g stroke="#334155" stroke-width="2" fill="none">
+      <path d="M100 530V142" marker-end="url(#arrow)"/>
+      <path d="M100 530H925" marker-end="url(#arrow)"/>
+    </g>
+    <text transform="translate(32 340) rotate(-90)" text-anchor="middle" font-size="15" font-weight="700">Visibility to the user</text>
+    <text x="89" y="158" text-anchor="end" font-size="12">High</text>
+    <text x="89" y="520" text-anchor="end" font-size="12">Low</text>
+    <g stroke="#64748b" stroke-width="2" fill="none">
+      <path d="M440 123V180 M440 180L420 335 M440 180L660 260 M420 335L635 410 M660 260L635 410 M635 410L840 485"/>
+      <path d="M440 180L200 260L420 335" stroke-dasharray="7 5"/>
+    </g>
+    <g fill="#fff" stroke="#1d4d72" stroke-width="2.5">
+      <circle cx="440" cy="180" r="7"/>
+      <circle cx="420" cy="335" r="7"/>
+      <circle cx="635" cy="410" r="7"/>
+      <circle cx="660" cy="260" r="7"/>
+      <circle cx="840" cy="485" r="7"/>
+      <circle cx="200" cy="260" r="7" stroke-dasharray="3 2"/>
+    </g>
+    <g font-size="15" font-weight="700">
+      <text x="453" y="173">Replacement fulfillment</text>
+      <text x="200" y="233" text-anchor="middle">A. Automatic matcher</text>
+      <text x="200" y="251" text-anchor="middle" font-size="12" font-weight="400">Experiment</text>
+      <text x="406" y="359" text-anchor="end">B. Substitution</text>
+      <text x="406" y="378" text-anchor="end">and allocation</text>
+      <text x="650" y="402">C. Fleet records</text>
+      <text x="674" y="254">D. Dispatch</text>
+      <text x="674" y="273">scheduling</text>
+      <text x="824" y="500" text-anchor="end">E. Compute</text>
+    </g>
+    <g text-anchor="middle" font-size="15" font-weight="700">
+      <text x="202" y="554">Genesis</text>
+      <text x="407" y="554">Custom-built</text>
+      <text x="612" y="554">Product</text>
+      <text x="817" y="554">Commodity</text>
+    </g>
+    <g text-anchor="middle" font-size="12" fill="#475569">
+      <text x="612" y="574">including rental</text>
+      <text x="817" y="574">including utility</text>
+    </g>
+    <text x="512" y="601" text-anchor="middle" font-size="15" font-weight="700">Evolution →</text>
+    <path d="M125 628H163" stroke="#64748b" stroke-width="2"/>
+    <text x="172" y="633" font-size="13">Dependency: upper component needs lower component</text>
+    <path d="M570 628H608" stroke="#64748b" stroke-width="2" stroke-dasharray="7 5"/>
+    <text x="617" y="633" font-size="13">Experimental branch</text>
+  </g>
+</svg>

@@ -96,8 +96,9 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 | Bundle | Description |
 | --- | --- |
-| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md) | Documentation craft and patterns for authoring, reviewing, organizing, and maintaining documents, reusable checklists, and pattern collections across domains |
+| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md) | Explainers, authoring guides, and patterns for documentation across domains, including knowledge bases, product guides, and reusable checklists |
 | [effect](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect/src/index.md) | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript |
+| [sdlc](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/sdlc/src/index.md) | The software development lifecycle and the path from implementing a change to confirming its effect in production. |
 <!-- /axm:knowledge -->
 <!-- axm:rules -->
 ## Use Effect

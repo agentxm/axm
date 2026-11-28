@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="650" viewBox="0 0 960 650" role="img" aria-labelledby="title desc">
+  <title id="title">Northbank: changing and releasing dependable behavior</title>
+  <desc id="desc">Illustrative Wardley map anchored on the delivery team. Dependable change depends on custom domain evidence and product delivery capabilities. Domain evidence needs build and dependency tooling. Delivery needs that tooling and utility artifact storage. Tooling and artifact storage depend on utility compute. An uncertain generated-scenario experiment could support domain evidence. Positions are fictional assumptions, not maturity measurements or an execution sequence.</desc>
+  <metadata>Original illustrative diagram using Simon Wardley's map grammar. Product engineering knowledge bundle. CC-BY-SA-4.0.</metadata>
+  <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#334155" stroke-width="1.5"/></marker></defs>
+  <rect width="960" height="650" fill="#fff"/>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#172b4d">
+    <text x="36" y="35" font-size="22" font-weight="700">Northbank: dependable engineering change</text>
+    <text x="36" y="61" font-size="14" fill="#475569">Engineering capability view · Fictional landscape · Qualitative positions</text>
+    <text x="440" y="92" text-anchor="middle" font-size="16" font-weight="700">Delivery team</text>
+    <text x="440" y="115" text-anchor="middle" font-size="15">Need: change and release dependable behavior</text>
+    <rect x="100" y="145" width="205" height="385" fill="#f0f5ff"/>
+    <rect x="305" y="145" width="205" height="385" fill="#f7f9fc"/>
+    <rect x="510" y="145" width="205" height="385" fill="#eef8f7"/>
+    <rect x="715" y="145" width="205" height="385" fill="#f7faf8"/>
+    <path d="M305 145V530 M510 145V530 M715 145V530" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+    <g stroke="#334155" stroke-width="2" fill="none"><path d="M100 530V142" marker-end="url(#arrow)"/><path d="M100 530H925" marker-end="url(#arrow)"/></g>
+    <text transform="translate(32 340) rotate(-90)" text-anchor="middle" font-size="15" font-weight="700">Visibility to the user</text>
+    <text x="89" y="158" text-anchor="end" font-size="12">High</text>
+    <text x="89" y="520" text-anchor="end" font-size="12">Low</text>
+    <g stroke="#64748b" stroke-width="2" fill="none">
+      <path d="M440 123V177 M440 177L410 275 M440 177L635 245 M410 275L600 385 M635 245L600 385 M635 245L820 370 M600 385L830 485 M820 370L830 485"/>
+      <path d="M410 275L205 340" stroke-dasharray="7 5"/>
+    </g>
+    <g fill="#fff" stroke="#1d4d72" stroke-width="2.5">
+      <circle cx="440" cy="177" r="7"/><circle cx="410" cy="275" r="7"/>
+      <circle cx="635" cy="245" r="7"/><circle cx="600" cy="385" r="7"/>
+      <circle cx="820" cy="370" r="7"/><circle cx="830" cy="485" r="7"/>
+      <circle cx="205" cy="340" r="7" stroke-dasharray="3 2"/>
+    </g>
+    <g font-size="15" font-weight="700">
+      <text x="454" y="172">Dependable change</text>
+      <text x="398" y="253" text-anchor="end">Domain evidence</text>
+      <text x="649" y="234">Delivery capabilities</text>
+      <text x="585" y="406" text-anchor="end">Build and dependency tooling</text>
+      <text x="807" y="350" text-anchor="end">Artifact storage</text>
+      <text x="816" y="505" text-anchor="end">Compute</text>
+      <text x="205" y="366" text-anchor="middle">Generated scenarios</text>
+      <text x="205" y="385" text-anchor="middle" font-size="12" font-weight="400">Experiment; usefulness unknown</text>
+    </g>
+    <g text-anchor="middle" font-size="15" font-weight="700">
+      <text x="202" y="554">Genesis</text><text x="407" y="554">Custom-built</text>
+      <text x="612" y="554">Product</text><text x="817" y="554">Commodity</text>
+    </g>
+    <g text-anchor="middle" font-size="12" fill="#475569"><text x="612" y="574">including rental</text><text x="817" y="574">including utility</text></g>
+    <text x="512" y="601" text-anchor="middle" font-size="15" font-weight="700">Evolution →</text>
+    <path d="M125 628H163" stroke="#64748b" stroke-width="2"/>
+    <text x="172" y="633" font-size="13">Dependency, not execution order</text>
+    <path d="M560 628H598" stroke="#64748b" stroke-width="2" stroke-dasharray="7 5"/>
+    <text x="607" y="633" font-size="13">Experimental dependency</text>
+  </g>
+</svg>

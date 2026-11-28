@@ -8,106 +8,68 @@ sources:
 - id: checklist-design-origin
   resource: https://github.com/craigsmitham/agent-extensions/blob/156c3d4346bee6874ab3d356c19446cf6425713b/skills/checklist-design/src/references/learning-checklists.md
   title: Craig Smitham — Learning checklists, version 0.1.10
-- id: regulated-learning
-  resource: https://pubmed.ncbi.nlm.nih.gov/37034913/
-  title: Shao et al. — Effects of regulated learning scaffolding on regulation strategies and academic performance
-- id: test-enhanced-learning
-  resource: https://pubmed.ncbi.nlm.nih.gov/29390949/
-  title: Green et al. — Test-enhanced learning in health professions education
+- id: fading
+  resource: https://doi.org/10.1080/00220970209599510
+  title: 'Renkl et al. — From Example Study to Problem Solving: Smooth Transitions Help Learning'
 - id: expertise-reversal
   resource: https://www.tandfonline.com/doi/abs/10.1207/S15326985EP3801_4
   title: Kalyuga et al. — The expertise reversal effect
 generated:
   by: codex/gpt-6
-  at: '2026-11-11T17:40:43Z'
+  at: '2026-11-22T02:13:03Z'
 ---
 
 # Learning checklist
 
-When learners need support during practice, **prompt useful retrieval,
-reasoning, and reflection with feedback, then fade instructional support and
-assess later independent performance**.
+Choose a learning checklist when learners can already attempt a bounded task
+and prompts at particular moments would help them practice a judgment they
+will later need to make independently. A novice reviewer, for example, might
+predict where a draft misleads its reader, inspect the passage, and compare
+their prediction with an experienced reader’s feedback. A coach could ask
+the question aloud, or a practice sheet could ask for a prediction before
+revealing a reader’s account of the passage. Either way, the learner gets
+to see which predictions held up.[^checklist-design-origin]
 
-## Problem and design response
+## When the aid earns its place
 
-A learner can follow visible instructions without being able to recall,
-explain, or adapt the work later. A learning checklist uses prompts to support
-practice while making the intended independent capability explicit. Completion
-with the aid measures supported performance; it does not by itself establish
-retention, competence, or transfer.
+A few prompts can make practice more deliberate at relatively little cost.
+If someone still needs a demonstration and a carefully arranged first
+experience, the prompts can sit within a [tutorial](tutorial.md). If the job
+calls for a reliable reminder every time, an
+[execution checklist](execution-checklist.md) can continue to serve an
+experienced practitioner. For example, a reviewer might practice predicting
+where a reader will get lost until they can spot that passage unaided.
+If the same team requires every reviewer to attach the reviewed revision
+when sending comments, that reminder still serves a purpose after the
+reviewer masters the skill. Removing a standing check changes how the
+work is controlled and requires its own justification.
 
-This pattern develops the former learning-checklist guidance.[^checklist-design-origin]
-Research on regulated-learning scaffolds and test-enhanced learning motivates
-attention to regulation, retrieval, and measured learning outcomes. Those
-interventions cover more than checklists, so their results do not validate this
-particular design.[^regulated-learning][^test-enhanced-learning]
+The learning form costs effort to design feedback, adjust prompts, and
+observe later performance. Learners may copy an answer or come to rely on
+a cue. A prompt that helps a novice can interrupt an expert’s practice.
+Kalyuga and colleagues examine how prior knowledge can change the effects
+of instructional techniques. Local performance is needed to decide what
+support earns its place here.[^expertise-reversal]
 
-## How to write it
+## What the evidence supports
 
-- Name what the learner should later recall, explain, decide, or perform,
-  their current expertise, and the setting in which that capability matters.
-- Place prompts at meaningful practice moments. Where appropriate, ask for
-  retrieval, prediction, or explanation before revealing a response.
-- Connect consequential actions to their cues, rationale, and consequences.
-  Supply or link feedback that distinguishes understanding from a lucky answer.
-- Prompt reflection on errors, exceptions, and reasoning when judgment is the
-  target. Vary practice conditions when transfer matters.
-- Define how instructional detail, prompt frequency, or support will fade.
-  Preserve operational verification that remains necessary for competent users.
-- Separate participation records, formative feedback, and summative assessment.
-  If scoring is used, state what the evidence can and cannot establish.
+Renkl and colleagues studied examples that left progressively more steps
+for students to solve. Students benefited on new problems similar to those
+they had practiced.[^fading] To see whether a checklist helps a novice
+reviewer in the same way, give them a different draft that calls for the
+same judgment and see what they notice without the prompts.
 
-Use [Tutorial](tutorial.md) for the larger learning experience and
-[Checklist](checklist.md) for shared item design and use conditions. When the
-task needs substantial explanation, modeling, practice, or coaching, the
-checklist is a supporting artifact within that experience.
+Completing a prompted task shows performance with the aid. Delayed work on a
+familiar case can reveal retention. A changed case can show whether the learner
+can adapt what they learned. If the claim concerns self-regulation, look for
+planning, monitoring, and correction when the checklist no longer supplies
+those cues. A record of attendance answers a different question.
 
-## Applicability and tradeoffs
+For the relationship between prompting and independence, see
+[How a learning checklist changes practice](../explainers/learning-checklist.md).
+For a worked design with feedback and a transfer exercise, follow
+[How to design a learning checklist](../guides/designing-a-learning-checklist.md).
 
-Use a learning checklist when bounded prompts can help learners regulate
-practice. Use an [execution checklist](execution-checklist.md) for persistent
-operational assistance whose success does not depend on later unaided recall.
-Do not remove necessary controls merely to demonstrate independence.
-
-Prompts can direct attention while also creating dependence or encouraging
-answer copying. Reflection adds useful effort only when learners can connect it
-to feedback. Support appropriate for novices can burden experienced users; the
-expertise-reversal literature motivates adapting support as expertise changes,
-without supplying a universal fading schedule.[^expertise-reversal]
-
-## Illustrative realizations
-
-A novice reviewer might predict likely defects before examining a change,
-compare findings with feedback, and explain one missed issue. An onboarding
-learner might predict the result of a configuration choice, try it in a practice
-environment, and explain a surprising result. Later sessions can reduce prompts
-and introduce a different case.
-
-The invariant is supported reasoning with feedback toward independent use;
-the prompts and fading conditions vary. These examples are illustrative. A
-mandatory acknowledgement list with no practice or feedback does not establish
-the same learning mechanism.
-
-## Review and evidence
-
-Choose evidence at the claimed level:
-
-| Claim | Observation |
-| --- | --- |
-| Aided completion | Task performance with the prompts present |
-| Retention or understanding | Delayed recall, explanation, or application |
-| Independent performance | Delayed unassisted task execution |
-| Transfer | Performance on materially different cases |
-| Self-regulation | Planning, monitoring, correction, and reflection without equivalent prompts |
-
-Compare persistent, faded, and absent instructional support when dependence
-is a plausible concern. Observe errors, time, calibration, help-seeking, and
-exceptions. A collapse without the aid, inability to explain or adapt the work,
-or better transfer from another practice method challenges the learning claim.
-Delayed evaluation and fading decisions belong in the design, not merely in a
-completion report. This draft has not been independently evaluated.
-
-[^checklist-design-origin]: Craig Smitham — Learning checklists, version 0.1.10.
-[^regulated-learning]: Shao et al. — Effects of regulated learning scaffolding on regulation strategies and academic performance.
-[^test-enhanced-learning]: Green et al. — Test-enhanced learning in health professions education.
-[^expertise-reversal]: Kalyuga et al. — The expertise reversal effect.
+[^checklist-design-origin]: Craig Smitham, Learning checklists, version 0.1.10.
+[^fading]: Renkl and colleagues, [From Example Study to Problem Solving](https://doi.org/10.1080/00220970209599510).
+[^expertise-reversal]: Kalyuga and colleagues, [The expertise reversal effect](https://www.tandfonline.com/doi/abs/10.1207/S15326985EP3801_4).

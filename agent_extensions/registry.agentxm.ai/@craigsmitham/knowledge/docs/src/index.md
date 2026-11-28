@@ -4,20 +4,18 @@ okf_version: "0.2"
 
 # Documentation craft knowledge
 
-Portable guidance for writing, reviewing, organizing, and maintaining useful
-documentation, including reusable checklists, pattern descriptions, and
-collections across domains.
-Start with the reader's job, then choose the relevant documentation pattern or
-design. Host projects keep their own layouts, metadata, and tooling.
+Use these pages to design documentation around the reader’s task, whether
+you maintain a product guide in a repository or a museum’s collections
+knowledge base. Choose a starting point by the question you bring.
 
-## Choose what to write
+## Understand a form or a practice
 
-* [Documentation pattern collection](patterns/index.md) - Recurring reader problems, document designs, applicability, tradeoffs, evidence, and authoring guidance, including how to describe patterns and curate pattern collections.
+- [Documentation foundations and forms](explainers/index.md) — Explore how document forms work, why readers use them, and what shapes documentation quality.
 
-## Understand the craft
+## Write, revise, or organize documentation
 
-* [Documentation foundations](explainers/index.md) - Reader needs, quality, organization, audits, and the concepts that guide documentation decisions.
+- [Documentation authoring, organization, and assessment](guides/index.md) — Find a guide to producing a document, organizing related material, or assessing a collection.
 
-## Organize and assess
+## Choose or assess a design
 
-* [Documentation organization and assessment](guides/index.md) - Focused organization and comparison guidance, with a predictable audit report contract.
+- [Documentation pattern collection](patterns/index.md) — Compare recurring reader problems, design responses, tradeoffs, and evidence from use.

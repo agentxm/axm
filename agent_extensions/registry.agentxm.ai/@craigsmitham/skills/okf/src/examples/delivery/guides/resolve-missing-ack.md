@@ -12,11 +12,21 @@ In this fictional delivery system, an acknowledgement timeout after recorded
 delivery leaves application uncertain: the response may be lost even though
 the consumer applied the event. This procedure resolves that uncertainty.
 
-1. Match the event identity against the consumer's application record.
-2. If it was already applied, reconcile the acknowledgement without resending.
-3. If the consumer confirms it was not applied, arrange recovery using the same
-   event identity. If application remains unknown, keep that uncertainty visible
-   and investigate; do not assume that a timeout authorizes another attempt.
+Find the event identity in the delivery record and check the consumer's
+application record for that identity. If you lack access, ask the consumer
+to check it.
+
+- If the consumer confirms one application, reconcile the acknowledgement
+  with that record. Check that both records now refer to the same applied
+  event. No resend is needed.
+- If the consumer confirms it never applied the event, arrange recovery
+  with the consumer using the same identity. After recovery, check the
+  application record again before reconciling the acknowledgement.
+- If the consumer cannot establish what happened, leave the acknowledgement
+  unresolved. Record the event identity and the evidence still needed so
+  the next person can resume the check without resending.
+- If the record shows multiple applications, report the duplicate with its
+  event identity to the consumer for correction.
 
 The intended outcome is a reconciled record of whether the event was applied,
 without a duplicate application. If the delivery record instead establishes

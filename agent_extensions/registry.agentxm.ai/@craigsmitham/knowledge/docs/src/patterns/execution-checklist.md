@@ -13,14 +13,14 @@ sources:
   title: Degani and Wiener — Human Factors of Flight-Deck Checklists
 generated:
   by: codex/gpt-6
-  at: '2026-11-11T17:40:43Z'
+  at: '2026-11-22T02:13:03Z'
 ---
 
 # Execution checklist
 
-When competent users can miss known actions during a bounded task, **prompt
-each action at its point of use and preserve dependencies, completion state,
-and interruption recovery**.
+Choose an execution checklist when someone knows how to do a task but can
+lose their place. It should let the person continuing the work see which
+action is due for this particular item, even after a handoff.
 
 ## Problem and design response
 
@@ -29,28 +29,14 @@ leave work undone. A concise prompt immediately before an action provides a
 place to begin, maintain position, and recognize what remains. This commonly
 uses read-do interaction. A team may add a caller and explicit responses.
 
-NASA's flight-deck study describes a do-list that directs configuration step
-by step and distinguishes it from checking an already configured system.
-That distinction informs this pattern; it does not establish that cockpit
-procedures transfer unchanged to another practice.[^nasa-checklists]
+Degani and Wiener describe crews using a do-list while configuring an
+aircraft and a different method for checking a configuration afterward.
+The distinction concerns what the crew does when an item is called.[^nasa-checklists]
 
-## How to write it
-
-- Name the applicable task, entry condition, required competence, and finish.
-- Put an actionable prompt where the action belongs in the workflow. Preserve
-  actual dependencies; make independent items recognizable when order can vary.
-- Define what counts as completing an item and who acts when roles differ.
-- Group around natural pauses and handoffs. Show the current or incomplete
-  item and how to re-establish state after interruption.
-- Give a bounded response for an impossible or failed action. Link to the
-  procedure that owns detailed recovery and exceptional branches.
-- Keep explanations and exact procedural detail available where needed
-  without reproducing a complete manual inside every prompt.
-
-Use the shared [Checklist](checklist.md) guidance for evidence, accessibility,
-validation, and maintenance. Prompting an action is not independent verification
-that it happened correctly. Add a separately identified
-[verification check](verification-checklist.md) when that is needed.
+[How an execution checklist helps work resume](../explainers/execution-checklist.md)
+explores placekeeping under interruption. To develop an aid for a particular
+sequence and rehearse the handoff, follow
+[How to design an execution checklist](../guides/designing-an-execution-checklist.md).
 
 ## Applicability and tradeoffs
 
@@ -68,15 +54,18 @@ stop or handoff when the task no longer matches.
 
 ## Illustrative realizations
 
-For a document release, prompts might direct the publisher to generate the
-final artifact, open the rendered result, and upload the reviewed file. For a
-workshop, prompts might direct the facilitator to distribute materials and
-record unresolved questions at designated pauses. The invariant is prompting
-known actions at useful moments; the order and completion evidence are local.
+Suppose a publisher prepares two editions of a handbook. A shared list
+marked “rendered” leaves a colleague returning from a call to guess which
+edition still needs a proof. A release record for each edition can carry
+the last completed step. A card kept with each job can do the same where
+the work moves between desks. The costly omission is sending the edition
+on before somebody has reviewed its proof.
 
-A sprawling troubleshooting list that requires choosing among unknown causes
-does not fit this design. These examples illustrate fit and variation; they
-are not evidence of improved outcomes.
+Once the proof exists, the question may change. “Has the publisher opened
+the proof?” can cue the next action. “Does this proof contain the approved
+figures?” needs a comparison against the approved source. That is a use for
+a [verification checklist](verification-checklist.md). These publishing
+cases illustrate how the designs can work together.
 
 ## Review and evidence
 

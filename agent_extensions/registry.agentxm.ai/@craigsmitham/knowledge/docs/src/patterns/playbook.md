@@ -15,7 +15,7 @@ tags:
 status: stable
 sources:
 - id: aws-playbooks
-  resource: https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_playbooks.html
+  resource: https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/ops_ready_to_support_use_playbooks.html
   title: AWS — Use playbooks to investigate issues
 - id: atlassian-team-playbook
   resource: https://www.atlassian.com/team-playbook
@@ -26,174 +26,76 @@ sources:
 - id: redhat-ansible-playbook
   resource: https://www.redhat.com/en/topics/automation/what-is-an-ansible-playbook
   title: Red Hat — What is an Ansible playbook
+- id: kube-prometheus
+  resource: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready/
+  title: kube-prometheus runbooks — KubePodNotReady
 generated:
   by: codex/gpt-6
-  at: '2026-11-11T17:40:43Z'
+  at: '2026-11-22T02:15:25Z'
 ---
 
 # Playbook
 
-For a recurring class of situations requiring assessment and judgment,
-**guide practitioners in choosing, combining, and adapting responses with
-explicit coordination and escalation**.
-
-This pattern describes the reusable document design. A local playbook realizes
-it for a particular situation family, with its own evidence and ownership.
-
-## Purpose
-
-A team repeatedly encounters a recognizable family of situations. Established
-approaches exist, but the appropriate action depends on evidence, constraints,
-and priorities that become clearer during the work. Several roles may need to
-coordinate. The practitioner needs help deciding how to proceed and when to
-reconsider that decision.
-
-## What it helps readers do
-
-How can practitioners apply shared experience consistently while adapting to
-the situation in front of them?
-
-A collection of procedures can leave assessment and coordination unstated.
-An exhaustive procedure can bury decision criteria beneath details and imply
-that every situation has a predetermined answer. Readers need an approach that
-makes relevant evidence, response choices, and limits explicit.
-
-## Design tradeoffs
-
-- **Consistency versus judgment** — shared approaches must leave room for
-  evidence that changes the response.
-- **Speed versus diagnosis** — timely action may be necessary before the cause
-  is fully understood.
-- **Modularity versus context** — reusable responses need enough context to be
-  selected and combined appropriately.
-- **Coordination versus local action** — several roles may act together, with
-  clear authority and handoffs.
-- **Coverage versus usability** — detailed guidance must remain usable without
-  claiming to anticipate every case.
-
-## How to write it
-
-Create a **playbook** that:
-
-1. names the situation family, observable entry cues, and intended outcomes;
-2. states prerequisites for assessment, including access, tools, and relevant
-   knowledge;
-3. guides evidence gathering and interpretation through diagnostic questions,
-   observations, or decision criteria;
-4. describes response options, their applicability and limits, and how to
-   choose, combine, sequence, or adapt them;
-5. assigns roles, decision authority, communication, and handoffs where
-   coordination matters;
-6. names checkpoints for reassessment, completion, and escalation when evidence
-   is inconclusive or the situation exceeds the guidance; and
-7. links to bounded execution procedures, reference, and explanation where
-   readers need more detail.
-
-A collection of selectable **plays** is one useful structure. A play is a
-coherent approach or activity with its own purpose, applicability, and expected
-result; it may include investigation or facilitated judgment. A diagnostic
-flow or coordinated response workflow can also serve this purpose. Choose a
-structure that exposes the decisions readers actually face.
-
-Keep reusable activities independently understandable and testable. Allow
-branching wherever it helps assessment or execution, and let new evidence
-return the reader to an earlier decision. Link to [runbooks](runbook.md) for
-precise operational tasks instead of duplicating their steps.
-
-Assign an owner and rehearse representative scenarios with someone other than
-the author, including a case where the initial response proves insufficient.
-Update the guidance after use and when dependencies change. Automate reliable
-assessment or response steps where useful; document the remaining decisions,
-automation boundaries, and escalation behavior. Automation can cover part or
-all of a supported scenario.[^aws-playbooks]
-
-## Benefits and maintenance costs
-
-- Assessment and coordination become reviewable shared knowledge.
-- Practitioners can reuse responses while adjusting to new evidence.
-- Rehearsals can reveal missing decision criteria and unclear authority.
-- Linked procedures, decision criteria, and role assignments can drift apart
-  and need coordinated maintenance.
-- A playbook can encourage false confidence if its coverage limits are unclear;
-  unfamiliar conditions still require judgment and escalation.
-
-## When to use
-
-Use a playbook when:
-
-- a recognizable situation family recurs;
-- assessment, response choice, adaptation, or coordination requires judgment;
-- established approaches can guide that judgment; and
-- the team can maintain and rehearse the guidance.
-
-## When not to use
-
-- The task is already selected and needs a repeatable operational procedure —
-  use [Runbook](runbook.md).
-- There is no established approach even for assessment or escalation — develop
-  that knowledge before claiming a reusable playbook.
-- The material is unrelated advice with no coherent situation or reader job.
-- The reader needs to learn foundational skills — provide a tutorial separately.
-
-## Terminology
-
-This bundle uses *playbook* for guidance on how to approach a situation. A
-runbook specifies how to complete a bounded operational task. A playbook may
-invoke several runbooks as the situation develops, and a runbook may support
-several playbooks or stand alone. A playbook need not contain any runbooks.
-
-The terms vary by community. A business or engineering playbook may be a broad
-collection of practices and activities; a response playbook may guide incident
-investigation. These uses do not imply one mandatory document shape. The
-reader's job is the convention adopted here, not a universal terminology rule.
-
-An **Ansible playbook** is executable YAML describing automation tasks. Qualify
-that product-specific meaning when it could be confused with this documentation
-pattern.[^redhat-ansible-playbook]
+Choose a playbook when a team recognizes a recurring situation but needs to
+investigate, choose among responses, or coordinate people whose observations
+change what others should do. The team needs enough experience to offer
+defensible choices, including a way to get help when the evidence fits
+none of them.[^aws-playbooks]
 
 ## Illustrative example
 
-**Respond to elevated checkout errors** is a playbook. It guides the team in
-assessing customer impact, checking recent changes and dependencies, assigning
-investigation and communication roles, and choosing a mitigation. New evidence
-may change that choice or require another response.
+Consider a team responding to elevated checkout errors. Someone must establish
+which customers are affected, correlate failures with changes in checkout
+and its dependencies, and keep support informed. A release followed by
+errors gives the team a hypothesis. Errors concentrated in the changed
+version would support considering rollback. Errors across versions during
+a provider outage suggest involving the dependency owner instead.
 
-When rollback is appropriate, it invokes **Roll back checkout deployment**, the
-[companion runbook example](runbook.md#illustrative-example). After execution,
-the team reassesses customer impact; continued errors return it to
-investigation or escalation. This is a synthetic example of the relationship,
-not a production procedure or evidence of successful use.
+Once the team selects an approved rollback, the
+[runbook](runbook.md#illustrative-example) can guide the deployment task.
+A report that the old version is serving closes that task. The playbook
+brings the team back to checkout success and customer reports. If failures
+persist, investigation continues. This invented case illustrates how a single
+incident can require both forms.
 
-## Sources and examples
+## Tradeoffs
 
-- **AWS operational playbooks** guide incident investigation, impact assessment,
-  communication, and escalation, with links to runbooks for known mitigations.
-  This supports diagnostic workflows and repeated assessment, rather than
-  requiring a catalog that selects one play.[^aws-playbooks]
-- **Atlassian Team Playbook** offers selectable exercises for activities such
-  as decision-making, planning, and retrospectives. This supports modular plays
-  that guide participation and judgment beyond incident response.[^atlassian-team-playbook]
-- **Microsoft ISE Engineering Fundamentals Playbook** combines engineering
-  practices, checklists, and recipes. It demonstrates broader engineering
-  usage; it does not establish a requirement that each play resolve to a
-  runbook.[^ise-playbook]
+A shared response helps several people act on the same evidence, even when
+they need to work in parallel. Exhaustive branching can slow them down or
+lend an outdated diagnosis the appearance of authority. The design is most
+useful where a responder can recognize a consequential difference, collect
+the information it calls for, and get help with an unfamiliar case. Keeping
+contact roles, signals, and linked procedures current costs real rehearsal
+and maintenance time.
 
-These uses support several structures. The assessment-and-response formulation
-above is this bundle's synthesis; their existence does not establish the
-comparative effectiveness of a particular outline.
+For a bounded task with established execution and recovery, a runbook can
+stand alone. A [checklist](checklist.md) can support one pause within a
+response when the main risk is missing a known action or communication.
+The need to make situational choices explains when a playbook adds value to either.
 
-## Related
+## Terminology
 
-- [Runbook](runbook.md) — supplies verified execution for bounded operational
-  tasks that a playbook may invoke.
-- [How-to guide](how-to.md) — supplies action-oriented authoring craft
-  for activities within a playbook.
-- [Checklist](checklist.md) — supports known conditions, communications, or
-  branch-local checks while the playbook owns broader assessment and response.
-- [Explanation](explanation.md) — supports separate
-  treatment of rationale that would interrupt use of the playbook.
+Local names vary. The kube-prometheus project calls its guidance for an
+unready pod a *runbook*. The alert can arise from different conditions.
+Readers use events, logs, and configuration to narrow the cause before
+choosing a remedy.[^kube-prometheus] For a team designing guidance for
+that decision, the investigation is where this bundle’s playbook pattern
+fits. A team can keep the name its responders already look up.
 
-[^aws-playbooks]: AWS — Use playbooks to investigate issues.
-[^atlassian-team-playbook]: Atlassian — Team Playbook.
-[^ise-playbook]: Microsoft ISE — Engineering Fundamentals Playbook.
-[^redhat-ansible-playbook]: Red Hat — What is an Ansible playbook.
+Check what a named resource actually delivers. Atlassian’s Team Playbook
+collects facilitated activities.[^atlassian-team-playbook] Microsoft’s
+Engineering Fundamentals Playbook collects engineering practices and
+checklists.[^ise-playbook] An Ansible playbook specifies automation to
+execute.[^redhat-ansible-playbook] The shared name alone tells a responder
+little about which resource will help them choose a response.
+
+For an account of why response choices change, read
+[How a playbook guides a response as evidence changes](../explainers/playbook.md).
+To draft and rehearse one with a team, see
+[How to write a playbook](../guides/writing-a-playbook.md).
+
+[^aws-playbooks]: AWS, [Use playbooks to investigate issues](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/ops_ready_to_support_use_playbooks.html).
+[^atlassian-team-playbook]: Atlassian, [Team Playbook](https://www.atlassian.com/team-playbook).
+[^ise-playbook]: Microsoft ISE, [Engineering Fundamentals Playbook](https://microsoft.github.io/code-with-engineering-playbook/).
+[^redhat-ansible-playbook]: Red Hat, [What is an Ansible playbook?](https://www.redhat.com/en/topics/automation/what-is-an-ansible-playbook).
+[^kube-prometheus]: kube-prometheus runbooks, [KubePodNotReady](https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready/).

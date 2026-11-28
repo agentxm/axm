@@ -15,51 +15,64 @@ sources:
 - id: documentation-craft
   resource: ../explainers/documentation-craft.md
   title: Documentation craft
-- id: documentation-audits
-  resource: ../explainers/documentation-audits.md
-  title: Documentation audits
 - id: documentation-organization
   resource: ../explainers/documentation-organization-and-discovery.md
   title: Documentation organization and discovery
 generated:
   by: codex/gpt-6
-  at: '2026-11-11T16:45:58Z'
+  at: '2026-11-22T02:02:34Z'
 ---
 
 # Comparing concepts
 
-Use this guide when related concepts are repeatedly confused or several pages
-repeat the same comparison. A local sentence is enough for an isolated ambiguity;
-a separate comparison earns its place only when readers or maintainers need it.
+Start with the terms readers confuse and a choice that depends on telling
+them apart. For example, a music archive volunteer finds two recordings
+of the same piece. They have a correction to make.
+How should they decide which catalog entry to change?
 
-## Steps
+## Find the distinction that changes the choice
 
-1. Identify the smallest set of concepts involved and the decisions the confusion affects.
-2. Keep each concept's positive definition in its own authoritative document.
-3. Compare the relevant differences: purpose, scope, authority, overlap, and conditions for choosing each. Use only axes that resolve the confusion.
-4. Put a substantive recurring comparison in one document. Keep local reminders short and link to it; indexes should route readers rather than own the analysis.
-5. Use a table for quick lookup and prose or contrasting examples for relationships a table cannot express. Do not force overlap into a false hierarchy.
-6. Review the definitions and comparison together when either changes.
+Find the definitions that govern this reader’s work. Here the catalog
+defines a composition and a recorded performance separately. Try the
+reader’s correction against each definition. Does it apply to the work
+across performances, or only to this rendition? If the definitions give
+conflicting answers for the same correction, bring that case to the
+catalog owner before advising volunteers which entry to edit.
 
-## Example shape
+## Put the answer where the question arises
 
-| Concept | Question answered | Owns | Does not own |
-| --- | --- | --- | --- |
-| First concept | What does it help decide? | Its responsibility | A neighboring responsibility |
-| Second concept | What different question does it answer? | Its responsibility | The first concept's responsibility |
+If only one editing instruction is ambiguous, clarify it there. If
+volunteers arrive at the same question from either entry, write the
+comparison once and link to it from both. Keep the full definitions in
+their authoritative homes.[^documentation-organization]
 
-The comparison owns the relationship, not every definition it mentions. Use
-reference-style presentation for lookup or explanation when reasoning is the
-main need. Do not introduce a metadata type just to mark a comparison.
+For a quick lookup, put the decision and the resulting action side by
+side. Under the archive’s definitions a volunteer could use this table.
+
+| Entry | Question it answers | Example correction |
+| --- | --- | --- |
+| Composition | Which musical work is this? | Fix the spelling of the work’s title for both performances. |
+| Recorded performance | Which rendition is this? | Correct the venue for one performance. |
+
+If the categories overlap, work through an example in prose so the reader
+can see where both apply. Use the collection’s existing document types.
+A reference page can support a quick lookup, while an explainer can
+work through the reasoning behind the choice.[^documentation-craft]
 
 ## Check
 
-A reader can distinguish the concepts and explain when the difference matters.
-Each definition has one owner; the full comparison is not repeated across the
-collection. Remove or fold back a comparison that adds navigation without value.
-This is editorial guidance, not a claim of independently measured effectiveness.
+Try a fresh case from each entry point. In the archive, suppose the
+composer credit is wrong for the piece and only the second recording
+lists the wrong soloist. Can the volunteer reach the comparison from
+either term and tell which record needs each edit? If one route leaves them guessing, repair
+that link or wording and retry the case.
+Recheck the comparison when a definition changes. If only one local
+question remains, fold the answer back into the page where it arises.
 
 ## Related
 
 - [Documentation organization and discovery](../explainers/documentation-organization-and-discovery.md)
 - [Organizing and naming documentation](organizing-and-naming-documentation.md)
+
+[^documentation-craft]: [Documentation craft](../explainers/documentation-craft.md).
+[^documentation-organization]: [Documentation organization and discovery](../explainers/documentation-organization-and-discovery.md).

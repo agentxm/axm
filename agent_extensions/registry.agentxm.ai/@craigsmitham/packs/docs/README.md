@@ -1,12 +1,16 @@
 # Documentation craft
 
-Practical guidance for writing, reviewing, organizing, and maintaining useful
-documentation. Its pattern collection covers tutorials, how-to guides,
+Use this pack to write, review, and maintain documentation in software
+engineering workspaces, including repositories and agent-assisted workflows.
+Common uses include software product guides and domain-specific knowledge
+bases. Choose the document form around what the reader needs to learn, do,
+look up, or understand.
+
+The pattern collection covers tutorials, how-to guides,
 reference, explanation, principle documents, playbooks, runbooks, checklists,
 pattern descriptions, and pattern collections. Checklist specializations cover
-execution, verification, readiness, reporting and review, and learning. Each
-pattern connects a recurring reader problem to a design response, with
-applicability, tradeoffs, evidence, and detailed authoring guidance.
+execution, verification, readiness, reporting and review, and learning. Each form has a
+standalone explainer, authoring guide, and design pattern.
 
 The four general reader needs draw on [Diátaxis](https://diataxis.fr/).
 Pattern concepts, mining, description, review, and collection maintenance draw
@@ -43,27 +47,31 @@ links, or audit a bounded documentation corpus. Search the knowledge with
 `axm knowledge concepts query` or open a concept by identity with
 `axm knowledge concepts get`.
 
-For checklist work, start with the shared pattern, then select its purpose:
+For a museum knowledge base, give the agent the museum’s collections policy
+and ask “Write a page for new curators explaining the difference between an
+incoming loan and an acquisition.” A curator should be able to use the page
+to classify a new arrival using the museum’s own criteria.
 
-```bash
-axm knowledge concepts get '@craigsmitham/knowledge/docs#patterns/checklist'
+For a release team, ask the skill to “Draft a release-readiness checklist from our
+release procedure” and supply that procedure. In this checkout, the authoring
+guide shows how to turn release conditions into evidence and a decision.
+To explore why the form works or judge its fit, open the explainer or pattern.
+
+```sh
+axm knowledge concepts get '@craigsmitham/knowledge/docs#guides/designing-a-readiness-checklist'
+axm knowledge concepts get '@craigsmitham/knowledge/docs#explainers/readiness-checklist'
+axm knowledge concepts get '@craigsmitham/knowledge/docs#patterns/readiness-checklist'
 ```
 
-The guidance includes use protocols, evidence, validation plans, and lifecycle.
-Writing or reviewing a checklist does not establish its real-world effectiveness.
+If a lookup reports that the concept was not found, run
+`axm knowledge concepts query readiness` in the same project. The published
+0.15.1 knowledge bundle offers the readiness pattern. For the separate
+authoring directions in this checkout, open
+`knowledge/docs/src/guides/designing-a-readiness-checklist.md` and supply
+that page with the release procedure.
 
-For example, ask the skill to “Draft a release-readiness checklist from our
-release procedure” and supply that procedure. The skill uses the bundle's
-readiness pattern to turn the procedure's release conditions into checks with
-observable evidence and a decision about whether to proceed.
-
-Start with the reader's problem and choose a suitable pattern. Adapt its design
-and authoring guidance to the document's job. For an example of selecting and
-combining patterns, open the Documentation craft concept:
-
-```bash
-axm knowledge concepts get '@craigsmitham/knowledge/docs#explainers/documentation-craft'
-```
+For situations that span several reader needs, [Documentation craft](https://github.com/craigsmitham/agent-extensions/blob/main/knowledge/docs/src/explainers/documentation-craft.md)
+illustrates how to select and combine designs.
 
 ## Checklist consolidation in 0.9.0
 
@@ -74,6 +82,16 @@ rigid response format and decision-gate
 scripts are not retained. The knowledge owns the design guidance; the docs
 skill routes checklist creation, review, adaptation, and validation planning
 to it. No additional package dependency is required.
+
+## Retired guide IDs in 0.9.0
+
+If you saved links to the craft or workflow guide in docs knowledge 0.14.0,
+update the concept ID within `@craigsmitham/knowledge/docs` when moving to 0.15.0.
+
+| Former concept ID | Current concept ID |
+| --- | --- |
+| `guides/documentation-craft` | `explainers/documentation-craft` |
+| `guides/documentation-workflow` | `explainers/documentation-workflow` |
 
 ## Migration in 0.8.0
 
@@ -95,6 +113,15 @@ migration stubs. Update saved references using these mappings:
 Playbook and runbook retain `patterns/playbook` and `patterns/runbook`.
 The temporary, unpublished `types/<subject>` routes have moved to
 `patterns/<subject>`; update any local references to those temporary routes.
+
+When updating an old link for the current pack, check the question beside
+it. For example, someone following a saved how-to link to write directions
+needs `guides/writing-a-how-to-guide`. Someone choosing a form needs
+`patterns/how-to`, and someone asking how the form works needs
+`explainers/how-to`. Open the chosen ID with `axm knowledge concepts get`,
+using the full identity as in the examples above, and read the opening
+against the original question. Some older IDs now resolve to a page with a
+different purpose.
 
 Pattern concepts and authoring now live with their documentation designs in
 the two new knowledge entries. The temporary, unpublished standalone patterns

@@ -2,14 +2,14 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "docs",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Documentation craft and patterns for authoring, reviewing, organizing, and maintaining documents, reusable checklists, and pattern collections across domains",
+  "description": "Explainers, authoring guides, and patterns for documentation across domains, including knowledge bases, product guides, and reusable checklists",
   "keywords": [
     "docs",
     "documentation",

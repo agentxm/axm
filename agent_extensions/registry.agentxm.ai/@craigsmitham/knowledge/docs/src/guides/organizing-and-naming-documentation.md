@@ -8,40 +8,19 @@ sources:
   - id: organization
     resource: ../explainers/documentation-organization-and-discovery.md
     title: Documentation organization and discovery
-  - id: documentation-craft-guide
-    resource: https://github.com/craigsmitham/agent-extensions/blob/333fc2fe7f67b0520f456efdb107e0730d04e069/knowledge/docs/src/guides/documentation-craft.md
-    title: Documentation craft guide
-generated: { by: codex/gpt-6, at: 2026-11-11T19:52:17Z }
+  - id: documentation-craft
+    resource: ../explainers/documentation-craft.md
+    title: Documentation craft
+generated: { by: codex/gpt-6, at: 2026-11-22T02:02:34Z }
 ---
 
 # Organizing and naming documentation
 
-Use this guide when placing a new group of documents, restructuring a bounded
-collection, or replacing terse and ambiguous names. For the reasoning behind
-form-first and subject-first organization, read
-[Documentation organization and discovery](../explainers/documentation-organization-and-discovery.md).
-
-## Goal
-
-Create an organization whose primary browsing axis matches how readers enter
-the collection, keeps strongly related documents adjacent, and leaves every
-path and title understandable when directory context is absent.
-
-## Preconditions
-
-- A bounded collection or proposed set of documents
-- Representative reader questions or observed retrieval behavior
-- Knowledge of the host's path, URL, index, metadata, redirect, and validation
-  rules
-
-For a proposal, give the suggested names or old-to-new paths and the reader
-need each change serves. Flag any links or published URLs that a move would
-affect. The proposal can finish with that mapping.
-
-When applying a reorganization, confirm authority to change the affected
-paths and keep the first change small enough to
-validate independently. Use the [Documentation workflow](../explainers/documentation-workflow.md) rather than waiting for a complete site-wide
-redesign.
+Begin with the pages you can organize and a question readers bring to
+them. Suppose musicians looking for a room keep opening the venue’s
+booking policy when they need the reservation steps. Both pages appear
+in search as “Rehearsal rooms.” Look at the results and the route from
+the venue index before deciding what needs to move.
 
 ## 1. Name the scope and reader entry point
 
@@ -56,7 +35,9 @@ entry as:
 
 Do not infer the answer solely from the current folders. Use search terms,
 support questions, common links, navigation behavior, or direct reader and
-maintainer knowledge when available.
+maintainer knowledge when available. If the evidence is thin, sketch the
+plausible routes and try the same reader question in each before moving
+pages.
 
 ## 2. Map the relationships that need adjacency
 
@@ -72,7 +53,7 @@ Prefer adjacency for documents that share meaning, authority, and change over
 documents that merely share a metadata value. This prevents a mechanically
 tidy taxonomy from fragmenting the subject.
 
-## 3. Choose the primary physical axis
+## 3. Choose how readers will browse this collection
 
 Use the strongest evidence at this scope:[^organization]
 
@@ -82,6 +63,11 @@ Use the strongest evidence at this scope:[^organization]
 | Subject-first folders | Readers browse by domain; cross-form documents share authority and change together |
 | Side-by-side files | One subject has a small, cohesive set and another folder would add a decision without clarifying a boundary |
 | A subject subfolder | The subject has enough internal structure to warrant its own index or browsing decision |
+
+For the venue, musicians first choose rehearsal rooms and then either
+check a policy or book a room. Give both pages a place under that subject.
+If the existing index already groups them there, try distinguishing their
+titles in search before proposing a directory change.
 
 A hybrid is coherent when different scopes have explicit rules—for example, a
 subject-first root with one bounded form-first collection. Do not alternate
@@ -106,20 +92,22 @@ empty shelves for expected future content.
 
 ## 5. Give files stable, descriptive names
 
-Derive each filename from the document's specific subject or action, not only
-its form.
+If the host assigns permanent page IDs, use the titles and navigation
+labels in the next steps to distinguish the pages. Where you can choose
+a filename or URL slug, derive it from the document’s specific subject
+or action. Here are examples for a Markdown collection.
 
 | Document job | Filename shape | Example |
 | --- | --- | --- |
 | Explain a concept | Distinctive subject-oriented noun phrase | `transaction-isolation.md` |
-| Guide an action | Verb or outcome phrase | `writing-release-notes.md` |
-| State reference facts | Named interface, object, or fact set | `payment-status-fields.md` |
+| Guide an action | Verb or outcome phrase | `booking-a-rehearsal-room.md` |
+| State reference facts | Name of the item or facts readers look up | `instrument-loan-periods.md` |
 | Document an operational procedure | Task-specific name | `rotate-service-credentials.md` |
 
 Avoid generic leaf names such as `overview.md`, `guide.md`, or `concept.md`
 unless their enclosing scope is guaranteed to remain present in every URL,
 search result, tab, export, and citation. Avoid mechanical names such as
-`writing-guide.md` when `writing-release-notes.md` reveals the actual task.
+`booking-guide.md` when `booking-a-rehearsal-room.md` reveals the actual task.
 
 Use stable domain language. Exclude temporary project phases, current team
 names, and implementation details unless they define the document's enduring
@@ -130,7 +118,7 @@ scope.
 The title should remain clear in a flattened search result or backlink.
 
 - Give explainers a subject or distinction: “Transaction isolation.”
-- Give guides an action or outcome: “Writing release notes.”
+- Give guides an action or outcome: “Booking a rehearsal room.”
 - Avoid identical display titles for paired documents unless their interface
   always supplies reliable context.
 - Align title and filename closely enough that a reader can predict one from
@@ -141,7 +129,7 @@ carry the title's entire semantic burden.
 
 ## 7. Design the secondary discovery routes
 
-Use one authoritative physical location and expose the secondary axis through:
+Keep one maintained copy of each page. Readers can reach it through:
 
 - local and root indexes;
 - type, subject, and lifecycle metadata;
@@ -156,7 +144,7 @@ event, symptom, or reader intent that makes it relevant. Do not mistake access,
 knowledge, or state preconditions for the reason a reader should select it.
 The general document-authoring workflow still applies: match the content to
 its reader job before applying host-specific paths and
-metadata.[^documentation-craft-guide]
+metadata.[^documentation-craft]
 
 ## 8. Plan a rename or move as a migration
 
@@ -170,8 +158,12 @@ Before changing existing paths:
 4. identify the title, description, indexes, metadata, and internal links that
    must change with the document.
 
-For an authorized migration, move the document and update those references
-together. Retire the old copy using the host's migration policy.
+For a proposal, give the suggested paths or title changes, the reader
+question each resolves, and the old links each move would affect. Walk
+the proposed routes in the draft and stop with that mapping. For an authorized
+migration, check the host’s path, redirect, index, and metadata rules.
+Move a group small enough to check together, update its references, and
+retire the old copy using the host's migration policy.
 
 Renaming a title alone is cheaper than changing a filename or concept ID. Use
 that difference deliberately, but do not retain a misleading identifier when
@@ -189,21 +181,12 @@ Check the result as:
 3. **A maintainer:** inspect raw paths and nearby documents. Are the organizing
    rule, authority, and expected change relationships evident?
 
-After applying the change, run host link, metadata, and package validators. Fix orphaned documents,
-stale links, ambiguous duplicates, and indexes whose descriptions no longer
-match their targets.
-
-## Final check
-
-- The chosen axis matches the dominant reader entry point at this scope.
-- Documents that share authority and change remain adjacent.
-- Every folder expresses a real boundary and browsing decision.
-- Every filename is stable and meaningful outside its directory.
-- Every title communicates the document's specific reader job.
-- Metadata and indexes expose useful secondary views without duplication.
-- Recurring cross-concept distinctions have one authority outside indexes.
-- Moves and renames preserve or deliberately migrate inbound references.
-- Browse, search, and raw-path discovery all work.
+For the venue, search for “rehearsal room” again. Can you pick the
+reservation steps from the result titles and reach the same page from
+the venue index? Open an existing booking link too. If it breaks, repair
+the old route or carry out the agreed migration before closing the
+change. Run the host’s link, metadata, and package checks where available
+and fix any orphaned pages or stale previews they uncover.
 
 ## Related
 
@@ -216,6 +199,4 @@ match their targets.
 [^organization]: Documentation organization and discovery defines form-first
     and subject-first grouping and treats semantic adjacency as the deciding
     relationship.
-[^documentation-craft-guide]: Documentation craft begins with the reader
-    need and applies host paths, metadata, and validators after the document's
-    job is clear.
+[^documentation-craft]: [Documentation craft](../explainers/documentation-craft.md).

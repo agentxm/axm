@@ -25,6 +25,7 @@
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
     "axe": "workspace",
     "software-maintenance": "agentxm:@craigsmitham/packs/software-maintenance",
-    "research": "agentxm:@craigsmitham/packs/research"
+    "research": "agentxm:@craigsmitham/packs/research",
+    "sdlc": "agentxm:@craigsmitham/packs/sdlc"
   }
 }

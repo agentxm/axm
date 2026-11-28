@@ -12,13 +12,19 @@ In this fictional delivery system, use this procedure when the delivery record
 confirms that the event never reached the consumer and its destination is now
 available. For example, a connection was refused before transmission.
 
-1. Confirm non-delivery in the event's delivery record and that the destination
-   can receive it. If delivery is uncertain, establish that fact before retrying.
+1. Read the delivery record for this event identity. If the record already
+   shows delivery, skip the retry and check the result in step 3. If it is
+   inconclusive or the destination is still unavailable, leave the event
+   pending. Resume when you can confirm both non-delivery and availability.
 2. Retry the undelivered event once using its existing event identity.
-3. Check the delivery record and consumer acknowledgement. The intended outcome
-   is one confirmed application of the event.
+3. Check the result for the recorded attempt.
+   - If the consumer acknowledged it, match the acknowledgement to the
+     event identity and confirm that the consumer recorded one application.
+   - If it arrived but the acknowledgement is missing, follow
+     [Resolve a missing acknowledgement](resolve-missing-ack.md) before
+     considering another attempt.
+   - If it failed before transmission, record the new failure and leave
+     the event pending. If delivery is uncertain, keep the attempt open
+     until the delivery record or the consumer can establish what happened.
 
-If the event was delivered but its response was lost, use
-[Resolve a missing acknowledgement](resolve-missing-ack.md) instead; resending
-may repeat an already applied operation. See [Delivery states](../delivery-states.md)
-for the shared definitions.
+See [Delivery states](../delivery-states.md) for the shared definitions.

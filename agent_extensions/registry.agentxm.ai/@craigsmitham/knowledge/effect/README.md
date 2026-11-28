@@ -1,11 +1,16 @@
 # Effect v4 checklists
 
-Install this standalone bundle to look up design and review checklists for
-TypeScript projects using Effect 4.1.4 or later in the 4.x line.
+These design and review checklists cover TypeScript targeting Effect 4.1.4
+or later in the 4.x line. Install the standalone bundle in the workspace
+where you want to consult them.
 
 ```sh
 axm install @craigsmitham/knowledge/effect
 ```
+
+If AXM prompts for project setup, select the agents that should discover the
+bundle and enable instruction syncing to give them its lookup route. For
+command-line lookup alone, you can leave the agent selection empty.
 
 When reviewing a connection that must close even if a fiber is interrupted,
 open the resource safety checklist. Use it to identify who owns the

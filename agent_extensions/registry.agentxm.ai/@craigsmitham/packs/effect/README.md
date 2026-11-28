@@ -36,12 +36,18 @@ this pack. Consult a topic checklist directly when it is useful.
 | `@craigsmitham/knowledge/effect-v4` | `@craigsmitham/knowledge/effect` |
 | `@craigsmitham/rules/use-effect-v4` | `@craigsmitham/rules/use-effect` |
 
-For an installed Registry pack, preview the migration with
-`axm migrate @craigsmitham/packs/effect-v4 --preview`, then run the same command
-without `--preview` to apply it. For an independently installed knowledge
-bundle or rule, use that previous identity instead. The replacements continue
-to target Effect 4.x; the rename does not change the rule's adoption policy or
-the twenty-four checklists.
+In the project where you installed the Registry pack, run
+`axm migrate @craigsmitham/packs/effect-v4 --preview`. If you installed the
+knowledge bundle or rule independently, use its previous identity from the
+table. Check that the preview names the replacement you intend. AXM does
+not copy source-specific configuration, so review any settings you need to
+carry over before proceeding.
+
+Run the previewed command without `--preview`, then run `axm list`. For a
+pack migration, look for the new pack together with its knowledge bundle and
+rule. For a standalone migration, look for the replacement of that component.
+Check that the old identity has disappeared and that the replacement has
+the intended settings. The replacements continue to target Effect 4.x.
 
 ## Companion packages
 

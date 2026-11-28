@@ -8,21 +8,14 @@ sources:
   - id: documentation-audits
     resource: ../explainers/documentation-audits.md
     title: Documentation audits
-  - id: documentation-quality
-    resource: ../explainers/documentation-quality.md
-    title: Documentation quality
-  - id: documentation-organization
-    resource: ../explainers/documentation-organization-and-discovery.md
-    title: Documentation organization and discovery
-generated: { by: codex/gpt-6, at: 2026-11-11T19:48:50Z }
+generated: { by: codex/gpt-6, at: 2026-11-22T00:10:36Z }
 ---
 
 # Documentation audit report contract
 
-Use this contract for a requested bounded corpus audit. The
-[Documentation audits](../explainers/documentation-audits.md) explanation owns
-assessment dimensions, evidence, and the distinction between diagnosis and
-remediation. This contract owns the report's presentation.
+Use this contract to present the results of a bounded documentation audit.
+Choose the assessment dimensions and evidence that answer the audit
+question.[^documentation-audits]
 
 ## Scope and coverage
 
@@ -53,8 +46,8 @@ A useful default is:
 
 | Severity | Meaning |
 | --- | --- |
-| Critical | Likely to cause serious harm, unsafe action, or broad inability to use the documented system |
-| High | Blocks an important reader journey or materially misstates authoritative behavior |
+| Critical | Likely to cause serious harm, unsafe action, or widespread inability to carry out the documented work |
+| High | Blocks an important reader journey or materially misrepresents the subject |
 | Medium | Creates recurring confusion, inconsistency, or maintenance cost without broadly blocking use |
 | Low | Localized friction or a bounded quality defect with a straightforward workaround |
 
@@ -76,3 +69,5 @@ not replace findings; a numeric score must not collapse unlike qualities.
 
 Audit-only work ends with the report. For requested remediation, retain the
 finding set so changes remain traceable to evidence and authorized scope.
+
+[^documentation-audits]: [Documentation audits](../explainers/documentation-audits.md).

@@ -1,7 +1,7 @@
 ---
 type: Pattern
-title: Checklist
-description: When known actions, states, or communications are easily missed, place concise, observable prompts at the point of work with an explicit use protocol and response to unmet items.
+title: Checklist for recurring omissions
+description: When familiar work has recurring omissions, a checklist gives people observable prompts where they act and a way to respond when an item is unmet.
 tags: [docs, documentation-pattern, checklist, checklist-design, verification, coordination, human-factors, validation, authoring]
 status: draft
 sources:
@@ -17,36 +17,31 @@ sources:
 - id: mrc-process
   resource: https://www.bmj.com/content/350/bmj.h1258
   title: Moore et al. — Process evaluation of complex interventions
-- id: betterbirth
-  resource: https://pmc.ncbi.nlm.nih.gov/articles/PMC5672590/
-  title: Semrau et al. — Outcomes of implementing a coaching-based WHO Safe Childbirth Checklist program in India
 generated:
   by: codex/gpt-6
-  at: '2026-11-11T17:40:43Z'
+  at: '2026-11-22T02:13:03Z'
 ---
 
-# Checklist
+# Checklist for recurring omissions
 
-When known actions, states, or communications are easily missed, **place
-concise, observable prompts at the point of work with an explicit use protocol
-and response to unmet items**.
-
-A checklist couples its items to how people use them. A checked box records a
-response; it does not by itself establish correct execution, sound judgment,
-learning, or an effective intervention. This pattern owns the shared design
-guidance; the purpose-specific patterns below develop distinct applications.
+Choose a checklist when people know the work, yet a consequential action,
+observation, or exchange keeps getting missed. The useful part is a prompt
+someone can act on while there is still time to put things right.
 
 ## Problem and applicability
 
-People who know how to do the work can still omit an action, overlook a
-condition, or fail to communicate it. A bounded prompt can make that omission
-visible at a useful moment. The user must be able to recognize the situation,
-interpret the item, and act on the result.
+Suppose support engineers pass an unresolved customer issue from one shift
+to the next. Both shifts know how to investigate it, yet several issues
+have gone unattended because each shift thought the other still owned them.
+A prompt on the issue can ask who has accepted the next action. A spoken
+readback at shift change could serve the same purpose if both people are
+there. In either case, someone can see the missing acknowledgment while
+the outgoing shift can still arrange cover.
 
-Establish the outcome, relevant failure, users and expertise, trigger and
-completion condition, environment, medium, available resources, and authority.
-Consider interruption, time pressure, and the consequences of delay or false
-completion. Scale this brief to the decisions it changes.
+Now suppose the next owner is already clear, but that engineer lacks
+access to the affected service. Another prompt to acknowledge ownership
+would add work. The change that matters is arranging access or handing
+the issue to someone who has it.
 
 Choose a different primary aid when another problem dominates:
 
@@ -63,9 +58,13 @@ An ordinary personal to-do list needs little of this machinery. A maintained
 checklist is justified by a recurring omission or coordination problem, not by
 the availability of checkbox formatting.
 
-## Choose purpose and interaction separately
+## Choose a design for the likely omission
 
-Select the primary outcome before choosing how users encounter the items:
+The purpose of a prompt determines what its answer needs to show. Once
+you know the purpose, choose how people will use the prompt. For example,
+either a spoken exchange or a written check can support a release decision.
+If the purpose is learning, the question becomes what the learner will
+later be able to do without the cue.
 
 | Purpose | Pattern |
 | --- | --- |
@@ -75,55 +74,12 @@ Select the primary outcome before choosing how users encounter the items:
 | Make reporting coverage or inspection findings explicit | [Reporting and review checklist](reporting-review-checklist.md) |
 | Support practice toward later independence | [Learning checklist](learning-checklist.md) |
 
-These are useful specializations, not an exhaustive taxonomy. Coordination can
-serve any of them. Specify who prompts, performs, verifies, records, and has
-authority to stop or escalate.
-
-**Read-do** presents a prompt before its action. **Do-confirm** checks work
-already performed. **Challenge-response** makes the prompt and observed response
-explicit between participants; define whether the response follows execution
-or verification. A readiness check can use do-confirm and challenge-response
-together. These terms describe separable design choices in this collection,
-not a claim that every source uses the same classification. NASA's account
-distinguishes directed configuration from subsequent verification and describes
-both team exchange and combined use.[^nasa-checklists]
-
-Keep hybrid purposes visible. Reporting coverage can compete with operational
-speed; novice explanation can compete with expert attention; scoring can
-discourage candid learning. Separate sections or companion artifacts when
-the purposes require different wording, roles, evidence, or evaluation.
-
-## Write the items and use protocol
-
-1. **Make selection recognizable.** Name the task or decision, applicability,
-   version, trigger, and completion condition. Distinguish neighboring aids.
-2. **Make items observable.** Usually ask for one action, question, state, or
-   verification per item. Identify the responsible role where it varies and
-   the evidence needed to distinguish success from assertion.
-3. **Ground critical content.** Trace consequential actions, acceptance limits,
-   and failure responses to accountable domain sources, task analysis, incident
-   evidence, or an explicit coordination requirement. Do not invent thresholds.
-4. **Preserve dependencies and place.** Group by natural work boundaries,
-   protect critical early actions, and specify how to resume after interruption.
-   A partially completed item needs a recognizable state.
-5. **Define negative and unknown results.** State when to correct, stop,
-   escalate, record an exception, or consult a neighboring procedure. An unknown
-   result cannot silently become a pass. Bound branches by conditions the user
-   can recognize; hand substantial diagnosis to another aid.
-6. **Fit the medium.** Use legible, accessible wording and structure in the
-   actual device, lighting, noise, and hands-busy conditions. Do not rely on
-   color, sound, or position alone. Reduce scope or split at useful boundaries
-   before shrinking type or crowding the page.
-
-Avoid vague directions such as “ensure quality,” compound checks that hide
-partial completion, and yes/no fields where an observed value matters. There
-is no universal item count or word limit. The use protocol may be a sentence
-for a small personal aid or a separate maintained procedure for team use.
-
-When domain authority is missing for consequential content, a neutral shell
-with explicit gaps can still be useful: responsible role, required observation,
-source, and failed-item response. Formatting cannot supply the missing domain
-decision. Conflicting authorities need resolution by the responsible owner.
+For an account of how a prompt changes a handoff, read
+[What a checklist changes at the point of work](../explainers/checklist.md).
+For item design, interaction, adaptation, and validation, use
+[How to design a checklist](../guides/designing-a-checklist.md).
+Where purposes conflict, separate the checks so that the person using
+each can recognize the decision and the evidence it requires.
 
 ## Tradeoffs and failure modes
 
@@ -132,65 +88,27 @@ maintenance costs. Excessive coverage creates irrelevant work; excessive
 compression makes interpretation depend on memory. Independence of verification
 costs time and coordination. Familiarity can encourage ritual responses.
 
-Challenge a candidate with wrong-aid selection, a missing critical item,
-ambiguous wording, impossible actions, interruption, urgent competing work,
-and completion without the required state. Consider language and access needs,
-hierarchy, incentives, and missing resources. These are design-review scenarios;
-imagining them does not establish usability or effectiveness.
+In the shift example, a compulsory owner field might merely fill with the
+outgoing engineer’s name. A verbal reply might come from someone unable to
+accept the work. The form, language, timing, and authority to speak up
+matter whenever they change what people can actually observe or do.
 
-## Validate the claim and maintain the aid
+## Evidence and maintenance
 
-Match evidence to the outcome being claimed:
+Degani and Wiener observed how flight crews used normal checklists, including
+the method of performing or confirming an action and reporting completion.[^nasa-checklists]
+Process evaluation examines implementation and context, both of which matter
+when interpreting an intervention’s results.[^mrc-process] The [checklist explainer](../explainers/checklist.md)
+examines this distinction using evidence from a field trial. A change of
+tools, roles, or criteria can make a prompt obsolete. Conroy and colleagues
+include revision and retirement in their practice guidance.[^aapm-checklists]
 
-| Claim | Relevant evidence |
-| --- | --- |
-| Content and fit | Traceable items, task analysis, comparison with feasible alternatives |
-| Usability | Representative users selecting, interpreting, using, and resuming the aid |
-| Intended use | Observed actions, verification, correction, communication, and escalation |
-| Task improvement | Comparative omissions, defects, timing, decisions, recovery, or learning |
-| Downstream benefit | Outcomes for affected people, with unintended effects and context considered |
-| Durability | Continued performance across users, settings, adaptations, and time |
-
-Evidence for one claim does not automatically establish another. Process
-evaluation distinguishes implementation, mechanisms, and context; this is
-useful when checklist completion and outcomes diverge.[^mrc-process] In the
-BetterBirth trial, improved adherence did not produce a significant improvement
-in the primary outcome. That finding concerns its intervention and setting,
-not all checklists.[^betterbirth]
-
-For a validation plan, name the claim, version, users and setting, exclusions,
-real comparator, representative scenarios, measures and baseline, observation
-method, and evidence that would contradict the claim. Include delay, overload,
-misselection, workarounds, access differences, and displaced controls. Separate
-self-reported use from observed use. Report missing or conflicting evidence
-without recasting it as success. Call a source review or walkthrough what it
-is; certification and domain approval require the applicable external authority.
-
-Identify the owner, provenance, revision, field-test status, invariant and
-adaptable parts, and required training, resources, or companion artifacts.
-Set review triggers for incidents, defects, changed work, evidence, users,
-tools, or incentives. Record adaptations and the claims needing re-evaluation.
-Retire or replace an aid when its purpose disappears or another control serves
-it better. AAPM's guidance treats use, maintenance, and retirement as continuing
-responsibilities within its domain; this collection generalizes that lifecycle
-concern without importing clinical requirements.[^aapm-checklists]
-
-## Examples and evidence boundary
-
-A publication checklist might prompt an editor to inspect the final rendered
-file. A handoff checklist might ask participants to state an unresolved issue
-and acknowledge its owner. Both need a trigger and observable response, but
-their order, medium, and evidence differ. Neither replaces a full procedure or
-establishes the quality of the entire publication or handoff. These are
-illustrative designs, not evaluated interventions.
-
-This draft reorganizes the repository's earlier checklist guidance into a
-documentation pattern and purpose-specific companions.[^checklist-design-origin]
-Its synthesis and examples have not been independently field-validated. The
-sources support particular distinctions and concerns, not a universal template.
+The shift handoff illustrates a design adapted from earlier checklist
+guidance.[^checklist-design-origin] A count of acknowledged issues would
+show use. To find out whether ownership gaps fell, the team would have to
+compare issues actually left unattended across comparable shifts.
 
 [^checklist-design-origin]: Craig Smitham — Checklist design skill and references, version 0.1.10.
 [^nasa-checklists]: Degani and Wiener — Human Factors of Flight-Deck Checklists.
 [^aapm-checklists]: Conroy et al. — Development, implementation, use and maintenance of safety checklists.
 [^mrc-process]: Moore et al. — Process evaluation of complex interventions.
-[^betterbirth]: Semrau et al. — Outcomes of implementing a coaching-based WHO Safe Childbirth Checklist program in India.

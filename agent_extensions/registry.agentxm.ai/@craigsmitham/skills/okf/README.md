@@ -28,12 +28,19 @@ declared; the `docs` skill covers that.
 axm install @craigsmitham/skills/okf
 ```
 
-The bundled validator needs Python 3 and PyYAML. It reads local files only and
-never fetches sources or runs computations:
+To check a bundle yourself, start in the directory containing the installed
+`SKILL.md` (`skills/okf/src` in this checkout). With Python 3 and PyYAML
+available, try the included delivery bundle first.
 
 ```bash
-python3 src/scripts/validate_okf.py <bundle-root> [--info] [--summary] [--json] [--strict]
+python3 scripts/validate_okf.py examples/delivery
 ```
+
+The summary should report zero errors. Replace `examples/delivery` with the
+absolute path to your bundle root. Correct reported errors and rerun the
+check. Review warnings against the [validation guidance](src/references/validation.md).
+The validator reads local files only. Source verification and procedure
+exercises need their own evidence.
 
 ## Package map
 

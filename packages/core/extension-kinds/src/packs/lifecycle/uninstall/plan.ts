@@ -18,7 +18,6 @@ import {
   type KernelFailure,
   proposeDesiredState,
   StepFailureConversion,
-  exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
   buildAggregateProjectionStep,
   type InstallStepRequirements,
@@ -83,6 +82,7 @@ import {
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
+import { exclusiveMemberWithdrawal, type PackMemberManagers } from "../member-withdrawal.js";
 import {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
   planPackUninstallGraphReadiness,
@@ -353,12 +353,9 @@ export const planPackUninstall: (
     const desiredState = yield* DesiredStateReader;
     const path = yield* Path.Path;
     const packManager = yield* PackManager;
-    const skillManager = yield* SkillManager;
-    const subagentManager = yield* SubagentManager;
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
-    const mcpServerManager = yield* McpServerManager;
 
     const observedGraph = yield* readDesiredGraph;
     const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
@@ -518,11 +515,16 @@ export const planPackUninstall: (
           ) === index,
       );
 
-    const steps = orderedTargets.map((target): PlannedJobStep<InstallStepRequirements> => {
-      switch (target.type) {
-        case "pack": {
-          const retirement = retirementByPackName.get(target.name);
-          return buildUninstallOperation(packManager, retentionPolicy, {
+    const steps = yield* Effect.forEach(
+      orderedTargets,
+      (
+        target,
+      ): Effect.Effect<PlannedJobStep<InstallStepRequirements>, never, PackMemberManagers> => {
+        if (target.type !== "pack")
+          return exclusiveMemberWithdrawal(target, conversion.toStepFailure);
+        const retirement = retirementByPackName.get(target.name);
+        return Effect.succeed(
+          buildUninstallOperation(packManager, retentionPolicy, {
             target,
             toStepFailure: conversion.toStepFailure,
             ...(retirement === undefined
@@ -535,45 +537,11 @@ export const planPackUninstall: (
                     reason: retirement.reason,
                   },
                 }),
-          });
-        }
-        case "skill":
-          return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "mcp-server":
-          return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-            nativeCleanup: "retain",
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "subagent":
-          return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "rule":
-          return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-        case "hook":
-          return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-            nativeCleanup: "retain",
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-        case "knowledge":
-          return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-      }
-    });
+          }),
+        );
+      },
+      { concurrency: 1 },
+    );
 
     const affectedMembers = graph.nodes.flatMap((node) =>
       node.type !== "pack" &&

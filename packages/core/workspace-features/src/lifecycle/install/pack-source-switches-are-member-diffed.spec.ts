@@ -296,6 +296,11 @@ describe("Pack source switches", () => {
             expect(lockfile).toContain("retained");
             expect(lockfile).not.toContain("removed");
             expect(REGISTRY_MEMBERS.every((member) => lockfile.includes(member))).toBe(true);
+            // The dropped member leaves no package or agent link behind; the
+            // member still desired directly keeps both.
+            const paths = Object.keys(workspace.snapshot()).map((entry) => entry.split(path.sep));
+            expect(paths.filter((segments) => segments.includes("removed"))).toEqual([]);
+            expect(paths.some((segments) => segments.includes("retained"))).toBe(true);
           }),
         );
       }).pipe(Effect.provide(NodeServices.layer)),

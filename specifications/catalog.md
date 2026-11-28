@@ -4813,6 +4813,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: Whether an unknown extension type in a registry name fails as usage guidance or as not found is undecided; the scenario accepts either outcome.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts)
 
+##### Pack transitions withdraw the members their target manifest drops
+
+- Requirement: `cli/install/pack-transitions-withdraw-dropped-members`
+- Owner: `workspace-features`
+- Statement: When install, a targeted update, or a configured update moves a Pack to a manifest that no longer requires a member no other desired route reaches, AXM shall withdraw that member in the same atomic transition as uninstalling the Pack would, removing its accepted resolution, acquired package, and owned file outputs so the workspace matches a fresh installation of the target intent and reporting it as a removed member, retaining native MCP and Hook registrations and refusing before any write while a retained registration runs the member's package code, and shall keep a member a direct declaration or another Pack still requires.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services and a file Registry execute over native temporary directories; examples compare the advanced workspace's files, links and accepted resolutions with a fresh installation of the same intent.
+- Methods: example, state-transition
+- Derived from: `cli/install/pack-source-switches-are-member-diffed`, `cli/uninstall/reports-removed-and-retained-state`
+- Open questions: Should a Pack transition that drops a Hook whose retained registration runs package code retain that package and its accepted resolution until the registration is withdrawn, as sync does, instead of refusing as Pack uninstall does?; Two dropped MCP connections that share one source closure each see the other in the prior graph, so both retain the shared package and accepted resolution for a later sync to retire.
+- Source: [`packages/core/workspace-features/src/lifecycle/install/packs/pack-transitions-withdraw-dropped-members.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/packs/pack-transitions-withdraw-dropped-members.spec.ts)
+
 ##### Install leaves unrelated configuration and unowned content untouched
 
 - Requirement: `cli/install/preserves-unrelated-and-unowned-state`

@@ -105,6 +105,21 @@ const grounded = <A, E>(
 /** What a stub manager observed: these recipes never read the content facts. */
 const NO_FACTS = undefined;
 
+/** A lockfile holding one accepted Registry skill resolution named `review`. */
+const ACCEPTED_REVIEW_LOCK = `version = 1
+
+[[package]]
+id = "registry.agentxm.ai/@acme/skills/review"
+source = { registry = "https://registry.agentxm.ai" }
+version = "1.0.0"
+archive = "sha512-${"A".repeat(86)}=="
+publisher = "hbnd_fixture"
+tree = "sha256-tree-v2:${"0".repeat(64)}"
+
+[skills]
+review = { package = "registry.agentxm.ai/@acme/skills/review", name = "@acme/skills/review" }
+`;
+
 const toStepFailure = (
   failure: CallerStepFailure<ExtensionManagerFailure | ScaffoldedExtensionUnresolved>,
 ): StepFailure =>
@@ -1617,39 +1632,63 @@ describe("buildUninstallOperation", () => {
       }),
     );
 
+    /** An uninstall of an installed skill that has no configured source of its own. */
+    const unconfiguredRemoval = () => {
+      const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
+      const withdrawnResolutionKeys = vi.fn(
+        ({ target }: { readonly target: SkillExtensionTarget }) => Effect.succeed([target.name]),
+      );
+      const manager = {
+        isInstalled: () => Effect.succeed(true),
+        getConfiguredSource: () => Effect.succeed(Option.none()),
+        materializeUninstall,
+        materializeRetained: () => Effect.succeed(NO_FACTS),
+        withdrawnResolutionKeys,
+      } satisfies UninstallMaterialization<
+        SkillExtensionTarget,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >;
+      const operation = buildUninstallOperation<
+        SkillExtensionTarget,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        { target: { type: "skill", name: "review" }, toStepFailure },
+      );
+      if (operation.readiness === "error") throw new Error(operation.errorMessage);
+      return { operation, materializeUninstall };
+    };
+
     it.effect("keeps an installed target without a configured source preserved", () =>
       Effect.gen(function* () {
-        let installed = true;
-        const manager = {
-          isInstalled: () => Effect.sync(() => installed),
-          getConfiguredSource: () => Effect.succeed(Option.none()),
-          materializeUninstall: () =>
-            Effect.sync(() => {
-              installed = false;
-            }).pipe(Effect.as(NO_FACTS)),
-          materializeRetained: () => Effect.succeed(NO_FACTS),
-          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
-        } satisfies UninstallMaterialization<
-          SkillExtensionTarget,
-          void,
-          ExtensionManagerFailure,
-          ManagerRequirements
-        >;
-        const operation = buildUninstallOperation<
-          SkillExtensionTarget,
-          void,
-          ExtensionManagerFailure,
-          ManagerRequirements
-        >(
-          manager,
-          { isRequiredByInstalledPack: () => Effect.succeed(false) },
-          { target: { type: "skill", name: "review" }, toStepFailure },
-        );
-        if (operation.readiness === "error") throw new Error(operation.errorMessage);
+        const { operation, materializeUninstall } = unconfiguredRemoval();
         const result = yield* grounded(operation.run);
         expect(result.message).toBe(
           "Unconfigured skills/review; preserved canonical content without an accepted source owner",
         );
+        expect(materializeUninstall).toHaveBeenCalledTimes(1);
+      }),
+    );
+
+    it.effect("refuses retiring an accepted resolution no desired route locates", () =>
+      Effect.gen(function* () {
+        nodeFs.writeFileSync(nodePath.join(transactionDir, "axm.lock"), ACCEPTED_REVIEW_LOCK);
+        const before = snapshotTree(transactionDir);
+        const { operation, materializeUninstall } = unconfiguredRemoval();
+        const failure = yield* Effect.flip(grounded(operation.run));
+        expect(failure).toMatchObject({
+          _tag: "StepFailure",
+          category: "conflict",
+          detail:
+            "skills/review is installed, but no desired route locates its accepted package; AXM left its state unchanged",
+        });
+        expect(materializeUninstall).not.toHaveBeenCalled();
+        expect(snapshotTree(transactionDir)).toEqual(before);
       }),
     );
 

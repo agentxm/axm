@@ -1168,6 +1168,37 @@ const retireMaterialization = Effect.fnUntraced(function* <
   yield* writer.removeAcceptedEntries(keys.map((key) => ({ type: args.target.type, key })));
 });
 
+/** Whether withdrawing `target` would retire an accepted resolution the lockfile holds. */
+const retiresAcceptedResolution = Effect.fnUntraced(function* <
+  TTarget extends ExtensionTarget,
+  TMaterialization,
+  F,
+  R,
+>(
+  manager: Pick<
+    UninstallMaterialization<TTarget, TMaterialization, F, R>,
+    "withdrawnResolutionKeys"
+  >,
+  target: TTarget,
+): Effect.fn.Return<boolean, F | StepFailure, R | LockfileReader> {
+  const locks = yield* LockfileReader;
+  const keys = yield* manager.withdrawnResolutionKeys({ target, materialization: Option.none() });
+  for (const key of keys) {
+    const accepted = yield* locks.entry(target.type, key).pipe(
+      Effect.mapError(
+        (cause) =>
+          new StepFailure({
+            category: "conflict",
+            detail: `Accepted resolution could not be read for ${target.name}`,
+            cause,
+          }),
+      ),
+    );
+    if (Option.isSome(accepted)) return true;
+  }
+  return false;
+});
+
 /**
  * Execute the uninstall sequence with retention check.
  *
@@ -1199,19 +1230,6 @@ const runUninstallOperation = Effect.fnUntraced(
       manager.isConfigured === undefined
         ? Option.isSome(configuredSource)
         : yield* manager.isConfigured({ target: args.target });
-    const sharedCanonical = Option.exists(
-      yield* acceptedCanonicalObservation(args.target).pipe(
-        Effect.mapError(
-          (cause) =>
-            new StepFailure({
-              category: "conflict",
-              detail: `Accepted package ownership could not be read for ${args.target.name}`,
-              cause,
-            }),
-        ),
-      ),
-      (canonical) => canonical.sharedPackage === true,
-    );
     const transition = Effect.gen(function* () {
       if (
         priorAuthority !== undefined &&
@@ -1336,6 +1354,34 @@ const runUninstallOperation = Effect.fnUntraced(
         };
       }
 
+      const canonical = yield* acceptedCanonicalObservation(args.target).pipe(
+        Effect.mapError(
+          (cause) =>
+            new StepFailure({
+              category: "conflict",
+              detail: `Accepted package ownership could not be read for ${args.target.name}`,
+              cause,
+            }),
+        ),
+      );
+      // An installed target AXM did not configure directly is withdrawn
+      // through the desired route that reaches it. Without one, the removal
+      // cannot locate what the target owns: content with no accepted
+      // resolution is preserved as unowned, and an accepted resolution is
+      // not retired, which would leave its package and outputs unowned.
+      const unlocated = Option.isNone(configuredSource) && Option.isNone(canonical);
+      if (unlocated && (yield* retiresAcceptedResolution(manager, args.target))) {
+        return yield* new StepFailure({
+          category: "conflict",
+          detail: `${toLabel(args.target)} is installed, but no desired route locates its accepted package; AXM left its state unchanged`,
+          suggestions: [
+            {
+              description: "Inspect workspace facts",
+              invocation: { command: ["lint"], arguments: [] },
+            },
+          ],
+        });
+      }
       const unmaterialization = Option.some(
         yield* manager.materializeUninstall({
           target: args.target,
@@ -1350,25 +1396,26 @@ const runUninstallOperation = Effect.fnUntraced(
       // The target has left the desired-state graph; re-render every shared
       // aggregate unit once so only reachable contributors remain.
       const projectionWarnings = yield* applyProjections();
+      const authored = Option.match(configuredSource, {
+        onNone: () =>
+          Option.exists(canonical, (state) => state.desired.identity.authority === "workspace"),
+        onSome: isWorkspaceSourceLocator,
+      });
+      const canonicalSettlement: UninstallSettlement["canonical"] = unlocated
+        ? "preserved-unowned"
+        : authored
+          ? "preserved-authored"
+          : Option.exists(canonical, (state) => state.sharedPackage === true)
+            ? "retained-by-component"
+            : "removed";
       return {
         projectionWarnings,
         unmaterialization,
         settlement: {
           declaration: "removed" as const,
-          canonical: Option.match(configuredSource, {
-            onNone: () => "preserved-unowned" as const,
-            onSome: (source) =>
-              isWorkspaceSourceLocator(source)
-                ? ("preserved-authored" as const)
-                : sharedCanonical
-                  ? ("retained-by-component" as const)
-                  : ("removed" as const),
-          }),
+          canonical: canonicalSettlement,
         } satisfies UninstallSettlement,
-        expectedInstalled: Option.match(configuredSource, {
-          onNone: () => undefined,
-          onSome: (source) => (isWorkspaceSourceLocator(source) ? undefined : false),
-        }),
+        expectedInstalled: authored || unlocated ? undefined : false,
       };
     });
 

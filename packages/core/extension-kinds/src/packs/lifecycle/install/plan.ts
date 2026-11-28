@@ -6,11 +6,9 @@ import {
   buildReconciliationClosure,
   buildInstallOperation,
   buildPackMemberStep,
-  buildUninstallOperation,
   targetFromRef,
   toLabel,
   StepFailureConversion,
-  exclusiveMemberRetentionPolicy,
   registrySourceArtifact,
   registrySourcePath,
   buildAggregateProjectionStep,
@@ -48,6 +46,11 @@ import {
   desiredReachability,
   usableAcceptedCanonical,
   capturedManifestFor,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+  desiredMcpSourceKey,
+  McpSourceKey,
+  type DesiredStateGraph,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
   type McpServerExtensionTarget,
@@ -94,6 +97,8 @@ import {
   type Plan,
   type PlannedJobStep,
   installRefused,
+  publicRecoveryValue,
+  recoveryPositional,
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
@@ -113,10 +118,12 @@ import {
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   captureAgentOutputAuthority,
+  nativePackageReferences,
   observeObservedInstructionSurfacePlans,
   observeObservedPlans,
 } from "@agentxm/workspace-kernel/projection";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
+import { exclusiveMemberWithdrawal } from "../member-withdrawal.js";
 import {
   scanWorkspaceAuthority,
   selectPackGraphCapturing,
@@ -223,8 +230,27 @@ type PackDependencyTarget =
   | HookExtensionTarget
   | KnowledgeExtensionTarget;
 
+/**
+ * Whether another local name in `graph` shares the MCP connection's source,
+ * so withdrawing the connection keeps the package and its accepted
+ * resolution for that name.
+ */
+const sharesMcpSource = (graph: DesiredStateGraph, name: string): boolean => {
+  const node = graph.nodes.find((entry) => entry.type === "mcp-server" && entry.name === name);
+  if (node === undefined || node.authority === "inline") return false;
+  return Option.exists(desiredMcpSourceKey(node.identity), (key) =>
+    graph.mcpSourceClosures.some(
+      (closure) =>
+        McpSourceKey.equals(closure.key, key) &&
+        closure.localNames.some((localName) => localName !== name),
+    ),
+  );
+};
+
 interface DroppedPackDependency {
   readonly target: PackDependencyTarget;
+  /** The accepted version the member leaves, when its source has one. */
+  readonly previousVersion?: string;
 }
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
@@ -724,12 +750,9 @@ export const planPackInstall: (
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const packManager = yield* PackManager;
-    const skillManager = yield* SkillManager;
-    const subagentManager = yield* SubagentManager;
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
-    const mcpServerManager = yield* McpServerManager;
 
     const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
     // A selection this call makes hands over the manifests its authority scan
@@ -1061,10 +1084,6 @@ export const planPackInstall: (
       (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
     );
     const preservedPackActivation = currentPackNode?.enabled ?? true;
-    // Installing is also the recovery path for a configured pack whose canonical
-    // manifest or accepted resolution is unavailable. Preserve fail-closed
-    // cleanup by suppressing dropped-member removal until the pre-install graph
-    // is complete.
 
     const installSteps = yield* Effect.forEach(
       refs,
@@ -1170,6 +1189,9 @@ export const planPackInstall: (
           }),
         ),
       );
+    // A dropped member is one the accepted Pack row lists, that the
+    // pre-install graph holds, and whose accepted locked ref reconstructs. A
+    // recovery install whose accepted Pack row is unreadable plans no removal.
     const previousMemberIdentities = new Set(
       Object.keys(Option.isSome(acceptedPack) ? acceptedPack.value.dependencies : {}).flatMap(
         (fqn) => {
@@ -1212,7 +1234,14 @@ export const planPackInstall: (
     const unresolvedDroppedTargets: ReadonlyArray<DroppedPackDependency> = previousMembers.flatMap(
       ({ ref, retained }) => {
         if (ref.type === "pack" || retained || nextDependencies[ref.type].has(ref.name)) return [];
-        return [{ target: targetFromRef(ref) }];
+        return [
+          {
+            target: targetFromRef(ref),
+            ...(ref.refType === "registry" || ref.refType === "workspace"
+              ? { previousVersion: ref.version }
+              : {}),
+          },
+        ];
       },
     );
     const droppedTargets = yield* Effect.forEach(
@@ -1240,44 +1269,63 @@ export const planPackInstall: (
       { concurrency: 1 },
     );
 
-    const uninstallSteps = droppedTargets.map(
-      ({ target }): PlannedJobStep<InstallStepRequirements> => {
-        switch (target.type) {
-          case "skill":
-            return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-            });
-          case "mcp-server":
-            return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-            });
-          case "subagent":
-            return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-            });
-          case "rule":
-            return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-              enclosingClosure: { projections: [target.type] },
-            });
-          case "hook":
-            return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-              enclosingClosure: { projections: [target.type] },
-            });
-          case "knowledge":
-            return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-              toStepFailure: conversion.toStepFailure,
-              target,
-              enclosingClosure: { projections: [target.type] },
-            });
-        }
-      },
+    // A dropped MCP connection or Hook keeps its native registrations, as it
+    // does when its Pack is uninstalled, so a package its withdrawal would
+    // delete can only go once no retained registration runs its code. Judge
+    // removability as the withdrawal does: a package another accepted binding
+    // or another local name of the same MCP source still uses stays. Refuse
+    // before any write and name the explicit withdrawal that lets the
+    // transition proceed.
+    for (const { target } of droppedTargets) {
+      if (target.type !== "hook" && target.type !== "mcp-server") continue;
+      if (target.type === "mcp-server" && sharesMcpSource(graph, target.name)) continue;
+      const packageRoot = removableAcceptedCanonicalPath(
+        yield* acceptedCanonicalObservation({ type: target.type, name: target.name }).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `Accepted package ownership could not be read for ${toLabel(target)}`,
+              cause,
+            }),
+          ),
+        ),
+      );
+      if (Option.isNone(packageRoot)) continue;
+      const retained = yield* nativePackageReferences({
+        workspaceRoot: location.baseDir,
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        scope: location.scope,
+        packageRoot: packageRoot.value,
+      }).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: `Native registrations referencing ${toLabel(target)} could not be inspected`,
+            cause,
+          }),
+        ),
+      );
+      if (retained.length > 0)
+        return yield* installRefused({
+          category: "conflict",
+          detail: `Pack ${packIdentity} no longer requires ${toLabel(target)}, but retained native registrations run its package code at ${retained.join(", ")}`,
+          recover: `Disable ${toLabel(target)} to withdraw those registrations, then retry.`,
+          invocation: {
+            command: [target.type === "hook" ? "hooks" : "mcps", "disable"],
+            arguments: [recoveryPositional(publicRecoveryValue(target.name))],
+          },
+        });
+    }
+
+    const uninstallSteps = yield* Effect.forEach(
+      droppedTargets,
+      ({ target, sourcePath, previousVersion }) =>
+        exclusiveMemberWithdrawal(target, conversion.toStepFailure, {
+          path: sourcePath,
+          scope: location.scope,
+          ...(previousVersion === undefined ? {} : { previousVersion }),
+        }),
+      { concurrency: 1 },
     );
 
     const resolvedTargets = refs.map(targetFromRef);
@@ -1363,12 +1411,17 @@ export const planPackInstall: (
           ? {}
           : { previousVersion: previousPackVersion }),
       },
+      // Withdraw dropped members while the accepted Pack row still routes
+      // them, so each manager can locate the package, native outputs and
+      // resolution it owns; then advance the Pack and its members, and render
+      // aggregate units once from the final graph. Pack uninstall follows the
+      // same order.
       children: [
+        ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
         ...installSteps.map((step, index) => ({
           step,
           coverage: packInstallCoverage(refs[index]),
         })),
-        ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
         ...Option.toArray(projectionStep).map((step) => ({
           step,
           coverage: "ineligible" as const,

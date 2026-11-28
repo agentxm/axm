@@ -8,20 +8,15 @@ import * as Schema from "effect/Schema";
 import { EXPECTED_BINARY_ASSETS } from "./release-checksums.js";
 import { releaseContentArtifactName } from "./release-content.js";
 import { releaseValidation, runReleaseCommand } from "./release-process.js";
-import {
-  releaseRepository,
-  releaseCiArtifacts,
-  successfulReleaseCiRun,
-  successfulReleaseCiRunById,
-} from "./release-runtime.js";
+import { releaseRepository, releaseCiArtifacts, stableArtifactRun } from "./release-runtime.js";
 
 const usage =
-  "Usage: pnpm download-ci-artifacts -- <commit-sha> <release-output-dir> <npm-output-dir> [ci-run-id]";
+  "Usage: pnpm download-ci-artifacts -- <commit-sha> <release-output-dir> <npm-output-dir> [ci-run-id [push|workflow_dispatch]]";
 const program = Effect.gen(function* () {
   const args = process.argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) return yield* Console.log(usage);
   const parsedRunId = yield* releaseValidation("Validate artifact download arguments", () => {
-    if (args.length < 3 || args.length > 4) throw new Error(usage);
+    if (args.length < 3 || args.length > 5) throw new Error(usage);
     const runId = args[3] === undefined ? undefined : Number(args[3]);
     if (runId !== undefined && (!Number.isSafeInteger(runId) || runId < 1))
       throw new Error("Invalid exact CI run ID.");
@@ -30,10 +25,11 @@ const program = Effect.gen(function* () {
   const [sha, outputDir, npmOutputDir] = yield* Schema.decodeUnknownEffect(
     Schema.Tuple([Schema.String, Schema.String, Schema.String]),
   )(args.slice(0, 3));
+  const producerEvent = yield* Schema.decodeUnknownEffect(
+    Schema.Literals(["push", "workflow_dispatch"]),
+  )(args[4] ?? "push");
   const repository = yield* releaseRepository;
-  const ciRun = yield* parsedRunId === undefined
-    ? successfulReleaseCiRun(repository, sha)
-    : successfulReleaseCiRunById(repository, parsedRunId, sha, "push");
+  const ciRun = yield* stableArtifactRun(repository, sha, parsedRunId, producerEvent);
   const binaries = EXPECTED_BINARY_ASSETS.map((asset) => `axm-binary-${asset}-${sha}`);
   const content = releaseContentArtifactName(sha);
   const npm = `axm-npm-cohort-${sha}`;

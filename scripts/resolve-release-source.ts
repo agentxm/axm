@@ -56,11 +56,14 @@ const resolveSelection = (env: NodeJS.ProcessEnv): PublicationSelection => {
 
   if (env["EVENT_NAME"] === "workflow_run") {
     mode = "stable-auto";
-    if (
-      env["CI_CONCLUSION"] !== "success" ||
-      env["CI_EVENT"] !== "push" ||
-      env["CI_HEAD_BRANCH"] !== "main"
-    ) {
+    const producerSha = env["CI_HEAD_SHA"];
+    const producerBranch = env["CI_HEAD_BRANCH"];
+    const mainPush = env["CI_EVENT"] === "push" && producerBranch === "main";
+    const releaseDispatch =
+      env["CI_EVENT"] === "workflow_dispatch" &&
+      env["CI_TITLE"] === `Verify release ${producerSha}` &&
+      (producerBranch === "main" || producerBranch === `ci-verify/${producerSha}`);
+    if (env["CI_CONCLUSION"] !== "success" || !(mainPush || releaseDispatch)) {
       return { eligible, mode, tag, sha, toolingSha, ciRunId };
     }
     sha = requireFullSha(env["CI_HEAD_SHA"] ?? "", "workflow-run head_sha");

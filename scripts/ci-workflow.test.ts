@@ -114,7 +114,7 @@ describe("aggregate required verification", () => {
     const workflow = readWorkflow();
     expect(JSON.stringify(workflow.on)).toContain("43 9 * * *");
     for (const job of ["verify-main", "verify-e2e", "windows-workspace"]) {
-      expect(JSON.stringify(workflow.jobs[job])).toContain("github.event_name == 'schedule'");
+      expect(JSON.stringify(workflow.jobs[job])).toContain("needs.classify.outputs.full == 'true'");
     }
     for (const job of ["binary-smoke", "release-content", "npm-cohort"]) {
       expect(JSON.stringify(workflow.jobs[job])).not.toContain("github.event_name == 'schedule'");
@@ -192,7 +192,7 @@ describe("aggregate required verification", () => {
       (step: unknown) =>
         typeof step === "object" && step !== null && "id" in step && step.id === "nx-shas",
     );
-    expect(nx).not.toHaveProperty("if");
+    expect(nx).toHaveProperty("if", "inputs.verify_sha == ''");
     expect(nx).toHaveProperty("with.lookup-strategy", "per-commit");
   });
 
@@ -1073,7 +1073,13 @@ describe("main cache warming coverage", () => {
         !Array.isArray(warm.steps)
       )
         throw new Error("Missing warmer steps");
-      expect(workflow).toMatchObject({ on: { workflow_run: { branches: ["main"] } } });
+      expect(workflow).toMatchObject({
+        on: { workflow_run: { branches: ["main", "ci-verify/**"] } },
+      });
+      expect(warm.steps[0]).toHaveProperty(
+        "run",
+        expect.stringContaining("compare/$VERIFIED_SHA...main"),
+      );
       expect(warm).toHaveProperty("environment", "nx-cache-writer");
       for (const guard of [
         "github.event.workflow_run.conclusion == 'success'",

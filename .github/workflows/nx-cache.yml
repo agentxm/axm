@@ -6,7 +6,7 @@ on:
   workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [CI]
     types: [completed]
-    branches: [main]
+    branches: [main, "ci-verify/**"]
 
 permissions:
   contents: read
@@ -26,10 +26,13 @@ jobs:
   warm:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      (github.event.workflow_run.event == 'push' ||
-      github.event.workflow_run.event == 'schedule' ||
-      github.event.workflow_run.event == 'workflow_dispatch') &&
-      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      ((github.event.workflow_run.head_branch == 'main' &&
+        contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event.workflow_run.event)) ||
+       (github.event.workflow_run.event == 'workflow_dispatch' &&
+        github.event.workflow_run.head_branch == format('ci-verify/{0}', github.event.workflow_run.head_sha) &&
+        (github.event.workflow_run.display_title == format('Verify main {0}', github.event.workflow_run.head_sha) ||
+          github.event.workflow_run.display_title == format('Verify release {0}', github.event.workflow_run.head_sha)))) &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       vars.NX_REMOTE_CACHE_URL != '' && vars.NX_SKIP_REMOTE_CACHE != 'true'
     environment: nx-cache-writer
@@ -50,6 +53,16 @@ jobs:
             platform: windows-x64
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Confirm the verified commit belongs to main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          [[ "$VERIFIED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$VERIFIED_SHA...main" --jq .status)
+          [[ "$relation" == ahead || "$relation" == identical ]]
+
       - name: Checkout verified main revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,7 +80,10 @@ jobs:
       - name: Populate deterministic task outputs
         # Source verification runs on Linux x64. Other push lanes need only
         # the native binary's build prerequisites; assurance backfills local use.
-        if: matrix.platform == 'linux-x64' || github.event.workflow_run.event != 'push'
+        if: >-
+          matrix.platform == 'linux-x64' || github.event.workflow_run.event == 'schedule' ||
+          (github.event.workflow_run.event == 'workflow_dispatch' &&
+           !startsWith(github.event.workflow_run.display_title, 'Verify '))
         shell: bash
         run: |
           # Visit every eligible task; native hits avoid recomputation and a

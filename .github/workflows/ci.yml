@@ -2,6 +2,8 @@ name: CI
 
 run-name: >-
   ${{
+    inputs.verify_sha && inputs.release_candidate && format('Verify release {0}', inputs.verify_sha) ||
+    inputs.verify_sha && format('Verify main {0}', inputs.verify_sha) ||
     github.event_name == 'pull_request' &&
     format('CI - PR #{0}', github.event.pull_request.number) ||
     format('CI - {0}', github.ref_name)
@@ -14,13 +16,22 @@ on:
   schedule:
     - cron: "43 9 * * *"
   workflow_dispatch:
+    inputs:
+      release_candidate:
+        description: Produce the canonical release after this exact prepared commit passes CI.
+        type: boolean
+        default: false
+      verify_sha:
+        description: Full main commit SHA for affected CI. Leave empty for full manual assurance.
+        required: false
+        type: string
 
 # A release candidate must keep its artifact-producing run even when later
 # ordinary main pushes supersede one another's pending assurance.
 concurrency:
   group: >-
     ci-${{ github.workflow }}-${{ github.event_name }}-${{
-    github.event.pull_request.number ||
+    github.event.pull_request.number || inputs.verify_sha ||
     (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release: cli-v') && github.sha) ||
     github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -44,7 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      base: ${{ steps.nx-shas.outputs.base }}
+      change: ${{ steps.range.outputs.change }}
+      full: ${{ steps.range.outputs.full }}
+      base: ${{ steps.range.outputs.base }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       cli-e2e: ${{ steps.classify.outputs.cli_e2e }}
@@ -56,7 +69,7 @@ jobs:
       windows: ${{ steps.classify.outputs.windows }}
       workflow: ${{ steps.classify.outputs.workflow }}
       workflow-security: ${{ steps.classify.outputs.workflow_security }}
-      head: ${{ steps.nx-shas.outputs.head }}
+      head: ${{ steps.range.outputs.head }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,6 +90,7 @@ jobs:
         run: echo "sha=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Derive affected SHAs since successful CI
+        if: inputs.verify_sha == ''
         id: nx-shas
         uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
         with:
@@ -88,15 +102,24 @@ jobs:
           lookup-strategy: per-commit
           max-commits: 1000
 
+      - name: Resolve verification range
+        id: range
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_SHA: ${{ inputs.verify_sha }}
+          DEFAULT_BASE: ${{ steps.nx-shas.outputs.base }}
+          DEFAULT_HEAD: ${{ steps.nx-shas.outputs.head }}
+        run: bash scripts/ci-range.sh
+
       - name: Classify changed paths and publish the selection contract
         id: classify
         env:
-          BASE_SHA: ${{ steps.nx-shas.outputs.base }}
-          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ steps.range.outputs.base }}
+          EVENT_NAME: ${{ inputs.verify_sha && 'push' || github.event_name }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ steps.nx-shas.outputs.head }}
-          REF_NAME: ${{ github.ref }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
+          REF_NAME: ${{ inputs.release_candidate && 'refs/heads/main' || github.ref }}
         run: |
           pnpm --config.verify-deps-before-run=warn run classify:ci -- \
             --base "$BASE_SHA" --head "$HEAD_SHA"
@@ -104,7 +127,7 @@ jobs:
   commit-history:
     name: Commit history
     needs: classify
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    if: needs.classify.outputs.change == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -128,8 +151,8 @@ jobs:
       # synthetic merge of its base (first parent) and source (second parent).
       - name: Check commits that will land on main
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BASE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ inputs.verify_sha && 'push' || github.event_name }}
+          PUSH_BASE_SHA: ${{ needs.classify.outputs.base }}
         run: |
           if [[ "$EVENT_NAME" == "push" ]]; then
             base="$PUSH_BASE_SHA"
@@ -145,7 +168,7 @@ jobs:
     name: Workflow security
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.workflow-security == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -169,7 +192,7 @@ jobs:
     name: Specification verdict
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.specification-verdict == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -196,7 +219,7 @@ jobs:
     name: AXM extension lint
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.extension-lint == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -220,7 +243,7 @@ jobs:
     name: Documentation integrity
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.documentation == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -241,7 +264,7 @@ jobs:
     name: Verify proposed change - ${{ matrix.partition }}
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.code == 'true' &&
       needs.classify.outputs.release-artifacts != 'true'
     runs-on: ubuntu-latest
@@ -514,8 +537,8 @@ jobs:
     name: Verify main workspace - ${{ matrix.partition }}
     needs: classify
     if: >-
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true')
+      needs.classify.outputs.full == 'true' ||
+      (needs.classify.outputs.release-artifacts == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -629,10 +652,10 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      (((github.event_name == 'pull_request' || github.event_name == 'push') &&
+      ((needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.cli-e2e == 'true') ||
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
+      needs.classify.outputs.full == 'true' ||
+      (needs.classify.outputs.release-artifacts == 'true'))
     strategy:
       fail-fast: false
       matrix:
@@ -680,7 +703,7 @@ jobs:
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
           AXM_E2E_COMMAND: >-
-            ${{ (github.event_name == 'pull_request' || github.event_name == 'push') &&
+            ${{ needs.classify.outputs.change == 'true' &&
             matrix.affected-command || matrix.command }}
         run: scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"
 
@@ -731,10 +754,10 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      (((github.event_name == 'pull_request' || github.event_name == 'push') &&
+      ((needs.classify.outputs.change == 'true' &&
       needs.classify.outputs.windows == 'true') ||
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
+      needs.classify.outputs.full == 'true' ||
+      (needs.classify.outputs.release-artifacts == 'true'))
     runs-on: windows-latest
     timeout-minutes: 25
     permissions:
@@ -762,7 +785,7 @@ jobs:
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
           WINDOWS_VERIFICATION_COMMAND: >-
-            ${{ (github.event_name == 'pull_request' || github.event_name == 'push') &&
+            ${{ needs.classify.outputs.change == 'true' &&
             needs.classify.outputs.workflow != 'true' &&
             'affected' || 'run-many' }}
         run: pnpm exec nx $env:WINDOWS_VERIFICATION_COMMAND -t test-windows e2e-windows --nxBail --parallel=1 --outputStyle=static
@@ -809,8 +832,8 @@ jobs:
     if: >-
       !cancelled() &&
       (needs.classify.outputs.release-artifacts == 'true' ||
-      github.event_name == 'workflow_dispatch' ||
-       ((github.event_name == 'pull_request' || github.event_name == 'push') &&
+      (github.event_name == 'workflow_dispatch' && !inputs.verify_sha) ||
+       (needs.classify.outputs.change == 'true' &&
         needs.classify.outputs.windows == 'true'))
     strategy:
       fail-fast: false

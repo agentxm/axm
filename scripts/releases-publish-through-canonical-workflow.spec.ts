@@ -191,7 +191,7 @@ describe("Canonical release workflow", () => {
     }),
   );
 
-  it.effect("accepts automation authority only from successful main push CI", () =>
+  it.effect("accepts automation authority only from successful canonical main CI", () =>
     Effect.sync(() => {
       const workflow = readReleaseWorkflow();
       const source = workflow.jobs["source"];
@@ -262,7 +262,23 @@ describe("Canonical release workflow", () => {
           tooling_sha: sha,
           ci_run_id: "42",
         });
+        for (const branch of ["main", `ci-verify/${sha}`]) {
+          const dispatched = select({
+            CI_EVENT: "workflow_dispatch",
+            CI_TITLE: `Verify release ${sha}`,
+            CI_HEAD_BRANCH: branch,
+          });
+          expect(dispatched.status, dispatched.output).toBe(0);
+          expect(dispatched.selected).toEqual(result.selected);
+        }
         for (const input of [
+          { CI_EVENT: "workflow_dispatch", CI_TITLE: `Verify main ${sha}` },
+          {
+            CI_EVENT: "workflow_dispatch",
+            CI_TITLE: `Verify release ${sha}`,
+            CI_HEAD_BRANCH: "handoff",
+          },
+          { CI_EVENT: "workflow_dispatch", CI_TITLE: `Verify release ${"b".repeat(40)}` },
           { CI_EVENT: "pull_request" },
           { CI_CONCLUSION: "failure" },
           { CI_HEAD_BRANCH: "contributor-branch" },

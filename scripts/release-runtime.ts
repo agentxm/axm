@@ -9,7 +9,7 @@ import type * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { RELEASE_COHORT_TAG, resolveReleaseCohort, type ReleasePackage } from "./release-cohort.js";
-import { readVersionFromJson } from "./release-identity.js";
+import { parseReleaseCommitSubject, readVersionFromJson } from "./release-identity.js";
 import {
   AXM_SKILL_DOCUMENT_PATH,
   AXM_SKILL_GENERATED_PATH,
@@ -173,25 +173,87 @@ export const successfulReleaseCiRun = Effect.fnUntraced(function* (
   );
 });
 
-export const successfulReleaseCiRunById = Effect.fnUntraced(function* (
+/** Stable publication and recovery require an artifact-producing run for the prepared commit. */
+export const stableArtifactRun = Effect.fnUntraced(function* (
   repository: string,
-  databaseId: number,
   sha: string,
-  event: "push" | "workflow_dispatch",
+  databaseId?: number,
+  event?: "push" | "workflow_dispatch",
 ) {
-  yield* releaseValidation("Validate CI run identity", () => {
-    if (!Number.isSafeInteger(databaseId) || databaseId < 1)
-      throw new Error("Expected a positive exact CI run ID.");
-  });
-  const response = yield* captureReleaseCommand("gh", [
-    "api",
-    `repos/${repository}/actions/runs/${databaseId}`,
-  ]);
-  const details = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-    response,
+  const subject = yield* captureReleaseCommand("git", ["show", "-s", "--format=%s", sha]);
+  const release = parseReleaseCommitSubject(subject.trim());
+  if (!release)
+    return yield* new ReleaseValidationFailed({
+      operation: "Select stable artifacts",
+      cause: "Expected a prepared release commit.",
+    });
+  const raw = yield* captureReleaseCommand(
+    "gh",
+    databaseId === undefined
+      ? [
+          "api",
+          "--paginate",
+          "--slurp",
+          "-X",
+          "GET",
+          `repos/${repository}/actions/workflows/ci.yml/runs`,
+          "-f",
+          `head_sha=${sha}`,
+          "-f",
+          "status=success",
+          "-f",
+          "per_page=100",
+        ]
+      : ["api", `repos/${repository}/actions/runs/${databaseId}`],
   );
+  const runSchema = Schema.Struct({
+    id: Schema.Number,
+    event: Schema.String,
+    status: Schema.String,
+    conclusion: Schema.NullOr(Schema.String),
+    path: Schema.String,
+    head_sha: Schema.String,
+    head_branch: Schema.NullOr(Schema.String),
+    display_title: Schema.String,
+    head_repository: Schema.NullOr(Schema.Struct({ full_name: Schema.String })),
+    run_attempt: Schema.Number,
+    run_number: Schema.Number,
+    html_url: Schema.String,
+    name: Schema.String,
+  });
+  const runs =
+    databaseId === undefined
+      ? (yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(
+            Schema.Array(Schema.Struct({ workflow_runs: Schema.Array(runSchema) })),
+          ),
+        )(raw)).flatMap((page) => page.workflow_runs)
+      : [yield* Schema.decodeUnknownEffect(Schema.fromJsonString(runSchema))(raw)];
+  const selected = runs.find(
+    (run) =>
+      (databaseId === undefined || (run.id === databaseId && run.event === event)) &&
+      run.head_sha === sha &&
+      run.status === "completed" &&
+      run.conclusion === "success" &&
+      run.path === ".github/workflows/ci.yml" &&
+      run.head_repository?.full_name === repository &&
+      ((run.event === "push" && run.head_branch === "main") ||
+        (run.event === "workflow_dispatch" &&
+          (run.head_branch === release.tag ||
+            (run.display_title === `Verify release ${sha}` &&
+              (run.head_branch === "main" || run.head_branch === `ci-verify/${sha}`))))),
+  );
+  if (!selected)
+    return yield* new ReleaseValidationFailed({
+      operation: "Verify artifact producer",
+      cause: `No successful release CI found for ${sha}.`,
+    });
   return yield* releaseValidation("Validate exact CI provenance", () =>
-    validateExactCiRunDetails(details, { databaseId, headSha: sha, event }),
+    validateExactCiRunDetails(selected, {
+      databaseId: selected.id,
+      headSha: sha,
+      event: selected.event,
+    }),
   );
 });
 

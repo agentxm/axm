@@ -10,7 +10,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main]
+    branches: [main, "ci-verify/**"]
   workflow_dispatch:
     inputs:
       mode:
@@ -58,8 +58,13 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       ((github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') ||
+        (github.event.workflow_run.event == 'workflow_dispatch' &&
+         github.event.workflow_run.display_title == format('Verify release {0}', github.event.workflow_run.head_sha) &&
+         (github.event.workflow_run.head_branch == 'main' ||
+          github.event.workflow_run.head_branch == format('ci-verify/{0}', github.event.workflow_run.head_sha)))))
     runs-on: ubuntu-latest
     outputs:
       eligible: ${{ steps.source.outputs.eligible }}
@@ -89,6 +94,7 @@ jobs:
         env:
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_TITLE: ${{ github.event.workflow_run.display_title }}
           CI_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -167,10 +173,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CI_RUN_ID: ${{ needs.source.outputs.ci_run_id }}
+          CI_PRODUCER_EVENT: ${{ github.event.workflow_run.event }}
         run: |
           args=("${{ steps.release_meta.outputs.sha }}" release-assets release-npm)
           if [[ -n "$CI_RUN_ID" ]]; then
-            args+=("$CI_RUN_ID")
+            args+=("$CI_RUN_ID" "$CI_PRODUCER_EVENT")
           fi
           pnpm exec nx run axm:download-ci-artifacts --outputStyle=static -- "${args[@]}"
 

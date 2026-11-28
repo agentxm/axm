@@ -605,10 +605,16 @@ esac
     expect(e2e).toContain("scripts/with-allure-report.sh");
     expect(e2e).toContain("cli-e2e:e2e-main");
     expect(e2e).toContain("binary-smoke install-verification");
-    expect(e2e).toContain("pnpm exec nx affected -t e2e-main");
-    expect(e2e).toContain("pnpm exec nx affected -t binary-smoke install-verification");
-    expect(e2e).toContain("needs.classify.outputs.base");
-    expect(e2e).toContain("needs.classify.outputs.head");
+    expect(jobs["verify-e2e"]).toMatchObject({
+      steps: expect.arrayContaining([
+        expect.objectContaining({
+          id: "verify",
+          env: expect.objectContaining({ AXM_E2E_COMMAND: "${{ matrix.command }}" }),
+          run: 'scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"',
+        }),
+      ]),
+    });
+    expect(e2e).not.toContain("nx affected");
     expect(JSON.stringify(jobs["verify-pr"])).toContain("--exclude=cli-e2e");
     expect(jobs).not.toHaveProperty("verify-main-hosted");
     const required = JSON.stringify(jobs["required"]);
